@@ -1,9 +1,11 @@
 .DS_Store
 .project
 .pydevproject
+.python-version
+.idea
 
 */__pycache__/*
 __pycache__
 logs/
 trained_models/
-venv/
+env/
