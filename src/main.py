@@ -1,18 +1,22 @@
-import os
-import time
-from os import listdir
-from os.path import isfile, join
-from domains.witness import WitnessState
-from search.bfs_levin import BFSLevin
-from models.model_wrapper import ModelWrapper
-from concurrent.futures.process import ProcessPoolExecutor
 import argparse
-from search.a_star import AStar
-from search.gbfs import GBFS
+import os
+from os import listdir
+from functools import partial
+from os.path import isfile, join
+import time
+
+import torch as to
+
+from bootstrap import Bootstrap
 from domains.sliding_tile_puzzle import SlidingTilePuzzle
 from domains.sokoban import Sokoban
+from domains.witness import WitnessState
+import models.loss_functions as loss_fns
+from models.model_wrapper import ModelWrapper
+from search.a_star import AStar
+from search.bfs_levin import BFSLevin
+from search.gbfs import GBFS
 from search.puct import PUCT
-from bootstrap import Bootstrap
 
 
 def search_time_limit(states, planner, nn_model, ncpus, time_limit_seconds):
@@ -122,6 +126,15 @@ def main():
         action="store",
         dest="loss_function",
         default="CrossEntropyLoss",
+        help="Loss Function",
+    )
+
+    parser.add_argument(
+        "-lr",
+        action="store",
+        dest="lr",
+        type=float,
+        default=0.0001,
         help="Loss Function",
     )
 
@@ -254,6 +267,7 @@ def main():
     states = {}
 
     if parameters.problem_domain == "SlidingTile":
+        in_channels = 25
         puzzle_files = [
             f
             for f in listdir(parameters.problems_folder)
@@ -272,6 +286,7 @@ def main():
                     j += 1
 
     elif parameters.problem_domain == "Witness":
+        in_channels = 9
         puzzle_files = [
             f
             for f in listdir(parameters.problems_folder)
@@ -301,6 +316,7 @@ def main():
     #             states[filename] = s
 
     elif parameters.problem_domain == "Sokoban":
+        in_channels = 4
         problem = []
         puzzle_files = []
         if isfile(parameters.problems_folder):
@@ -334,6 +350,8 @@ def main():
             if len(problem) > 0:
                 puzzle = Sokoban(problem)
                 states["puzzle_" + str(problem_id)] = puzzle
+    else:
+        raise ValueError("Problem domain not recognized")
 
     if int(parameters.number_test_instances) != 0:
         states_capped = {}
@@ -363,9 +381,21 @@ def main():
     bootstrap = None
 
     if parameters.learning_mode:
+
+        loss_fn = getattr(loss_fns, parameters.loss_function)
+        # todo construct this as a partial just without params?
+        optimizer_cons = to.optim.Adam
+        optimizer_params = {
+            "lr": parameters.learning_rate,
+            "weight_decay": parameters.reg_const,
+        }
+
         bootstrap = Bootstrap(
             states,
             parameters.model_name,
+            loss_fn,
+            optimizer_cons,
+            optimizer_params,
             ncpus=ncpus,
             initial_budget=int(parameters.search_budget),
             gradient_steps=int(parameters.gradient_steps),
@@ -395,13 +425,13 @@ def main():
 
         if parameters.use_learned_heuristic:
             nn_model.initialize(
-                parameters.loss_function,
+                in_channels,
                 parameters.search_algorithm,
                 two_headed_model=True,
             )
         else:
             nn_model.initialize(
-                parameters.loss_function,
+                in_channels,
                 parameters.search_algorithm,
                 two_headed_model=False,
             )
@@ -447,13 +477,13 @@ def main():
 
         if parameters.use_learned_heuristic:
             nn_model.initialize(
-                parameters.loss_function,
+                in_channels,
                 parameters.search_algorithm,
                 two_headed_model=True,
             )
         else:
             nn_model.initialize(
-                parameters.loss_function,
+                in_channels,
                 parameters.search_algorithm,
                 two_headed_model=False,
             )
@@ -498,10 +528,10 @@ def main():
         )
 
         if parameters.learning_mode and parameters.use_learned_heuristic:
-            nn_model.initialize(parameters.loss_function, parameters.search_algorithm)
+            nn_model.initialize(in_channels, parameters.search_algorithm)
             bootstrap.solve_uniform_online(bfs_planner, nn_model)
         elif parameters.fixed_time and parameters.use_learned_heuristic:
-            nn_model.initialize(parameters.loss_function, parameters.search_algorithm)
+            nn_model.initialize(in_channels, parameters.search_algorithm)
             nn_model.load_weights(
                 join("trained_models_online", parameters.model_name, "model_weights")
             )
@@ -509,7 +539,7 @@ def main():
                 states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
             )
         elif parameters.use_learned_heuristic:
-            nn_model.initialize(parameters.loss_function, parameters.search_algorithm)
+            nn_model.initialize(in_channels, parameters.search_algorithm)
             nn_model.load_weights(
                 join("trained_models_online", parameters.model_name, "model_weights")
             )
@@ -537,10 +567,10 @@ def main():
         )
 
         if parameters.learning_mode:
-            nn_model.initialize(parameters.loss_function, parameters.search_algorithm)
+            nn_model.initialize(in_channels, parameters.search_algorithm)
             bootstrap.solve_uniform_online(bfs_planner, nn_model)
         elif parameters.fixed_time and parameters.use_learned_heuristic:
-            nn_model.initialize(parameters.loss_function, parameters.search_algorithm)
+            nn_model.initialize(in_channels, parameters.search_algorithm)
             nn_model.load_weights(
                 join("trained_models_online", parameters.model_name, "model_weights")
             )
@@ -548,7 +578,7 @@ def main():
                 states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
             )
         elif parameters.use_learned_heuristic:
-            nn_model.initialize(parameters.loss_function, parameters.search_algorithm)
+            nn_model.initialize(in_channels, parameters.search_algorithm)
             nn_model.load_weights(
                 join("trained_models_online", parameters.model_name, "model_weights")
             )
