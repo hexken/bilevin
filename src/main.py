@@ -4,7 +4,7 @@ from os import listdir
 from os.path import isfile, join
 from domains.witness import WitnessState
 from search.bfs_levin import BFSLevin
-from models.model_wrapper import KerasManager, KerasModel
+from models.model_wrapper import ModelWrapper
 from concurrent.futures.process import ProcessPoolExecutor
 import argparse
 from search.a_star import AStar
@@ -22,40 +22,26 @@ def search_time_limit(states, planner, nn_model, ncpus, time_limit_seconds):
     reported, independently if the planner solved the problem or not. If the planner solves the
     problem, then the procedure also reports solution depth.
     """
-    total_expanded = 0
-    total_generated = 0
-    total_cost = 0
-
     solutions = {}
 
-    for name, state in states.items():
+    # todo: why do prefill the solution dict?
+    for puzzle_name, state in states.items():
         state.reset()
-        solutions[name] = (-1, -1, -1, -1)
+        solutions[puzzle_name] = (-1, -1, -1, -1)
 
-    with ProcessPoolExecutor(max_workers=ncpus) as executor:
-        args = (
-            (state, name, nn_model, -1, time.time(), time_limit_seconds, 0)
-            for name, state in states.items()
-        )
-        results = executor.map(planner.search, args)
-    for result in results:
+        args = (state, puzzle_name, nn_model, -1, time.time(), time_limit_seconds, 0)
+        result = planner.search(args)
         solution_depth = result[0]
         expanded = result[1]
         generated = result[2]
         running_time = result[3]
-        puzzle_name = result[4]
 
         solutions[puzzle_name] = (solution_depth, expanded, generated, running_time)
 
-        if solution_depth > 0:
-            total_expanded += expanded
-            total_generated += generated
-            total_cost += solution_depth
-
-    for name, data in solutions.items():
+    for puzzle_name, data in solutions.items():
         print(
             "{:s}, {:d}, {:d}, {:d}, {:.2f}".format(
-                name, data[0], data[1], data[2], data[3]
+                puzzle_name, data[0], data[1], data[2], data[3]
             )
         )
 
@@ -64,17 +50,13 @@ def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-
     """
     This function runs (best-first) Levin tree search with a learned policy on a set of problems
     """
-    total_expanded = 0
-    total_generated = 0
-    total_cost = 0
-
     slack_time = 600
 
     solutions = {}
 
-    for name, state in states.items():
+    for puzzle_name, state in states.items():
         state.reset()
-        solutions[name] = (-1, -1, -1, -1)
+        solutions[puzzle_name] = (-1, -1, -1, -1)
 
     start_time = time.time()
 
@@ -83,26 +65,22 @@ def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-
         #         args = [(state, name, nn_model, search_budget, start_time, time_limit_seconds, slack_time) for name, state in states.items()]
         #         solution_depth, expanded, generated, running_time, puzzle_name = planner.search(args[0])
 
-        with ProcessPoolExecutor(max_workers=ncpus) as executor:
+        for puzzle_name, state in states.items():
             args = (
-                (
-                    state,
-                    name,
-                    nn_model,
-                    search_budget,
-                    start_time,
-                    time_limit_seconds,
-                    slack_time,
-                )
-                for name, state in states.items()
+                state,
+                puzzle_name,
+                nn_model,
+                search_budget,
+                start_time,
+                time_limit_seconds,
+                slack_time,
             )
-            results = executor.map(planner.search, args)
-        for result in results:
+
+            result = planner.search(args)
             solution_depth = result[0]
             expanded = result[1]
             generated = result[2]
             running_time = result[3]
-            puzzle_name = result[4]
 
             if solution_depth > 0:
                 solutions[puzzle_name] = (
@@ -113,11 +91,6 @@ def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-
                 )
                 del states[puzzle_name]
 
-            if solution_depth > 0:
-                total_expanded += expanded
-                total_generated += generated
-                total_cost += solution_depth
-
         partial_time = time.time()
 
         if (
@@ -125,10 +98,10 @@ def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-
             or len(states) == 0
             or search_budget >= 1000000
         ):
-            for name, data in solutions.items():
+            for puzzle_name, data in solutions.items():
                 print(
                     "{:s}, {:d}, {:d}, {:d}, {:.2f}".format(
-                        name, data[0], data[1], data[2], data[3]
+                        puzzle_name, data[0], data[1], data[2], data[3]
                     )
                 )
             return
@@ -378,306 +351,224 @@ def main():
     print("Loaded ", len(states), " instances")
     #     input_size = s.get_image_representation().shape
 
-    KerasManager.register("KerasModel", KerasModel)
-    ncpus = int(os.environ.get("SLURM_CPUS_PER_TASK", default=1))
+    # ncpus = int(os.environ.get("SLURM_CPUS_PER_TASK", default=1))
+    ncpus = 1
+    # print('Number of cpus available: ', ncpus)
 
     k_expansions = 32
 
-    #     print('Number of cpus available: ', ncpus)
-
     start = time.time()
 
-    with KerasManager() as manager:
+    nn_model = ModelWrapper()
+    bootstrap = None
 
-        nn_model = manager.KerasModel()
-        bootstrap = None
+    if parameters.learning_mode:
+        bootstrap = Bootstrap(
+            states,
+            parameters.model_name,
+            ncpus=ncpus,
+            initial_budget=int(parameters.search_budget),
+            gradient_steps=int(parameters.gradient_steps),
+        )
+
+    if (
+        parameters.search_algorithm == "Levin"
+        or parameters.search_algorithm == "LevinStar"
+    ):
+
+        if parameters.search_algorithm == "Levin":
+            bfs_planner = BFSLevin(
+                parameters.use_heuristic,
+                parameters.use_learned_heuristic,
+                False,
+                k_expansions,
+                float(parameters.mix_epsilon),
+            )
+        else:
+            bfs_planner = BFSLevin(
+                parameters.use_heuristic,
+                parameters.use_learned_heuristic,
+                True,
+                k_expansions,
+                float(parameters.mix_epsilon),
+            )
+
+        if parameters.use_learned_heuristic:
+            nn_model.initialize(
+                parameters.loss_function,
+                parameters.search_algorithm,
+                two_headed_model=True,
+            )
+        else:
+            nn_model.initialize(
+                parameters.loss_function,
+                parameters.search_algorithm,
+                two_headed_model=False,
+            )
 
         if parameters.learning_mode:
-            bootstrap = Bootstrap(
+            bootstrap.solve_uniform_online(bfs_planner, nn_model)
+        elif parameters.blind_search:
+            search(
                 states,
-                parameters.model_name,
-                ncpus=ncpus,
-                initial_budget=int(parameters.search_budget),
-                gradient_steps=int(parameters.gradient_steps),
+                bfs_planner,
+                nn_model,
+                ncpus,
+                int(parameters.time_limit),
+                int(parameters.search_budget),
+            )
+        elif parameters.fixed_time:
+            nn_model.load_weights(
+                join("trained_models_online", parameters.model_name, "model_weights")
+            )
+            search_time_limit(
+                states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
+            )
+        else:
+            nn_model.load_weights(
+                join("trained_models_online", parameters.model_name, "model_weights")
+            )
+            search(
+                states,
+                bfs_planner,
+                nn_model,
+                ncpus,
+                int(parameters.time_limit),
+                int(parameters.search_budget),
+            )
+    elif parameters.search_algorithm == "PUCT":
+
+        bfs_planner = PUCT(
+            parameters.use_heuristic,
+            parameters.use_learned_heuristic,
+            k_expansions,
+            float(parameters.cpuct),
+        )
+
+        if parameters.use_learned_heuristic:
+            nn_model.initialize(
+                parameters.loss_function,
+                parameters.search_algorithm,
+                two_headed_model=True,
+            )
+        else:
+            nn_model.initialize(
+                parameters.loss_function,
+                parameters.search_algorithm,
+                two_headed_model=False,
             )
 
-        if parameters.search_algorithm == "PUCT":
-
-            bfs_planner = PUCT(
-                parameters.use_heuristic,
-                parameters.use_learned_heuristic,
-                k_expansions,
-                float(parameters.cpuct),
+        if parameters.learning_mode:
+            bootstrap.solve_uniform_online(bfs_planner, nn_model)
+        elif parameters.blind_search:
+            search(
+                states,
+                bfs_planner,
+                nn_model,
+                ncpus,
+                int(parameters.time_limit),
+                int(parameters.search_budget),
+            )
+        elif parameters.fixed_time:
+            nn_model.load_weights(
+                join("trained_models_online", parameters.model_name, "model_weights")
+            )
+            search_time_limit(
+                states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
+            )
+        else:
+            nn_model.load_weights(
+                join("trained_models_online", parameters.model_name, "model_weights")
+            )
+            search(
+                states,
+                bfs_planner,
+                nn_model,
+                ncpus,
+                int(parameters.time_limit),
+                int(parameters.search_budget),
             )
 
-            if parameters.use_learned_heuristic:
-                nn_model.initialize(
-                    parameters.loss_function,
-                    parameters.search_algorithm,
-                    two_headed_model=True,
-                )
-            else:
-                nn_model.initialize(
-                    parameters.loss_function,
-                    parameters.search_algorithm,
-                    two_headed_model=False,
-                )
+    elif parameters.search_algorithm == "AStar":
+        bfs_planner = AStar(
+            parameters.use_heuristic,
+            parameters.use_learned_heuristic,
+            k_expansions,
+            float(parameters.weight_astar),
+        )
 
-            if parameters.learning_mode:
-                # bootstrap_learning_bfs(states, bfs_planner, nn_model, parameters.model_name, int(parameters.search_budget), ncpus)
-                bootstrap.solve_uniform_online(bfs_planner, nn_model)
-            elif parameters.blind_search:
-                search(
-                    states,
-                    bfs_planner,
-                    nn_model,
-                    ncpus,
-                    int(parameters.time_limit),
-                    int(parameters.search_budget),
-                )
-            elif parameters.fixed_time:
-                nn_model.load_weights(
-                    join(
-                        "trained_models_online", parameters.model_name, "model_weights"
-                    )
-                )
-                search_time_limit(
-                    states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
-                )
-            else:
-                nn_model.load_weights(
-                    join(
-                        "trained_models_online", parameters.model_name, "model_weights"
-                    )
-                )
-                search(
-                    states,
-                    bfs_planner,
-                    nn_model,
-                    ncpus,
-                    int(parameters.time_limit),
-                    int(parameters.search_budget),
-                )
-
-        if (
-            parameters.search_algorithm == "Levin"
-            or parameters.search_algorithm == "LevinStar"
-        ):
-
-            if parameters.search_algorithm == "Levin":
-                bfs_planner = BFSLevin(
-                    parameters.use_heuristic,
-                    parameters.use_learned_heuristic,
-                    False,
-                    k_expansions,
-                    float(parameters.mix_epsilon),
-                )
-            else:
-                bfs_planner = BFSLevin(
-                    parameters.use_heuristic,
-                    parameters.use_learned_heuristic,
-                    True,
-                    k_expansions,
-                    float(parameters.mix_epsilon),
-                )
-
-            if parameters.use_learned_heuristic:
-                nn_model.initialize(
-                    parameters.loss_function,
-                    parameters.search_algorithm,
-                    two_headed_model=True,
-                )
-            else:
-                nn_model.initialize(
-                    parameters.loss_function,
-                    parameters.search_algorithm,
-                    two_headed_model=False,
-                )
-
-            if parameters.learning_mode:
-                #                 bootstrap_learning_bfs(states, bfs_planner, nn_model, parameters.model_name, int(parameters.search_budget), ncpus)
-                bootstrap.solve_uniform_online(bfs_planner, nn_model)
-            elif parameters.blind_search:
-                search(
-                    states,
-                    bfs_planner,
-                    nn_model,
-                    ncpus,
-                    int(parameters.time_limit),
-                    int(parameters.search_budget),
-                )
-            elif parameters.fixed_time:
-                nn_model.load_weights(
-                    join(
-                        "trained_models_online", parameters.model_name, "model_weights"
-                    )
-                )
-                search_time_limit(
-                    states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
-                )
-            else:
-                nn_model.load_weights(
-                    join(
-                        "trained_models_online", parameters.model_name, "model_weights"
-                    )
-                )
-                search(
-                    states,
-                    bfs_planner,
-                    nn_model,
-                    ncpus,
-                    int(parameters.time_limit),
-                    int(parameters.search_budget),
-                )
-
-        if parameters.search_algorithm == "LevinMult":
-
-            bfs_planner = BFSLevinMult(
-                parameters.use_heuristic, parameters.use_learned_heuristic, k_expansions
+        if parameters.learning_mode and parameters.use_learned_heuristic:
+            nn_model.initialize(parameters.loss_function, parameters.search_algorithm)
+            bootstrap.solve_uniform_online(bfs_planner, nn_model)
+        elif parameters.fixed_time and parameters.use_learned_heuristic:
+            nn_model.initialize(parameters.loss_function, parameters.search_algorithm)
+            nn_model.load_weights(
+                join("trained_models_online", parameters.model_name, "model_weights")
+            )
+            search_time_limit(
+                states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
+            )
+        elif parameters.use_learned_heuristic:
+            nn_model.initialize(parameters.loss_function, parameters.search_algorithm)
+            nn_model.load_weights(
+                join("trained_models_online", parameters.model_name, "model_weights")
+            )
+            search(
+                states,
+                bfs_planner,
+                nn_model,
+                ncpus,
+                int(parameters.time_limit),
+                int(parameters.search_budget),
+            )
+        else:
+            search(
+                states,
+                bfs_planner,
+                nn_model,
+                ncpus,
+                int(parameters.time_limit),
+                int(parameters.search_budget),
             )
 
-            if parameters.use_learned_heuristic:
-                nn_model.initialize(
-                    parameters.loss_function,
-                    parameters.search_algorithm,
-                    two_headed_model=True,
-                )
-            else:
-                nn_model.initialize(
-                    parameters.loss_function,
-                    parameters.search_algorithm,
-                    two_headed_model=False,
-                )
+    elif parameters.search_algorithm == "GBFS":
+        bfs_planner = GBFS(
+            parameters.use_heuristic, parameters.use_learned_heuristic, k_expansions
+        )
 
-            if parameters.learning_mode:
-                #                 bootstrap_learning_bfs(states, bfs_planner, nn_model, parameters.model_name, int(parameters.search_budget), ncpus)
-                bootstrap.solve_uniform_online(bfs_planner, nn_model)
-            elif parameters.blind_search:
-                search(
-                    states,
-                    bfs_planner,
-                    nn_model,
-                    ncpus,
-                    int(parameters.time_limit),
-                    int(parameters.search_budget),
-                )
-            else:
-                nn_model.load_weights(
-                    join(
-                        "trained_models_online", parameters.model_name, "model_weights"
-                    )
-                )
-                search(
-                    states,
-                    bfs_planner,
-                    nn_model,
-                    ncpus,
-                    int(parameters.time_limit),
-                    int(parameters.search_budget),
-                )
-
-        if parameters.search_algorithm == "AStar":
-            bfs_planner = AStar(
-                parameters.use_heuristic,
-                parameters.use_learned_heuristic,
-                k_expansions,
-                float(parameters.weight_astar),
+        if parameters.learning_mode:
+            nn_model.initialize(parameters.loss_function, parameters.search_algorithm)
+            bootstrap.solve_uniform_online(bfs_planner, nn_model)
+        elif parameters.fixed_time and parameters.use_learned_heuristic:
+            nn_model.initialize(parameters.loss_function, parameters.search_algorithm)
+            nn_model.load_weights(
+                join("trained_models_online", parameters.model_name, "model_weights")
             )
-
-            if parameters.learning_mode and parameters.use_learned_heuristic:
-                nn_model.initialize(
-                    parameters.loss_function, parameters.search_algorithm
-                )
-                #                 bootstrap_learning_bfs(states, bfs_planner, nn_model, parameters.model_name, int(parameters.search_budget), ncpus)
-                bootstrap.solve_uniform_online(bfs_planner, nn_model)
-            elif parameters.fixed_time and parameters.use_learned_heuristic:
-                nn_model.initialize(
-                    parameters.loss_function, parameters.search_algorithm
-                )
-                nn_model.load_weights(
-                    join(
-                        "trained_models_online", parameters.model_name, "model_weights"
-                    )
-                )
-                search_time_limit(
-                    states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
-                )
-            elif parameters.use_learned_heuristic:
-                nn_model.initialize(
-                    parameters.loss_function, parameters.search_algorithm
-                )
-                nn_model.load_weights(
-                    join(
-                        "trained_models_online", parameters.model_name, "model_weights"
-                    )
-                )
-                search(
-                    states,
-                    bfs_planner,
-                    nn_model,
-                    ncpus,
-                    int(parameters.time_limit),
-                    int(parameters.search_budget),
-                )
-            else:
-                search(
-                    states,
-                    bfs_planner,
-                    nn_model,
-                    ncpus,
-                    int(parameters.time_limit),
-                    int(parameters.search_budget),
-                )
-
-        if parameters.search_algorithm == "GBFS":
-            bfs_planner = GBFS(
-                parameters.use_heuristic, parameters.use_learned_heuristic, k_expansions
+            search_time_limit(
+                states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
             )
-
-            if parameters.learning_mode:
-                nn_model.initialize(
-                    parameters.loss_function, parameters.search_algorithm
-                )
-                #                 bootstrap_learning_bfs(states, bfs_planner, nn_model, parameters.model_name, int(parameters.search_budget), ncpus)
-                bootstrap.solve_uniform_online(bfs_planner, nn_model)
-            elif parameters.fixed_time and parameters.use_learned_heuristic:
-                nn_model.initialize(
-                    parameters.loss_function, parameters.search_algorithm
-                )
-                nn_model.load_weights(
-                    join(
-                        "trained_models_online", parameters.model_name, "model_weights"
-                    )
-                )
-                search_time_limit(
-                    states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
-                )
-            elif parameters.use_learned_heuristic:
-                nn_model.initialize(
-                    parameters.loss_function, parameters.search_algorithm
-                )
-                nn_model.load_weights(
-                    join(
-                        "trained_models_online", parameters.model_name, "model_weights"
-                    )
-                )
-                search(
-                    states,
-                    bfs_planner,
-                    nn_model,
-                    ncpus,
-                    int(parameters.time_limit),
-                    int(parameters.search_budget),
-                )
-            else:
-                search(
-                    states,
-                    bfs_planner,
-                    nn_model,
-                    ncpus,
-                    int(parameters.time_limit),
-                    int(parameters.search_budget),
-                )
+        elif parameters.use_learned_heuristic:
+            nn_model.initialize(parameters.loss_function, parameters.search_algorithm)
+            nn_model.load_weights(
+                join("trained_models_online", parameters.model_name, "model_weights")
+            )
+            search(
+                states,
+                bfs_planner,
+                nn_model,
+                ncpus,
+                int(parameters.time_limit),
+                int(parameters.search_budget),
+            )
+        else:
+            search(
+                states,
+                bfs_planner,
+                nn_model,
+                ncpus,
+                int(parameters.time_limit),
+                int(parameters.search_budget),
+            )
 
     print("Total time: ", time.time() - start)
 
