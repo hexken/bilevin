@@ -5,7 +5,7 @@ class ModelWrapper:
     def __init__(self):
         self.model = None
 
-    def initialize(self, loss_name, search_algorithm, two_headed_model=False):
+    def initialize(self, search_algorithm, two_headed_model=False):
         if (
             search_algorithm == "Levin"
             or search_algorithm == "LevinMult"
@@ -13,9 +13,9 @@ class ModelWrapper:
             or search_algorithm == "PUCT"
         ):
             if two_headed_model:
-                self.model = TwoHeadedConvNet((2, 2), 32, 4, loss_name)
+                self.model = TwoHeadedConvNet((2, 2), 32, 4)
             else:
-                self.model = ConvNet((2, 2), 32, 4, loss_name)
+                self.model = ConvNet((2, 2), 32, 4)
         if search_algorithm == "AStar" or search_algorithm == "GBFS":
             self.model = HeuristicConvNet((2, 2), 32, 4)
 
