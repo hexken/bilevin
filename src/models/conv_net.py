@@ -1,4 +1,3 @@
-import tensorflow as tf
 import torch as to
 import torch.nn as nn
 import torch.nn.functional as F
@@ -53,7 +52,7 @@ class HeuristicConvNet(nn.Module):
         return self._number_actions
 
 
-class TwoHeadedConvNet(tf.keras.Model):
+class TwoHeadedConvNet(nn.Module):
     def __init__(
         self, in_channels, kernel_size, filters, number_actions, reg_const=0.001
     ):
@@ -95,7 +94,7 @@ class TwoHeadedConvNet(tf.keras.Model):
         return self._number_actions
 
 
-class ConvNet(tf.keras.Model):
+class ConvNet(nn.Module):
     def __init__(
         self, in_channels, kernel_size, filters, number_actions, reg_const=0.001
     ):
@@ -126,11 +125,6 @@ class ConvNet(tf.keras.Model):
         action_probs = F.softmax(action_logits)
 
         return action_log_probs, action_probs, action_logits
-
-    def _cross_entropy_loss(self, states, y):
-        images = [s.get_image_representation() for s in states]
-        _, _, logits = self(np.array(images))
-        return self.cross_entropy_loss(y, logits)
 
     def get_number_actions(self):
         return self._number_actions
