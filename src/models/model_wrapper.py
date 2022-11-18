@@ -1,11 +1,8 @@
-from multiprocessing import Lock
-from multiprocessing.managers import BaseManager
 from models.conv_net import ConvNet, TwoHeadedConvNet, HeuristicConvNet
 
 
-class KerasModel:
+class ModelWrapper:
     def __init__(self):
-        self.mutex = Lock()
         self.model = None
 
     def initialize(self, loss_name, search_algorithm, two_headed_model=False):
@@ -23,8 +20,7 @@ class KerasModel:
             self.model = HeuristicConvNet((2, 2), 32, 4)
 
     def predict(self, x):
-        with self.mutex:
-            return self.model.predict(x)
+        return self.model.predict(x)
 
     def train_with_memory(self, memory):
         return self.model.train_with_memory(memory)
@@ -34,7 +30,3 @@ class KerasModel:
 
     def load_weights(self, filepath):
         self.model.load_weights(filepath).expect_partial()
-
-
-class KerasManager(BaseManager):
-    pass
