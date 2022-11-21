@@ -127,20 +127,21 @@ class BFSLevin:
             )
         return math.log(child_node.get_g()) - child_node.get_p()
 
-    def search(self, data):
+    def search(
+        self,
+        initial_state,
+        puzzle_name,
+        budget,
+        start_overall_time,
+        time_limit,
+        slack_time,
+        model,
+    ):
         """
         Performs Best-First LTS .
 
         Returns solution cost, number of nodes expanded, and generated
         """
-        state = data[0]
-        puzzle_name = data[1]
-        nn_model = data[2]
-        budget = data[3]
-        start_overall_time = data[4]
-        time_limit = data[5]
-        slack_time = data[6]
-
         if slack_time == 0:
             start_overall_time = time.time()
         start_time = time.time()
@@ -152,12 +153,12 @@ class BFSLevin:
         generated = 0
 
         if self._use_learned_heuristic:
-            _, action_distribution, _ = nn_model.predict(
-                np.array([state.get_image_representation()])
+            _, action_distribution, _ = model.predict(
+                np.array([initial_state.get_image_representation()])
             )
         else:
-            _, action_distribution = nn_model.predict(
-                np.array([state.get_image_representation()])
+            _, action_distribution = model.predict(
+                np.array([initial_state.get_image_representation()])
             )
 
         action_distribution_log = np.log(
@@ -165,12 +166,12 @@ class BFSLevin:
             + (self._mix_epsilon * (1 / action_distribution.shape[1]))
         )
 
-        node = TreeNode(None, state, 0, 0, 0, -1)
+        node = TreeNode(None, initial_state, 0, 0, 0, -1)
 
         node.set_probability_distribution_actions(action_distribution_log[0])
 
         heapq.heappush(_open, node)
-        _closed.add(state)
+        _closed.add(initial_state)
 
         # this array should big enough to have more entries than self._k + the largest number of octions
         predicted_h = np.zeros(10 * self._k)
@@ -188,7 +189,7 @@ class BFSLevin:
             if (
                 budget > 0 and expanded > budget
             ) or end_time - start_overall_time + slack_time > time_limit:
-                return -1, expanded, generated, end_time - start_time, puzzle_name
+                return -1, expanded, generated, end_time - start_time
 
             actions = node.get_game_state().successors_parent_pruning(node.get_action())
             probability_distribution = node.get_probability_distribution_actions()
@@ -204,7 +205,6 @@ class BFSLevin:
                         expanded,
                         generated,
                         end_time - start_time,
-                        puzzle_name,
                     )
 
                 child_node = TreeNode(
@@ -223,11 +223,11 @@ class BFSLevin:
 
             if len(children_to_be_evaluated) >= self._k or len(_open) == 0:
                 if self._use_learned_heuristic:
-                    _, action_distribution, predicted_h = nn_model.predict(
+                    _, action_distribution, predicted_h = model.predict(
                         np.array(x_input_of_children_to_be_evaluated)
                     )
                 else:
-                    _, action_distribution = nn_model.predict(
+                    _, action_distribution = model.predict(
                         np.array(x_input_of_children_to_be_evaluated)
                     )
 
@@ -266,7 +266,7 @@ class BFSLevin:
                 x_input_of_children_to_be_evaluated.clear()
         print("Emptied Open List during search: ", puzzle_name)
         end_time = time.time()
-        return -1, expanded, generated, end_time - start_time, puzzle_name
+        return -1, expanded, generated, end_time - start_time
 
     def _store_trajectory_memory(self, tree_node, expanded):
         """
@@ -300,34 +300,27 @@ class BFSLevin:
             states, actions, solution_costs, expanded, math.exp(tree_node.get_p())
         )
 
-    def search_for_learning(self, data):
+    def search_for_learning(self, initial_state, puzzle_name, budget, model):
         """
         Performs Best-First LTS bounded by a search budget.
 
         Returns Boolean indicating whether the solution was found,
         number of nodes expanded, and number of nodes generated
         """
-        state = data[0]
-        puzzle_name = data[1]
-        budget = data[2]
-        nn_model = data[3]
-
         _open = []
         _closed = set()
 
-        expanded = 0
-        generated = 0
+        num_expanded = 0
+        num_generated = 0
 
         #         print('Attempting puzzle ', puzzle_name, ' with budget: ', budget)
-        #         return False, None, expanded, generated, puzzle_name
-
         if self._use_learned_heuristic:
-            _, action_distribution, _ = nn_model.predict(
-                np.array([state.get_image_representation()])
+            _, action_distribution, _ = model.predict(
+                np.array([initial_state.get_image_representation()])
             )
         else:
-            _, action_distribution = nn_model.predict(
-                np.array([state.get_image_representation()])
+            _, action_distribution = model.predict(
+                np.array([initial_state.get_image_representation()])
             )
 
         action_distribution_log = np.log(
@@ -335,12 +328,12 @@ class BFSLevin:
             + (self._mix_epsilon * (1 / action_distribution.shape[1]))
         )
 
-        node = TreeNode(None, state, 0, 0, 0, -1)
+        node = TreeNode(None, initial_state, 0, 0, 0, -1)
 
         node.set_probability_distribution_actions(action_distribution_log[0])
 
         heapq.heappush(_open, node)
-        _closed.add(state)
+        _closed.add(initial_state)
 
         # this array should big enough to have more entries than self._k + the largest number of octions
         predicted_h = np.zeros(10 * self._k)
@@ -352,13 +345,13 @@ class BFSLevin:
 
             node = heapq.heappop(_open)
 
-            expanded += 1
+            num_expanded += 1
 
             actions = node.get_game_state().successors_parent_pruning(node.get_action())
             probability_distribution_log = node.get_probability_distribution_actions()
 
-            if expanded >= budget:
-                return False, None, expanded, generated, puzzle_name
+            if num_expanded >= budget:
+                return False, None, num_expanded, num_generated
 
             for a in actions:
                 child = copy.deepcopy(node.get_game_state())
@@ -378,13 +371,13 @@ class BFSLevin:
                     print(
                         "Solved puzzle: ",
                         puzzle_name,
-                        " expanding ",
-                        expanded,
+                        " expanded ",
+                        num_expanded,
                         " with budget: ",
                         budget,
                     )
-                    trajectory = self._store_trajectory_memory(child_node, expanded)
-                    return True, trajectory, expanded, generated, puzzle_name
+                    trajectory = self._store_trajectory_memory(child_node, num_expanded)
+                    return True, trajectory, num_expanded, num_generated
 
                 children_to_be_evaluated.append(child_node)
                 x_input_of_children_to_be_evaluated.append(
@@ -394,11 +387,11 @@ class BFSLevin:
             if len(children_to_be_evaluated) >= self._k or len(_open) == 0:
 
                 if self._use_learned_heuristic:
-                    _, action_distribution, predicted_h = nn_model.predict(
+                    _, action_distribution, predicted_h = model.predict(
                         np.array(x_input_of_children_to_be_evaluated)
                     )
                 else:
-                    _, action_distribution = nn_model.predict(
+                    _, action_distribution = model.predict(
                         np.array(x_input_of_children_to_be_evaluated)
                     )
 
@@ -408,7 +401,7 @@ class BFSLevin:
                 )
 
                 for i in range(len(children_to_be_evaluated)):
-                    generated += 1
+                    num_generated += 1
 
                     if self._estimated_probability_to_go:
                         levin_cost = self.get_levin_cost_star(
@@ -435,4 +428,4 @@ class BFSLevin:
                 children_to_be_evaluated.clear()
                 x_input_of_children_to_be_evaluated.clear()
         print("Emptied Open List in puzzle: ", puzzle_name)
-        return False, None, expanded, generated, puzzle_name
+        return False, None, num_expanded, num_generated

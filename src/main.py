@@ -1,7 +1,5 @@
 import argparse
-import os
 from os import listdir
-from functools import partial
 from os.path import isfile, join
 import time
 
@@ -19,7 +17,7 @@ from search.gbfs import GBFS
 from search.puct import PUCT
 
 
-def search_time_limit(states, planner, nn_model, ncpus, time_limit_seconds):
+def search_time_limit(initial_states, planner, model, time_limit_seconds):
     """
     This function runs (best-first) Levin tree search with a learned policy on a set of problems.
     The search will be bounded by a time limit. The number of nodes expanded and generated will be
@@ -29,16 +27,13 @@ def search_time_limit(states, planner, nn_model, ncpus, time_limit_seconds):
     solutions = {}
 
     # todo: why do prefill the solution dict?
-    for puzzle_name, state in states.items():
-        state.reset()
+    for puzzle_name, initial_state in initial_states.items():
+        initial_state.reset()
         solutions[puzzle_name] = (-1, -1, -1, -1)
 
-        args = (state, puzzle_name, nn_model, -1, time.time(), time_limit_seconds, 0)
-        result = planner.search(args)
-        solution_depth = result[0]
-        expanded = result[1]
-        generated = result[2]
-        running_time = result[3]
+        solution_depth, expanded, generated, running_time = planner.search(
+            initial_state, puzzle_name, -1, time.time(), time_limit_seconds, 0, model
+        )
 
         solutions[puzzle_name] = (solution_depth, expanded, generated, running_time)
 
@@ -50,7 +45,7 @@ def search_time_limit(states, planner, nn_model, ncpus, time_limit_seconds):
         )
 
 
-def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-1):
+def search(initial_states, planner, model, time_limit_seconds, search_budget=-1):
     """
     This function runs (best-first) Levin tree search with a learned policy on a set of problems
     """
@@ -58,33 +53,27 @@ def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-
 
     solutions = {}
 
-    for puzzle_name, state in states.items():
-        state.reset()
+    for puzzle_name, initial_state in initial_states.items():
+        initial_state.reset()
         solutions[puzzle_name] = (-1, -1, -1, -1)
 
     start_time = time.time()
 
-    while len(states) > 0:
+    while len(initial_states) > 0:
 
         #         args = [(state, name, nn_model, search_budget, start_time, time_limit_seconds, slack_time) for name, state in states.items()]
         #         solution_depth, expanded, generated, running_time, puzzle_name = planner.search(args[0])
 
-        for puzzle_name, state in states.items():
-            args = (
-                state,
+        for puzzle_name, initial_state in initial_states.items():
+            solution_depth, expanded, generated, running_time = planner.search(
+                initial_state,
                 puzzle_name,
-                nn_model,
                 search_budget,
                 start_time,
                 time_limit_seconds,
                 slack_time,
+                model,
             )
-
-            result = planner.search(args)
-            solution_depth = result[0]
-            expanded = result[1]
-            generated = result[2]
-            running_time = result[3]
 
             if solution_depth > 0:
                 solutions[puzzle_name] = (
@@ -93,13 +82,13 @@ def search(states, planner, nn_model, ncpus, time_limit_seconds, search_budget=-
                     generated,
                     running_time,
                 )
-                del states[puzzle_name]
+                del initial_states[puzzle_name]
 
         partial_time = time.time()
 
         if (
             partial_time - start_time + slack_time > time_limit_seconds
-            or len(states) == 0
+            or len(initial_states) == 0
             or search_budget >= 1000000
         ):
             for puzzle_name, data in solutions.items():
@@ -118,12 +107,12 @@ def main():
     It is possible to use this system to either train a new neural network model through the bootstrap system and
     Levin tree search (LTS) algorithm, or to use a trained neural network with LTS.
     """
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
         "-l",
         action="store",
+        type=str,
         dest="loss_function",
         default="CrossEntropyLoss",
         help="Loss Function",
@@ -132,8 +121,8 @@ def main():
     parser.add_argument(
         "-lr",
         action="store",
-        dest="lr",
         type=float,
+        dest="lr",
         default=0.0001,
         help="Loss Function",
     )
@@ -141,6 +130,7 @@ def main():
     parser.add_argument(
         "-p",
         action="store",
+        type=str,
         dest="problems_folder",
         help="Folder with problem instances",
     )
@@ -148,12 +138,14 @@ def main():
     parser.add_argument(
         "-m",
         action="store",
+        type=str,
         dest="model_name",
         help="Name of the folder of the neural model",
     )
 
     parser.add_argument(
         "-a",
+        type=str,
         action="store",
         dest="search_algorithm",
         help="Name of the search algorithm (Levin, LevinStar, AStar, GBFS, PUCT)",
@@ -161,6 +153,7 @@ def main():
 
     parser.add_argument(
         "-d",
+        type=str,
         action="store",
         dest="problem_domain",
         help="Problem domain (Witness or SlidingTile)",
@@ -168,6 +161,7 @@ def main():
 
     parser.add_argument(
         "-b",
+        type=int,
         action="store",
         dest="search_budget",
         default=1000,
@@ -176,6 +170,7 @@ def main():
 
     parser.add_argument(
         "-g",
+        type=int,
         action="store",
         dest="gradient_steps",
         default=10,
@@ -183,15 +178,8 @@ def main():
     )
 
     parser.add_argument(
-        "-cpuct",
-        action="store",
-        dest="cpuct",
-        default="1.0",
-        help="Constant C used with PUCT.",
-    )
-
-    parser.add_argument(
         "-time",
+        type=int,
         action="store",
         dest="time_limit",
         default="43200",
@@ -200,6 +188,7 @@ def main():
 
     parser.add_argument(
         "-mix",
+        type=float,
         action="store",
         dest="mix_epsilon",
         default="0.0",
@@ -208,6 +197,7 @@ def main():
 
     parser.add_argument(
         "-w",
+        type=float,
         action="store",
         dest="weight_astar",
         default="1.0",
@@ -216,6 +206,7 @@ def main():
 
     parser.add_argument(
         "--default-heuristic",
+        type=str,
         action="store_true",
         default=False,
         dest="use_heuristic",
@@ -256,6 +247,7 @@ def main():
 
     parser.add_argument(
         "-number-test-instances",
+        type=int,
         action="store",
         dest="number_test_instances",
         default="0",
@@ -353,7 +345,7 @@ def main():
     else:
         raise ValueError("Problem domain not recognized")
 
-    if int(parameters.number_test_instances) != 0:
+    if parameters.number_test_instances != 0:
         states_capped = {}
         counter = 0
 
@@ -361,17 +353,13 @@ def main():
             states_capped[name] = puzzle
             counter += 1
 
-            if counter == int(parameters.number_test_instances):
+            if counter == parameters.number_test_instances:
                 break
 
         states = states_capped
 
     print("Loaded ", len(states), " instances")
     #     input_size = s.get_image_representation().shape
-
-    # ncpus = int(os.environ.get("SLURM_CPUS_PER_TASK", default=1))
-    ncpus = 1
-    # print('Number of cpus available: ', ncpus)
 
     k_expansions = 32
 
@@ -383,7 +371,6 @@ def main():
     if parameters.learning_mode:
 
         loss_fn = getattr(loss_fns, parameters.loss_function)
-        # todo construct this as a partial just without params?
         optimizer_cons = to.optim.Adam
         optimizer_params = {
             "lr": parameters.learning_rate,
@@ -396,9 +383,8 @@ def main():
             loss_fn,
             optimizer_cons,
             optimizer_params,
-            ncpus=ncpus,
-            initial_budget=int(parameters.search_budget),
-            gradient_steps=int(parameters.gradient_steps),
+            initial_budget=parameters.search_budget,
+            gradient_steps=parameters.gradient_steps,
         )
 
     if (
@@ -412,7 +398,7 @@ def main():
                 parameters.use_learned_heuristic,
                 False,
                 k_expansions,
-                float(parameters.mix_epsilon),
+                parameters.mix_epsilon,
             )
         else:
             bfs_planner = BFSLevin(
@@ -420,7 +406,7 @@ def main():
                 parameters.use_learned_heuristic,
                 True,
                 k_expansions,
-                float(parameters.mix_epsilon),
+                parameters.mix_epsilon,
             )
 
         if parameters.use_learned_heuristic:
@@ -443,17 +429,14 @@ def main():
                 states,
                 bfs_planner,
                 nn_model,
-                ncpus,
-                int(parameters.time_limit),
-                int(parameters.search_budget),
+                parameters.time_limit,
+                parameters.search_budget,
             )
         elif parameters.fixed_time:
             nn_model.load_weights(
                 join("trained_models_online", parameters.model_name, "model_weights")
             )
-            search_time_limit(
-                states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
-            )
+            search_time_limit(states, bfs_planner, nn_model, parameters.time_limit)
         else:
             nn_model.load_weights(
                 join("trained_models_online", parameters.model_name, "model_weights")
@@ -462,9 +445,8 @@ def main():
                 states,
                 bfs_planner,
                 nn_model,
-                ncpus,
-                int(parameters.time_limit),
-                int(parameters.search_budget),
+                parameters.time_limit,
+                parameters.search_budget,
             )
     elif parameters.search_algorithm == "PUCT":
 
@@ -472,7 +454,7 @@ def main():
             parameters.use_heuristic,
             parameters.use_learned_heuristic,
             k_expansions,
-            float(parameters.cpuct),
+            1,  # todo old cpucnt param, do something
         )
 
         if parameters.use_learned_heuristic:
@@ -495,17 +477,14 @@ def main():
                 states,
                 bfs_planner,
                 nn_model,
-                ncpus,
-                int(parameters.time_limit),
-                int(parameters.search_budget),
+                parameters.time_limit,
+                parameters.search_budget,
             )
         elif parameters.fixed_time:
             nn_model.load_weights(
                 join("trained_models_online", parameters.model_name, "model_weights")
             )
-            search_time_limit(
-                states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
-            )
+            search_time_limit(states, bfs_planner, nn_model, parameters.time_limit)
         else:
             nn_model.load_weights(
                 join("trained_models_online", parameters.model_name, "model_weights")
@@ -514,9 +493,8 @@ def main():
                 states,
                 bfs_planner,
                 nn_model,
-                ncpus,
-                int(parameters.time_limit),
-                int(parameters.search_budget),
+                parameters.time_limit,
+                parameters.search_budget,
             )
 
     elif parameters.search_algorithm == "AStar":
@@ -535,9 +513,7 @@ def main():
             nn_model.load_weights(
                 join("trained_models_online", parameters.model_name, "model_weights")
             )
-            search_time_limit(
-                states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
-            )
+            search_time_limit(states, bfs_planner, nn_model, parameters.time_limit)
         elif parameters.use_learned_heuristic:
             nn_model.initialize(in_channels, parameters.search_algorithm)
             nn_model.load_weights(
@@ -547,18 +523,16 @@ def main():
                 states,
                 bfs_planner,
                 nn_model,
-                ncpus,
-                int(parameters.time_limit),
-                int(parameters.search_budget),
+                parameters.time_limit,
+                parameters.search_budget,
             )
         else:
             search(
                 states,
                 bfs_planner,
                 nn_model,
-                ncpus,
-                int(parameters.time_limit),
-                int(parameters.search_budget),
+                parameters.time_limit,
+                parameters.search_budget,
             )
 
     elif parameters.search_algorithm == "GBFS":
@@ -574,9 +548,7 @@ def main():
             nn_model.load_weights(
                 join("trained_models_online", parameters.model_name, "model_weights")
             )
-            search_time_limit(
-                states, bfs_planner, nn_model, ncpus, int(parameters.time_limit)
-            )
+            search_time_limit(states, bfs_planner, nn_model, parameters.time_limit)
         elif parameters.use_learned_heuristic:
             nn_model.initialize(in_channels, parameters.search_algorithm)
             nn_model.load_weights(
@@ -586,18 +558,16 @@ def main():
                 states,
                 bfs_planner,
                 nn_model,
-                ncpus,
-                int(parameters.time_limit),
-                int(parameters.search_budget),
+                parameters.time_limit,
+                parameters.search_budget,
             )
         else:
             search(
                 states,
                 bfs_planner,
                 nn_model,
-                ncpus,
-                int(parameters.time_limit),
-                int(parameters.search_budget),
+                parameters.time_limit,
+                parameters.search_budget,
             )
 
     print("Total time: ", time.time() - start)

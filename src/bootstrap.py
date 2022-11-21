@@ -1,6 +1,7 @@
 import os
-import time
 from os.path import join
+import time
+
 from models.memory import Memory
 
 
@@ -12,7 +13,6 @@ class Bootstrap:
         loss_fn,
         optimizer_cons,
         optimizer_params,
-        lr,
         ncpus=1,
         initial_budget=2000,
         gradient_steps=10,
@@ -41,29 +41,28 @@ class Bootstrap:
         if not os.path.exists(self._log_folder):
             os.makedirs(self._log_folder)
 
-    def solve_uniform_online(self, planner, nn_model):
-        iteration = 1
-        number_solved = 0
-        total_expanded = 0
-        total_generated = 0
-
-        budget = self._initial_budget
+    def solve_uniform_online(self, planner, model):
         memory = Memory()
-        optimizer = self._optimizer_cons(nn_model.parameters(), **self._optimizer_params)
+        optimizer = self._optimizer_cons(model.parameters(), **self._optimizer_params)
         start = time.time()
 
         current_solved_puzzles = set()
+        number_solved = 0
+        total_expanded = 0
+        total_generated = 0
+        budget = self._initial_budget
 
+        iteration = 1
         while len(current_solved_puzzles) < self._number_problems:
             number_solved = 0
 
             batch_problems = {}
-            for puzzle_name, state in self._states.items():
+            for puzzle_name, initial_state in self._states.items():
 
                 #                 if name in current_solved_puzzles:
                 #                     continue
 
-                batch_problems[puzzle_name] = state
+                batch_problems[puzzle_name] = initial_state
 
                 if (
                     len(batch_problems) < self._batch_size
@@ -72,35 +71,38 @@ class Bootstrap:
                 ):
                     continue
 
-                for puzzle_name, state in batch_problems.items():
-                    args = (state, puzzle_name, budget, nn_model)
-                    result = planner.search_for_learning(args)
-
-                    has_found_solution = result[0]
-                    trajectory = result[1]
-                    total_expanded += result[2]
-                    total_generated += result[3]
+                for puzzle_name, initial_state in batch_problems.items():
+                    (
+                        has_found_solution,
+                        trajectory,
+                        total_expanded,
+                        total_generated,
+                    ) = planner.search_for_learning(
+                        initial_state, puzzle_name, budget, model
+                    )
 
                     if has_found_solution:
                         memory.add_trajectory(trajectory)
 
-                    if has_found_solution and puzzle_name not in current_solved_puzzles:
-                        number_solved += 1
-                        current_solved_puzzles.add(puzzle_name)
+                        if puzzle_name not in current_solved_puzzles:
+                            number_solved += 1
+                            current_solved_puzzles.add(puzzle_name)
 
                 if memory.number_trajectories() > 0:
                     for _ in range(self._gradient_steps):
-                        optimizer.zero_grad()
-                        loss = 0
+                        total_loss = 0
                         memory.shuffle_trajectories()
                         for traj in memory.next_trajectory():
-                            loss += self._loss_fn(traj, nn_model)
+                            optimizer.zero_grad()
+                            loss = self._loss_fn(traj, model)
+                            loss.backward()
+                            optimizer.step()
+                            total_loss += loss.item()
 
-                        loss.backward()
-                        optimizer.step()
-                        print("Loss: ", loss)
+                        print("Avg Loss: ", total_loss / len(memory))
                     memory.clear()
-                    nn_model.save_weights(join(self._models_folder, "model_weights"))
+                    # todo add save interval
+                    model.save_weights(join(self._models_folder, "model_weights"))
 
                 batch_problems.clear()
 
@@ -110,7 +112,7 @@ class Bootstrap:
             ) as results_file:
                 results_file.write(
                     (
-                        "{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} ".format(
+                        "{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} \n".format(
                             iteration,
                             number_solved,
                             self._number_problems - len(current_solved_puzzles),
@@ -121,7 +123,6 @@ class Bootstrap:
                         )
                     )
                 )
-                results_file.write("\n")
 
             print("Number solved: ", number_solved)
             if number_solved == 0:

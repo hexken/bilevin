@@ -67,3 +67,6 @@ class Memory:
     def clear(self):
         self._trajectories.clear()
         self._max_expanded = -sys.maxsize
+
+    def __len__(self):
+        return len(self._trajectories)

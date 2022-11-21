@@ -81,20 +81,21 @@ class GBFS:
         else:
             return child.heuristic_value()
 
-    def search(self, data):
+    def search(
+        self,
+        initial_state,
+        puzzle_name,
+        budget,
+        start_overall_time,
+        time_limit,
+        slack_time,
+        model,
+    ):
         """
         Performs GBFS search.
 
         Returns solution cost, number of nodes expanded, and generated
         """
-        state = data[0]
-        puzzle_name = data[1]
-        nn_model = data[2]
-        budget = data[3]
-        start_overall_time = data[4]
-        time_limit = data[5]
-        slack_time = data[6]
-
         _open = []
         _closed = set()
 
@@ -108,8 +109,8 @@ class GBFS:
 
         predicted_h = np.zeros(self._k)
 
-        heapq.heappush(_open, GBFSTreeNode(None, state, 0, 0, -1))
-        _closed.add(state)
+        heapq.heappush(_open, GBFSTreeNode(None, initial_state, 0, 0, -1))
+        _closed.add(initial_state)
 
         children_to_be_evaluated = []
         x_input_of_children_to_be_evaluated = []
@@ -123,7 +124,7 @@ class GBFS:
             if (
                 budget > 0 and expanded > budget
             ) or end_time - start_overall_time + slack_time > time_limit:
-                return -1, expanded, generated, end_time - start_time, puzzle_name
+                return -1, expanded, generated, end_time - start_time
 
             actions = node.get_game_state().successors_parent_pruning(node.get_action())
 
@@ -140,7 +141,6 @@ class GBFS:
                         expanded,
                         generated,
                         end_time - start_time,
-                        puzzle_name,
                     )
 
                 child_node = GBFSTreeNode(node, child, node.get_g() + 1, -1, a)
@@ -152,7 +152,7 @@ class GBFS:
 
             if len(children_to_be_evaluated) >= self._k or len(_open) == 0:
                 if self._use_learned_heuristic:
-                    predicted_h = nn_model.predict(
+                    predicted_h = model.predict(
                         np.array(x_input_of_children_to_be_evaluated)
                     )
 
@@ -202,26 +202,21 @@ class GBFS:
 
         return Trajectory(states, actions, solution_costs, expanded)
 
-    def search_for_learning(self, data):
+    def search_for_learning(self, initial_state, puzzle_name, budget, model):
         """
         Performs GBFS search bounded by a search budget.
 
         Returns Boolean indicating whether the solution was found,
         number of nodes expanded, and number of nodes generated
         """
-        state = data[0]
-        puzzle_name = data[1]
-        budget = data[2]
-        nn_model = data[3]
-
         _open = []
         _closed = set()
 
         expanded = 0
         generated = 0
 
-        heapq.heappush(_open, GBFSTreeNode(None, state, 0, 0, -1))
-        _closed.add(state)
+        heapq.heappush(_open, GBFSTreeNode(None, initial_state, 0, 0, -1))
+        _closed.add(initial_state)
 
         predicted_h = np.zeros(self._k)
 
@@ -234,7 +229,7 @@ class GBFS:
             expanded += 1
 
             if expanded >= budget:
-                return False, None, expanded, generated, puzzle_name
+                return False, None, expanded, generated
 
             actions = node.get_game_state().successors_parent_pruning(node.get_action())
 
@@ -248,7 +243,7 @@ class GBFS:
 
                 if child.is_solution():
                     trajectory = self._store_trajectory_memory(child_node, expanded)
-                    return True, trajectory, expanded, generated, puzzle_name
+                    return True, trajectory, expanded, generated
 
                 children_to_be_evaluated.append(child_node)
                 x_input_of_children_to_be_evaluated.append(
@@ -257,7 +252,7 @@ class GBFS:
 
             if len(children_to_be_evaluated) >= self._k or len(_open) == 0:
                 if self._use_learned_heuristic:
-                    predicted_h = nn_model.predict(
+                    predicted_h = model.predict(
                         np.array(x_input_of_children_to_be_evaluated)
                     )
 
