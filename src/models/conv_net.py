@@ -2,30 +2,10 @@ import torch as to
 import torch.nn as nn
 import torch.nn.functional as F
 
-import numpy as np
-from models.loss_functions import (
-    LevinLoss,
-    CrossEntropyLoss,
-    CrossEntropyMSELoss,
-    LevinMSELoss,
-    MSELoss,
-    ImprovedLevinLoss,
-    ImprovedLevinMSELoss,
-    RegLevinLoss,
-    RegLevinMSELoss,
-)
-
-
-class InvalidLossFunction(Exception):
-    pass
-
 
 class HeuristicConvNet(nn.Module):
-    def __init__(
-        self, in_channels, kernel_size, filters, number_actions, reg_const=0.001
-    ):
+    def __init__(self, in_channels, kernel_size, filters, number_actions):
         super().__init__()
-        self._reg_const = reg_const
         self._kernel_size = kernel_size
         self._filters = filters
         self._number_actions = number_actions
@@ -53,11 +33,8 @@ class HeuristicConvNet(nn.Module):
 
 
 class TwoHeadedConvNet(nn.Module):
-    def __init__(
-        self, in_channels, kernel_size, filters, number_actions, reg_const=0.001
-    ):
+    def __init__(self, in_channels, kernel_size, filters, number_actions):
         super().__init__()
-        self._reg_const = reg_const
         self._kernel_size = kernel_size
         self._filters = filters
         self._number_actions = number_actions
@@ -95,11 +72,8 @@ class TwoHeadedConvNet(nn.Module):
 
 
 class ConvNet(nn.Module):
-    def __init__(
-        self, in_channels, kernel_size, filters, number_actions, reg_const=0.001
-    ):
+    def __init__(self, in_channels, kernel_size, filters, number_actions):
         super().__init__()
-        self._reg_const = reg_const
         self._kernel_size = kernel_size
         self._filters = filters
         self._number_actions = number_actions

@@ -115,7 +115,7 @@ def main():
         type=str,
         dest="loss_function",
         default="CrossEntropyLoss",
-        help="Loss Function",
+        help="Loss function",
     )
 
     parser.add_argument(
@@ -124,7 +124,16 @@ def main():
         type=float,
         dest="lr",
         default=0.0001,
-        help="Loss Function",
+        help="Optimizer learning rate",
+    )
+
+    parser.add_argument(
+        "--weight-decay",
+        action="store",
+        type=float,
+        dest="weight_decay",
+        default=0.0,
+        help="L2 regularization penalty",
     )
 
     parser.add_argument(
@@ -206,7 +215,6 @@ def main():
 
     parser.add_argument(
         "--default-heuristic",
-        type=str,
         action="store_true",
         default=False,
         dest="use_heuristic",
@@ -370,11 +378,14 @@ def main():
 
     if parameters.learning_mode:
 
+        if parameters.loss_function == "LevinLoss":
+            parameters.loss_function = "traj_levin_loss"
+
         loss_fn = getattr(loss_fns, parameters.loss_function)
         optimizer_cons = to.optim.Adam
         optimizer_params = {
-            "lr": parameters.learning_rate,
-            "weight_decay": parameters.reg_const,
+            "lr": parameters.lr,
+            "weight_decay": parameters.weight_decay,
         }
 
         bootstrap = Bootstrap(

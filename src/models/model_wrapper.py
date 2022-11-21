@@ -2,8 +2,9 @@ from models.conv_net import ConvNet, TwoHeadedConvNet, HeuristicConvNet
 import torch as to
 
 
-class ModelWrapper:
+class ModelWrapper(to.nn.Module):
     def __init__(self):
+        super().__init__()
         self.model = None
         self.loss_function = None
 
