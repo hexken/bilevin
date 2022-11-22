@@ -1,60 +1,58 @@
 # import tensorflow as tf
+import math
+
 import torch as to
 import torch.nn.functional as F
 
-import numpy as np
-
-import math
-
 
 def traj_levin_loss(trajectory, model):
-    actions_one_hot = F.one_hot(trajectory.get_actions(), model.get_number_actions())
+    actions_one_hot = F.one_hot(trajectory.actions, model.num_actions)
 
-    images = to.tensor((s.get_image_representation() for s in trajectory.get_states()))
+    images = to.tensor((s.get_image_representation() for s in trajectory.states))
     _, _, logits = model(images)
 
     loss = F.cross_entropy(actions_one_hot, logits)
-    loss *= to.tensor(trajectory.get_non_normalized_expanded())
+    loss *= to.tensor(trajectory.non_normalized_num_expanded)
 
     return loss
 
 
 def traj_improved_levin_loss(trajectory, model):
-    actions_one_hot = F.one_hot(trajectory.get_actions(), model.get_number_actions())
+    actions_one_hot = F.one_hot(trajectory.actions, model.actions)
 
-    images = to.tensor((s.get_image_representation() for s in trajectory.get_states()))
+    images = to.tensor((s.get_image_representation() for s in trajectory.states))
     _, _, logits = model(images)
 
     loss = F.cross_entropy(actions_one_hot, logits)
 
-    d = len(trajectory.get_actions()) + 1
+    d = len(trajectory.actions) + 1
     pi = trajectory.get_solution_pi()
-    expanded = trajectory.get_non_normalized_expanded() + 1
+    num_expanded = trajectory.non_normalized_num_expanded + 1
 
     a = 0
     if pi < 1.0:
-        a = (math.log((d + 1) / expanded)) / math.log(pi)
+        a = (math.log((d + 1) / num_expanded)) / math.log(pi)
     if a < 0:
         a = 0
 
-    loss *= to.tensor(expanded * a)
+    loss *= to.tensor(num_expanded * a)
 
     return loss
 
 
 def traj_mse_loss(trajectory, model):
-    images = to.tensor((s.get_image_representation() for s in trajectory.get_states()))
+    images = to.tensor((s.get_image_representation() for s in trajectory.states))
     _, _, h = model(images)
-    solution_costs = to.tensor(trajectory.get_solution_costs()).unsqueeze(1)
-    loss = F.mse_loss(h, solution_costs)
+    cost_to_gos = to.tensor(trajectory.cost_to_gos).unsqueeze(1)
+    loss = F.mse_loss(h, cost_to_gos)
 
     return loss
 
 
 def traj_cross_entropy_loss(trajectory, model):
-    actions_one_hot = F.one_hot(trajectory.get_actions(), model.get_number_actions())
+    actions_one_hot = F.one_hot(trajectory.actions, model.actions)
 
-    images = to.tensor((s.get_image_representation() for s in trajectory.get_states()))
+    images = to.tensor((s.get_image_representation() for s in trajectory.states))
     _, _, logits = model(images)
     loss = F.cross_entropy(actions_one_hot, logits)
 
@@ -74,9 +72,9 @@ def traj_cross_entropy_loss(trajectory, model):
 #         self.mse = tf.keras.losses.MeanSquaredError()
 
 #     def compute_loss(self, trajectory, model):
-#         images = [s.get_image_representation() for s in trajectory.get_states()]
+#         images = [s.get_image_representation() for s in trajectory.states]
 #         actions_one_hot = tf.one_hot(
-#             trajectory.get_actions(), model.get_number_actions()
+#             trajectory.actions, model.actions
 #         )
 #         _, _, logits_pi, logits_h = model(np.array(images))
 
@@ -87,9 +85,9 @@ def traj_cross_entropy_loss(trajectory, model):
 
 #         loss = self.cross_entropy_loss(actions_one_hot, logits_pi)
 
-#         d = len(trajectory.get_actions()) + 1
+#         d = len(trajectory.actions) + 1
 #         pi = trajectory.get_solution_pi()
-#         expanded = trajectory.get_non_normalized_expanded() + 1
+#         expanded = trajectory.non_normalized_num_expanded + 1
 
 #         a = 0
 #         if pi < 1.0:
@@ -114,9 +112,9 @@ def traj_cross_entropy_loss(trajectory, model):
 #         self.mse = tf.keras.losses.MeanSquaredError()
 
 #     def compute_loss(self, trajectory, model):
-#         images = [s.get_image_representation() for s in trajectory.get_states()]
+#         images = [s.get_image_representation() for s in trajectory.states]
 #         actions_one_hot = tf.one_hot(
-#             trajectory.get_actions(), model.get_number_actions()
+#             trajectory.actions, model.actions
 #         )
 #         _, probs_softmax, _, logits_h = model(np.array(images))
 
@@ -150,9 +148,9 @@ def traj_cross_entropy_loss(trajectory, model):
 
 # class RegLevinLoss(LossFunction):
 #     def compute_loss(self, trajectory, model):
-#         images = [s.get_image_representation() for s in trajectory.get_states()]
+#         images = [s.get_image_representation() for s in trajectory.states]
 #         actions_one_hot = tf.one_hot(
-#             trajectory.get_actions(), model.get_number_actions()
+#             trajectory.actions, model.actions
 #         )
 #         _, probs_softmax, _ = model(np.array(images))
 
@@ -186,9 +184,9 @@ def traj_cross_entropy_loss(trajectory, model):
 #         self.mse = tf.keras.losses.MeanSquaredError()
 
 #     def compute_loss(self, trajectory, model):
-#         images = [s.get_image_representation() for s in trajectory.get_states()]
+#         images = [s.get_image_representation() for s in trajectory.states]
 #         actions_one_hot = tf.one_hot(
-#             trajectory.get_actions(), model.get_number_actions()
+#             trajectory.actions, model.actions
 #         )
 #         _, _, logits_pi, logits_h = model(np.array(images))
 
@@ -217,9 +215,9 @@ def traj_cross_entropy_loss(trajectory, model):
 #         self.mse = tf.keras.losses.MeanSquaredError()
 
 #     def compute_loss(self, trajectory, model):
-#         images = [s.get_image_representation() for s in trajectory.get_states()]
+#         images = [s.get_image_representation() for s in trajectory.states]
 #         actions_one_hot = tf.one_hot(
-#             trajectory.get_actions(), model.get_number_actions()
+#             trajectory.actions, model.actions
 #         )
 #         _, _, logits_pi, logits_h = model(np.array(images))
 
@@ -231,7 +229,7 @@ def traj_cross_entropy_loss(trajectory, model):
 #         loss = self.cross_entropy_loss(actions_one_hot, logits_pi)
 
 #         loss *= tf.convert_to_tensor(
-#             trajectory.get_non_normalized_expanded(), dtype=tf.float64
+#             trajectory.non_normalized_num_expanded, dtype=tf.float64
 #         )
 
 #         solution_costs_tf = tf.expand_dims(

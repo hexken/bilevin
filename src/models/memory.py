@@ -1,39 +1,32 @@
-import numpy as np
+import math
 import sys
+
+import numpy as np
 
 
 class Trajectory:
-    def __init__(self, states, actions, solution_costs, expanded, solution_pi=0.0):
-        self._states = states
-        self._actions = actions
-        self._expanded = expanded
-        self._non_normalized_expanded = expanded
-        self._solution_costs = solution_costs
-        self._solution_pi = solution_pi
-        self._is_normalized = False
+    def __init__(self, search_node, num_expanded):
+        """
+        Receives a SearchNode representing a solution to the problem.
+        Backtracks the path performed by search, collecting state-action pairs along the way.
+        The state-action pairs are stored alongside the number of nodes expanded in an object of type Trajectory,
+        which is added to the variable memory.
+        """
+        self.num_expanded = num_expanded
+        self.solution_prob = math.exp(search_node.log_prob)
 
-    def get_states(self):
-        return self._states
+        node = search_node.parent
+        self.states = []
+        self.actions = []
+        self.cost_to_gos = []
+        cost = 1
 
-    def get_actions(self):
-        return self._actions
-
-    def get_expanded(self):
-        return self._expanded
-
-    def get_solution_costs(self):
-        return self._solution_costs
-
-    def get_non_normalized_expanded(self):
-        return self._non_normalized_expanded
-
-    def get_solution_pi(self):
-        return self._solution_pi
-
-    def normalize_expanded(self, factor):
-        if not self._is_normalized:
-            self._expanded /= factor
-            self._is_normalized = True
+        while node:
+            self.states.append(node.state)
+            self.actions.append(node.action)
+            self.cost_to_gos.append(cost)
+            node = node.parent
+            cost += 1
 
 
 class Memory:

@@ -6,9 +6,7 @@ import time
 import torch as to
 
 from bootstrap import Bootstrap
-from domains.sliding_tile_puzzle import SlidingTilePuzzle
-from domains.sokoban import Sokoban
-from domains.witness import WitnessState
+from domains import SlidingTilePuzzle, Sokoban, WitnessState
 import models.loss_functions as loss_fns
 from models.model_wrapper import ModelWrapper
 from search.a_star import AStar
@@ -27,20 +25,20 @@ def search_time_limit(initial_states, planner, model, time_limit_seconds):
     solutions = {}
 
     # todo: why do prefill the solution dict?
-    for puzzle_name, initial_state in initial_states.items():
+    for problem_name, initial_state in initial_states.items():
         initial_state.reset()
-        solutions[puzzle_name] = (-1, -1, -1, -1)
+        solutions[problem_name] = (-1, -1, -1, -1)
 
         solution_depth, expanded, generated, running_time = planner.search(
-            initial_state, puzzle_name, -1, time.time(), time_limit_seconds, 0, model
+            initial_state, problem_name, -1, time.time(), time_limit_seconds, 0, model
         )
 
-        solutions[puzzle_name] = (solution_depth, expanded, generated, running_time)
+        solutions[problem_name] = (solution_depth, expanded, generated, running_time)
 
-    for puzzle_name, data in solutions.items():
+    for problem_name, data in solutions.items():
         print(
             "{:s}, {:d}, {:d}, {:d}, {:.2f}".format(
-                puzzle_name, data[0], data[1], data[2], data[3]
+                problem_name, data[0], data[1], data[2], data[3]
             )
         )
 
@@ -53,21 +51,21 @@ def search(initial_states, planner, model, time_limit_seconds, search_budget=-1)
 
     solutions = {}
 
-    for puzzle_name, initial_state in initial_states.items():
+    for problem_name, initial_state in initial_states.items():
         initial_state.reset()
-        solutions[puzzle_name] = (-1, -1, -1, -1)
+        solutions[problem_name] = (-1, -1, -1, -1)
 
     start_time = time.time()
 
     while len(initial_states) > 0:
 
         #         args = [(state, name, nn_model, search_budget, start_time, time_limit_seconds, slack_time) for name, state in states.items()]
-        #         solution_depth, expanded, generated, running_time, puzzle_name = planner.search(args[0])
+        #         solution_depth, expanded, generated, running_time, problem_name = planner.search(args[0])
 
-        for puzzle_name, initial_state in initial_states.items():
+        for problem_name, initial_state in initial_states.items():
             solution_depth, expanded, generated, running_time = planner.search(
                 initial_state,
-                puzzle_name,
+                problem_name,
                 search_budget,
                 start_time,
                 time_limit_seconds,
@@ -76,13 +74,13 @@ def search(initial_states, planner, model, time_limit_seconds, search_budget=-1)
             )
 
             if solution_depth > 0:
-                solutions[puzzle_name] = (
+                solutions[problem_name] = (
                     solution_depth,
                     expanded,
                     generated,
                     running_time,
                 )
-                del initial_states[puzzle_name]
+                del initial_states[problem_name]
 
         partial_time = time.time()
 
@@ -91,10 +89,10 @@ def search(initial_states, planner, model, time_limit_seconds, search_budget=-1)
             or len(initial_states) == 0
             or search_budget >= 1000000
         ):
-            for puzzle_name, data in solutions.items():
+            for problem_name, data in solutions.items():
                 print(
                     "{:s}, {:d}, {:d}, {:d}, {:.2f}".format(
-                        puzzle_name, data[0], data[1], data[2], data[3]
+                        problem_name, data[0], data[1], data[2], data[3]
                     )
                 )
             return
@@ -268,26 +266,26 @@ def main():
 
     if parameters.problem_domain == "SlidingTile":
         in_channels = 25
-        puzzle_files = [
+        problem_files = [
             f
             for f in listdir(parameters.problems_folder)
             if isfile(join(parameters.problems_folder, f))
         ]
 
         j = 1
-        for filename in puzzle_files:
+        for filename in problem_files:
             with open(join(parameters.problems_folder, filename), "r") as file:
                 problems = file.readlines()
 
                 for i in range(len(problems)):
-                    puzzle = SlidingTilePuzzle(problems[i])
-                    states["puzzle_" + str(j)] = puzzle
+                    problem = SlidingTilePuzzle(problems[i])
+                    states["problem_" + str(j)] = problem
 
                     j += 1
 
     elif parameters.problem_domain == "Witness":
         in_channels = 9
-        puzzle_files = [
+        problem_files = [
             f
             for f in listdir(parameters.problems_folder)
             if isfile(join(parameters.problems_folder, f))
@@ -295,21 +293,21 @@ def main():
 
         j = 1
 
-        for filename in puzzle_files:
+        for filename in problem_files:
             if "." in filename:
                 continue
 
             with open(join(parameters.problems_folder, filename), "r") as file:
-                puzzle = file.readlines()
+                problem = file.readlines()
 
                 i = 0
-                while i < len(puzzle):
+                while i < len(problem):
                     k = i
-                    while k < len(puzzle) and puzzle[k] != "\n":
+                    while k < len(problem) and problem[k] != "\n":
                         k += 1
                     s = WitnessState()
-                    s.read_state_from_string(puzzle[i:k])
-                    states["puzzle_" + str(j)] = s
+                    s.read_state_from_string(problem[i:k])
+                    states["problem_" + str(j)] = s
                     i = k + 1
                     j += 1
     #             s.read_state(join(parameters.problems_folder, filename))
@@ -318,11 +316,11 @@ def main():
     elif parameters.problem_domain == "Sokoban":
         in_channels = 4
         problem = []
-        puzzle_files = []
+        problem_files = []
         if isfile(parameters.problems_folder):
-            puzzle_files.append(parameters.problems_folder)
+            problem_files.append(parameters.problems_folder)
         else:
-            puzzle_files = [
+            problem_files = [
                 join(parameters.problems_folder, f)
                 for f in listdir(parameters.problems_folder)
                 if isfile(join(parameters.problems_folder, f))
@@ -330,15 +328,15 @@ def main():
 
         problem_id = 0
 
-        for filename in puzzle_files:
+        for filename in problem_files:
             with open(filename, "r") as file:
                 all_problems = file.readlines()
 
             for line_in_problem in all_problems:
                 if ";" in line_in_problem:
                     if len(problem) > 0:
-                        puzzle = Sokoban(problem)
-                        states["puzzle_" + str(problem_id)] = puzzle
+                        problem = Sokoban(problem)
+                        states["problem_" + str(problem_id)] = problem
 
                     problem = []
                     #                 problem_id = line_in_problem.split(' ')[1].split('\n')[0]
@@ -348,8 +346,8 @@ def main():
                     problem.append(line_in_problem.split("\n")[0])
 
             if len(problem) > 0:
-                puzzle = Sokoban(problem)
-                states["puzzle_" + str(problem_id)] = puzzle
+                problem = Sokoban(problem)
+                states["problem_" + str(problem_id)] = problem
     else:
         raise ValueError("Problem domain not recognized")
 
@@ -357,8 +355,8 @@ def main():
         states_capped = {}
         counter = 0
 
-        for name, puzzle in states.items():
-            states_capped[name] = puzzle
+        for name, problem in states.items():
+            states_capped[name] = problem
             counter += 1
 
             if counter == parameters.number_test_instances:

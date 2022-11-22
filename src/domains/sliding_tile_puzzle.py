@@ -152,13 +152,13 @@ class SlidingTilePuzzle(Environment):
 
     def get_image_representation(self):
 
-        image = np.zeros((self._width, self._width, self._size))
+        image = np.zeros((self._size, self._width, self._width), dtype=np.float32)
 
-        for i in range(self._size):
-            l = int(self._pos[i] / self._width)
-            c = int(self._pos[i] % self._width)
+        for num in range(self._size):
+            row = int(self._pos[num] / self._width)
+            col = int(self._pos[num] % self._width)
 
-            image[l][c][i] = 1
+            image[num][row][col] = 1
 
         return image
 

@@ -6,7 +6,6 @@ class ModelWrapper(to.nn.Module):
     def __init__(self):
         super().__init__()
         self.model = None
-        self.loss_function = None
 
     def initialize(self, in_channels, search_algorithm, two_headed_model=False):
         if (
@@ -22,8 +21,8 @@ class ModelWrapper(to.nn.Module):
         if search_algorithm == "AStar" or search_algorithm == "GBFS":
             self.model = HeuristicConvNet(in_channels, (2, 2), 32, 4)
 
-    def predict(self, x):
-        return self.model.predict(x)
+    def forward(self, x):
+        return self.model(x)
 
     def save_weights(self, filepath):
         to.save(self.model.state_dict(), filepath)

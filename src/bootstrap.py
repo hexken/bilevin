@@ -2,6 +2,8 @@ import os
 from os.path import join
 import time
 
+import torch as to
+
 from models.memory import Memory
 
 
@@ -46,49 +48,52 @@ class Bootstrap:
         optimizer = self._optimizer_cons(model.parameters(), **self._optimizer_params)
         start = time.time()
 
-        current_solved_puzzles = set()
+        current_solved_problems = set()
         number_solved = 0
         total_expanded = 0
         total_generated = 0
         budget = self._initial_budget
 
         iteration = 1
-        while len(current_solved_puzzles) < self._number_problems:
+        while len(current_solved_problems) < self._number_problems:
             number_solved = 0
 
             batch_problems = {}
-            for puzzle_name, initial_state in self._states.items():
+            for problem_name, initial_state in self._states.items():
 
-                #                 if name in current_solved_puzzles:
+                #                 if name in current_solved_problems:
                 #                     continue
 
-                batch_problems[puzzle_name] = initial_state
+                batch_problems[problem_name] = initial_state
 
                 if (
                     len(batch_problems) < self._batch_size
-                    and self._number_problems - len(current_solved_puzzles)
+                    and self._number_problems - len(current_solved_problems)
                     > self._batch_size
                 ):
                     continue
 
-                for puzzle_name, initial_state in batch_problems.items():
-                    (
-                        has_found_solution,
-                        trajectory,
-                        total_expanded,
-                        total_generated,
-                    ) = planner.search_for_learning(
-                        initial_state, puzzle_name, budget, model
-                    )
+                with to.no_grad():
+                    model.eval()
+                    for problem_name, initial_state in batch_problems.items():
+                        (
+                            has_found_solution,
+                            trajectory,
+                            total_expanded,
+                            total_generated,
+                        ) = planner.search_for_learning(
+                            initial_state, problem_name, budget, model
+                        )
 
-                    if has_found_solution:
-                        memory.add_trajectory(trajectory)
+                        if has_found_solution:
+                            memory.add_trajectory(trajectory)
 
-                        if puzzle_name not in current_solved_puzzles:
-                            number_solved += 1
-                            current_solved_puzzles.add(puzzle_name)
+                            if problem_name not in current_solved_problems:
+                                number_solved += 1
+                                current_solved_problems.add(problem_name)
 
                 if memory.number_trajectories() > 0:
+                    model.train()
                     for _ in range(self._gradient_steps):
                         total_loss = 0
                         memory.shuffle_trajectories()
@@ -115,7 +120,7 @@ class Bootstrap:
                         "{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} \n".format(
                             iteration,
                             number_solved,
-                            self._number_problems - len(current_solved_puzzles),
+                            self._number_problems - len(current_solved_problems),
                             budget,
                             total_expanded,
                             total_generated,
