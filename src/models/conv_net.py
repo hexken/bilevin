@@ -2,6 +2,8 @@ import torch as to
 import torch.nn as nn
 import torch.nn.functional as F
 
+# todo will have to parameterize network sizes to account for all domains
+
 
 class HeuristicConvNet(nn.Module):
     def __init__(self, in_channels, kernel_size, num_filters, num_actions):
@@ -20,10 +22,13 @@ class HeuristicConvNet(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
 
-        if len(x.shape) == 4:
+        dims = x.shape
+        if dims == 4:
             x = x.flatten(1)
-        else:
+        elif dims == 3:
             x = x.flatten()
+        else:
+            raise ValueError("Invalid input shape")
 
         x = F.relu(self.linear1(x))
         x = self.linear2(x)
@@ -51,20 +56,22 @@ class TwoHeadedConvNet(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
 
-        if len(x.shape) == 4:
+        dims = x.shape
+        if dims == 4:
             x = x.flatten(1)
-        else:
+        elif dims == 3:
             x = x.flatten()
+        else:
+            raise ValueError("Invalid input shape")
 
-        action_logits = F.relu(self.linear_p1(x))
-        action_logits = self.linear_p2(action_logits)
-        action_log_probs = F.log_softmax(action_logits)
-        action_probs = F.softmax(action_logits)
+        logits = F.relu(self.linear_p1(x))
+        logits = self.linear_p2(logits)
+        # log_probs = F.log_softmax(logits)
 
         h = F.relu(self.linear_h1(x))
         h = self.linear_h2(h)
 
-        return action_log_probs, action_probs, action_logits, h
+        return logits, h
 
 
 class ConvNet(nn.Module):
@@ -84,14 +91,16 @@ class ConvNet(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
 
-        if len(x.shape) == 4:
+        dims = x.shape
+        if dims == 4:
             x = x.flatten(1)
-        else:
+        elif dims == 3:
             x = x.flatten()
+        else:
+            raise ValueError("Invalid input shape")
 
-        action_logits = F.relu(self.linear1(x))
-        action_logits = self.linear2(action_logits)
-        action_log_probs = F.log_softmax(action_logits)
-        action_probs = F.softmax(action_logits)
+        logits = F.relu(self.linear1(x))
+        logits = self.linear2(logits)
+        # log_probs = F.log_softmax(logits)
 
-        return action_log_probs, action_probs, action_logits
+        return logits

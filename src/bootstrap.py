@@ -17,7 +17,7 @@ class Bootstrap:
         optimizer_params,
         ncpus=1,
         initial_budget=2000,
-        gradient_steps=10,
+        grad_steps=10,
     ):
         self._states = states
         self._model_name = output
@@ -28,7 +28,7 @@ class Bootstrap:
 
         self._ncpus = ncpus
         self._initial_budget = initial_budget
-        self._gradient_steps = gradient_steps
+        self._grad = grad_steps
         #         self._k = ncpus * 3
         self._batch_size = 32
 
@@ -81,8 +81,8 @@ class Bootstrap:
                             trajectory,
                             total_expanded,
                             total_generated,
-                        ) = planner.search_for_learning(
-                            initial_state, problem_name, budget, model
+                        ) = planner.search(
+                            initial_state, problem_name, model, budget, learn=True
                         )
 
                         if has_found_solution:
@@ -94,7 +94,7 @@ class Bootstrap:
 
                 if memory.number_trajectories() > 0:
                     model.train()
-                    for _ in range(self._gradient_steps):
+                    for _ in range(self._grad):
                         total_loss = 0
                         memory.shuffle_trajectories()
                         for traj in memory.next_trajectory():
@@ -107,7 +107,7 @@ class Bootstrap:
                         print("Avg Loss: ", total_loss / len(memory))
                     memory.clear()
                     # todo add save interval
-                    model.save_weights(join(self._models_folder, "model_weights"))
+                    model.save_weights(join(self._models_folder, "model_weights.pt"))
 
                 batch_problems.clear()
 

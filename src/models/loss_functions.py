@@ -5,11 +5,11 @@ import torch as to
 import torch.nn.functional as F
 
 
-def traj_levin_loss(trajectory, model):
+def levin_loss(trajectory, model):
     actions_one_hot = F.one_hot(trajectory.actions, model.num_actions)
 
     images = to.tensor((s.get_image_representation() for s in trajectory.states))
-    _, _, logits = model(images)
+    logits = model(images)
 
     loss = F.cross_entropy(actions_one_hot, logits)
     loss *= to.tensor(trajectory.non_normalized_num_expanded)
@@ -17,11 +17,11 @@ def traj_levin_loss(trajectory, model):
     return loss
 
 
-def traj_improved_levin_loss(trajectory, model):
+def improved_levin_loss(trajectory, model):
     actions_one_hot = F.one_hot(trajectory.actions, model.actions)
 
     images = to.tensor((s.get_image_representation() for s in trajectory.states))
-    _, _, logits = model(images)
+    logits = model(images)
 
     loss = F.cross_entropy(actions_one_hot, logits)
 
@@ -31,7 +31,7 @@ def traj_improved_levin_loss(trajectory, model):
 
     a = 0
     if pi < 1.0:
-        a = (math.log((d + 1) / num_expanded)) / math.log(pi)
+        a = (to.log((d + 1) / num_expanded)) / to.log(pi)
     if a < 0:
         a = 0
 
@@ -40,20 +40,20 @@ def traj_improved_levin_loss(trajectory, model):
     return loss
 
 
-def traj_mse_loss(trajectory, model):
+def mse_loss(trajectory, model):
     images = to.tensor((s.get_image_representation() for s in trajectory.states))
-    _, _, h = model(images)
+    h = model(images)
     cost_to_gos = to.tensor(trajectory.cost_to_gos).unsqueeze(1)
     loss = F.mse_loss(h, cost_to_gos)
 
     return loss
 
 
-def traj_cross_entropy_loss(trajectory, model):
+def cross_entropy_loss(trajectory, model):
     actions_one_hot = F.one_hot(trajectory.actions, model.actions)
 
     images = to.tensor((s.get_image_representation() for s in trajectory.states))
-    _, _, logits = model(images)
+    logits = model(images)
     loss = F.cross_entropy(actions_one_hot, logits)
 
     return loss
@@ -146,7 +146,7 @@ def traj_cross_entropy_loss(trajectory, model):
 #         return loss
 
 
-# class RegLevinLoss(LossFunction):
+# class Reglevin_loss(LossFunction):
 #     def compute_loss(self, trajectory, model):
 #         images = [s.get_image_representation() for s in trajectory.states]
 #         actions_one_hot = tf.one_hot(
