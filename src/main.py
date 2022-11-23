@@ -1,11 +1,15 @@
 import argparse
+import os
 from os import listdir
 from os.path import isfile, join
 import time
 
 import torch as to
+import numpy as np
+from torch.utils.tensorboard.writer import SummaryWriter
 
 from bootstrap import Bootstrap
+import random
 import pathlib
 from domains import SlidingTilePuzzle, Sokoban, WitnessState
 from models import ModelWrapper
@@ -21,32 +25,25 @@ def parse_args():
         "--domain",
         type=str,
         choices=["SlidingTile", "Witness", "Sokoban"],
-        dest="problem_domain",
         help="problem domain",
     )
-
     parser.add_argument(
         "-p",
         "--problems-folder",
         type=str,
-        dest="problems_folder",
         help="name of folder with problem instances",
     )
-
     parser.add_argument(
         "-m",
         "--model-folder",
         type=str,
-        dest="model_folder",
         help="name of folder to load or save NN model",
     )
-
     parser.add_argument(
         "-l",
         "--loss-fn",
         type=str,
-        dest="loss_fn",
-        default="CrossEntropyLoss",
+        default="levin_loss",
         choices=[
             "levin_loss",
             "improved_levin_loss",
@@ -55,126 +52,132 @@ def parse_args():
         ],
         help="loss function",
     )
-
     parser.add_argument(
         "--weight-decay",
         type=float,
-        dest="weight_decay",
         default=0.0,
-        help="l2 regularization penalty",
+        help="l2 regularization weight",
     )
-
     parser.add_argument(
-        "--lr",
-        action="store",
+        "--learning-rate",
         type=float,
-        dest="lr",
         default=0.0001,
         help="optimizer learning rate",
     )
-
     parser.add_argument(
         "-g",
         "--grad-steps",
         type=int,
-        dest="grad_steps",
         default=10,
         help="number of gradient steps to be performed in each iteration of the Bootstrap system",
     )
-
     parser.add_argument(
         "-a",
         "--algorithm",
         type=str,
         choices=["Levin", "LevinStar", "PUCT", "AStar", "GBFS"],
-        dest="algorithm",
         help="name of the search algorithm (Levin, LevinStar, AStar, GBFS, PUCT)",
     )
-
     parser.add_argument(
         "-k",
         "--batch-size-expansions",
         type=int,
-        dest="batch_size_expansions",
         default=32,
         help="number of nodes to batch for expansion",
     )
-
     parser.add_argument(
         "--initial-budget",
         type=int,
-        dest="initial_budget",
         default=1024,
         help="initial budget (nodes expanded) allowed to the bootstrap procedure, or just a budget\
          allowed a non-bootstrap search",
     )
-
     parser.add_argument(
         "--final-budget",
         type=int,
-        dest="final_budget",
         default=2000000,
         help="terminate when budget grows at least this large",
     )
-
     parser.add_argument(
         "--time-limit-overall",
         type=int,
-        dest="time_limit_overall",
         default="6000",
         help="time limit in seconds for solving whole problem set",
     )
-
     parser.add_argument(
         "--time-limit-each",
         type=int,
-        dest="time_limit_each",
         default="300",
         help="time limit in seconds for solving each problem",
     )
-
     parser.add_argument(
         "--weight-uniform",
         type=float,
-        dest="weight_uniform",
         default="0.0",
         help="mixture weight with a uniform policy",
     )
-
     parser.add_argument(
         "-w",
         "--weight-astar",
         type=float,
-        dest="weight_astar",
         default="1.0",
         help="weight to be used with WA*.",
     )
-
     parser.add_argument(
         "--use-default-heuristic",
         action="store_true",
-        default=True,
-        dest="use_default_heuristic",
         help="use the default heuristic",
     )
-
     parser.add_argument(
         "--use-learned-heuristic",
         action="store_true",
         default=False,
-        dest="use_learned_heuristic",
         help="use the learned heuristic",
     )
-
     parser.add_argument(
         "--mode",
         type=str,
         choices=["train", "eval"],
         default="train",
-        dest="mode",
         help="train or test the model from model-folder using instances from problems-folder",
     )
-
+    parser.add_argument(
+        "--exp-name", type=str, default="bi-levin", help="the name of this experiment"
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="seed of the experiment",
+    )
+    parser.add_argument(
+        "--torch-deterministic",
+        action="store_true",
+        help="if toggled, `torch.backends.cudnn.deterministic=False`",
+    )
+    parser.add_argument(
+        "--cuda",
+        action="store_true",
+        help="if toggled, cuda will be enabled by default",
+    )
+    parser.add_argument(
+        "--track",
+        action="store_true",
+        default=False,
+        help="if toggled, this experiment will be tracked with Weights and Biases",
+    )
+    parser.add_argument(
+        "--wandb-project-name",
+        type=str,
+        default="bi-levin",
+        help="the wandb's project name",
+    )
+    parser.add_argument(
+        "--wandb-entity",
+        type=str,
+        default=None,
+        help="the entity (team) of wandb's project",
+    )
     args = parser.parse_args()
     return args
 
@@ -251,9 +254,37 @@ def solve_problems2(
 
 if __name__ == "__main__":
     args = parse_args()
+    start_time = time.time()
+    run_name = f"{args.domain}__{args.exp_name}__{args.seed}__{int(start_time)}"
+    if args.track:
+        import wandb
+
+        wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=vars(args),
+            name=run_name,
+            save_code=True,
+        )
+    writer = SummaryWriter(f"runs/{run_name}")
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s"
+        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+    )
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    to.manual_seed(args.seed)
+    if args.torch_deterministic:
+        to.use_deterministic_algorithms(True)
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
+    device = to.device("cuda" if to.cuda.is_available() and args.cuda else "cpu")
 
     states = {}
-    if args.problem_domain == "SlidingTile":
+    if args.domain == "SlidingTile":
         in_channels = 25
         problem_files = [
             f
@@ -272,7 +303,7 @@ if __name__ == "__main__":
 
                     j += 1
 
-    elif args.problem_domain == "Witness":
+    elif args.domain == "Witness":
         in_channels = 9
         problem_files = [
             f
@@ -302,7 +333,7 @@ if __name__ == "__main__":
     #             s.read_state(join(parameters.problems_folder, filename))
     #             states[filename] = s
 
-    elif args.problem_domain == "Sokoban":
+    elif args.domain == "Sokoban":
         in_channels = 4
         problem = []
         problem_files = []
@@ -395,14 +426,12 @@ if __name__ == "__main__":
             join("trained_models_online", args.model_folder, "model_weights")
         )
 
-    start_time = time.time()
-
     # todo this part only works with levin stuff for now
     if args.mode == "train":
         loss_fn = getattr(loss_fns, args.loss_fn)
         optimizer_cons = to.optim.Adam
         optimizer_params = {
-            "lr": args.lr,
+            "lr": args.learning_rate,
             "weight_decay": args.weight_decay,
         }
 
@@ -414,6 +443,7 @@ if __name__ == "__main__":
             optimizer_params,
             initial_budget=args.initial_budget,
             grad_steps=args.grad_steps,
+            writer=writer,
         )
         bootstrap.solve_uniform_online(bfs_planner, nn_model)
 
@@ -426,4 +456,4 @@ if __name__ == "__main__":
             args.time_limit,
         )
 
-    print("Total time: ", time.time() - start_time)
+    print(f"Total time: {time.time() - start_time}")

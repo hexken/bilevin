@@ -15,24 +15,20 @@ class Bootstrap:
         loss_fn,
         optimizer_cons,
         optimizer_params,
-        ncpus=1,
         initial_budget=2000,
         grad_steps=10,
+        writer=None,
     ):
         self._states = states
         self._model_name = output
         self._loss_fn = loss_fn
-        self._number_problems = len(states)
+        self._num_problems = len(states)
         self._optimizer_cons = optimizer_cons
         self._optimizer_params = optimizer_params
 
-        self._ncpus = ncpus
         self._initial_budget = initial_budget
-        self._grad = grad_steps
-        #         self._k = ncpus * 3
+        self._grad_steps = grad_steps
         self._batch_size_expansions = 32
-
-        self._kmax = 10
 
         self._log_folder = "training_logs/"
         self._models_folder = "trained_models_online/" + self._model_name
@@ -46,29 +42,26 @@ class Bootstrap:
     def solve_uniform_online(self, planner, model):
         memory = Memory()
         optimizer = self._optimizer_cons(model.parameters(), **self._optimizer_params)
-        start = time.time()
+        start_time = time.time()
 
         current_solved_problems = set()
-        number_solved = 0
-        total_expanded = 0
-        total_generated = 0
-        budget = self._initial_budget
+        num_expanded = 0
+        num_generated = 0
+        current_budget = self._initial_budget
 
         iteration = 1
-        while len(current_solved_problems) < self._number_problems:
-            number_solved = 0
+        num_unsolved_problems = self._num_problems
+        while num_unsolved_problems > 0:
+            num_problems_solved_this_iter = 0
 
             batch_problems = {}
             for problem_name, initial_state in self._states.items():
-
-                #                 if name in current_solved_problems:
-                #                     continue
 
                 batch_problems[problem_name] = initial_state
 
                 if (
                     len(batch_problems) < self._batch_size_expansions
-                    and self._number_problems - len(current_solved_problems)
+                    and self._num_problems - len(current_solved_problems)
                     > self._batch_size_expansions
                 ):
                     continue
@@ -78,23 +71,27 @@ class Bootstrap:
                     for problem_name, initial_state in batch_problems.items():
                         (
                             has_found_solution,
-                            total_expanded,
-                            total_generated,
+                            num_expanded,
+                            num_generated,
                             traj,
                         ) = planner.search(
-                            initial_state, problem_name, model, budget, learn=True
+                            initial_state,
+                            problem_name,
+                            model,
+                            current_budget,
+                            learn=True,
                         )
 
                         if has_found_solution:
                             memory.add_trajectory(traj)
 
                             if problem_name not in current_solved_problems:
-                                number_solved += 1
+                                num_problems_solved_this_iter += 1
                                 current_solved_problems.add(problem_name)
 
                 if memory.number_trajectories() > 0:
                     model.train()
-                    for _ in range(self._grad):
+                    for _ in range(self._grad_steps):
                         total_loss = 0
                         memory.shuffle_trajectories()
                         for traj in memory.next_trajectory():
@@ -106,12 +103,11 @@ class Bootstrap:
 
                         print("Avg Loss: ", total_loss / len(memory))
                     memory.clear()
-                    # todo add save interval
+                    # todo add save interval, overhaul checkpointing
                     model.save_weights(join(self._models_folder, "model_weights.pt"))
 
                 batch_problems.clear()
 
-            end = time.time()
             with open(
                 join(self._log_folder + "training_bootstrap_" + self._model_name), "a"
             ) as results_file:
@@ -119,20 +115,21 @@ class Bootstrap:
                     (
                         "{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} \n".format(
                             iteration,
-                            number_solved,
-                            self._number_problems - len(current_solved_problems),
-                            budget,
-                            total_expanded,
-                            total_generated,
-                            end - start,
+                            num_problems_solved_this_iter,
+                            self._num_problems - len(current_solved_problems),
+                            current_budget,
+                            num_expanded,
+                            num_generated,
+                            time.time() - start_time,
                         )
                     )
                 )
+            num_unsolved_problems -= num_problems_solved_this_iter
 
-            print("Number solved: ", number_solved)
-            if number_solved == 0:
-                budget *= 2
-                print("Budget: ", budget)
+            print(f"Number solved: {num_problems_solved_this_iter}")
+            if num_problems_solved_this_iter == 0:
+                current_budget *= 2
+                print(f"Budget: {current_budget}")
                 continue
 
             iteration += 1
