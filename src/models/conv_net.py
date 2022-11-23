@@ -22,7 +22,7 @@ class HeuristicConvNet(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
 
-        dims = x.shape
+        dims = len(x.shape)
         if dims == 4:
             x = x.flatten(1)
         elif dims == 3:
@@ -56,7 +56,7 @@ class TwoHeadedConvNet(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
 
-        dims = x.shape
+        dims = len(x.shape)
         if dims == 4:
             x = x.flatten(1)
         elif dims == 3:
@@ -91,7 +91,7 @@ class ConvNet(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
 
-        dims = x.shape
+        dims = len(x.shape)
         if dims == 4:
             x = x.flatten(1)
         elif dims == 3:

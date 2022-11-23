@@ -78,15 +78,15 @@ class Bootstrap:
                     for problem_name, initial_state in batch_problems.items():
                         (
                             has_found_solution,
-                            trajectory,
                             total_expanded,
                             total_generated,
+                            traj,
                         ) = planner.search(
                             initial_state, problem_name, model, budget, learn=True
                         )
 
                         if has_found_solution:
-                            memory.add_trajectory(trajectory)
+                            memory.add_trajectory(traj)
 
                             if problem_name not in current_solved_problems:
                                 number_solved += 1

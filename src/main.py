@@ -21,7 +21,6 @@ def parse_args():
         "--domain",
         type=str,
         choices=["SlidingTile", "Witness", "Sokoban"],
-        action="store",
         dest="problem_domain",
         help="problem domain",
     )
@@ -29,7 +28,6 @@ def parse_args():
     parser.add_argument(
         "-p",
         "--problems-folder",
-        action="store",
         type=str,
         dest="problems_folder",
         help="name of folder with problem instances",
@@ -38,7 +36,6 @@ def parse_args():
     parser.add_argument(
         "-m",
         "--model-folder",
-        action="store",
         type=str,
         dest="model_folder",
         help="name of folder to load or save NN model",
@@ -47,7 +44,6 @@ def parse_args():
     parser.add_argument(
         "-l",
         "--loss-fn",
-        action="store",
         type=str,
         dest="loss_fn",
         default="CrossEntropyLoss",
@@ -62,7 +58,6 @@ def parse_args():
 
     parser.add_argument(
         "--weight-decay",
-        action="store",
         type=float,
         dest="weight_decay",
         default=0.0,
@@ -82,19 +77,17 @@ def parse_args():
         "-g",
         "--grad-steps",
         type=int,
-        action="store",
         dest="grad_steps",
         default=10,
         help="number of gradient steps to be performed in each iteration of the Bootstrap system",
     )
 
     parser.add_argument(
-        "-s",
-        "--search-algorithm",
+        "-a",
+        "--algorithm",
         type=str,
         choices=["Levin", "LevinStar", "PUCT", "AStar", "GBFS"],
-        action="store",
-        dest="search_algorithm",
+        dest="algorithm",
         help="name of the search algorithm (Levin, LevinStar, AStar, GBFS, PUCT)",
     )
 
@@ -102,7 +95,6 @@ def parse_args():
         "-k",
         "--batch-size-expansions",
         type=int,
-        action="store",
         dest="batch_size_expansions",
         default=32,
         help="number of nodes to batch for expansion",
@@ -111,7 +103,6 @@ def parse_args():
     parser.add_argument(
         "--initial-budget",
         type=int,
-        action="store",
         dest="initial_budget",
         default=1024,
         help="initial budget (nodes expanded) allowed to the bootstrap procedure, or just a budget\
@@ -121,7 +112,6 @@ def parse_args():
     parser.add_argument(
         "--final-budget",
         type=int,
-        action="store",
         dest="final_budget",
         default=2000000,
         help="terminate when budget grows at least this large",
@@ -130,7 +120,6 @@ def parse_args():
     parser.add_argument(
         "--time-limit-overall",
         type=int,
-        action="store",
         dest="time_limit_overall",
         default="6000",
         help="time limit in seconds for solving whole problem set",
@@ -139,7 +128,6 @@ def parse_args():
     parser.add_argument(
         "--time-limit-each",
         type=int,
-        action="store",
         dest="time_limit_each",
         default="300",
         help="time limit in seconds for solving each problem",
@@ -148,7 +136,6 @@ def parse_args():
     parser.add_argument(
         "--weight-uniform",
         type=float,
-        action="store",
         dest="weight_uniform",
         default="0.0",
         help="mixture weight with a uniform policy",
@@ -158,7 +145,6 @@ def parse_args():
         "-w",
         "--weight-astar",
         type=float,
-        action="store",
         dest="weight_astar",
         default="1.0",
         help="weight to be used with WA*.",
@@ -184,7 +170,6 @@ def parse_args():
         "--mode",
         type=str,
         choices=["train", "eval"],
-        action="store_true",
         default="train",
         dest="mode",
         help="train or test the model from model-folder using instances from problems-folder",
@@ -356,7 +341,7 @@ if __name__ == "__main__":
 
     print("Loaded ", len(states), " instances")
 
-    if args.search_algorithm == "Levin":
+    if args.algorithm == "Levin":
         bfs_planner = BFSLevin(
             args.use_default_heuristic,
             args.use_learned_heuristic,
@@ -364,7 +349,7 @@ if __name__ == "__main__":
             args.batch_size_expansions,
             args.weight_uniform,
         )
-    elif args.search_algorithm == "LevinStar":
+    elif args.algorithm == "LevinStar":
         bfs_planner = BFSLevin(
             args.use_default_heuristic,
             args.use_learned_heuristic,
@@ -372,7 +357,7 @@ if __name__ == "__main__":
             args.batch_size_expansions,
             args.weight_uniform,
         )
-    elif args.search_algorithm == "PUCT":
+    elif args.algorithm == "PUCT":
 
         bfs_planner = PUCT(
             args.use_default_heuristic,
@@ -380,14 +365,14 @@ if __name__ == "__main__":
             args.batch_size_expansions,
             1,  # todo old cpucnt param, do something
         )
-    elif args.search_algorithm == "AStar":
+    elif args.algorithm == "AStar":
         bfs_planner = AStar(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             args.batch_size_expansions,
             args.weight_astar,
         )
-    elif args.search_algorithm == "GBFS":
+    elif args.algorithm == "GBFS":
         bfs_planner = GBFS(
             args.use_default_heuristic,
             args.use_learned_heuristic,
@@ -400,7 +385,7 @@ if __name__ == "__main__":
 
     nn_model.initialize(
         in_channels,
-        args.search_algorithm,
+        args.algorithm,
         two_headed_model=args.use_learned_heuristic,
     )
 
