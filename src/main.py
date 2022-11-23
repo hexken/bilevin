@@ -100,10 +100,10 @@ def parse_args():
 
     parser.add_argument(
         "-k",
-        "--batch-expansions",
+        "--batch-size-expansions",
         type=int,
         action="store",
-        dest="args.k_expansions",
+        dest="batch_size_expansions",
         default=32,
         help="number of nodes to batch for expansion",
     )
@@ -128,30 +128,28 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--time-limit-mode",
-        type=str,
-        choices=["problem", "overall"],
-        action="store",
-        default="overall",
-        dest="time_limit_mode",
-        help="use time-limit to bound run-time per problem or overall?",
-    )
-
-    parser.add_argument(
-        "-t",
-        "--time-limit",
+        "--time-limit-overall",
         type=int,
         action="store",
-        dest="time_limit",
-        default="300",
-        help="time limit in seconds for search",
+        dest="time_limit_overall",
+        default="6000",
+        help="time limit in seconds for solving whole problem set",
     )
 
     parser.add_argument(
-        "--mix",
+        "--time-limit-each",
+        type=int,
+        action="store",
+        dest="time_limit_each",
+        default="300",
+        help="time limit in seconds for solving each problem",
+    )
+
+    parser.add_argument(
+        "--weight-uniform",
         type=float,
         action="store",
-        dest="mix_epsilon",
+        dest="weight_uniform",
         default="0.0",
         help="mixture weight with a uniform policy",
     )
@@ -189,7 +187,7 @@ def parse_args():
         action="store_true",
         default="train",
         dest="mode",
-        help="train or test the model using instances from problems-folder",
+        help="train or test the model from model-folder using instances from problems-folder",
     )
 
     args = parser.parse_args()
@@ -197,18 +195,11 @@ def parse_args():
 
 
 def solve_problems(initial_states, planner, model, time_limit_seconds):
-    """
-    This function runs (best-first) Levin tree search with a learned policy on a set of problems.
-    The search will be bounded by a time limit. The number of nodes expanded and generated will be
-    reported, independently if the planner solved the problem or not. If the planner solves the
-    problem, then the procedure also reports solution depth.
-    """
+    """ """
     solutions = {}
 
-    # todo: why do prefill the solution dict?
     for problem_name, initial_state in initial_states.items():
         initial_state.reset()
-        solutions[problem_name] = (-1, -1, -1, -1)
 
         solution_depth, expanded, generated, running_time = planner.search(
             initial_state, problem_name, -1, time.time(), time_limit_seconds, 0, model
@@ -227,11 +218,7 @@ def solve_problems(initial_states, planner, model, time_limit_seconds):
 def solve_problems2(
     initial_states, planner, model, time_limit_seconds, search_budget=-1
 ):
-    """
-    This function runs (best-first) Levin tree search with a learned policy on a set of problems
-    """
-    slack_time = 600
-
+    """ """
     solutions = {}
 
     for problem_name, initial_state in initial_states.items():
@@ -249,7 +236,6 @@ def solve_problems2(
                 search_budget,
                 start_time,
                 time_limit_seconds,
-                slack_time,
                 model,
             )
 
@@ -262,10 +248,8 @@ def solve_problems2(
                 )
                 del initial_states[problem_name]
 
-        partial_time = time.time()
-
         if (
-            partial_time - start_time + slack_time > time_limit_seconds
+            time.time() - start_time > time_limit_seconds
             or len(initial_states) == 0
             or search_budget >= 1000000
         ):
@@ -359,7 +343,6 @@ if __name__ == "__main__":
                         states["problem_" + str(problem_id)] = problem
 
                     problem = []
-                    #                 problem_id = line_in_problem.split(' ')[1].split('\n')[0]
                     problem_id += 1
 
                 elif "\n" != line_in_problem:
@@ -369,47 +352,46 @@ if __name__ == "__main__":
                 problem = Sokoban(problem)
                 states["problem_" + str(problem_id)] = problem
     else:
-        raise ValueError("Problem domain not recognized")
+        raise ValueError("problem domain not recognized")
 
     print("Loaded ", len(states), " instances")
-    #     input_size = s.get_image_representation().shape
-
-    start = time.time()
 
     if args.search_algorithm == "Levin":
         bfs_planner = BFSLevin(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             False,
-            args.k_expansions,
-            args.mix_epsilon,
+            args.batch_size_expansions,
+            args.weight_uniform,
         )
     elif args.search_algorithm == "LevinStar":
         bfs_planner = BFSLevin(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             True,
-            args.k_expansions,
-            args.mix_epsilon,
+            args.batch_size_expansions,
+            args.weight_uniform,
         )
     elif args.search_algorithm == "PUCT":
 
         bfs_planner = PUCT(
             args.use_default_heuristic,
             args.use_learned_heuristic,
-            args.k_expansions,
+            args.batch_size_expansions,
             1,  # todo old cpucnt param, do something
         )
     elif args.search_algorithm == "AStar":
         bfs_planner = AStar(
             args.use_default_heuristic,
             args.use_learned_heuristic,
-            args.k_expansions,
+            args.batch_size_expansions,
             args.weight_astar,
         )
     elif args.search_algorithm == "GBFS":
         bfs_planner = GBFS(
-            args.use_default_heuristic, args.use_learned_heuristic, args.k_expansions
+            args.use_default_heuristic,
+            args.use_learned_heuristic,
+            args.batch_size_expansions,
         )
     else:
         raise ValueError("Search algorithm not recognized")
@@ -427,6 +409,8 @@ if __name__ == "__main__":
         nn_model.load_weights(
             join("trained_models_online", args.model_folder, "model_weights")
         )
+
+    start_time = time.time()
 
     # todo this part only works with levin stuff for now
     if args.mode == "train":
@@ -457,4 +441,4 @@ if __name__ == "__main__":
             args.time_limit,
         )
 
-    print("Total time: ", time.time() - start)
+    print("Total time: ", time.time() - start_time)

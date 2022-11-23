@@ -5,6 +5,7 @@ import copy
 
 
 class SlidingTilePuzzle(Environment):
+    # todo vectorize this by using a tensor for maintaining state and permuting
     def __init__(self, tiles):
         if isinstance(tiles, str):
             tiles = tiles.replace("\n", "").split(" ")
@@ -151,6 +152,18 @@ class SlidingTilePuzzle(Environment):
         return True
 
     def get_image_representation(self):
+
+        image = np.zeros((self._size, self._width, self._width), dtype=np.float32)
+
+        for num in range(self._size):
+            row = int(self._pos[num] / self._width)
+            col = int(self._pos[num] % self._width)
+
+            image[num][row][col] = 1
+
+        return image
+
+    def to_tensor(self):
 
         image = np.zeros((self._size, self._width, self._width), dtype=np.float32)
 

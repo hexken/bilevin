@@ -30,7 +30,7 @@ class Bootstrap:
         self._initial_budget = initial_budget
         self._grad = grad_steps
         #         self._k = ncpus * 3
-        self._batch_size = 32
+        self._batch_size_expansions = 32
 
         self._kmax = 10
 
@@ -67,9 +67,9 @@ class Bootstrap:
                 batch_problems[problem_name] = initial_state
 
                 if (
-                    len(batch_problems) < self._batch_size
+                    len(batch_problems) < self._batch_size_expansions
                     and self._number_problems - len(current_solved_problems)
-                    > self._batch_size
+                    > self._batch_size_expansions
                 ):
                     continue
 
