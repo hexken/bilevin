@@ -85,7 +85,7 @@ class Bootstrap:
                         if has_found_solution:
                             print(
                                 f"{problem_name} SOLVED\n"
-                                f"Time: {time.time() - start_time: .3f}\n"
+                                f"Time: {time.time() - start_time:.3f}\n"
                                 f"Cost: {has_found_solution}\n"
                                 f"Expanded: {num_expanded}\n"
                                 f"Generated: {num_generated}\n"
