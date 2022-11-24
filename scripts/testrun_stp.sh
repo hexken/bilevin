@@ -10,4 +10,4 @@ python src/main.py \
     --initial-budget 7000 \
     --grad-steps 10 \
     --batch-size-expansions 32 \
-    --batch-size-bootstrap 10\
+    --batch-size-bootstrap 32\

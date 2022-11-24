@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import pathlib
+import tqdm
 import time
 
 import torch as to
@@ -52,7 +53,7 @@ class Bootstrap:
             num_problems_solved_this_pass = 0
 
             batch_problems = {}
-            for problem_name, initial_state in self._states.items():
+            for problem_name, initial_state in tqdm.tqdm(self._states.items()):
 
                 batch_problems[problem_name] = initial_state
 
@@ -81,15 +82,15 @@ class Bootstrap:
                             learn=True,
                         )
 
-                        print(
-                            f"{problem_name} {'SOLVED' if has_found_solution else 'UNSOLVED'}\n"
-                            f"Time: {time.time() - start_time: .3f}\n"
-                            f"Cost: {has_found_solution}\n"
-                            f"Expanded: {num_expanded}\n"
-                            f"Generated: {num_generated}\n"
-                        )
-
                         if has_found_solution:
+                            print(
+                                f"{problem_name} SOLVED\n"
+                                f"Time: {time.time() - start_time: .3f}\n"
+                                f"Cost: {has_found_solution}\n"
+                                f"Expanded: {num_expanded}\n"
+                                f"Generated: {num_generated}\n"
+                            )
+
                             memory.add_trajectory(traj)
 
                             if problem_name not in current_solved_problems:

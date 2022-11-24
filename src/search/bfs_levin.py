@@ -146,19 +146,12 @@ class BFSLevin:
                 )
 
                 if new_state.is_solution():
-                    # print(
-                    #     "Solved problem: ",
-                    #     problem_name,
-                    #     " expanded ",
-                    #     num_expanded,
-                    #     " with budget: ",
-                    #     budget,
-                    # )
+                    solution_len = new_node.g_cost
                     if learn:
                         trajectory = Trajectory(new_node, num_expanded)
-                        return True, num_expanded, num_generated, trajectory
+                        return solution_len, num_expanded, num_generated, trajectory
                     else:
-                        return True, num_expanded, num_generated, None
+                        return solution_len, num_expanded, num_generated, None
 
                 children_to_be_evaluated.append(new_node)
                 x_input_of_children_to_be_evaluated.append(new_state.state_tensor())
@@ -169,7 +162,9 @@ class BFSLevin:
                 or len(_open) == 0
             ):
 
-                batch_states = to.stack(x_input_of_children_to_be_evaluated).to(model.device)
+                batch_states = to.stack(x_input_of_children_to_be_evaluated).to(
+                    model.device
+                )
                 action_logits = model(batch_states)
                 predicted_h = None
                 if isinstance(action_logits, tuple):
