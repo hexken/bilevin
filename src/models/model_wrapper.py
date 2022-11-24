@@ -3,9 +3,10 @@ import torch as to
 
 
 class ModelWrapper(to.nn.Module):
-    def __init__(self):
+    def __init__(self, device=to.device("cpu")):
         super().__init__()
         self.model = None
+        self.device = device
 
     def initialize(self, in_channels, search_algorithm, two_headed_model=False):
         if (
@@ -27,5 +28,5 @@ class ModelWrapper(to.nn.Module):
     def save_weights(self, filepath):
         to.save(self.model.state_dict(), filepath)
 
-    def load_weights(self, filepath):
-        self.model.load_state_dict(filepath)
+    def load_weights(self, filepath, device=to.device("cpu")):
+        self.model.load_state_dict(to.load(filepath, map_location=device))
