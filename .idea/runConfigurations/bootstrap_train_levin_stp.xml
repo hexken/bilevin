@@ -13,7 +13,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/main.py" />
-    <option name="PARAMETERS" value="--use-learned-heuristic -a Levin -l levin_loss -m 5x5-stp-levin-levinloss-learned-online -p problems/stp/puzzles_5x5_train/ --mode train -d SlidingTile --initial-budget 7000 -g 10" />
+    <option name="PARAMETERS" value="-a Levin -l levin_loss -m 5x5-stp-levin-levinloss-learned-online -p problems/stp/puzzles_5x5_train/ --mode train -d SlidingTile --initial-budget 7000 -g 10" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
