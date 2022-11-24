@@ -6,8 +6,8 @@ python src/main.py \
     --loss levin_loss \
     --model-path testpath/testmodel.pt \
     --domain SlidingTile \
-    --problems-path problems/stp/puzzles_3x3_20/ \
+    --problems-path problems/stp_test/3x3_1000/ \
     --initial-budget 7000 \
     --grad-steps 10 \
     --batch-size-expansions 32 \
-    --batch-size-bootstrap 5\
+    --batch-size-bootstrap 10\

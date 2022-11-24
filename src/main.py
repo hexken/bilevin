@@ -376,7 +376,7 @@ if __name__ == "__main__":
     else:
         raise ValueError("problem domain not recognized")
 
-    print(f"Loaded {len(states)} instances\n")
+    print(f"Loaded {len(states)} instances\n from {args.problems_path}\n")
 
     if args.algorithm == "Levin":
         planner = BFSLevin(

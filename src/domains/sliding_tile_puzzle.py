@@ -73,14 +73,8 @@ class SlidingTilePuzzle(Environment):
                 return False
         return True
 
-    def save_state(self, filename):
-        file = open(filename, "a+")
-
-        for i in range(self._size):
-            file.write(str(self._tiles[i]) + " ")
-        file.write("\n")
-
-        file.close()
+    def one_line(self):
+        return " ".join(str(t) for t in self._tiles)
 
     def successors(self):
         actions = []
