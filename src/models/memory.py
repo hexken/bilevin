@@ -15,6 +15,7 @@ class Trajectory:
         self.num_expanded = num_expanded
         self.solution_prob = math.exp(search_node.log_prob)
 
+        action = search_node.action
         node = search_node.parent
         self.states = []
         self.actions = []
@@ -23,8 +24,9 @@ class Trajectory:
 
         while node:
             self.states.append(node.state)
-            self.actions.append(node.action)
+            self.actions.append(action)
             self.cost_to_gos.append(cost)
+            action = node.action
             node = node.parent
             cost += 1
 
@@ -35,8 +37,8 @@ class Memory:
         self._max_expanded = -sys.maxsize
 
     def add_trajectory(self, trajectory):
-        if trajectory.get_expanded() > self._max_expanded:
-            self._max_expanded = trajectory.get_expanded()
+        if trajectory.num_expanded > self._max_expanded:
+            self._max_expanded = trajectory.num_expanded
 
         self._trajectories.append(trajectory)
 
@@ -46,9 +48,9 @@ class Memory:
     def next_trajectory(self):
 
         for i in range(len(self._trajectories)):
-            traject = np.array(self._trajectories)[self._random_indices[i]]
-            traject.normalize_expanded(self._max_expanded)
-            yield traject
+            traj = np.array(self._trajectories)[self._random_indices[i]]
+            traj.num_expanded /= self._max_expanded
+            yield traj
 
     def number_trajectories(self):
         return len(self._trajectories)

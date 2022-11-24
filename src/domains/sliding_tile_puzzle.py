@@ -1,4 +1,5 @@
 import numpy as np
+import torch as to
 import math
 from domains.environment import Environment
 import copy
@@ -163,9 +164,9 @@ class SlidingTilePuzzle(Environment):
 
         return image
 
-    def to_tensor(self):
+    def state_tensor(self):
 
-        image = np.zeros((self._size, self._width, self._width), dtype=np.float32)
+        image = to.zeros((self._size, self._width, self._width))
 
         for num in range(self._size):
             row = int(self._pos[num] / self._width)

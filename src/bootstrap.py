@@ -1,5 +1,6 @@
 import os
-from os.path import join
+from pathlib import Path
+import pathlib
 import time
 
 import torch as to
@@ -11,16 +12,17 @@ class Bootstrap:
     def __init__(
         self,
         states,
-        output,
+        model_path,
         loss_fn,
         optimizer_cons,
         optimizer_params,
         initial_budget=2000,
         grad_steps=10,
+        batch_size=32,
         writer=None,
     ):
         self._states = states
-        self._model_name = output
+        self._model_name = model_path
         self._loss_fn = loss_fn
         self._num_problems = len(states)
         self._optimizer_cons = optimizer_cons
@@ -28,31 +30,26 @@ class Bootstrap:
 
         self._initial_budget = initial_budget
         self._grad_steps = grad_steps
-        self._batch_size_expansions = 32
+        self._batch_problems_size = batch_size
 
-        self._log_folder = "training_logs/"
-        self._models_folder = "trained_models_online/" + self._model_name
-
-        if not os.path.exists(self._models_folder):
-            os.makedirs(self._models_folder)
-
-        if not os.path.exists(self._log_folder):
-            os.makedirs(self._log_folder)
+        self.model_path = model_path
+        self.writer = writer
 
     def solve_uniform_online(self, planner, model):
         memory = Memory()
         optimizer = self._optimizer_cons(model.parameters(), **self._optimizer_params)
-        start_time = time.time()
 
         current_solved_problems = set()
         num_expanded = 0
         num_generated = 0
         current_budget = self._initial_budget
 
-        iteration = 1
-        num_unsolved_problems = self._num_problems
-        while num_unsolved_problems > 0:
-            num_problems_solved_this_iter = 0
+        num_passes_problemset = 0
+        opt_steps = 0
+        num_problems_unsolved = self._num_problems
+
+        while num_problems_unsolved > 0:
+            num_problems_solved_this_pass = 0
 
             batch_problems = {}
             for problem_name, initial_state in self._states.items():
@@ -60,15 +57,17 @@ class Bootstrap:
                 batch_problems[problem_name] = initial_state
 
                 if (
-                    len(batch_problems) < self._batch_size_expansions
-                    and self._num_problems - len(current_solved_problems)
-                    > self._batch_size_expansions
+                    len(batch_problems)
+                    < self._batch_problems_size
+                    # and self._num_problems - len(current_solved_problems)
+                    # > self._batch_problems_size
                 ):
                     continue
 
                 with to.no_grad():
                     model.eval()
                     for problem_name, initial_state in batch_problems.items():
+                        start_time = time.time()
                         (
                             has_found_solution,
                             num_expanded,
@@ -82,15 +81,24 @@ class Bootstrap:
                             learn=True,
                         )
 
+                        print(
+                            f"{problem_name} {'SOLVED' if has_found_solution else 'UNSOLVED'}\n"
+                            f"Time: {time.time() - start_time: .3f}\n"
+                            f"Cost: {has_found_solution}\n"
+                            f"Expanded: {num_expanded}\n"
+                            f"Generated: {num_generated}\n"
+                        )
+
                         if has_found_solution:
                             memory.add_trajectory(traj)
 
                             if problem_name not in current_solved_problems:
-                                num_problems_solved_this_iter += 1
+                                num_problems_solved_this_pass += 1
                                 current_solved_problems.add(problem_name)
 
                 if memory.number_trajectories() > 0:
                     model.train()
+                    # todo should we just do one opt step per sweep of memory (avg over all memory)?
                     for _ in range(self._grad_steps):
                         total_loss = 0
                         memory.shuffle_trajectories()
@@ -101,35 +109,40 @@ class Bootstrap:
                             optimizer.step()
                             total_loss += loss.item()
 
-                        print("Avg Loss: ", total_loss / len(memory))
+                        avg_loss = total_loss / len(memory)
+                        print(f"Avg Loss: {avg_loss:.3f}")
+                        opt_steps += 1
+                        self.writer.add_scalar(
+                            "Loss/Train Avg (over memory)", avg_loss, opt_steps
+                        )
+                    print("")
+
                     memory.clear()
-                    # todo add save interval, overhaul checkpointing
-                    model.save_weights(join(self._models_folder, "model_weights.pt"))
+                    # todo add save interval, performance increase check? Overhaul checkpointing.
+                    model.save_weights(self.model_path)
 
                 batch_problems.clear()
 
-            with open(
-                join(self._log_folder + "training_bootstrap_" + self._model_name), "a"
-            ) as results_file:
-                results_file.write(
-                    (
-                        "{:d}, {:d}, {:d}, {:d}, {:d}, {:d}, {:f} \n".format(
-                            iteration,
-                            num_problems_solved_this_iter,
-                            self._num_problems - len(current_solved_problems),
-                            current_budget,
-                            num_expanded,
-                            num_generated,
-                            time.time() - start_time,
-                        )
-                    )
-                )
-            num_unsolved_problems -= num_problems_solved_this_iter
+            self.writer.add_scalar(
+                "Performance/Num Problems Solved vs Problemset Passes",
+                self._num_problems - num_problems_unsolved,
+                num_passes_problemset,
+            )
+            self.writer.add_scalar(
+                "Performance/Num Problems Solved vs Opt Steps",
+                self._num_problems - num_problems_unsolved,
+                opt_steps,
+            )
+            num_problems_unsolved -= num_problems_solved_this_pass
+            num_passes_problemset += 1
 
-            print(f"Number solved: {num_problems_solved_this_iter}")
-            if num_problems_solved_this_iter == 0:
+            print("=========================================")
+            print(
+                f"Solved {num_problems_solved_this_pass} problem in pass #{num_passes_problemset} with budget {current_budget}"
+            )
+            print("=========================================\n")
+
+            if num_problems_solved_this_pass == 0:
                 current_budget *= 2
                 print(f"Budget: {current_budget}")
                 continue
-
-            iteration += 1

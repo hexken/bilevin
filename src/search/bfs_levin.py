@@ -49,23 +49,23 @@ class BFSLevin:
         self.batch_size_expansions = batch_size_expansions
         self.weight_uniform = weight_uniform
 
-    def get_levin_cost_star(self, child_node, predicted_h):
+    def get_levin_cost_star(self, node, predicted_h):
         if self.use_learned_heuristic and self.use_default_heuristic:
-            max_h = max(predicted_h, child_node.get_game_state().heuristic_value())
-            return math.log(max_h + child_node.get_g()) - (
-                child_node.get_p() * (1 + (max_h / child_node.get_g()))
+            max_h = max(predicted_h, node.state.heuristic_value())
+            return math.log(max_h + node.g_cost) - (
+                node.log_prob * (1 + (max_h / node.g_cost))
             )
         elif self.use_learned_heuristic:
             if predicted_h < 0:
                 predicted_h = 0
 
-            return math.log(predicted_h + child_node.get_g()) - (
-                child_node.get_p() * (1 + (predicted_h / child_node.get_g()))
+            return math.log(predicted_h + node.get_g()) - (
+                node.get_p() * (1 + (predicted_h / node.get_g()))
             )
         else:
-            h_value = child_node.get_game_state().heuristic_value()
-            return math.log(h_value + child_node.g_cost) - (
-                child_node.get_p() * (1 + (h_value / child_node.get_g()))
+            h_value = node.get_game_state().heuristic_value()
+            return math.log(h_value + node.g_cost) - (
+                node.get_p() * (1 + (h_value / node.get_g()))
             )
 
     def levin_cost(self, node, predicted_h):
@@ -97,7 +97,7 @@ class BFSLevin:
         num_expanded = 0
         num_generated = 0
 
-        state_t = to.tensor(initial_state.get_image_representation())
+        state_t = initial_state.state_tensor().to(model.device)
         acion_logits = model(state_t)
         if isinstance(acion_logits, tuple):
             acion_logits = acion_logits[0]
@@ -146,14 +146,14 @@ class BFSLevin:
                 )
 
                 if new_state.is_solution():
-                    print(
-                        "Solved problem: ",
-                        problem_name,
-                        " expanded ",
-                        num_expanded,
-                        " with budget: ",
-                        budget,
-                    )
+                    # print(
+                    #     "Solved problem: ",
+                    #     problem_name,
+                    #     " expanded ",
+                    #     num_expanded,
+                    #     " with budget: ",
+                    #     budget,
+                    # )
                     if learn:
                         trajectory = Trajectory(new_node, num_expanded)
                         return True, num_expanded, num_generated, trajectory
@@ -161,18 +161,17 @@ class BFSLevin:
                         return True, num_expanded, num_generated, None
 
                 children_to_be_evaluated.append(new_node)
-                x_input_of_children_to_be_evaluated.append(
-                    new_state.get_image_representation()
-                )
+                x_input_of_children_to_be_evaluated.append(new_state.state_tensor())
             num_expanded += 1
+
             if (
                 len(children_to_be_evaluated) >= self.batch_size_expansions
                 or len(_open) == 0
             ):
 
-                batch_states = to.tensor(np.array(x_input_of_children_to_be_evaluated))
-
+                batch_states = to.stack(x_input_of_children_to_be_evaluated).to(model.device)
                 action_logits = model(batch_states)
+                predicted_h = None
                 if isinstance(action_logits, tuple):
                     action_logits, predicted_h = action_logits
 
@@ -190,13 +189,13 @@ class BFSLevin:
                             children_to_be_evaluated[i], predicted_h[i]
                         )
                     else:
-                        if i >= len(predicted_h):
+                        if predicted_h:
                             levin_cost = self.levin_cost(
-                                children_to_be_evaluated[i], None
+                                children_to_be_evaluated[i], predicted_h[i]
                             )
                         else:
                             levin_cost = self.levin_cost(
-                                children_to_be_evaluated[i], predicted_h[i]
+                                children_to_be_evaluated[i], None
                             )
                     children_to_be_evaluated[i].log_action_probs = log_action_probs[i]
                     children_to_be_evaluated[i].levin_cost = levin_cost

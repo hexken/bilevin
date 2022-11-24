@@ -7,6 +7,7 @@ class ModelWrapper(to.nn.Module):
         super().__init__()
         self.model = None
         self.device = device
+        self.num_actions = 4
 
     def initialize(self, in_channels, search_algorithm, two_headed_model=False):
         if (
@@ -16,11 +17,11 @@ class ModelWrapper(to.nn.Module):
             or search_algorithm == "PUCT"
         ):
             if two_headed_model:
-                self.model = TwoHeadedConvNet(in_channels, (2, 2), 32, 4)
+                self.model = TwoHeadedConvNet(in_channels, (2, 2), 32, self.num_actions)
             else:
-                self.model = ConvNet(in_channels, (2, 2), 32, 4)
+                self.model = ConvNet(in_channels, (2, 2), 32, self.num_actions)
         if search_algorithm == "AStar" or search_algorithm == "GBFS":
-            self.model = HeuristicConvNet(in_channels, (2, 2), 32, 4)
+            self.model = HeuristicConvNet(in_channels, (2, 2), 32, self.num_actions)
 
     def forward(self, x):
         return self.model(x)

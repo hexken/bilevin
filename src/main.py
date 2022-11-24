@@ -2,15 +2,15 @@ import argparse
 import os
 from os import listdir
 from os.path import isfile, join
+from pathlib import Path
+import random
 import time
 
-import torch as to
 import numpy as np
+import torch as to
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from bootstrap import Bootstrap
-import random
-import pathlib
 from domains import SlidingTilePuzzle, Sokoban, WitnessState
 from models import ModelWrapper
 import models.loss_functions as loss_fns
@@ -29,15 +29,16 @@ def parse_args():
     )
     parser.add_argument(
         "-p",
-        "--problems-folder",
-        type=str,
-        help="name of folder with problem instances",
+        "--problems-path",
+        type=lambda p: Path(p).absolute(),
+        help="path of directory with problem instances",
     )
     parser.add_argument(
         "-m",
-        "--model-folder",
-        type=str,
-        help="name of folder to load or save NN model",
+        "--model-path",
+        type=lambda p: Path(p).absolute(),
+        default=Path(__file__).parent / "trained_models" / "model.pt",
+        help="path of file to load or save model",
     )
     parser.add_argument(
         "-l",
@@ -79,11 +80,16 @@ def parse_args():
         help="name of the search algorithm (Levin, LevinStar, AStar, GBFS, PUCT)",
     )
     parser.add_argument(
-        "-k",
         "--batch-size-expansions",
         type=int,
         default=32,
         help="number of nodes to batch for expansion",
+    )
+    parser.add_argument(
+        "--batch-size-bootstrap",
+        type=int,
+        default=32,
+        help="number of problems to batch during bootstrap procedure",
     )
     parser.add_argument(
         "--initial-budget",
@@ -285,16 +291,15 @@ if __name__ == "__main__":
 
     states = {}
     if args.domain == "SlidingTile":
-        in_channels = 25
         problem_files = [
             f
-            for f in listdir(args.problems_folder)
-            if isfile(join(args.problems_folder, f))
+            for f in listdir(args.problems_path)
+            if isfile(join(args.problems_path, f))
         ]
 
         j = 1
         for filename in problem_files:
-            with open(join(args.problems_folder, filename), "r") as file:
+            with open(join(args.problems_path, filename), "r") as file:
                 problems = file.readlines()
 
                 for i in range(len(problems)):
@@ -302,13 +307,14 @@ if __name__ == "__main__":
                     states["problem_" + str(j)] = problem
 
                     j += 1
+        in_channels = states["problem_1"].getSize()
 
     elif args.domain == "Witness":
         in_channels = 9
         problem_files = [
             f
-            for f in listdir(args.problems_folder)
-            if isfile(join(args.problems_folder, f))
+            for f in listdir(args.problems_path)
+            if isfile(join(args.problems_path, f))
         ]
 
         j = 1
@@ -317,7 +323,7 @@ if __name__ == "__main__":
             if "." in filename:
                 continue
 
-            with open(join(args.problems_folder, filename), "r") as file:
+            with open(join(args.problems_path, filename), "r") as file:
                 problem = file.readlines()
 
                 i = 0
@@ -330,20 +336,20 @@ if __name__ == "__main__":
                     states["problem_" + str(j)] = s
                     i = k + 1
                     j += 1
-    #             s.read_state(join(parameters.problems_folder, filename))
+    #             s.read_state(join(parameters.problems_path, filename))
     #             states[filename] = s
 
     elif args.domain == "Sokoban":
         in_channels = 4
         problem = []
         problem_files = []
-        if isfile(args.problems_folder):
-            problem_files.append(args.problems_folder)
+        if isfile(args.problems_path):
+            problem_files.append(args.problems_path)
         else:
             problem_files = [
-                join(args.problems_folder, f)
-                for f in listdir(args.problems_folder)
-                if isfile(join(args.problems_folder, f))
+                join(args.problems_path, f)
+                for f in listdir(args.problems_path)
+                if isfile(join(args.problems_path, f))
             ]
 
         problem_id = 0
@@ -370,10 +376,10 @@ if __name__ == "__main__":
     else:
         raise ValueError("problem domain not recognized")
 
-    print("Loaded ", len(states), " instances")
+    print(f"Loaded {len(states)} instances\n")
 
     if args.algorithm == "Levin":
-        bfs_planner = BFSLevin(
+        planner = BFSLevin(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             False,
@@ -381,7 +387,7 @@ if __name__ == "__main__":
             args.weight_uniform,
         )
     elif args.algorithm == "LevinStar":
-        bfs_planner = BFSLevin(
+        planner = BFSLevin(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             True,
@@ -390,21 +396,21 @@ if __name__ == "__main__":
         )
     elif args.algorithm == "PUCT":
 
-        bfs_planner = PUCT(
+        planner = PUCT(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             args.batch_size_expansions,
             1,  # todo old cpucnt param, do something
         )
     elif args.algorithm == "AStar":
-        bfs_planner = AStar(
+        planner = AStar(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             args.batch_size_expansions,
             args.weight_astar,
         )
     elif args.algorithm == "GBFS":
-        bfs_planner = GBFS(
+        planner = GBFS(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             args.batch_size_expansions,
@@ -412,19 +418,20 @@ if __name__ == "__main__":
     else:
         raise ValueError("Search algorithm not recognized")
 
-    nn_model = ModelWrapper()
+    model = ModelWrapper(device)
 
-    nn_model.initialize(
+    model.initialize(
         in_channels,
         args.algorithm,
         two_headed_model=args.use_learned_heuristic,
     )
 
-    # todo hacky way of loading a model, in fact the checkpointing could be overhauled
-    if pathlib.Path(args.model_folder + "model_weights.pt").is_file():
-        nn_model.load_weights(
-            join("trained_models_online", args.model_folder, "model_weights")
-        )
+    if args.model_path.is_file():
+        model.load_weights(args.model_path, device)
+    else:
+        args.model_path.parent.mkdir(parents=True, exist_ok=True)
+
+    model = model.to(device)
 
     # todo this part only works with levin stuff for now
     if args.mode == "train":
@@ -437,22 +444,23 @@ if __name__ == "__main__":
 
         bootstrap = Bootstrap(
             states,
-            args.model_folder,
+            args.model_path,
             loss_fn,
             optimizer_cons,
             optimizer_params,
             initial_budget=args.initial_budget,
             grad_steps=args.grad_steps,
+            batch_size=args.batch_size_bootstrap,
             writer=writer,
         )
-        bootstrap.solve_uniform_online(bfs_planner, nn_model)
+        bootstrap.solve_uniform_online(planner, model)
 
     elif args.mode == "eval":
         # todo not yet implemented, needs to handle the time_limit and budget args
         solve_problems(
             states,
-            bfs_planner,
-            nn_model,
+            planner,
+            model,
             args.time_limit,
         )
 

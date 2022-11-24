@@ -23,4 +23,3 @@ class SearchNode:
         Hash function used in the closed list
         """
         return self.state.__hash__()
-
