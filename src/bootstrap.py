@@ -22,7 +22,7 @@ class Bootstrap:
         batch_size=32,
         writer=None,
     ):
-        self._states = states
+        self._problems = states
         self._model_name = model_path
         self._loss_fn = loss_fn
         self._num_problems = len(states)
@@ -53,21 +53,20 @@ class Bootstrap:
             num_problems_solved_this_pass = 0
 
             batch_problems = {}
-            for problem_name, initial_state in tqdm.tqdm(self._states.items()):
+            for problem_name, problem in tqdm.tqdm(self._problems.items()):
 
-                batch_problems[problem_name] = initial_state
+                batch_problems[problem_name] = problem
 
                 if (
                     len(batch_problems)
                     < self._batch_problems_size
-                    # and self._num_problems - len(current_solved_problems)
-                    # > self._batch_problems_size
+                    # and num_problems_unsolved > self._batch_problems_size
                 ):
                     continue
 
                 with to.no_grad():
                     model.eval()
-                    for problem_name, initial_state in batch_problems.items():
+                    for problem_name, problem in batch_problems.items():
                         start_time = time.time()
                         (
                             has_found_solution,
@@ -75,7 +74,7 @@ class Bootstrap:
                             num_generated,
                             traj,
                         ) = planner.search(
-                            initial_state,
+                            problem,
                             problem_name,
                             model,
                             current_budget,

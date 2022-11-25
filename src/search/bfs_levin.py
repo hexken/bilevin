@@ -83,7 +83,7 @@ class BFSLevin:
 
     def search(
         self,
-        initial_state,
+        problem,
         problem_name,
         model,
         budget,
@@ -97,7 +97,7 @@ class BFSLevin:
         num_expanded = 0
         num_generated = 0
 
-        state_t = initial_state.state_tensor().to(model.device)
+        state_t = problem.state_tensor().to(model.device)
         acion_logits = model(state_t)
         if isinstance(acion_logits, tuple):
             acion_logits = acion_logits[0]
@@ -109,7 +109,7 @@ class BFSLevin:
         )
 
         node = LevinNode(
-            initial_state,
+            problem,
             None,
             g_cost=0,
             log_prob=1.0,
@@ -117,7 +117,7 @@ class BFSLevin:
         )
 
         heapq.heappush(_open, node)
-        _closed.add(initial_state)
+        _closed.add(problem)
 
         children_to_be_evaluated = []
         x_input_of_children_to_be_evaluated = []
