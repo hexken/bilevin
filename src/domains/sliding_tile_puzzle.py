@@ -1,3 +1,4 @@
+from os import TMP_MAX
 import numpy as np
 import torch as to
 import math
@@ -7,37 +8,56 @@ import copy
 
 class SlidingTilePuzzle(Environment):
     # todo vectorize this by using a tensor for maintaining state and permuting
+    # todo maybe better to have an execution class that handles the execution of the environment
     def __init__(self, tiles):
+
         if isinstance(tiles, str):
             tiles = tiles.replace("\n", "").split(" ")
-            self._tiles = []
+            self._size = len(tiles)
+            self._tiles = np.zeros(self._size, dtype=np.int32)
 
-            for tile in tiles:
+            for i, tile in enumerate(tiles):
                 if tile == "":
                     continue
                 if tile == "B":
-                    self._tiles.append(0)
+                    self._tiles[i] = 0
                 else:
-                    self._tiles.append(int(tile))
+                    self._tiles[i] = int(tile)
+        elif isinstance(tiles, np.ndarray):
+            self._tiles = tiles.copy()
+            self._size = len(tiles)
         else:
-            self._tiles = tiles
+            raise NotImplementedError("tiles must be specified by a string")
 
-        self._size = len(self._tiles)
         self._width = int(math.sqrt(self._size))
-
-        self._pos = np.zeros(self._size)
-        self._op = 0
-        self._op = -1
+        self._pos = np.zeros(self._size, dtype=np.int32)
 
         for i in range(self._size):
             self._pos[self._tiles[i]] = i
 
             if self._tiles[i] == 0:
                 self._blank = i
+
         self._E = 0
         self._W = 1
         self._N = 2
         self._S = 3
+
+        self._goal = np.arange(self._size, dtype=np.int32)
+
+    def get_backward_problem(self):
+        problem = SlidingTilePuzzle(self._tiles)
+        problem._goal, problem._tiles = self._tiles, self._goal
+        problem._size = self._size
+        problem._width = self._width
+        problem._pos = np.zeros(self._size, dtype=np.int32)
+
+        for i in range(self._size):
+            self._pos[self._tiles[i]] = i
+
+            if self._tiles[i] == 0:
+                self._blank = i
+        return problem
 
     def is_valid(self):
         t = 0
@@ -65,16 +85,11 @@ class SlidingTilePuzzle(Environment):
         return self._tiles[i]
 
     def __hash__(self):
-        return hash(str(self._tiles))
+        assert False
+        # return hash(self._tiles)
 
-    def __eq__(self, other):
-        for i in range(self._size):
-            if other._tiles[i] != self._tiles[i]:
-                return False
-        return True
-
-    def one_line(self):
-        return " ".join(str(t) for t in self._tiles)
+    def state_equal(self, other):
+        return np.array_equal(self._tiles, other._tiles)
 
     def successors(self):
         actions = []
@@ -119,32 +134,31 @@ class SlidingTilePuzzle(Environment):
             self._pos[0] = self._blank - self._width
             self._blank = self._blank - self._width
 
-        if action == self._S:
+        elif action == self._S:
             self._tiles[self._blank] = self._tiles[self._blank + self._width]
             self._pos[self._tiles[self._blank + self._width]] = self._blank
             self._tiles[self._blank + self._width] = 0
             self._pos[0] = self._blank + self._width
             self._blank = self._blank + self._width
 
-        if action == self._E:
+        elif action == self._E:
             self._tiles[self._blank] = self._tiles[self._blank + 1]
             self._pos[self._tiles[self._blank + 1]] = self._blank
             self._tiles[self._blank + 1] = 0
             self._pos[0] = self._blank + 1
             self._blank = self._blank + 1
 
-        if action == self._W:
+        elif action == self._W:
             self._tiles[self._blank] = self._tiles[self._blank - 1]
             self._pos[self._tiles[self._blank - 1]] = self._blank
             self._tiles[self._blank - 1] = 0
             self._pos[0] = self._blank - 1
             self._blank = self._blank - 1
+        else:
+            raise ValueError(f"Invalid action: {action}")
 
     def is_solution(self):
-        for i in range(self._size):
-            if self._tiles[i] != i:
-                return False
-        return True
+        return np.array_equal(self._tiles, self._goal)
 
     def get_image_representation(self):
 
@@ -189,3 +203,6 @@ class SlidingTilePuzzle(Environment):
             print(self._tiles[i], end=" ")
             if (i + 1) % self._width == 0:
                 print()
+
+    def one_line(self):
+        return " ".join(str(t) for t in self._tiles)
