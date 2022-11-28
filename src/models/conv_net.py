@@ -32,7 +32,7 @@ class ConvBlock(nn.Module):
         return x
 
 
-class ConvNet(nn.Module):
+class ConvNetSingle(nn.Module):
     def __init__(self, in_channels, kernel_size, num_filters, num_actions):
         super().__init__()
         self.convblock = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
@@ -43,6 +43,34 @@ class ConvNet(nn.Module):
         x = self.convblock(x)
         x = F.relu(self.linear1(x))
         logits = self.linear2(x)
+
+        return logits
+
+
+class ConvNetDouble(nn.Module):
+    def __init__(self, in_channels, kernel_size, num_filters, num_actions):
+        super().__init__()
+        self.convblock1 = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
+        self.convblock2 = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
+        self.linear1 = nn.Linear(
+            num_filters * 2 * self.convblock1.reduced_size**2, 256
+        )
+        self.linear2 = nn.Linear(256, 128)
+        self.linear3 = nn.Linear(128, num_actions)
+
+    def forward(self, x1, x2):
+        """
+        x1: current state
+        x2: goal state
+        """
+
+        x1 = self.convblock1(x1)
+        x2 = self.convblock2(x2)
+
+        x = to.cat((x1, x2), dim=-1)
+        x = F.relu(self.linear1(x))
+        x = F.relu(self.linear2(x))
+        logits = self.linear3(x)
 
         return logits
 

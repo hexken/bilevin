@@ -22,3 +22,6 @@ class Environment(ABC):
 
     def copy(self):
         pass
+
+    def state_equal(self, other):
+        pass

@@ -2,10 +2,12 @@ import math
 import sys
 
 import numpy as np
+from search.node import SearchNode
+from typing import Type
 
 
 class Trajectory:
-    def __init__(self, search_node, num_expanded):
+    def __init__(self, search_node: SearchNode, num_expanded: int):
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
@@ -13,7 +15,8 @@ class Trajectory:
         which is added to the variable memory.
         """
         self.num_expanded = num_expanded
-        self.solution_prob = math.exp(search_node.log_prob)
+        if hasattr(search_node, "log_prob"):
+            self.solution_prob = math.exp(search_node.log_prob)
 
         action = search_node.action
         node = search_node.parent
@@ -29,6 +32,30 @@ class Trajectory:
             action = node.action
             node = node.parent
             cost += 1
+
+
+def get_merged_trajectory(
+    f_start: SearchNode,
+    f_common: SearchNode,
+    b_start: SearchNode,
+    b_common: SearchNode,
+    node_type: Type[SearchNode],
+    num_expanded: int,
+):
+    assert f_common.state == b_common.state
+    f_node = f_common
+    b_node = b_common
+    while b_node.parent:
+        new_node = node_type(
+            state=b_node.state,
+            parent=f_node,
+            action=b_node.reverse_action,
+            g_cost=f_node.g_cost + 1,
+        )
+        f_node = new_node
+        b_node = b_node.parent
+
+    return Trajectory(b_node, num_expanded)
 
 
 class Memory:

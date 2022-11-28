@@ -1,4 +1,4 @@
-from models.conv_net import ConvNet, TwoHeadedConvNet, HeuristicConvNet
+from models.conv_net import ConvNetSingle, ConvNetDouble, TwoHeadedConvNet, HeuristicConvNet
 import torch as to
 
 
@@ -15,16 +15,23 @@ class ModelWrapper(to.nn.Module):
             or search_algorithm == "LevinMult"
             or search_algorithm == "LevinStar"
             or search_algorithm == "PUCT"
+            or search_algorithm == "BiLevin"
         ):
+            if search_algorithm == "BiLevin":
+                self.forward_model = ConvNetDouble(in_channels, (2, 2), 32, self.num_actions)
+                self.backward_model = ConvNetDouble(in_channels, (2, 2), 32, self.num_actions)
             if two_headed_model:
                 self.model = TwoHeadedConvNet(in_channels, (2, 2), 32, self.num_actions)
             else:
-                self.model = ConvNet(in_channels, (2, 2), 32, self.num_actions)
+                self.model = ConvNetSingle(in_channels, (2, 2), 32, self.num_actions)
         if search_algorithm == "AStar" or search_algorithm == "GBFS":
             self.model = HeuristicConvNet(in_channels, (2, 2), 32, self.num_actions)
 
     def forward(self, x):
-        return self.model(x)
+        if isinstance(x, tuple):
+            current_state, goal_state = x
+            return self.backward_model(current_state, goal_state)
+        return self.forward_model(x)
 
     def save_weights(self, filepath):
         to.save(self.model.state_dict(), filepath)

@@ -1,14 +1,34 @@
-from os import TMP_MAX
+import copy
+from enum import Enum
+import math
+
 import numpy as np
 import torch as to
-import math
+
 from domains.environment import Environment
-import copy
 
 
 class SlidingTilePuzzle(Environment):
     # todo vectorize this by using a tensor for maintaining state and permuting
     # todo maybe better to have an execution class that handles the execution of the environment
+    class Action(Enum):
+        right = 0
+        left = 1
+        up = 2
+        down = 3
+
+    up = Action.up
+    down = Action.down
+    left = Action.left
+    right = Action.right
+
+    reverse_action = {
+        Action.up: Action.down,
+        Action.down: Action.up,
+        Action.left: Action.right,
+        Action.right: Action.left,
+    }
+
     def __init__(self, tiles):
 
         if isinstance(tiles, str):
@@ -38,12 +58,20 @@ class SlidingTilePuzzle(Environment):
             if self._tiles[i] == 0:
                 self._blank = i
 
-        self._E = 0
-        self._W = 1
-        self._N = 2
-        self._S = 3
-
         self._goal = np.arange(self._size, dtype=np.int32)
+
+    @staticmethod
+    def get_reverse_action(action):
+        if action == 0:
+            return 1
+        elif action == 1:
+            return 0
+        elif action == 2:
+            return 3
+        elif action == 3:
+            return 2
+        else:
+            raise ValueError(f"Invalid action: {action}")
 
     def get_backward_problem(self):
         problem = SlidingTilePuzzle(self._tiles)
@@ -85,8 +113,7 @@ class SlidingTilePuzzle(Environment):
         return self._tiles[i]
 
     def __hash__(self):
-        assert False
-        # return hash(self._tiles)
+        return hash("".join((str(t) for t in self._tiles)))
 
     def state_equal(self, other):
         return np.array_equal(self._tiles, other._tiles)
@@ -95,60 +122,60 @@ class SlidingTilePuzzle(Environment):
         actions = []
 
         if not ((self._blank + 1) % self._width == 0):  # and op != self._W:
-            actions.append(self._E)
+            actions.append(self.right)
 
         if self._blank > self._width - 1:  # and op != self._S:
-            actions.append(self._N)
+            actions.append(self.up)
 
         if not ((self._blank) % self._width == 0):  # and op != self._E:
-            actions.append(self._W)
+            actions.append(self.left)
 
         if self._blank < self._size - self._width:  # and op != self._N:
-            actions.append(self._S)
+            actions.append(self.down)
 
         return actions
 
     def successors_parent_pruning(self, op):
         actions = []
 
-        if not ((self._blank + 1) % self._width == 0) and op != self._W:
-            actions.append(self._E)
+        if not ((self._blank + 1) % self._width == 0) and op != self.left:
+            actions.append(self.right)
 
-        if self._blank > self._width - 1 and op != self._S:
-            actions.append(self._N)
+        if self._blank > self._width - 1 and op != self.down:
+            actions.append(self.up)
 
-        if not ((self._blank) % self._width == 0) and op != self._E:
-            actions.append(self._W)
+        if not ((self._blank) % self._width == 0) and op != self.right:
+            actions.append(self.left)
 
-        if self._blank < self._size - self._width and op != self._N:
-            actions.append(self._S)
+        if self._blank < self._size - self._width and op != self.up:
+            actions.append(self.down)
 
         return actions
 
     def apply_action(self, action):
 
-        if action == self._N:
+        if action == self.up:
             self._tiles[self._blank] = self._tiles[self._blank - self._width]
             self._pos[self._tiles[self._blank - self._width]] = self._blank
             self._tiles[self._blank - self._width] = 0
             self._pos[0] = self._blank - self._width
             self._blank = self._blank - self._width
 
-        elif action == self._S:
+        elif action == self.down:
             self._tiles[self._blank] = self._tiles[self._blank + self._width]
             self._pos[self._tiles[self._blank + self._width]] = self._blank
             self._tiles[self._blank + self._width] = 0
             self._pos[0] = self._blank + self._width
             self._blank = self._blank + self._width
 
-        elif action == self._E:
+        elif action == self.right:
             self._tiles[self._blank] = self._tiles[self._blank + 1]
             self._pos[self._tiles[self._blank + 1]] = self._blank
             self._tiles[self._blank + 1] = 0
             self._pos[0] = self._blank + 1
             self._blank = self._blank + 1
 
-        elif action == self._W:
+        elif action == self.left:
             self._tiles[self._blank] = self._tiles[self._blank - 1]
             self._pos[self._tiles[self._blank - 1]] = self._blank
             self._tiles[self._blank - 1] = 0

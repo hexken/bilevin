@@ -14,7 +14,7 @@ from bootstrap import Bootstrap
 from domains import SlidingTilePuzzle, Sokoban, WitnessState
 from models import ModelWrapper
 import models.loss_functions as loss_fns
-from search import AStar, BFSLevin, GBFS, PUCT
+from search import AStar, BFSLevin, BiLevin, GBFS, PUCT
 
 
 def parse_args():
@@ -77,7 +77,7 @@ def parse_args():
         "--algorithm",
         type=str,
         choices=["Levin", "LevinStar", "PUCT", "AStar", "GBFS"],
-        help="name of the search algorithm (Levin, LevinStar, AStar, GBFS, PUCT)",
+        help="name of the search algorithm (Levin, LevinStar, BiLevin, AStar, GBFS, PUCT)",
     )
     parser.add_argument(
         "--batch-size-expansions",
@@ -391,6 +391,14 @@ if __name__ == "__main__":
             args.use_default_heuristic,
             args.use_learned_heuristic,
             True,
+            args.batch_size_expansions,
+            args.weight_uniform,
+        )
+    elif args.algorithm == "BiLevin":
+        planner = BiLevin(
+            args.use_default_heuristic,
+            args.use_learned_heuristic,
+            False,
             args.batch_size_expansions,
             args.weight_uniform,
         )

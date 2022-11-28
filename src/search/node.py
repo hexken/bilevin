@@ -4,6 +4,7 @@ class SearchNode:
         self.parent = parent
         self.action = action
         self.g_cost = g_cost
+        self.reverse_action = state.reverse_action[action]
 
     def __eq__(self, other):
         """
