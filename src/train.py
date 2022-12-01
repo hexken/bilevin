@@ -60,18 +60,21 @@ def train(
     writer=None,
 ):
 
-    bidirectional = planner.bidirectional
-
-    memory = Memory()
+    forward_memory = Memory()
+    bidirectional = isinstance(planner, tuple)
     if bidirectional:
         backward_memory = Memory()
         forward_model, backward_model = model
-        optimizer = optimizer_cons(forward_model.parameters(), **optimizer_params)
+        forward_optimizer = optimizer_cons(
+            forward_model.parameters(), **optimizer_params
+        )
         backward_optimizer = optimizer_cons(
             backward_model.parameters(), **optimizer_params
         )
+        backward_model_path = model_path[: len("_forward.pt")] + "_backward.pt"
     else:
-        optimizer = optimizer_cons(model.parameters(), **optimizer_params)
+        forward_model = model
+        forward_optimizer = optimizer_cons(model.parameters(), **optimizer_params)
 
     current_solved_problems = set()
     num_expanded = 0
@@ -87,16 +90,16 @@ def train(
         problems, batch_size=problems_batch_size, shuffle=True
     )
 
+    total_batches_seen = 0
     while num_problems_unsolved_total > 0:
         num_problems_solved_this_pass = 0
         for batch_problems, batch_names in tqdm.tqdm(problems_loader):
+            num_problems_solved_this_batch = 0
 
             to.set_grad_enabled(False)
+            forward_model.eval()
             if bidirectional:
-                forward_model.eval()
                 backward_model.eval()
-            else:
-                model.eval()
             for problem, problem_name in zip(batch_problems, batch_names):
                 start_time = time.time()
                 (
@@ -121,33 +124,29 @@ def train(
                         f"Generated: {num_generated}\n"
                     )
 
+                    forward_memory.add_trajectory(traj[0])
                     if bidirectional:
-                        memory.add_trajectory(traj[0])
                         backward_memory.add_trajectory(traj[1])
-                    else:
-                        memory.add_trajectory(traj)
 
                     if problem_name not in current_solved_problems:
                         num_problems_solved_this_pass += 1
+                        num_problems_solved_this_batch += 1
                         current_solved_problems.add(problem_name)
 
-            if memory.number_trajectories() > 0:
+            if forward_memory.number_trajectories() > 0:
                 to.set_grad_enabled(True)
-                model.train()
+                forward_model.train()
                 if bidirectional:
-                    forward_model.eval()
-                    backward_model.eval()
-                else:
-                    model.eval()
+                    backward_model.train()
 
                 for _ in range(grad_steps):
                     total_loss = 0
-                    memory.shuffle_trajectories()
-                    for traj in memory.next_trajectory():
-                        optimizer.zero_grad()
-                        loss = loss_fn(traj, model.forward_model)
+                    forward_memory.shuffle_trajectories()
+                    for traj in forward_memory.next_trajectory():
+                        forward_optimizer.zero_grad()
+                        loss = loss_fn(traj, forward_model)
                         loss.backward()
-                        optimizer.step()
+                        forward_optimizer.step()
                         total_loss += loss.item()
 
                     avg_loss = total_loss / len(memory)
@@ -157,7 +156,8 @@ def train(
                         "Loss/Train Avg (over memory)", avg_loss, opt_steps
                     )
                 print("")
-                memory.clear()
+                forward_memory.clear()
+                # todo log the losses and acc
 
                 if bidirectional:
                     for _ in range(grad_steps):
@@ -177,19 +177,21 @@ def train(
                     print("")
                     backward_memory.clear()
 
-                # todo add save interval, performance increase check? Overhaul checkpointing.
-                model.save_weights(model_path)
+                # todo add save interval, performance increase check? validation? Overhaul checkpointing.
+                if bidirectional:
+                    to.save(forward_model, model_path)
+                    to.save(backward_model, backward_model_path)
+                else:
+                    to.save(model, model_path)
 
-        writer.add_scalar(
-            "Performance/Num Problems Solved vs Problemset Passes",
-            num_problems - num_problems_unsolved_total,
-            num_passes_problemset,
-        )
-        writer.add_scalar(
-            "Performance/Num Problems Solved vs Opt Steps",
-            num_problems - num_problems_unsolved_total,
-            opt_steps,
-        )
+            total_batches_seen += 1
+            avg_problems_solved = num_problems_solved_this_batch / problems_batch_size
+            # fmt: off
+            writer.add_scalar("Search/Avg # Problems Solved vs. Batch", avg_problems_solved, total_batches_seen)
+            writer.add_scalar("Search/# Problems Solved vs. Batch", num_problems_solved_this_pass, total_batches_seen)
+            writer.add_scalar("Search/# Unsolved Provlems vs Batch", num_problems_unsolved_total, total_batches_seen)
+            # fmt: on
+
         num_problems_unsolved_total -= num_problems_solved_this_pass
         num_passes_problemset += 1
 
@@ -202,4 +204,9 @@ def train(
         if num_problems_solved_this_pass == 0:
             current_budget *= 2
             print(f"Budget: {current_budget}")
-            continue
+
+        # fmt: off
+        writer.add_scalar("Search/Budget vs. Pass", current_budget, num_passes_problemset)
+        writer.add_scalar("Search/# Problems Solved vs. Pass", num_problems_solved_this_pass, num_passes_problemset)
+        writer.add_scalar("Search/# Unsolved Problems vs. Pass", num_problems_unsolved_total, num_passes_problemset)
+        # fmt: on

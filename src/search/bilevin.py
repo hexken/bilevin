@@ -55,7 +55,6 @@ class BiLevin:
         self.estimated_probability_to_go = estimated_probability_to_go
         self.batch_size_expansions = batch_size_expansions
         self.weight_uniform = weight_uniform
-        self.bidirectional = True
 
     def levin_cost(self, node, predicted_h):
         # todo these costs don't look right
