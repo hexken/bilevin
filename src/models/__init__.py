@@ -1,2 +1,1 @@
-from models.model_wrapper import ModelWrapper
-from models.conv_net import ConvNet, HeuristicConvNet, TwoHeadedConvNet
+from models.conv_net import ConvNetSingle, ConvNetDouble, HeuristicConvNet, TwoHeadedConvNet

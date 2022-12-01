@@ -1,7 +1,7 @@
 import heapq
 import numpy as np
 
-from models.memory import Trajectory
+from .utils import Trajectory
 import copy
 import time
 

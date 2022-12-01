@@ -5,8 +5,8 @@ import torch.nn.functional as F
 def levin_loss(trajectory, model):
     actions = to.tensor(trajectory.actions)
 
-    images = to.stack(tuple(s.state_tensor() for s in trajectory.states))
-    logits = model(images)
+    states = to.stack(trajectory.states)
+    logits = model(states)
 
     loss = F.cross_entropy(logits, actions)
     loss *= to.tensor(trajectory.num_expanded)
@@ -17,8 +17,8 @@ def levin_loss(trajectory, model):
 def improved_levin_loss(trajectory, model):
     actions_one_hot = F.one_hot(trajectory.actions, model.actions)
 
-    images = to.tensor((s.state_tensor() for s in trajectory.states))
-    logits = model(images)
+    states = to.tensor(trajectory.states)
+    logits = model(states)
 
     loss = F.cross_entropy(actions_one_hot, logits)
 
@@ -38,8 +38,8 @@ def improved_levin_loss(trajectory, model):
 
 
 def mse_loss(trajectory, model):
-    images = to.tensor((s.state_tensor() for s in trajectory.states))
-    h = model(images)
+    states = to.tensor(trajectory.states)
+    h = model(states)
     cost_to_gos = to.tensor(trajectory.cost_to_gos).unsqueeze(1)
     loss = F.mse_loss(h, cost_to_gos)
 
@@ -49,8 +49,8 @@ def mse_loss(trajectory, model):
 def cross_entropy_loss(trajectory, model):
     actions_one_hot = F.one_hot(trajectory.actions, model.actions)
 
-    images = to.tensor((s.state_tensor() for s in trajectory.states))
-    logits = model(images)
+    states = to.tensor(trajectory.states)
+    logits = model(states)
     loss = F.cross_entropy(actions_one_hot, logits)
 
     return loss
@@ -69,11 +69,11 @@ def cross_entropy_loss(trajectory, model):
 #         self.mse = tf.keras.losses.MeanSquaredError()
 
 #     def compute_loss(self, trajectory, model):
-#         images = [s.state_tensor() for s in trajectory.states]
+#         states = [s.state_tensor() for s in trajectory.states]
 #         actions_one_hot = tf.one_hot(
 #             trajectory.actions, model.actions
 #         )
-#         _, _, logits_pi, logits_h = model(np.array(images))
+#         _, _, logits_pi, logits_h = model(np.array(states))
 
 #         weights = model.get_weights()
 #         weights_l2_norm = 0
@@ -109,11 +109,11 @@ def cross_entropy_loss(trajectory, model):
 #         self.mse = tf.keras.losses.MeanSquaredError()
 
 #     def compute_loss(self, trajectory, model):
-#         images = [s.state_tensor() for s in trajectory.states]
+#         states = [s.state_tensor() for s in trajectory.states]
 #         actions_one_hot = tf.one_hot(
 #             trajectory.actions, model.actions
 #         )
-#         _, probs_softmax, _, logits_h = model(np.array(images))
+#         _, probs_softmax, _, logits_h = model(np.array(states))
 
 #         probs_used_on_path = tf.math.multiply(
 #             tf.cast(actions_one_hot, dtype=tf.float64), probs_softmax
@@ -145,11 +145,11 @@ def cross_entropy_loss(trajectory, model):
 
 # class Reglevin_loss(LossFunction):
 #     def compute_loss(self, trajectory, model):
-#         images = [s.state_tensor() for s in trajectory.states]
+#         states = [s.state_tensor() for s in trajectory.states]
 #         actions_one_hot = tf.one_hot(
 #             trajectory.actions, model.actions
 #         )
-#         _, probs_softmax, _ = model(np.array(images))
+#         _, probs_softmax, _ = model(np.array(states))
 
 #         probs_used_on_path = tf.math.multiply(
 #             tf.cast(actions_one_hot, dtype=tf.float64), probs_softmax
@@ -181,11 +181,11 @@ def cross_entropy_loss(trajectory, model):
 #         self.mse = tf.keras.losses.MeanSquaredError()
 
 #     def compute_loss(self, trajectory, model):
-#         images = [s.state_tensor() for s in trajectory.states]
+#         states = [s.state_tensor() for s in trajectory.states]
 #         actions_one_hot = tf.one_hot(
 #             trajectory.actions, model.actions
 #         )
-#         _, _, logits_pi, logits_h = model(np.array(images))
+#         _, _, logits_pi, logits_h = model(np.array(states))
 
 #         weights = model.get_weights()
 #         weights_l2_norm = 0
@@ -212,11 +212,11 @@ def cross_entropy_loss(trajectory, model):
 #         self.mse = tf.keras.losses.MeanSquaredError()
 
 #     def compute_loss(self, trajectory, model):
-#         images = [s.state_tensor() for s in trajectory.states]
+#         states = [s.state_tensor() for s in trajectory.states]
 #         actions_one_hot = tf.one_hot(
 #             trajectory.actions, model.actions
 #         )
-#         _, _, logits_pi, logits_h = model(np.array(images))
+#         _, _, logits_pi, logits_h = model(np.array(states))
 
 #         weights = model.get_weights()
 #         weights_l2_norm = 0

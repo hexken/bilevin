@@ -2,12 +2,39 @@ import math
 import sys
 
 import numpy as np
-from search.node import SearchNode
 from typing import Type
 
 
+class SearchNode:
+    def __init__(self, state, parent, action, g_cost):
+        self.state = state
+        self.parent = parent
+        self.action = action
+        self.g_cost = g_cost
+        self.reverse_action = state.reverse_action[action]
+
+    def __eq__(self, other):
+        """
+        Verify if two SearchNodes are identical by verifying the
+         state in the nodes.
+        """
+        return self.state == other.state
+
+    def __lt__(self, other):
+        """
+        less-than used by the heap
+        """
+        return self.g_cost < other.g_cost
+
+    def __hash__(self):
+        """
+        Hash function used in the closed list
+        """
+        return self.state.__hash__()
+
+
 class Trajectory:
-    def __init__(self, search_node: SearchNode, num_expanded: int):
+    def __init__(self, final_node: SearchNode, num_expanded: int):
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
@@ -15,23 +42,36 @@ class Trajectory:
         which is added to the variable memory.
         """
         self.num_expanded = num_expanded
-        if hasattr(search_node, "log_prob"):
-            self.solution_prob = math.exp(search_node.log_prob)
+        if hasattr(final_node, "log_prob"):
+            self.solution_prob = math.exp(final_node.log_prob)
 
-        action = search_node.action
-        node = search_node.parent
+        action = final_node.action
+        node = final_node.parent
+        self.goal = final_node.state.state_tensor()
         self.states = []
         self.actions = []
         self.cost_to_gos = []
         cost = 1
 
         while node:
-            self.states.append(node.state)
+            self.states.append(node.state.state_tensor())
             self.actions.append(action)
             self.cost_to_gos.append(cost)
             action = node.action
             node = node.parent
             cost += 1
+
+
+def convert_to_backward_trajectory(f_trajectory: Trajectory):
+    dummy_node = SearchNode(state=None, parent=None, action=None, g_cost=None)
+    b_trajectory = Trajectory(dummy_node, f_trajectory.num_expanded)
+    if hasattr(f_trajectory, "solution_prob"):
+        b_trajectory.solution_prob = f_trajectory.solution_prob
+    goal = f_trajectory.goal
+    b_trajectory.states = [(state, goal) for state in f_trajectory.states[::-1]]
+    b_trajectory.actions = f_trajectory.actions[::-1]
+    b_trajectory.cost_to_gos = f_trajectory.cost_to_gos[::-1]
+    return b_trajectory
 
 
 def get_merged_trajectory(

@@ -10,11 +10,12 @@ import numpy as np
 import torch as to
 from torch.utils.tensorboard.writer import SummaryWriter
 
-from bootstrap import Bootstrap
 from domains import SlidingTilePuzzle, Sokoban, WitnessState
-from models import ModelWrapper
+from models import ConvNetDouble, ConvNetSingle, HeuristicConvNet, TwoHeadedConvNet
 import models.loss_functions as loss_fns
-from search import AStar, BFSLevin, BiLevin, GBFS, PUCT
+from search import BiLevin, Levin, PUCT, AStar, GBFS
+from test import test
+from train import train
 
 
 def parse_args():
@@ -76,8 +77,8 @@ def parse_args():
         "-a",
         "--algorithm",
         type=str,
-        choices=["Levin", "LevinStar", "PUCT", "AStar", "GBFS"],
-        help="name of the search algorithm (Levin, LevinStar, BiLevin, AStar, GBFS, PUCT)",
+        choices=["Levin", "BiLevin", "LevinStar", "PUCT", "AStar", "GBFS"],
+        help="name of the search algorithm",
     )
     parser.add_argument(
         "--batch-size-expansions",
@@ -143,7 +144,7 @@ def parse_args():
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["train", "eval"],
+        choices=["train", "test"],
         default="train",
         help="train or test the model from model-folder using instances from problems-folder",
     )
@@ -188,76 +189,6 @@ def parse_args():
     return args
 
 
-def solve_problems(initial_states, planner, model, time_limit_seconds):
-    """ """
-    solutions = {}
-
-    for problem_name, initial_state in initial_states.items():
-        initial_state.reset()
-
-        solution_depth, expanded, generated, running_time = planner.search(
-            initial_state, problem_name, -1, time.time(), time_limit_seconds, 0, model
-        )
-
-        solutions[problem_name] = (solution_depth, expanded, generated, running_time)
-
-    for problem_name, data in solutions.items():
-        print(
-            "{:s}, {:d}, {:d}, {:d}, {:.2f}".format(
-                problem_name, data[0], data[1], data[2], data[3]
-            )
-        )
-
-
-def solve_problems2(
-    initial_states, planner, model, time_limit_seconds, search_budget=-1
-):
-    """ """
-    solutions = {}
-
-    for problem_name, initial_state in initial_states.items():
-        initial_state.reset()
-        solutions[problem_name] = (-1, -1, -1, -1)
-
-    start_time = time.time()
-
-    while len(initial_states) > 0:
-
-        for problem_name, initial_state in initial_states.items():
-            solution_depth, expanded, generated, running_time = planner.search(
-                initial_state,
-                problem_name,
-                search_budget,
-                start_time,
-                time_limit_seconds,
-                model,
-            )
-
-            if solution_depth > 0:
-                solutions[problem_name] = (
-                    solution_depth,
-                    expanded,
-                    generated,
-                    running_time,
-                )
-                del initial_states[problem_name]
-
-        if (
-            time.time() - start_time > time_limit_seconds
-            or len(initial_states) == 0
-            or search_budget >= 1000000
-        ):
-            for problem_name, data in solutions.items():
-                print(
-                    "{:s}, {:d}, {:d}, {:d}, {:.2f}".format(
-                        problem_name, data[0], data[1], data[2], data[3]
-                    )
-                )
-            return
-
-        search_budget *= 2
-
-
 if __name__ == "__main__":
     args = parse_args()
     start_time = time.time()
@@ -273,23 +204,21 @@ if __name__ == "__main__":
             name=run_name,
             save_code=True,
         )
-    writer = SummaryWriter(f"runs/{run_name}")
-    writer.add_text(
-        "hyperparameters",
-        "|param|value|\n|-|-|\n%s"
-        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
-    )
 
     random.seed(args.seed)
     np.random.seed(args.seed)
     to.manual_seed(args.seed)
     if args.torch_deterministic:
         to.use_deterministic_algorithms(True)
+        to.backends.cudnn.benchmark = False
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
-    device = to.device("cuda" if to.cuda.is_available() and args.cuda else "cpu")
+    device = to.device(
+        "cuda" if args.cuda and to.cuda.is_available() and args.cuda else "cpu"
+    )
+    print(f"Using device: {device}")
 
-    states = {}
+    problems = {}
     if args.domain == "SlidingTile":
         problem_files = [
             f
@@ -300,14 +229,14 @@ if __name__ == "__main__":
         j = 1
         for filename in problem_files:
             with open(join(args.problems_path, filename), "r") as file:
-                problems = file.readlines()
+                problems_lines = file.readlines()
 
-                for i in range(len(problems)):
-                    problem = SlidingTilePuzzle(problems[i])
-                    states["problem_" + str(j)] = problem
+                for i in range(len(problems_lines)):
+                    problem = SlidingTilePuzzle(problems_lines[i])
+                    problems["problem_" + str(j)] = problem
 
                     j += 1
-        in_channels = states["problem_1"].getSize()
+        in_channels = problems["problem_1"].getSize()
 
     elif args.domain == "Witness":
         in_channels = 9
@@ -333,11 +262,9 @@ if __name__ == "__main__":
                         k += 1
                     s = WitnessState()
                     s.read_state_from_string(problem[i:k])
-                    states["problem_" + str(j)] = s
+                    problems["problem_" + str(j)] = s
                     i = k + 1
                     j += 1
-    #             s.read_state(join(parameters.problems_path, filename))
-    #             states[filename] = s
 
     elif args.domain == "Sokoban":
         in_channels = 4
@@ -362,7 +289,7 @@ if __name__ == "__main__":
                 if ";" in line_in_problem:
                     if len(problem) > 0:
                         problem = Sokoban(problem)
-                        states["problem_" + str(problem_id)] = problem
+                        problems["problem_" + str(problem_id)] = problem
 
                     problem = []
                     problem_id += 1
@@ -372,11 +299,11 @@ if __name__ == "__main__":
 
             if len(problem) > 0:
                 problem = Sokoban(problem)
-                states["problem_" + str(problem_id)] = problem
+                problems["problem_" + str(problem_id)] = problem
     else:
         raise ValueError("problem domain not recognized")
 
-    print(f"Loaded {len(states)} instances\n from {args.problems_path}\n")
+    print(f"Loaded {len(problems)} instances\n from {args.problems_path}\n")
 
     if args.algorithm == "Levin":
         planner = BFSLevin(
@@ -426,22 +353,50 @@ if __name__ == "__main__":
     else:
         raise ValueError("Search algorithm not recognized")
 
-    model = ModelWrapper(device)
-
-    model.initialize(
-        in_channels,
-        args.algorithm,
-        two_headed_model=args.use_learned_heuristic,
-    )
+    bidirectional = False
+    num_actions = 4
+    if (
+        args.algorithm == "Levin"
+        or args.algorithm == "LevinMult"
+        or args.algorithm == "LevinStar"
+        or args.algorithm == "PUCT"
+        or args.algorithm == "BiLevin"
+    ):
+        if args.algorithm == "BiLevin":
+            forward_model = ConvNetDouble(in_channels, (2, 2), 32, num_actions)
+            backward_model = ConvNetDouble(in_channels, (2, 2), 32, num_actions)
+            bidirectional = True
+            model = (forward_model, backward_model)
+        elif args.use_learned_heuristic:
+            model = TwoHeadedConvNet(in_channels, (2, 2), 32, num_actions)
+        else:
+            model = ConvNetSingle(in_channels, (2, 2), 32, num_actions)
+    elif args.algorithm == "AStar" or args.algorithm == "GBFS":
+        model = HeuristicConvNet(in_channels, (2, 2), 32, num_actions)
+    else:
+        raise ValueError("Search algorithm not recognized")
 
     if args.model_path.is_file():
-        model.load_weights(args.model_path, device)
+        if bidirectional:
+            forward_model.load_state_dict(to.load(args.model_path))
+            backward_model.load_state_dict(
+                to.load(args.model_path[: len("_forward.pt")] + "_backward.pt")
+            )
+            forward_model.to(device)
+            backward_model.to(device)
+        else:
+            model.load_state_dict(to.load(args.model_path))
+            model.to(device)
     else:
         args.model_path.parent.mkdir(parents=True, exist_ok=True)
 
-    model = model.to(device)
+    writer = SummaryWriter(f"runs/{run_name}")
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s"
+        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+    )
 
-    # todo this part only works with levin stuff for now
     if args.mode == "train":
         loss_fn = getattr(loss_fns, args.loss_fn)
         optimizer_cons = to.optim.Adam
@@ -450,23 +405,23 @@ if __name__ == "__main__":
             "weight_decay": args.weight_decay,
         }
 
-        bootstrap = Bootstrap(
-            states,
+        train(
+            problems,
+            model,
             args.model_path,
+            planner,
             loss_fn,
             optimizer_cons,
             optimizer_params,
             initial_budget=args.initial_budget,
             grad_steps=args.grad_steps,
-            batch_size=args.batch_size_bootstrap,
+            problems_batch_size=args.batch_size_bootstrap,
             writer=writer,
         )
-        bootstrap.solve_uniform_online(planner, model)
 
-    elif args.mode == "eval":
-        # todo not yet implemented, needs to handle the time_limit and budget args
-        solve_problems(
-            states,
+    elif args.mode == "test":
+        test(
+            problems,
             planner,
             model,
             args.time_limit,

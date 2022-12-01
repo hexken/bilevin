@@ -1,9 +1,10 @@
+import copy
 import heapq
+import time
+
 import numpy as np
 
-from models.memory import Trajectory
-import copy
-import time
+from .utils import Trajectory
 
 
 class AStarTreeNode:

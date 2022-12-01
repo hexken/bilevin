@@ -8,8 +8,12 @@ import numpy as np
 import torch as to
 import torch.nn.functional as F
 
-from models.memory import Trajectory
-from search.node import SearchNode
+from .utils import (
+    Trajectory,
+    SearchNode,
+    get_merged_trajectory,
+    convert_to_backward_trajectory,
+)
 
 
 class LevinNode(SearchNode):
@@ -40,7 +44,7 @@ class Direction(Enum):
     BACKWARD = 1
 
 
-class BFSLevin:
+class Levin:
     def __init__(
         self,
         use_default_heuristic=True,
@@ -185,7 +189,7 @@ class BFSLevin:
                 if new_state.is_solution():
                     solution_len = new_node.g_cost
                     if learn:
-                        trajectory = Trajectory(new_node, num_expanded)
+                        trajectory = models.memory.Trajectory(new_node, num_expanded)
                         return solution_len, num_expanded, num_generated, trajectory
                     else:
                         return solution_len, num_expanded, num_generated, None
