@@ -12,7 +12,7 @@ from utils import Direction
 from .utils import (
     SearchNode,
     Trajectory,
-    convert_to_backward_trajectory,
+    reverse_trajectory,
     get_merged_trajectory,
 )
 
@@ -134,7 +134,7 @@ class BiLevin:
         b_closed[b_problem] = b_problem
 
         children_to_be_evaluated = []
-        x_input_of_children_to_be_evaluated = []
+        state_t_of_children_to_be_evaluated = []
 
         while len(f_open) > 0 and len(b_open) > 0:
 
@@ -175,7 +175,7 @@ class BiLevin:
                     solution_len = new_node.g_cost
                     trajectory = Trajectory(new_node, num_expanded)
                     if learn:
-                        backward_trajectory = convert_to_backward_trajectory(trajectory)
+                        backward_trajectory = reverse_trajectory(trajectory)
                         return (
                             solution_len,
                             num_expanded,
@@ -186,9 +186,9 @@ class BiLevin:
                         return solution_len, num_expanded, num_generated, trajectory
 
                 children_to_be_evaluated.append(new_node)
-                x_input_of_children_to_be_evaluated.append(new_state.state_tensor())
+                state_t_of_children_to_be_evaluated.append(new_state.state_tensor())
 
-            batch_states = to.stack(x_input_of_children_to_be_evaluated).to(device)
+            batch_states = to.stack(state_t_of_children_to_be_evaluated).to(device)
             if direction == Direction.BACKWARD:
                 initial_states = initial_state.repeat(len(batch_states), 1)
                 batch_states = (batch_states, initial_states)
@@ -202,7 +202,7 @@ class BiLevin:
 
             log_action_probs = self.mixture_uniform(action_logits)
 
-            for i in range(len(children_to_be_evaluated)):
+            for i, child in enumerate(children_to_be_evaluated):
                 num_generated += 1
 
                 if self.estimated_probability_to_go:
@@ -212,20 +212,18 @@ class BiLevin:
                     # )
                 else:
                     if predicted_h:
-                        levin_cost = self.levin_cost(
-                            children_to_be_evaluated[i], predicted_h[i]
-                        )
+                        levin_cost = self.levin_cost(child, predicted_h[i])
                     else:
-                        levin_cost = self.levin_cost(children_to_be_evaluated[i], None)
-                children_to_be_evaluated[i].log_action_probs = log_action_probs[i]
-                children_to_be_evaluated[i].levin_cost = levin_cost
+                        levin_cost = self.levin_cost(child, None)
+                child.log_action_probs = log_action_probs[i]
+                child.levin_cost = levin_cost  # type:ignore
 
-                if children_to_be_evaluated[i].state not in _closed:
-                    heapq.heappush(_open, children_to_be_evaluated[i])
-                    _closed.add(children_to_be_evaluated[i].state)
+                if child.state not in _closed:
+                    heapq.heappush(_open, child)
+                    _closed[child] = child.state
 
                 children_to_be_evaluated = []
-                x_input_of_children_to_be_evaluated = []
+                state_t_of_children_to_be_evaluated = []
 
             num_expanded += 1
 

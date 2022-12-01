@@ -12,7 +12,7 @@ from .utils import (
     Trajectory,
     SearchNode,
     get_merged_trajectory,
-    convert_to_backward_trajectory,
+    reverse_trajectory,
 )
 
 

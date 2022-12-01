@@ -38,8 +38,6 @@ class Trajectory:
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
-        The state-action pairs are stored alongside the number of nodes expanded in an object of type Trajectory,
-        which is added to the variable memory.
         """
         self.num_expanded = num_expanded
         if hasattr(final_node, "log_prob"):
@@ -62,7 +60,10 @@ class Trajectory:
             cost += 1
 
 
-def convert_to_backward_trajectory(f_trajectory: Trajectory):
+def reverse_trajectory(f_trajectory: Trajectory):
+    """
+    Returns a new a trajectory that is the reverse of f_trajectory.
+    """
     dummy_node = SearchNode(state=None, parent=None, action=None, g_cost=None)
     b_trajectory = Trajectory(dummy_node, f_trajectory.num_expanded)
     if hasattr(f_trajectory, "solution_prob"):
@@ -82,6 +83,9 @@ def get_merged_trajectory(
     node_type: Type[SearchNode],
     num_expanded: int,
 ):
+    """
+    Returns a new trajectory going from f_start to b_start, passing through f_common ==(state) b_common.
+    """
     assert f_common.state == b_common.state
     f_node = f_common
     b_node = b_common

@@ -13,7 +13,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from domains import SlidingTilePuzzle, Sokoban, WitnessState
 from models import ConvNetDouble, ConvNetSingle, HeuristicConvNet, TwoHeadedConvNet
 import models.loss_functions as loss_fns
-from search import BiLevin, Levin, PUCT, AStar, GBFS
+from search import AStar, BiLevin, GBFS, Levin, PUCT
 from test import test
 from train import train
 
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     to.manual_seed(args.seed)
     if args.torch_deterministic:
         to.use_deterministic_algorithms(True)
-        to.backends.cudnn.benchmark = False
+        to.backends.cudnn.benchmark = False  # type:ignore
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
     device = to.device(
@@ -306,7 +306,7 @@ if __name__ == "__main__":
     print(f"Loaded {len(problems)} instances\n from {args.problems_path}\n")
 
     if args.algorithm == "Levin":
-        planner = BFSLevin(
+        planner = Levin(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             False,
@@ -314,7 +314,7 @@ if __name__ == "__main__":
             args.weight_uniform,
         )
     elif args.algorithm == "LevinStar":
-        planner = BFSLevin(
+        planner = Levin(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             True,
@@ -378,15 +378,15 @@ if __name__ == "__main__":
 
     if args.model_path.is_file():
         if bidirectional:
-            forward_model.load_state_dict(to.load(args.model_path))
-            backward_model.load_state_dict(
+            forward_model.load_state_dict(to.load(args.model_path))  # type:ignore
+            backward_model.load_state_dict(  # type:ignore
                 to.load(args.model_path[: len("_forward.pt")] + "_backward.pt")
             )
-            forward_model.to(device)
-            backward_model.to(device)
+            forward_model.to(device)  # type:ignore
+            backward_model.to(device)  # type:ignore
         else:
-            model.load_state_dict(to.load(args.model_path))
-            model.to(device)
+            model.load_state_dict(to.load(args.model_path))  # type:ignore
+            model.to(device)  # type:ignore
     else:
         args.model_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -413,10 +413,10 @@ if __name__ == "__main__":
             loss_fn,
             optimizer_cons,
             optimizer_params,
+            writer,
             initial_budget=args.initial_budget,
             grad_steps=args.grad_steps,
             problems_batch_size=args.batch_size_bootstrap,
-            writer=writer,
         )
 
     elif args.mode == "test":

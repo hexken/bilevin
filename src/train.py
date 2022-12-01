@@ -1,12 +1,12 @@
 import os
-import numpy as np
 from pathlib import Path
 import pathlib
-import tqdm
 import time
 
+import numpy as np
 import torch as to
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
+import tqdm
 
 from search.utils import Memory
 
@@ -54,10 +54,10 @@ def train(
     loss_fn,
     optimizer_cons,
     optimizer_params,
+    writer,
     initial_budget=7000,
     grad_steps=10,
     problems_batch_size=32,
-    writer=None,
 ):
 
     forward_memory = Memory()
@@ -76,30 +76,35 @@ def train(
         forward_model = model
         forward_optimizer = optimizer_cons(model.parameters(), **optimizer_params)
 
-    current_solved_problems = set()
+    solved_problems = set()
     num_expanded = 0
     num_generated = 0
     current_budget = initial_budget
-
-    num_passes_problemset = 0
-    opt_steps = 0
-    num_problems = len(problems)
-    num_problems_unsolved_total = num_problems
 
     problems_loader = ProblemsBatchLoader(
         problems, batch_size=problems_batch_size, shuffle=True
     )
 
-    total_batches_seen = 0
-    while num_problems_unsolved_total > 0:
-        num_problems_solved_this_pass = 0
+    opt_steps = 0
+    num_problems = len(problems)
+    total_batches = 0
+    epoch = 0
+    cumulative_unique_problems_solved = 0
+
+    while cumulative_unique_problems_solved < num_problems:
+        epoch += 1
+        num_new_problems_solved_this_epoch = 0
+        num_problems_solved_this_epoch = 0
+
         for batch_problems, batch_names in tqdm.tqdm(problems_loader):
+            total_batches += 1
             num_problems_solved_this_batch = 0
 
             to.set_grad_enabled(False)
             forward_model.eval()
             if bidirectional:
-                backward_model.eval()
+                backward_model.eval()  # type:ignore
+
             for problem, problem_name in zip(batch_problems, batch_names):
                 start_time = time.time()
                 (
@@ -116,6 +121,7 @@ def train(
                 )
 
                 if has_found_solution:
+                    num_problems_solved_this_batch += 1
                     print(
                         f"{problem_name} SOLVED\n"
                         f"Time: {time.time() - start_time:.3f}\n"
@@ -124,20 +130,22 @@ def train(
                         f"Generated: {num_generated}\n"
                     )
 
-                    forward_memory.add_trajectory(traj[0])
                     if bidirectional:
-                        backward_memory.add_trajectory(traj[1])
+                        forward_memory.add_trajectory(traj[0])
+                        backward_memory.add_trajectory(traj[1])  # type:ignore
+                    else:
+                        forward_memory.add_trajectory(traj)
 
-                    if problem_name not in current_solved_problems:
-                        num_problems_solved_this_pass += 1
-                        num_problems_solved_this_batch += 1
-                        current_solved_problems.add(problem_name)
+                    if problem_name not in solved_problems:
+                        num_new_problems_solved_this_epoch += 1
+                        solved_problems.add(problem_name)
 
+            num_problems_solved_this_epoch += num_problems_solved_this_batch
             if forward_memory.number_trajectories() > 0:
                 to.set_grad_enabled(True)
                 forward_model.train()
                 if bidirectional:
-                    backward_model.train()
+                    backward_model.train()  # type:ignore
 
                 for _ in range(grad_steps):
                     total_loss = 0
@@ -149,7 +157,7 @@ def train(
                         forward_optimizer.step()
                         total_loss += loss.item()
 
-                    avg_loss = total_loss / len(memory)
+                    avg_loss = total_loss / len(forward_memory)
                     print(f"Avg Loss: {avg_loss:.3f}")
                     opt_steps += 1
                     writer.add_scalar(
@@ -162,51 +170,49 @@ def train(
                 if bidirectional:
                     for _ in range(grad_steps):
                         total_loss = 0
-                        backward_memory.shuffle_trajectories()
-                        for traj in backward_memory.next_trajectory():
-                            backward_optimizer.zero_grad()
-                            loss = loss_fn(traj, backward_model)
+                        backward_memory.shuffle_trajectories()  # type:ignore
+                        for traj in backward_memory.next_trajectory():  # type:ignore
+                            backward_optimizer.zero_grad()  # type:ignore
+                            loss = loss_fn(traj, backward_model)  # type:ignore
                             loss.backward()
-                            backward_optimizer.step()
+                            backward_optimizer.step()  # type:ignore
                             total_loss += loss.item()
 
-                        avg_loss = total_loss / len(backward_memory)
+                        avg_loss = total_loss / len(backward_memory)  # type:ignore
                         print(f"Avg Loss (B): {avg_loss:.3f}")
                         opt_steps += 1
                         writer.add_scalar("Loss/Train Avg (B)", avg_loss, opt_steps)
                     print("")
-                    backward_memory.clear()
+                    backward_memory.clear()  # type:ignore
 
                 # todo add save interval, performance increase check? validation? Overhaul checkpointing.
                 if bidirectional:
                     to.save(forward_model, model_path)
-                    to.save(backward_model, backward_model_path)
+                    to.save(backward_model, backward_model_path)  # type:ignore
                 else:
                     to.save(model, model_path)
 
-            total_batches_seen += 1
-            avg_problems_solved = num_problems_solved_this_batch / problems_batch_size
+            batch_avg = num_problems_solved_this_batch / problems_batch_size
             # fmt: off
-            writer.add_scalar("Search/Avg # Problems Solved vs. Batch", avg_problems_solved, total_batches_seen)
-            writer.add_scalar("Search/# Problems Solved vs. Batch", num_problems_solved_this_pass, total_batches_seen)
-            writer.add_scalar("Search/# Unsolved Provlems vs Batch", num_problems_unsolved_total, total_batches_seen)
+            writer.add_scalar("Search/avg_batch_solved_vs_batch", batch_avg, total_batches)
+            writer.add_scalar("Search/cumulative_unique_problems_solved_vs_batch", cumulative_unique_problems_solved, total_batches)
             # fmt: on
 
-        num_problems_unsolved_total -= num_problems_solved_this_pass
-        num_passes_problemset += 1
+        cumulative_unique_problems_solved += num_new_problems_solved_this_epoch
 
         print("=========================================")
         print(
-            f"Solved {num_problems_solved_this_pass} problem in pass #{num_passes_problemset} with budget {current_budget}"
+            f"Solved {num_problems_solved_this_epoch}/{num_problems} problems in pass #{epoch} with budget {current_budget}"
         )
         print("=========================================\n")
 
-        if num_problems_solved_this_pass == 0:
+        if num_new_problems_solved_this_epoch == 0:
             current_budget *= 2
             print(f"Budget: {current_budget}")
 
         # fmt: off
-        writer.add_scalar("Search/Budget vs. Pass", current_budget, num_passes_problemset)
-        writer.add_scalar("Search/# Problems Solved vs. Pass", num_problems_solved_this_pass, num_passes_problemset)
-        writer.add_scalar("Search/# Unsolved Problems vs. Pass", num_problems_unsolved_total, num_passes_problemset)
+        epoch_avg = num_problems_solved_this_epoch / num_problems
+        writer.add_scalar("Search/budget_vs_epoch", current_budget, epoch)
+        writer.add_scalar("Search/avg_solved_vs_epoch", epoch_avg, epoch)
+        writer.add_scalar("Search/cumulative_unique_problems_solved_vs_epoch", cumulative_unique_problems_solved, epoch)
         # fmt: on
