@@ -100,11 +100,12 @@ class BiLevin:
 
         f_state = problem.state_tensor().to(device)
         b_state = b_problem.state_tensor().to(device)
+        initial_state = f_state.clone()
 
         forward_model, backward_model = model
 
         f_action_logits = forward_model(f_state)
-        b_action_logits = backward_model(b_state)
+        b_action_logits = backward_model(b_state, initial_state)
 
         if isinstance(f_action_logits, tuple):
             f_action_logits = f_action_logits[0]
@@ -112,18 +113,18 @@ class BiLevin:
 
         f_start_node = LevinNode(
             problem,
-            None,
             g_cost=0,
             log_prob=1.0,
+            levin_cost=1,
             log_action_probs=self.mixture_uniform(f_action_logits),
             num_expanded_when_generated=0,
         )
 
         b_start_node = LevinNode(
             b_problem,
-            None,
             g_cost=0,
             log_prob=1.0,
+            levin_cost=1,
             log_action_probs=self.mixture_uniform(b_action_logits),
             num_expanded_when_generated=0,
         )
@@ -146,10 +147,12 @@ class BiLevin:
                 return (False, num_expanded, num_generated, None)
 
             if f_open[0] < b_open[0]:
+                direction = Direction.FORWARD
                 _model = forward_model
                 _open = f_open
                 _closed = f_closed
             else:
+                direction = Direction.BACKWARD
                 _model = backward_model
                 _open = b_open
                 _closed = b_closed
@@ -187,7 +190,12 @@ class BiLevin:
                 x_input_of_children_to_be_evaluated.append(new_state.state_tensor())
 
             batch_states = to.stack(x_input_of_children_to_be_evaluated).to(device)
-            action_logits = _model(batch_states)
+            if direction == Direction.BACKWARD:
+                initial_states = initial_state.repeat(len(batch_states), 1)
+                batch_states = (batch_states, initial_states)
+                action_logits = _model(batch_states, initial_states)
+            else:
+                action_logits = _model(batch_states)
 
             predicted_h = None
             if isinstance(action_logits, tuple):
@@ -199,9 +207,10 @@ class BiLevin:
                 num_generated += 1
 
                 if self.estimated_probability_to_go:
-                    levin_cost = self.get_levin_cost_star(
-                        children_to_be_evaluated[i], predicted_h[i]
-                    )
+                    pass
+                    # levin_cost = self.get_levin_cost_star(
+                    #     children_to_be_evaluated[i], predicted_h[i]
+                    # )
                 else:
                     if predicted_h:
                         levin_cost = self.levin_cost(

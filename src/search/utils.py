@@ -6,12 +6,12 @@ from typing import Type
 
 
 class SearchNode:
-    def __init__(self, state, parent, action, g_cost):
+    def __init__(self, state=None, parent=None, action=None, g_cost=None):
         self.state = state
         self.parent = parent
         self.action = action
         self.g_cost = g_cost
-        self.reverse_action = state.reverse_action[action]
+        self.reverse_action = state.reverse_action[action] if action else None
 
     def __eq__(self, other):
         """

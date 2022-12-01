@@ -363,7 +363,7 @@ if __name__ == "__main__":
         or args.algorithm == "BiLevin"
     ):
         if args.algorithm == "BiLevin":
-            forward_model = ConvNetDouble(in_channels, (2, 2), 32, num_actions)
+            forward_model = ConvNetSingle(in_channels, (2, 2), 32, num_actions)
             backward_model = ConvNetDouble(in_channels, (2, 2), 32, num_actions)
             bidirectional = True
             model = (forward_model, backward_model)
