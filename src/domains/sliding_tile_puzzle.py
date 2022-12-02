@@ -1,5 +1,5 @@
 import copy
-from enum import Enum
+from enum import IntEnum
 import math
 
 import numpy as np
@@ -11,7 +11,7 @@ from domains.environment import Environment
 class SlidingTilePuzzle(Environment):
     # todo vectorize this by using a tensor for maintaining state and permuting
     # todo maybe better to have an execution class that handles the execution of the environment
-    class Action(Enum):
+    class Action(IntEnum):
         right = 0
         left = 1
         up = 2

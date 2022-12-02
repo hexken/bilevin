@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-import pathlib
 import time
 
 import numpy as np
@@ -61,7 +60,7 @@ def train(
 ):
 
     forward_memory = Memory()
-    bidirectional = isinstance(planner, tuple)
+    bidirectional = planner.bidirectional
     if bidirectional:
         backward_memory = Memory()
         forward_model, backward_model = model
@@ -71,7 +70,9 @@ def train(
         backward_optimizer = optimizer_cons(
             backward_model.parameters(), **optimizer_params
         )
-        backward_model_path = model_path[: len("_forward.pt")] + "_backward.pt"
+        backward_model_path = Path(
+            str(model_path).replace("_forward.pt", "_backward.pt")
+        )
     else:
         forward_model = model
         forward_optimizer = optimizer_cons(model.parameters(), **optimizer_params)
@@ -85,7 +86,10 @@ def train(
         problems, batch_size=problems_batch_size, shuffle=True
     )
 
-    opt_steps = 0
+    forward_outer_opt_steps = 0
+    # forward_inner_opt_steps = 0
+    backward_outer_opt_steps = 0
+    # backward_inner_opt_steps = 0
     num_problems = len(problems)
     total_batches = 0
     epoch = 0
@@ -111,7 +115,7 @@ def train(
                     has_found_solution,
                     num_expanded,
                     num_generated,
-                    traj,
+                    trajs,
                 ) = planner.search(
                     problem,
                     problem_name,
@@ -130,11 +134,14 @@ def train(
                         f"Generated: {num_generated}\n"
                     )
 
+                    forward_memory.add_trajectory(trajs[0])
                     if bidirectional:
-                        forward_memory.add_trajectory(traj[0])
-                        backward_memory.add_trajectory(traj[1])  # type:ignore
-                    else:
-                        forward_memory.add_trajectory(traj)
+                        btraj = trajs[1]
+                        btraj_states_with_goal = to.vstack(
+                            (btraj.states, btraj.goal.repeat(len(btraj)))
+                        )
+                        btraj.states = btraj_states_with_goal
+                        backward_memory.add_trajectory(btraj)  # type:ignore
 
                     if problem_name not in solved_problems:
                         num_new_problems_solved_this_epoch += 1
@@ -150,38 +157,43 @@ def train(
                 for _ in range(grad_steps):
                     total_loss = 0
                     forward_memory.shuffle_trajectories()
-                    for traj in forward_memory.next_trajectory():
+                    for trajs in forward_memory.next_trajectory():
                         forward_optimizer.zero_grad()
-                        loss = loss_fn(traj, forward_model)
+                        loss = loss_fn(trajs, forward_model)
                         loss.backward()
                         forward_optimizer.step()
                         total_loss += loss.item()
 
                     avg_loss = total_loss / len(forward_memory)
-                    print(f"Avg Loss: {avg_loss:.3f}")
-                    opt_steps += 1
+                    print(f"Avg Loss (F): {avg_loss:.3f}")
+                    forward_outer_opt_steps += 1
                     writer.add_scalar(
-                        "Loss/Train Avg (over memory)", avg_loss, opt_steps
+                        "Loss/f_train_avg_traj_loss_over_memory_vs_outeropt",
+                        avg_loss,
+                        forward_outer_opt_steps,
                     )
                 print("")
                 forward_memory.clear()
-                # todo log the losses and acc
 
                 if bidirectional:
                     for _ in range(grad_steps):
                         total_loss = 0
                         backward_memory.shuffle_trajectories()  # type:ignore
-                        for traj in backward_memory.next_trajectory():  # type:ignore
+                        for trajs in backward_memory.next_trajectory():  # type:ignore
                             backward_optimizer.zero_grad()  # type:ignore
-                            loss = loss_fn(traj, backward_model)  # type:ignore
+                            loss = loss_fn(trajs, backward_model)  # type:ignore
                             loss.backward()
                             backward_optimizer.step()  # type:ignore
                             total_loss += loss.item()
 
                         avg_loss = total_loss / len(backward_memory)  # type:ignore
                         print(f"Avg Loss (B): {avg_loss:.3f}")
-                        opt_steps += 1
-                        writer.add_scalar("Loss/Train Avg (B)", avg_loss, opt_steps)
+                        backward_outer_opt_steps += 1
+                        writer.add_scalar(
+                            "Loss/f_train_avg_traj_loss_over_memory_vs_outeropt",
+                            avg_loss,
+                            backward_outer_opt_steps,
+                        )
                     print("")
                     backward_memory.clear()  # type:ignore
 

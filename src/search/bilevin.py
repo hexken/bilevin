@@ -55,6 +55,7 @@ class BiLevin:
         self.estimated_probability_to_go = estimated_probability_to_go
         self.batch_size_expansions = batch_size_expansions
         self.weight_uniform = weight_uniform
+        self.bidirectional = True
 
     def levin_cost(self, node, predicted_h):
         # todo these costs don't look right
@@ -87,14 +88,6 @@ class BiLevin:
     ):
         """ """
         device = next(model[0].parameters()).device
-        f_open = []
-        b_open = []
-        f_closed = {}
-        b_closed = {}
-
-        num_expanded = 0
-        num_generated = 0
-
         b_problem = problem.get_backward_problem()
 
         f_state = problem.state_tensor().to(device)
@@ -128,14 +121,20 @@ class BiLevin:
             num_expanded_when_generated=0,
         )
 
+        f_open = []
+        b_open = []
+        f_closed = {}
+        b_closed = {}
         heapq.heappush(f_open, f_start_node)
         heapq.heappush(b_open, b_start_node)
-        f_closed[problem] = problem
-        b_closed[b_problem] = b_problem
+        f_closed[f_start_node] = f_start_node
+        b_closed[b_start_node] = b_start_node
 
         children_to_be_evaluated = []
         state_t_of_children_to_be_evaluated = []
 
+        num_expanded = 0
+        num_generated = 0
         while len(f_open) > 0 and len(b_open) > 0:
 
             if (
@@ -190,9 +189,8 @@ class BiLevin:
 
             batch_states = to.stack(state_t_of_children_to_be_evaluated).to(device)
             if direction == Direction.BACKWARD:
-                initial_states = initial_state.repeat(len(batch_states), 1)
-                batch_states = (batch_states, initial_states)
-                action_logits = _model(batch_states, initial_states)
+                initial_state_repeated = initial_state.repeat(len(batch_states), 1, 1, 1)
+                action_logits = _model(batch_states, initial_state_repeated)
             else:
                 action_logits = _model(batch_states)
 
@@ -218,9 +216,9 @@ class BiLevin:
                 child.log_action_probs = log_action_probs[i]
                 child.levin_cost = levin_cost  # type:ignore
 
-                if child.state not in _closed:
+                if child not in _closed:
                     heapq.heappush(_open, child)
-                    _closed[child] = child.state
+                    _closed[child] = child
 
                 children_to_be_evaluated = []
                 state_t_of_children_to_be_evaluated = []

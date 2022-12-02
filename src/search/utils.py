@@ -1,17 +1,18 @@
 import math
 import sys
+from typing import Type
 
 import numpy as np
-from typing import Type
+import torch as to
 
 
 class SearchNode:
-    def __init__(self, state=None, parent=None, action=None, g_cost=None):
+    def __init__(self, state, parent, action, g_cost):
         self.state = state
         self.parent = parent
         self.action = action
         self.g_cost = g_cost
-        self.reverse_action = state.reverse_action[action] if action else None
+        self.reverse_action = state.reverse_action[action] if action and state else None
 
     def __eq__(self, other):
         """
@@ -34,44 +35,59 @@ class SearchNode:
 
 
 class Trajectory:
-    def __init__(self, final_node: SearchNode, num_expanded: int):
+    def __init__(self, final_node: SearchNode, num_expanded: int, device=None):
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
         self.num_expanded = num_expanded
         if hasattr(final_node, "log_prob"):
-            self.solution_prob = math.exp(final_node.log_prob)
+            self.solution_prob = math.exp(final_node.log_prob)  # type:ignore
 
         action = final_node.action
         node = final_node.parent
         self.goal = final_node.state.state_tensor()
-        self.states = []
-        self.actions = []
-        self.cost_to_gos = []
+        self.device = device if device else self.goal.device
+        states = []
+        actions = []
+        cost_to_gos = []
         cost = 1
 
         while node:
-            self.states.append(node.state.state_tensor())
-            self.actions.append(action)
-            self.cost_to_gos.append(cost)
+            states.append(node.state.state_tensor())
+            actions.append(action)
+            cost_to_gos.append(cost)
             action = node.action
             node = node.parent
             cost += 1
+            self.states = to.tensor(states, device=device)
+            self.actions = to.tensor(actions, device=device)
+            self.cost_to_gos = to.tensor(cost_to_gos, device=device)
+
+    def to(self, device):
+        self.states = self.states.to(device)
+        self.actions = self.actions.to(device)
+        self.cost_to_gos = self.cost_to_gos.to(device)
+        self.device = device
+
+    def __len__(self):
+        return len(self.states)
 
 
-def reverse_trajectory(f_trajectory: Trajectory):
+def reverse_trajectory(f_trajectory: Trajectory, device=None):
     """
     Returns a new a trajectory that is the reverse of f_trajectory.
     """
+    device = device if device else f_trajectory.device
     dummy_node = SearchNode(state=None, parent=None, action=None, g_cost=None)
     b_trajectory = Trajectory(dummy_node, f_trajectory.num_expanded)
     if hasattr(f_trajectory, "solution_prob"):
         b_trajectory.solution_prob = f_trajectory.solution_prob
-    goal = f_trajectory.goal
-    b_trajectory.states = [(state, goal) for state in f_trajectory.states[::-1]]
-    b_trajectory.actions = f_trajectory.actions[::-1]
-    b_trajectory.cost_to_gos = f_trajectory.cost_to_gos[::-1]
+    b_trajectory.device = device
+    b_trajectory.goal = f_trajectory.goal
+    b_trajectory.states = to.flip(f_trajectory.states, dims=[0])
+    b_trajectory.actions = to.flip(f_trajectory.actions, dims=[0])
+    b_trajectory.cost_to_gos = to.flip(f_trajectory.cost_to_gos, dims=[0])
     return b_trajectory
 
 
@@ -82,6 +98,7 @@ def get_merged_trajectory(
     b_common: SearchNode,
     node_type: Type[SearchNode],
     num_expanded: int,
+    device=None,
 ):
     """
     Returns a new trajectory going from f_start to b_start, passing through f_common ==(state) b_common.
@@ -99,7 +116,7 @@ def get_merged_trajectory(
         f_node = new_node
         b_node = b_node.parent
 
-    return Trajectory(b_node, num_expanded)
+    return Trajectory(b_node, num_expanded, device=device)
 
 
 class Memory:

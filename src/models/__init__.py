@@ -1,1 +1,1 @@
-from models.conv_net import ConvNetSingle, ConvNetDouble, HeuristicConvNet, TwoHeadedConvNet
+from models.conv_net import *
