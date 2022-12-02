@@ -67,7 +67,7 @@ class BiLevin:
             return math.log(predicted_h + node.g_cost) - node.log_prob
         elif self.use_default_heuristic:
             return math.log(node.state.heuristic_value() + node.g_cost) - node.log_prob
-        return math.log(node.g_cost) - node.log_prob
+        return math.log(node.g_cost + 1) - node.log_prob
 
     def mixture_uniform(self, logits):
         probs = to.exp(F.log_softmax(logits, dim=0))
@@ -92,6 +92,8 @@ class BiLevin:
         f_state = problem.state_tensor().to(device)
         b_state = b_problem.state_tensor().to(device)
         initial_state = f_state.clone()
+        dims = [1] * initial_state.dim()
+        initial_state_repeated = initial_state.repeat(problem.num_actions, *dims)
 
         forward_model, backward_model = model
 
@@ -143,16 +145,16 @@ class BiLevin:
             ):
                 return (False, num_expanded, num_generated, None)
 
-            if f_open[0] < b_open[0]:
-                direction = Direction.FORWARD
-                _model = forward_model
-                _open = f_open
-                _closed = f_closed
-            else:
+            if b_open[0] < f_open[0]:
                 direction = Direction.BACKWARD
                 _model = backward_model
                 _open = b_open
                 _closed = b_closed
+            else:
+                direction = Direction.FORWARD
+                _model = forward_model
+                _open = f_open
+                _closed = f_closed
 
             node = heapq.heappop(_open)
             actions = node.state.successors_parent_pruning(node.action)
@@ -188,10 +190,9 @@ class BiLevin:
 
             batch_states = to.stack(state_t_of_children_to_be_evaluated).to(device)
             if direction == Direction.BACKWARD:
-                initial_state_repeated = initial_state.repeat(
-                    len(batch_states), 1, 1, 1
+                action_logits = _model(
+                    batch_states, initial_state_repeated[: len(batch_states)]
                 )
-                action_logits = _model(batch_states, initial_state_repeated)
             else:
                 action_logits = _model(batch_states)
 
@@ -202,7 +203,7 @@ class BiLevin:
             log_action_probs = self.mixture_uniform(action_logits)
 
             for i, child in enumerate(children_to_be_evaluated):
-                # todo can this be vectorized?
+                # todo vectorize this loop!
                 num_generated += 1
 
                 if self.estimated_probability_to_go:
@@ -231,6 +232,7 @@ class BiLevin:
 
             for key in f_closed:
                 if key in b_closed:
+                    # todo this part is really slow
                     f_common_node = f_closed[key]
                     b_common_node = b_closed[key]
 

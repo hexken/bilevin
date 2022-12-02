@@ -151,9 +151,6 @@ def train(
             if forward_memory.number_trajectories() > 0:
                 to.set_grad_enabled(True)
                 forward_model.train()
-                if bidirectional:
-                    backward_model.train()  # type:ignore
-
                 for _ in range(grad_steps):
                     total_loss = 0
                     forward_memory.shuffle_trajectories()
@@ -176,6 +173,7 @@ def train(
                 forward_memory.clear()
 
                 if bidirectional:
+                    backward_model.train()  # type:ignore
                     for _ in range(grad_steps):
                         total_loss = 0
                         backward_memory.shuffle_trajectories()  # type:ignore

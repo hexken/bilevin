@@ -4,7 +4,7 @@ python src/main.py \
     --mode train \
     --algorithm BiLevin \
     --loss cross_entropy_loss \
-    --model-path testpath/ \
+    --model-path trained_models/ \
     --domain SlidingTile \
     --problems-path problems/stp_test/3x3_20/ \
     --initial-budget 7000 \
