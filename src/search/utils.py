@@ -1,10 +1,16 @@
+from enum import IntEnum
 import math
+from math import exp
 import sys
 from typing import Type
 
 import numpy as np
 import torch as to
-from math import exp
+
+
+class Direction(IntEnum):
+    FORWARD = 0
+    BACKWARD = 1
 
 
 class SearchNode:
@@ -110,15 +116,18 @@ def get_merged_trajectory(
     assert f_common.state == b_common.state
     f_node = f_common
     b_node = b_common
+    prev_b_node = b_node
     b_node = b_node.parent
+    # todo still not correct!
     while b_node:
-        new_node = node_type(
+        new_f_node = node_type(
             state=b_node.state,
             parent=f_node,
-            action=b_node.reverse_action,
+            action=prev_b_node.reverse_action,
             g_cost=f_node.g_cost + 1,
         )
-        f_node = new_node
+        f_node = new_f_node
+        prev_b_node = b_node
         b_node = b_node.parent
 
     return Trajectory(f_node, num_expanded, device=device)

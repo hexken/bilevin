@@ -39,11 +39,6 @@ class LevinNode(SearchNode):
         return self.levin_cost < other.levin_cost
 
 
-class Direction(Enum):
-    FORWARD = 0
-    BACKWARD = 1
-
-
 class Levin:
     def __init__(
         self,

@@ -7,7 +7,7 @@ import torch as to
 from torch.utils.data import DataLoader, Dataset
 import tqdm
 
-from search.utils import Memory
+from search import Memory
 
 
 class ProblemsBatchLoader:

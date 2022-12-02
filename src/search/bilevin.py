@@ -7,9 +7,8 @@ import numpy as np
 import torch as to
 import torch.nn.functional as F
 
-from utils import Direction
-
-from .utils import (
+from search import (
+    Direction,
     SearchNode,
     Trajectory,
     reverse_trajectory,
