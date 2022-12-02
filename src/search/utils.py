@@ -60,9 +60,10 @@ class Trajectory:
             action = node.action
             node = node.parent
             cost += 1
-            self.states = to.tensor(states, device=device)
-            self.actions = to.tensor(actions, device=device)
-            self.cost_to_gos = to.tensor(cost_to_gos, device=device)
+
+        self.states = to.tensor(states, device=device)
+        self.actions = to.tensor(actions, device=device)
+        self.cost_to_gos = to.tensor(cost_to_gos, device=device)
 
     def to(self, device):
         self.states = self.states.to(device)

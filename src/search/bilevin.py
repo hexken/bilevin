@@ -150,15 +150,19 @@ class BiLevin:
                 _model = backward_model
                 _open = b_open
                 _closed = b_closed
+                _other_closed = f_closed
             else:
                 direction = Direction.FORWARD
                 _model = forward_model
                 _open = f_open
                 _closed = f_closed
+                _other_closed = b_closed
 
             node = heapq.heappop(_open)
+            num_expanded += 1
             actions = node.state.successors_parent_pruning(node.action)
             for a in actions:
+                # todo vectorize this? Will depend on how I re-implement envs
                 new_state = copy.deepcopy(node.state)
                 new_state.apply_action(a)
 
@@ -171,19 +175,20 @@ class BiLevin:
                     num_expanded_when_generated=num_expanded,
                 )
 
-                if new_state.is_solution():
-                    solution_len = new_node.g_cost
-                    trajectory = Trajectory(new_node, num_expanded)
-                    if learn:
-                        backward_trajectory = reverse_trajectory(trajectory)
-                        return (
-                            solution_len,
-                            num_expanded,
-                            num_generated,
-                            (trajectory, backward_trajectory),
-                        )
-                    else:
-                        return solution_len, num_expanded, num_generated, trajectory
+                # if new_state.is_solution():
+                #     # todo should reverse, not always compute backward
+                #     solution_len = new_node.g_cost
+                #     trajectory = Trajectory(new_node, num_expanded)
+                #     if learn:
+                #         backward_trajectory = reverse_trajectory(trajectory)
+                #         return (
+                #             solution_len,
+                #             num_expanded,
+                #             num_generated,
+                #             (trajectory, backward_trajectory),
+                #         )
+                #     else:
+                #         return solution_len, num_expanded, num_generated, trajectory
 
                 children_to_be_evaluated.append(new_node)
                 state_t_of_children_to_be_evaluated.append(new_state.state_tensor())
@@ -204,7 +209,6 @@ class BiLevin:
 
             for i, child in enumerate(children_to_be_evaluated):
                 # todo vectorize this loop!
-                num_generated += 1
 
                 if self.estimated_probability_to_go:
                     pass
@@ -219,53 +223,46 @@ class BiLevin:
                 child.log_action_probs = log_action_probs[i]
                 child.levin_cost = levin_cost  # type:ignore
 
-                if child not in _closed:
+                if child not in _closed or child.g_cost < _closed[child].g_cost:
                     heapq.heappush(_open, child)
                     _closed[child] = child
+                    if child in _other_closed:
+                        f_common_node = f_closed[child]
+                        b_common_node = b_closed[child]
 
-            children_to_be_evaluated = []
-            state_t_of_children_to_be_evaluated = []
-
-            num_expanded += 1
-            if num_generated % 100 == 0:
-                print(num_expanded)
-
-            for key in f_closed:
-                if key in b_closed:
-                    # todo this part is really slow
-                    f_common_node = f_closed[key]
-                    b_common_node = b_closed[key]
-
-                    forward_traj = get_merged_trajectory(
-                        f_start_node,
-                        f_common_node,
-                        b_start_node,
-                        b_common_node,
-                        LevinNode,
-                        num_expanded,
-                    )
-                    if learn:
-                        backward_traj = get_merged_trajectory(
-                            b_start_node,
-                            b_common_node,
+                        forward_traj = get_merged_trajectory(
                             f_start_node,
                             f_common_node,
+                            b_start_node,
+                            b_common_node,
                             LevinNode,
                             num_expanded,
                         )
-                        return (
-                            f_common_node.g_cost + b_common_node.g_cost - 1,
-                            num_expanded,
-                            num_generated,
-                            (forward_traj, backward_traj),
-                        )
-                    else:
-                        return (
-                            f_common_node.g_cost + b_common_node.g_cost - 1,
-                            num_expanded,
-                            num_generated,
-                            forward_traj,
-                        )
+                        if learn:
+                            backward_traj = get_merged_trajectory(
+                                b_start_node,
+                                b_common_node,
+                                f_start_node,
+                                f_common_node,
+                                LevinNode,
+                                num_expanded,
+                            )
+                            return (
+                                f_common_node.g_cost + b_common_node.g_cost - 1,
+                                num_expanded,
+                                num_generated,
+                                (forward_traj, backward_traj),
+                            )
+                        else:
+                            return (
+                                f_common_node.g_cost + b_common_node.g_cost - 1,
+                                num_expanded,
+                                num_generated,
+                                forward_traj,
+                            )
+
+            children_to_be_evaluated = []
+            state_t_of_children_to_be_evaluated = []
 
         print("Emptied Open List in problem: ", problem_name)
         return False, num_expanded, num_generated, None

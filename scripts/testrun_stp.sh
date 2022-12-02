@@ -9,4 +9,4 @@ python src/main.py \
     --problems-path problems/stp_test/3x3_20/ \
     --initial-budget 7000 \
     --grad-steps 10 \
-    --batch-size-bootstrap 1 \
+    --batch-size-bootstrap 5 \
