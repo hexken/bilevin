@@ -38,8 +38,8 @@ def parse_args():
         "-m",
         "--model-path",
         type=lambda p: Path(p).absolute(),
-        default=Path(__file__).parent / "trained_models" / "model.pt",
-        help="path of file to load or save model",
+        default=Path(__file__).parent / "trained_models",
+        help="path of file to load or directory to save model",
     )
     parser.add_argument(
         "-l",
@@ -160,18 +160,18 @@ def parse_args():
     parser.add_argument(
         "--torch-deterministic",
         action="store_true",
-        help="if toggled, `torch.backends.cudnn.deterministic=False`",
+        help="set `torch.backends.cudnn.deterministic=False` and `torch.use_deterministic_algorithms(True)`",
     )
     parser.add_argument(
         "--cuda",
         action="store_true",
-        help="if toggled, cuda will be enabled by default",
+        help="enable cuda",
     )
     parser.add_argument(
         "--track",
         action="store_true",
         default=False,
-        help="if toggled, this experiment will be tracked with Weights and Biases",
+        help="track with Weights and Biases",
     )
     parser.add_argument(
         "--wandb-project-name",
@@ -192,7 +192,7 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     start_time = time.time()
-    run_name = f"{args.domain}__{args.exp_name}__{args.seed}__{int(start_time)}"
+    run_name = f"{args.domain}_{args.exp_name}_{args.seed}_{int(start_time)}"
     if args.track:
         import wandb
 
@@ -303,7 +303,7 @@ if __name__ == "__main__":
     else:
         raise ValueError("problem domain not recognized")
 
-    print(f"Loaded {len(problems)} instances\n from {args.problems_path}\n")
+    print(f"Loaded {len(problems)} instances\n from {args.problems_path}")
 
     if args.algorithm == "Levin":
         planner = Levin(
@@ -379,16 +379,27 @@ if __name__ == "__main__":
     if args.model_path.is_file():
         if bidirectional:
             forward_model.load_state_dict(to.load(args.model_path))  # type:ignore
-            backward_model.load_state_dict(  # type:ignore
-                to.load(args.model_path[: len("_forward.pt")] + "_backward.pt")
+            backward_model_path = Path(
+                str(args.model_path).replace("_forward.pt", "_backward.pt")
             )
+            backward_model.load_state_dict(backward_model_path)  # type:ignore
             forward_model.to(device)  # type:ignore
             backward_model.to(device)  # type:ignore
+            print(f"Loaded model\n from  {str(args.model_path)}")
+            print(f"Loaded model\n from {str(backward_model_path)}")
         else:
             model.load_state_dict(to.load(args.model_path))  # type:ignore
             model.to(device)  # type:ignore
+            print(f"Loaded model\n from  {str(args.model_path)}")
     else:
         args.model_path.parent.mkdir(parents=True, exist_ok=True)
+        args.model_path = Path(args.model_path) / f"{run_name}_forward.pt"
+        print(f"Saving model\n to {str(args.model_path)}")
+        if bidirectional:
+            backward_model_path = Path(
+                str(args.model_path).replace("_forward.pt", "_backward.pt")
+            )
+            print(f"Saving model\n to {backward_model_path}")
 
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(

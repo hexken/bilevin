@@ -58,7 +58,6 @@ class BiLevin:
         self.bidirectional = True
 
     def levin_cost(self, node, predicted_h):
-        # todo these costs don't look right
         if self.use_learned_heuristic and self.use_default_heuristic:
             max_h = max(predicted_h, node.state.heuristic_value())
             return math.log(max_h + node.g_cost) - node.log_prob
@@ -189,7 +188,9 @@ class BiLevin:
 
             batch_states = to.stack(state_t_of_children_to_be_evaluated).to(device)
             if direction == Direction.BACKWARD:
-                initial_state_repeated = initial_state.repeat(len(batch_states), 1, 1, 1)
+                initial_state_repeated = initial_state.repeat(
+                    len(batch_states), 1, 1, 1
+                )
                 action_logits = _model(batch_states, initial_state_repeated)
             else:
                 action_logits = _model(batch_states)
@@ -201,6 +202,7 @@ class BiLevin:
             log_action_probs = self.mixture_uniform(action_logits)
 
             for i, child in enumerate(children_to_be_evaluated):
+                # todo can this be vectorized?
                 num_generated += 1
 
                 if self.estimated_probability_to_go:
@@ -220,10 +222,12 @@ class BiLevin:
                     heapq.heappush(_open, child)
                     _closed[child] = child
 
-                children_to_be_evaluated = []
-                state_t_of_children_to_be_evaluated = []
+            children_to_be_evaluated = []
+            state_t_of_children_to_be_evaluated = []
 
             num_expanded += 1
+            if num_generated % 100 == 0:
+                print(num_expanded)
 
             for key in f_closed:
                 if key in b_closed:
