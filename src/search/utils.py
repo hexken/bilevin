@@ -4,6 +4,7 @@ from typing import Type
 
 import numpy as np
 import torch as to
+from math import exp
 
 
 class SearchNode:
@@ -41,8 +42,11 @@ class Trajectory:
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
         self.num_expanded = num_expanded
-        if hasattr(final_node, "log_prob"):
-            self.solution_prob = math.exp(final_node.log_prob)  # type:ignore
+        if hasattr(
+            final_node,
+            "log_prob",
+        ) and isinstance(final_node.log_prob, float):
+            self.solution_prob = exp(final_node.log_prob)  # type:ignore
 
         action = final_node.action
         node = final_node.parent
@@ -61,9 +65,9 @@ class Trajectory:
             node = node.parent
             cost += 1
 
-        self.states = to.tensor(states, device=device)
-        self.actions = to.tensor(actions, device=device)
-        self.cost_to_gos = to.tensor(cost_to_gos, device=device)
+        self.states = to.stack(states[::-1])
+        self.actions = to.tensor(actions[::-1], device=device)
+        self.cost_to_gos = to.tensor(cost_to_gos[::-1], device=device)
 
     def to(self, device):
         self.states = self.states.to(device)
@@ -93,9 +97,7 @@ def reverse_trajectory(f_trajectory: Trajectory, device=None):
 
 
 def get_merged_trajectory(
-    f_start: SearchNode,
     f_common: SearchNode,
-    b_start: SearchNode,
     b_common: SearchNode,
     node_type: Type[SearchNode],
     num_expanded: int,
@@ -104,10 +106,12 @@ def get_merged_trajectory(
     """
     Returns a new trajectory going from f_start to b_start, passing through f_common ==(state) b_common.
     """
+    # todo if this is slow, can build the Trajectory directly without creating nodes
     assert f_common.state == b_common.state
     f_node = f_common
     b_node = b_common
-    while b_node.parent:
+    b_node = b_node.parent
+    while b_node:
         new_node = node_type(
             state=b_node.state,
             parent=f_node,
@@ -117,7 +121,7 @@ def get_merged_trajectory(
         f_node = new_node
         b_node = b_node.parent
 
-    return Trajectory(b_node, num_expanded, device=device)
+    return Trajectory(f_node, num_expanded, device=device)
 
 
 class Memory:

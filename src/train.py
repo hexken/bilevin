@@ -120,8 +120,7 @@ def train(
                     problem,
                     problem_name,
                     model,
-                    current_budget,
-                    learn=True,
+                    current_budget, learn=True,
                 )
 
                 if has_found_solution:
@@ -137,8 +136,10 @@ def train(
                     forward_memory.add_trajectory(trajs[0])
                     if bidirectional:
                         btraj = trajs[1]
+                        dims = [1] * btraj.states.dim()
+                        goal_repeated = btraj.goal.repeat(len(btraj.states), *dims)
                         btraj_states_with_goal = to.vstack(
-                            (btraj.states, btraj.goal.repeat(len(btraj)))
+                            (btraj.states, goal_repeated)
                         )
                         btraj.states = btraj_states_with_goal
                         backward_memory.add_trajectory(btraj)  # type:ignore
