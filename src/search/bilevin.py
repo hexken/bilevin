@@ -7,40 +7,21 @@ import numpy as np
 import torch as to
 import torch.nn.functional as F
 
-from search import (
+from models.utils import mixture_uniform
+from search.levin_common import LevinNode, levin_cost
+
+from .utils import (
     Direction,
     SearchNode,
     Trajectory,
-    reverse_trajectory,
     get_merged_trajectory,
+    reverse_trajectory,
 )
 
 
-class LevinNode(SearchNode):
-    def __init__(
-        self,
-        state,
-        parent=None,
-        action=None,
-        g_cost=None,
-        log_prob=None,
-        levin_cost=None,
-        log_action_probs=None,
-        num_expanded_when_generated=None,
-    ):
-        super().__init__(state, parent, action, g_cost)
-        self.log_prob = log_prob
-        self.levin_cost = levin_cost
-        self.log_action_probs = log_action_probs
-
-    def __lt__(self, other):
-        """
-        used by the heap
-        """
-        return self.levin_cost < other.levin_cost
-
-
 class BiLevin:
+    bidirectional = True
+
     def __init__(
         self,
         use_default_heuristic=True,
@@ -54,26 +35,6 @@ class BiLevin:
         self.estimated_probability_to_go = estimated_probability_to_go
         self.batch_size_expansions = batch_size_expansions
         self.weight_uniform = weight_uniform
-        self.bidirectional = True
-
-    def levin_cost(self, node, predicted_h):
-        if self.use_learned_heuristic and self.use_default_heuristic:
-            max_h = max(predicted_h, node.state.heuristic_value())
-            return math.log(max_h + node.g_cost) - node.log_prob
-        elif self.use_learned_heuristic:
-            if predicted_h < 0:
-                predicted_h = 0
-            return math.log(predicted_h + node.g_cost) - node.log_prob
-        elif self.use_default_heuristic:
-            return math.log(node.state.heuristic_value() + node.g_cost) - node.log_prob
-        return math.log(node.g_cost + 1) - node.log_prob
-
-    def mixture_uniform(self, logits):
-        probs = to.exp(F.log_softmax(logits, dim=0))
-        log_probs = to.log(
-            (1 - self.weight_uniform) * probs + self.weight_uniform * (1 / len(probs))
-        )
-        return log_probs
 
     def search(
         self,
@@ -108,7 +69,7 @@ class BiLevin:
             g_cost=0,
             log_prob=1.0,
             levin_cost=1,
-            log_action_probs=self.mixture_uniform(f_action_logits),
+            log_action_probs=mixture_uniform(f_action_logits, self.weight_uniform),
             num_expanded_when_generated=0,
         )
 
@@ -117,7 +78,7 @@ class BiLevin:
             g_cost=0,
             log_prob=1.0,
             levin_cost=1,
-            log_action_probs=self.mixture_uniform(b_action_logits),
+            log_action_probs=mixture_uniform(b_action_logits, self.weight_uniform),
             num_expanded_when_generated=0,
         )
 
@@ -190,7 +151,7 @@ class BiLevin:
             if isinstance(action_logits, tuple):
                 action_logits, predicted_h = action_logits
 
-            log_action_probs = self.mixture_uniform(action_logits)
+            log_action_probs = mixture_uniform(action_logits, self.weight_uniform)
 
             for i, child in enumerate(children_to_be_evaluated):
                 # todo vectorize this loop!
@@ -202,11 +163,11 @@ class BiLevin:
                     # )
                 else:
                     if predicted_h:
-                        levin_cost = self.levin_cost(child, predicted_h[i])
+                        lc = levin_cost(child, predicted_h[i])
                     else:
-                        levin_cost = self.levin_cost(child, None)
+                        lc = levin_cost(child, None)
                 child.log_action_probs = log_action_probs[i]
-                child.levin_cost = levin_cost  # type:ignore
+                child.levin_cost = lc  # type:ignore
 
                 if child not in _reached or child.g_cost < _reached[child].g_cost:
                     heapq.heappush(_frontier, child)

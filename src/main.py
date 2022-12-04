@@ -11,7 +11,12 @@ import torch as to
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from domains import SlidingTilePuzzle, Sokoban, WitnessState
-from models import ConvNetDouble, ConvNetSingle, HeuristicConvNet, TwoHeadedConvNet
+from models import (
+    ConvNetDouble,
+    ConvNetSingle,
+    HeuristicConvNetSingle,
+    TwoHeadedConvNetSingle,
+)
 import models.loss_functions as loss_fns
 from search import AStar, BiLevin, GBFS, Levin, PUCT
 from test import test
@@ -75,10 +80,10 @@ def parse_args():
     )
     parser.add_argument(
         "-a",
-        "--algorithm",
+        "--agent",
         type=str,
         choices=["Levin", "BiLevin", "LevinStar", "PUCT", "AStar", "GBFS"],
-        help="name of the search algorithm",
+        help="name of the search agent",
     )
     parser.add_argument(
         "--batch-size-expansions",
@@ -160,7 +165,7 @@ def parse_args():
     parser.add_argument(
         "--torch-deterministic",
         action="store_true",
-        help="set `torch.backends.cudnn.deterministic=False` and `torch.use_deterministic_algorithms(True)`",
+        help="set `torch.backends.cudnn.deterministic=False` and `torch.use_deterministic_agents(True)`",
     )
     parser.add_argument(
         "--cuda",
@@ -209,13 +214,11 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
     to.manual_seed(args.seed)
     if args.torch_deterministic:
-        to.use_deterministic_algorithms(True)
+        to.use_deterministic_agents(True)
         to.backends.cudnn.benchmark = False  # type:ignore
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
-    device = to.device(
-        "cuda" if args.cuda and to.cuda.is_available() and args.cuda else "cpu"
-    )
+    device = to.device("cuda" if args.cuda and to.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     problems = {}
@@ -305,76 +308,82 @@ if __name__ == "__main__":
 
     print(f"Loaded {len(problems)} instances\n from {args.problems_path}")
 
-    if args.algorithm == "Levin":
-        planner = Levin(
+    if args.agent == "Levin":
+        agent = Levin(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             False,
             args.batch_size_expansions,
             args.weight_uniform,
         )
-    elif args.algorithm == "LevinStar":
-        planner = Levin(
+    elif args.agent == "LevinStar":
+        agent = Levin(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             True,
             args.batch_size_expansions,
             args.weight_uniform,
         )
-    elif args.algorithm == "BiLevin":
-        planner = BiLevin(
+    elif args.agent == "BiLevin":
+        agent = BiLevin(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             False,
             args.batch_size_expansions,
             args.weight_uniform,
         )
-    elif args.algorithm == "PUCT":
+    elif args.agent == "PUCT":
 
-        planner = PUCT(
+        agent = PUCT(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             args.batch_size_expansions,
             1,  # todo old cpucnt param, do something
         )
-    elif args.algorithm == "AStar":
-        planner = AStar(
+    elif args.agent == "AStar":
+        agent = AStar(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             args.batch_size_expansions,
             args.weight_astar,
         )
-    elif args.algorithm == "GBFS":
-        planner = GBFS(
+    elif args.agent == "GBFS":
+        agent = GBFS(
             args.use_default_heuristic,
             args.use_learned_heuristic,
             args.batch_size_expansions,
         )
     else:
-        raise ValueError("Search algorithm not recognized")
+        raise ValueError("Search agent not recognized")
 
     bidirectional = False
     num_actions = 4
     if (
-        args.algorithm == "Levin"
-        or args.algorithm == "LevinMult"
-        or args.algorithm == "LevinStar"
-        or args.algorithm == "PUCT"
-        or args.algorithm == "BiLevin"
+        args.agent == "Levin"
+        or args.agent == "LevinMult"
+        or args.agent == "LevinStar"
+        or args.agent == "PUCT"
+        or args.agent == "BiLevin"
     ):
-        if args.algorithm == "BiLevin":
-            forward_model = ConvNetSingle(in_channels, (2, 2), 32, num_actions)
-            backward_model = ConvNetDouble(in_channels, (2, 2), 32, num_actions)
+        if args.agent == "BiLevin":
+            forward_model = ConvNetSingle(in_channels, (2, 2), 32, num_actions).to(
+                device
+            )
+            backward_model = ConvNetDouble(in_channels, (2, 2), 32, num_actions).to(
+                device
+            )
             bidirectional = True
             model = (forward_model, backward_model)
         elif args.use_learned_heuristic:
-            model = TwoHeadedConvNet(in_channels, (2, 2), 32, num_actions)
+            model = TwoHeadedConvNetSingle(in_channels, (2, 2), 32, num_actions).to(
+                device
+            )
         else:
-            model = ConvNetSingle(in_channels, (2, 2), 32, num_actions)
-    elif args.algorithm == "AStar" or args.algorithm == "GBFS":
-        model = HeuristicConvNet(in_channels, (2, 2), 32, num_actions)
+            model = ConvNetSingle(in_channels, (2, 2), 32, num_actions).to(device)
+    elif args.agent == "AStar" or args.agent == "GBFS":
+        model = HeuristicConvNetSingle(in_channels, (2, 2), 32, num_actions).to(device)
     else:
-        raise ValueError("Search algorithm not recognized")
+        raise ValueError("Search agent not recognized")
 
     if args.model_path.is_file():
         if bidirectional:
@@ -383,13 +392,10 @@ if __name__ == "__main__":
                 str(args.model_path).replace("_forward.pt", "_backward.pt")
             )
             backward_model.load_state_dict(backward_model_path)  # type:ignore
-            forward_model.to(device)  # type:ignore
-            backward_model.to(device)  # type:ignore
             print(f"Loaded model\n from  {str(args.model_path)}")
             print(f"Loaded model\n from {str(backward_model_path)}")
         else:
             model.load_state_dict(to.load(args.model_path))  # type:ignore
-            model.to(device)  # type:ignore
             print(f"Loaded model\n from  {str(args.model_path)}")
     else:
         args.model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -420,20 +426,20 @@ if __name__ == "__main__":
             problems,
             model,
             args.model_path,
-            planner,
+            agent,
             loss_fn,
             optimizer_cons,
             optimizer_params,
             writer,
             initial_budget=args.initial_budget,
             grad_steps=args.grad_steps,
-            problems_batch_size=args.batch_size_bootstrap,
+            batch_size=args.batch_size_bootstrap,
         )
 
     elif args.mode == "test":
         test(
             problems,
-            planner,
+            agent,
             model,
             args.time_limit,
         )

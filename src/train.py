@@ -49,18 +49,18 @@ def train(
     problems,
     model,
     model_path,
-    planner,
+    agent,
     loss_fn,
     optimizer_cons,
     optimizer_params,
     writer,
     initial_budget=7000,
     grad_steps=10,
-    problems_batch_size=32,
+    batch_size=32,
 ):
 
     forward_memory = Memory()
-    bidirectional = planner.bidirectional
+    bidirectional = agent.bidirectional
     if bidirectional:
         backward_memory = Memory()
         forward_model, backward_model = model
@@ -83,7 +83,7 @@ def train(
     current_budget = initial_budget
 
     problems_loader = ProblemsBatchLoader(
-        problems, batch_size=problems_batch_size, shuffle=True
+        problems, batch_size=batch_size, shuffle=True
     )
 
     forward_outer_opt_steps = 0
@@ -93,9 +93,8 @@ def train(
     num_problems = len(problems)
     total_batches = 0
     epoch = 0
-    cumulative_unique_problems_solved = 0
 
-    while cumulative_unique_problems_solved < num_problems:
+    while len(solved_problems) < num_problems:
         epoch += 1
         num_new_problems_solved_this_epoch = 0
         num_problems_solved_this_epoch = 0
@@ -103,6 +102,7 @@ def train(
         for batch_problems, batch_names in tqdm.tqdm(problems_loader):
             total_batches += 1
             num_problems_solved_this_batch = 0
+            print(f"Batch {total_batches}")
 
             to.set_grad_enabled(False)
             forward_model.eval()
@@ -116,11 +116,12 @@ def train(
                     num_expanded,
                     num_generated,
                     trajs,
-                ) = planner.search(
+                ) = agent.search(
                     problem,
                     problem_name,
                     model,
-                    current_budget, learn=True,
+                    current_budget,
+                    learn=True,
                 )
 
                 if has_found_solution:
@@ -149,6 +150,7 @@ def train(
                         solved_problems.add(problem_name)
 
             num_problems_solved_this_epoch += num_problems_solved_this_batch
+            print(f"solved {num_problems_solved_this_batch}/{batch_size}")
             if forward_memory.number_trajectories() > 0:
                 to.set_grad_enabled(True)
                 forward_model.train()
@@ -203,13 +205,11 @@ def train(
                 else:
                     to.save(model, model_path)
 
-            batch_avg = num_problems_solved_this_batch / problems_batch_size
+            batch_avg = num_problems_solved_this_batch / batch_size
             # fmt: off
             writer.add_scalar("Search/avg_batch_solved_vs_batch", batch_avg, total_batches)
-            writer.add_scalar("Search/cumulative_unique_problems_solved_vs_batch", cumulative_unique_problems_solved, total_batches)
+            writer.add_scalar("Search/cumulative_unique_problems_solved_vs_batch", len(solved_problems), total_batches)
             # fmt: on
-
-        cumulative_unique_problems_solved += num_new_problems_solved_this_epoch
 
         print("=========================================")
         print(
@@ -225,5 +225,5 @@ def train(
         epoch_avg = num_problems_solved_this_epoch / num_problems
         writer.add_scalar("Search/budget_vs_epoch", current_budget, epoch)
         writer.add_scalar("Search/avg_solved_vs_epoch", epoch_avg, epoch)
-        writer.add_scalar("Search/cumulative_unique_problems_solved_vs_epoch", cumulative_unique_problems_solved, epoch)
+        writer.add_scalar("Search/cumulative_unique_problems_solved_vs_epoch", len(solved_problems), epoch)
         # fmt: on

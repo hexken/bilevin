@@ -47,9 +47,9 @@ def mse_loss(trajectory, model):
 
 
 def cross_entropy_loss(trajectory, model):
-    actions_one_hot = F.one_hot(trajectory.actions, model.actions)
+    actions_one_hot = F.one_hot(trajectory.actions, model.num_actions).float()
 
-    states = to.tensor(trajectory.states)
+    states = trajectory.states
     logits = model(states)
     loss = F.cross_entropy(actions_one_hot, logits)
 

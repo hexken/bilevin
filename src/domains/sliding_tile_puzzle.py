@@ -65,19 +65,6 @@ class SlidingTilePuzzle(Environment):
 
         self._goal = np.arange(self._size, dtype=np.int32)
 
-    @staticmethod
-    def get_reverse_action(action):
-        if action == 0:
-            return 1
-        elif action == 1:
-            return 0
-        elif action == 2:
-            return 3
-        elif action == 3:
-            return 2
-        else:
-            raise ValueError(f"Invalid action: {action}")
-
     def get_backward_problem(self):
         problem = SlidingTilePuzzle(self._tiles)
         problem._goal, problem._tiles = self._tiles, self._goal
@@ -207,7 +194,7 @@ class SlidingTilePuzzle(Environment):
 
         return image
 
-    def state_tensor(self):
+    def state_tensor(self, device=to.device("cpu")):
 
         image = to.zeros((self._size, self._width, self._width))
 
@@ -217,6 +204,7 @@ class SlidingTilePuzzle(Environment):
 
             image[num][row][col] = 1
 
+        image = image.to(device)
         return image
 
     def heuristic_value(self):

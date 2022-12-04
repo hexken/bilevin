@@ -35,6 +35,7 @@ class ConvBlock(nn.Module):
 class ConvNetSingle(nn.Module):
     def __init__(self, in_channels, kernel_size, num_filters, num_actions):
         super().__init__()
+        self.num_actions = num_actions
         self.convblock = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
         self.linear1 = nn.Linear(num_filters * self.convblock.reduced_size**2, 128)
         self.linear2 = nn.Linear(128, num_actions)
@@ -50,6 +51,7 @@ class ConvNetSingle(nn.Module):
 class ConvNetDouble(nn.Module):
     def __init__(self, in_channels, kernel_size, num_filters, num_actions):
         super().__init__()
+        self.num_actions = num_actions
         self.convblock1 = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
         self.convblock2 = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
         self.linear1 = nn.Linear(
@@ -75,9 +77,10 @@ class ConvNetDouble(nn.Module):
         return logits
 
 
-class HeuristicConvNet(nn.Module):
+class HeuristicConvNetSingle(nn.Module):
     def __init__(self, in_channels, kernel_size, num_filters, num_actions):
         super().__init__()
+        self.num_actions = num_actions
         self.convblock = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
         self.linear1 = nn.Linear(num_filters * self.convblock.reduced_size**2, 128)
         self.linear2 = nn.Linear(128, 1)
@@ -90,9 +93,10 @@ class HeuristicConvNet(nn.Module):
         return h
 
 
-class TwoHeadedConvNet(nn.Module):
+class TwoHeadedConvNetSingle(nn.Module):
     def __init__(self, in_channels, kernel_size, num_filters, num_actions):
         super().__init__()
+        self.num_actions = num_actions
         self.convblock = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
 
         self.linear_c1 = nn.Linear(num_filters * self.convblock.reduced_size**2, 128)
