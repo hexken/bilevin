@@ -1,10 +1,9 @@
-import os
+import math
 from pathlib import Path
 import time
 
 import numpy as np
 import torch as to
-from torch.utils.data import DataLoader, Dataset
 import tqdm
 
 from search import Memory
@@ -82,9 +81,7 @@ def train(
     num_generated = 0
     current_budget = initial_budget
 
-    problems_loader = ProblemsBatchLoader(
-        problems, batch_size=batch_size, shuffle=True
-    )
+    problems_loader = ProblemsBatchLoader(problems, batch_size=batch_size, shuffle=True)
 
     forward_outer_opt_steps = 0
     # forward_inner_opt_steps = 0
@@ -99,7 +96,9 @@ def train(
         num_new_problems_solved_this_epoch = 0
         num_problems_solved_this_epoch = 0
 
-        for batch_problems, batch_names in tqdm.tqdm(problems_loader):
+        for batch_problems, batch_names in tqdm.tqdm(
+            problems_loader, total=math.ceil(len(problems_loader) / batch_size)
+        ):
             total_batches += 1
             num_problems_solved_this_batch = 0
             print(f"Batch {total_batches}")
@@ -150,7 +149,7 @@ def train(
                         solved_problems.add(problem_name)
 
             num_problems_solved_this_epoch += num_problems_solved_this_batch
-            print(f"solved {num_problems_solved_this_batch}/{batch_size}")
+            print(f"Solved {num_problems_solved_this_batch}/{batch_size}")
             if forward_memory.number_trajectories() > 0:
                 to.set_grad_enabled(True)
                 forward_model.train()
@@ -165,7 +164,7 @@ def train(
                         total_loss += loss.item()
 
                     avg_loss = total_loss / len(forward_memory)
-                    print(f"Avg Loss (F): {avg_loss:.3f}")
+                    print(f"Loss (F) {avg_loss:.3f}")
                     forward_outer_opt_steps += 1
                     writer.add_scalar(
                         "Loss/f_train_avg_traj_loss_over_memory_vs_outeropt",
@@ -188,7 +187,7 @@ def train(
                             total_loss += loss.item()
 
                         avg_loss = total_loss / len(backward_memory)  # type:ignore
-                        print(f"Avg Loss (B): {avg_loss:.3f}")
+                        print(f"Loss (B) {avg_loss:.3f}")
                         backward_outer_opt_steps += 1
                         writer.add_scalar(
                             "Loss/f_train_avg_traj_loss_over_memory_vs_outeropt",
@@ -211,11 +210,12 @@ def train(
             writer.add_scalar("Search/cumulative_unique_problems_solved_vs_batch", len(solved_problems), total_batches)
             # fmt: on
 
-        print("=========================================")
+        print("============================================================================")
         print(
-            f"Solved {num_problems_solved_this_epoch}/{num_problems} problems in pass #{epoch} with budget {current_budget}"
+            f"Epoch {epoch}, solved {num_problems_solved_this_epoch}/{num_problems} problems with budget {current_budget}\n"
+            f"Solved {num_new_problems_solved_this_epoch} new problems, {num_problems - len(solved_problems)} remaining."
         )
-        print("=========================================\n")
+        print("============================================================================\n")
 
         if num_new_problems_solved_this_epoch == 0:
             current_budget *= 2
