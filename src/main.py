@@ -1,13 +1,12 @@
 import argparse
 import os
-from os import listdir
-from os.path import isfile, join
 from pathlib import Path
 import random
 import time
 
 import numpy as np
 import torch as to
+import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from domains import SlidingTilePuzzle, Sokoban, WitnessState
@@ -154,7 +153,7 @@ def parse_args():
         help="train or test the model from model-folder using instances from problems-folder",
     )
     parser.add_argument(
-        "--exp-name", type=str, default="bi-levin", help="the name of this experiment"
+        "--exp-name", type=str, default="", help="the name of this experiment"
     )
     parser.add_argument(
         "--seed",
@@ -195,21 +194,75 @@ def parse_args():
 
 
 if __name__ == "__main__":
+    local_rank = int(os.environ["LOCAL_RANK"], 0)
+    world_size = int(os.environ["WORLD_SIZE"], 1)
+    rank = int(os.environ["RANK"], 0)
     args = parse_args()
-    start_time = time.time()
-    run_name = f"{args.domain}_{args.exp_name}_{args.seed}_{int(start_time)}"
-    if args.track:
-        import wandb
-
-        wandb.init(
-            project=args.wandb_project_name,
-            entity=args.wandb_entity,
-            sync_tensorboard=True,
-            config=vars(args),
-            name=run_name,
-            save_code=True,
+    if world_size % args.batch_size_bootstrap != 0:
+        raise ValueError(
+            "batch-size-bootstrap must be a multiple of world-size (nnodes * nproc_per_node)"
         )
+    start_time = time.time()
+    exp_name = f"_{args.exp_name}" if args.exp_name else ""
+    run_name = (
+        f"{args.domain}_{args.agent}_{args.seed}_{int(start_time)}{args.exp_name}"
+    )
 
+    problems = []
+    if args.domain == "SlidingTile":
+        problems_gathered = []
+        for file in args.problems_folder.iterdir():
+            print()
+            problems_gathered.extend(
+                [SlidingTilePuzzle(p) for p in file.read_text().splitlines()]
+            )
+
+        problems_per_process = len(problems_gathered) // world_size
+        for proc in range(world_size):
+            problems_local = {
+                f"p{i}": p
+                for i, p in enumerate(
+                    problems_gathered[
+                        proc * problems_per_process : (proc + 1) * problems_per_process
+                    ]
+                )
+            }
+            problems.append(problems_local)
+        in_channels = next(problems[0].values()).getSize()
+    else:
+        # todo add other domains
+        raise ValueError("problem domain not recognized")
+
+    if world_size > 1:
+        backend = "nccl" if args.cuda and to.cuda.is_available() else "gloo"
+        dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
+
+    if rank == 0:
+        print(f"Loaded {problems_per_process} for each of {world_size} processes")
+        if args.track:
+            import wandb
+
+            wandb.init(
+                project=args.wandb_project_name,
+                entity=args.wandb_entity,
+                sync_tensorboard=True,
+                config=vars(args),
+                name=run_name,
+                save_code=True,
+            )
+            print("wandb initialized")
+
+        print(f"Logging with tensorboard\n to {run_name}\n")
+        writer = SummaryWriter(f"runs/{run_name}")
+        writer.add_text(
+            "hyperparameters",
+            "|param|value|\n|-|-|\n%s"
+            % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+        )
+    else:
+        writer = SummaryWriter()
+
+    args.seed += local_rank
     random.seed(args.seed)
     np.random.seed(args.seed)
     to.manual_seed(args.seed)
@@ -218,95 +271,27 @@ if __name__ == "__main__":
         to.backends.cudnn.benchmark = False  # type:ignore
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
-    device = to.device("cuda" if args.cuda and to.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
-    problems = {}
-    if args.domain == "SlidingTile":
-        problem_files = [
-            f
-            for f in listdir(args.problems_path)
-            if isfile(join(args.problems_path, f))
-        ]
-
-        j = 1
-        for filename in problem_files:
-            with open(join(args.problems_path, filename), "r") as file:
-                problems_lines = file.readlines()
-
-                for i in range(len(problems_lines)):
-                    problem = SlidingTilePuzzle(problems_lines[i])
-                    problems["problem_" + str(j)] = problem
-
-                    j += 1
-        in_channels = problems["problem_1"].getSize()
-
-    elif args.domain == "Witness":
-        in_channels = 9
-        problem_files = [
-            f
-            for f in listdir(args.problems_path)
-            if isfile(join(args.problems_path, f))
-        ]
-
-        j = 1
-
-        for filename in problem_files:
-            if "." in filename:
-                continue
-
-            with open(join(args.problems_path, filename), "r") as file:
-                problem = file.readlines()
-
-                i = 0
-                while i < len(problem):
-                    k = i
-                    while k < len(problem) and problem[k] != "\n":
-                        k += 1
-                    s = WitnessState()
-                    s.read_state_from_string(problem[i:k])
-                    problems["problem_" + str(j)] = s
-                    i = k + 1
-                    j += 1
-
-    elif args.domain == "Sokoban":
-        in_channels = 4
-        problem = []
-        problem_files = []
-        if isfile(args.problems_path):
-            problem_files.append(args.problems_path)
-        else:
-            problem_files = [
-                join(args.problems_path, f)
-                for f in listdir(args.problems_path)
-                if isfile(join(args.problems_path, f))
-            ]
-
-        problem_id = 0
-
-        for filename in problem_files:
-            with open(filename, "r") as file:
-                all_problems = file.readlines()
-
-            for line_in_problem in all_problems:
-                if ";" in line_in_problem:
-                    if len(problem) > 0:
-                        problem = Sokoban(problem)
-                        problems["problem_" + str(problem_id)] = problem
-
-                    problem = []
-                    problem_id += 1
-
-                elif "\n" != line_in_problem:
-                    problem.append(line_in_problem.split("\n")[0])
-
-            if len(problem) > 0:
-                problem = Sokoban(problem)
-                problems["problem_" + str(problem_id)] = problem
+    if len(args.device_ids) > 0:
+        assert (
+            len(args.device_ids) == world_size
+        ), "you must specify the same number of device ids as `--nproc_per_node`"
+        device = to.device(
+            f"cuda:{args.device_ids[local_rank]}"
+            if to.cuda.is_available() and args.cuda
+            else "cpu"
+        )
     else:
-        raise ValueError("problem domain not recognized")
+        device_count = to.cuda.device_count()
+        if device_count < world_size:
+            device = to.device(
+                "cuda" if to.cuda.is_available() and args.cuda else "cpu"
+            )
+        else:
+            device = to.device(
+                f"cuda:{local_rank}" if to.cuda.is_available() and args.cuda else "cpu"
+            )
 
-    print(f"Loaded {len(problems)} instances\n from {args.problems_path}")
+    print(f"Rank {rank} using device: {device}")
 
     if args.agent == "Levin":
         agent = Levin(
@@ -392,27 +377,20 @@ if __name__ == "__main__":
                 str(args.model_path).replace("_forward.pt", "_backward.pt")
             )
             backward_model.load_state_dict(backward_model_path)  # type:ignore
-            print(f"Loaded model\n from  {str(args.model_path)}")
-            print(f"Loaded model\n from {str(backward_model_path)}")
+            print(f"Loaded model\n  from  {str(args.model_path)}")
+            print(f"Loaded model\n  from {str(backward_model_path)}")
         else:
             model.load_state_dict(to.load(args.model_path))  # type:ignore
-            print(f"Loaded model\n from  {str(args.model_path)}")
+            print(f"Loaded model\n  from  {str(args.model_path)}")
     else:
         args.model_path.parent.mkdir(parents=True, exist_ok=True)
         args.model_path = Path(args.model_path) / f"{run_name}_forward.pt"
-        print(f"Saving model\n to {str(args.model_path)}")
+        print(f"Saving model\n  to {str(args.model_path)}")
         if bidirectional:
             backward_model_path = Path(
                 str(args.model_path).replace("_forward.pt", "_backward.pt")
             )
-            print(f"Saving model\n to {backward_model_path}")
-
-    writer = SummaryWriter(f"runs/{run_name}")
-    writer.add_text(
-        "hyperparameters",
-        "|param|value|\n|-|-|\n%s"
-        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
-    )
+            print(f"Saving model\n  to {backward_model_path}")
 
     if args.mode == "train":
         loss_fn = getattr(loss_fns, args.loss_fn)
@@ -423,7 +401,9 @@ if __name__ == "__main__":
         }
 
         train(
-            problems,
+            rank,
+            world_size,
+            problems[rank],
             model,
             args.model_path,
             agent,
@@ -445,3 +425,4 @@ if __name__ == "__main__":
         )
 
     print(f"Total time: {time.time() - start_time}")
+    writer.close()

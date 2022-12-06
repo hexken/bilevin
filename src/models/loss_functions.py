@@ -50,7 +50,7 @@ def cross_entropy_loss(trajectory, model):
     logits = model(trajectory.states)
     loss = F.cross_entropy(logits, trajectory.actions)
 
-    return loss
+    return loss, logits
 
 
 # class LossFunction(ABC):
