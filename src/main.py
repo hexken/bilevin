@@ -172,6 +172,12 @@ def parse_args():
         help="enable cuda",
     )
     parser.add_argument(
+        "--device-ids",
+        nargs="+",
+        default=[],
+        help="the device ids that subprocess workers will use",
+    )
+    parser.add_argument(
         "--track",
         action="store_true",
         default=False,
@@ -194,11 +200,11 @@ def parse_args():
 
 
 if __name__ == "__main__":
-    local_rank = int(os.environ["LOCAL_RANK"], 0)
-    world_size = int(os.environ["WORLD_SIZE"], 1)
-    rank = int(os.environ["RANK"], 0)
+    local_rank = int(os.getenv("LOCAL_RANK", 0))
+    world_size = int(os.getenv("WORLD_SIZE", 1))
+    rank = int(os.getenv("RANK", 0))
     args = parse_args()
-    if world_size % args.batch_size_bootstrap != 0:
+    if args.batch_size_bootstrap % world_size != 0:
         raise ValueError(
             "batch-size-bootstrap must be a multiple of world-size (nnodes * nproc_per_node)"
         )
@@ -211,7 +217,7 @@ if __name__ == "__main__":
     problems = []
     if args.domain == "SlidingTile":
         problems_gathered = []
-        for file in args.problems_folder.iterdir():
+        for file in args.problems_path.iterdir():
             print()
             problems_gathered.extend(
                 [SlidingTilePuzzle(p) for p in file.read_text().splitlines()]
@@ -220,15 +226,16 @@ if __name__ == "__main__":
         problems_per_process = len(problems_gathered) // world_size
         for proc in range(world_size):
             problems_local = {
-                f"p{i}": p
+                f"p{i + 1}": p
                 for i, p in enumerate(
                     problems_gathered[
                         proc * problems_per_process : (proc + 1) * problems_per_process
-                    ]
+                    ],
+                    start=proc * problems_per_process,
                 )
             }
             problems.append(problems_local)
-        in_channels = next(problems[0].values()).getSize()
+        in_channels = problems[0]["p1"].getSize()
     else:
         # todo add other domains
         raise ValueError("problem domain not recognized")
@@ -238,7 +245,9 @@ if __name__ == "__main__":
         dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
 
     if rank == 0:
-        print(f"Loaded {problems_per_process} for each of {world_size} processes")
+        print(
+            f"Loaded {len(problems_gathered)} total problems\n  {problems_per_process} into each of {world_size} processes"
+        )
         if args.track:
             import wandb
 
@@ -252,7 +261,7 @@ if __name__ == "__main__":
             )
             print("wandb initialized")
 
-        print(f"Logging with tensorboard\n to {run_name}\n")
+        print(f"Logging with tensorboard\n to {run_name}")
         writer = SummaryWriter(f"runs/{run_name}")
         writer.add_text(
             "hyperparameters",
@@ -290,8 +299,6 @@ if __name__ == "__main__":
             device = to.device(
                 f"cuda:{local_rank}" if to.cuda.is_available() and args.cuda else "cpu"
             )
-
-    print(f"Rank {rank} using device: {device}")
 
     if args.agent == "Levin":
         agent = Levin(
@@ -392,6 +399,11 @@ if __name__ == "__main__":
             )
             print(f"Saving model\n  to {backward_model_path}")
 
+    print(f"Rank {rank} using device: {device}")
+
+    if world_size > 1:
+        dist.barrier()
+
     if args.mode == "train":
         loss_fn = getattr(loss_fns, args.loss_fn)
         optimizer_cons = to.optim.Adam
@@ -401,16 +413,15 @@ if __name__ == "__main__":
         }
 
         train(
-            rank,
-            world_size,
-            problems[rank],
+            agent,
             model,
             args.model_path,
-            agent,
             loss_fn,
             optimizer_cons,
             optimizer_params,
+            problems[rank],
             writer,
+            world_size,
             initial_budget=args.initial_budget,
             grad_steps=args.grad_steps,
             batch_size=args.batch_size_bootstrap,

@@ -190,19 +190,20 @@ class SlidingTilePuzzle(Environment):
             row = int(self._pos[num] / self._width)
             col = int(self._pos[num] % self._width)
 
-            image[num][row][col] = 1
+            image[num, row, col] = 1
 
         return image
 
     def state_tensor(self, device=to.device("cpu")):
 
         image = to.zeros((self._size, self._width, self._width))
+        arr = np.asarray(image)
 
         for num in range(self._size):
             row = int(self._pos[num] / self._width)
             col = int(self._pos[num] % self._width)
 
-            image[num][row][col] = 1
+            arr[num, row, col] = 1
 
         image = image.to(device)
         return image
