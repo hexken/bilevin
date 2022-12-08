@@ -133,6 +133,15 @@ def get_merged_trajectory(
     return Trajectory(f_node, num_expanded, device=device)
 
 
+class MergedTrajectories:
+    def __init__(self, trajectories):
+        if trajectories:
+            self.states = to.cat(tuple(t.states for t in trajectories))
+            self.actions = to.cat(tuple(t.actions for t in trajectories))
+        else:
+            return None
+
+
 class Memory:
     def __init__(self):
         self._trajectories = []

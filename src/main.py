@@ -20,6 +20,7 @@ import models.loss_functions as loss_fns
 from search import AStar, BiLevin, GBFS, Levin, PUCT
 from test import test
 from train import train
+from utils import rank0_print
 
 
 def parse_args():
@@ -384,22 +385,22 @@ if __name__ == "__main__":
                 str(args.model_path).replace("_forward.pt", "_backward.pt")
             )
             backward_model.load_state_dict(backward_model_path)  # type:ignore
-            print(f"Loaded model\n  from  {str(args.model_path)}")
-            print(f"Loaded model\n  from {str(backward_model_path)}")
+            rank0_print(f"Loaded model\n  from  {str(args.model_path)}", rank)
+            rank0_print(f"Loaded model\n  from {str(backward_model_path)}", rank)
         else:
             model.load_state_dict(to.load(args.model_path))  # type:ignore
-            print(f"Loaded model\n  from  {str(args.model_path)}")
+            rank0_print(f"Loaded model\n  from  {str(args.model_path)}", rank)
     else:
         args.model_path.parent.mkdir(parents=True, exist_ok=True)
         args.model_path = Path(args.model_path) / f"{run_name}_forward.pt"
-        print(f"Saving model\n  to {str(args.model_path)}")
+        rank0_print(f"Saving model\n  to {str(args.model_path)}", rank)
         if bidirectional:
             backward_model_path = Path(
                 str(args.model_path).replace("_forward.pt", "_backward.pt")
             )
-            print(f"Saving model\n  to {backward_model_path}")
+            rank0_print(f"Saving model\n  to {backward_model_path}", rank)
 
-    print(f"Rank {rank} using device: {device}")
+    print(f"Rank {rank} using device: {device}\n")
 
     if world_size > 1:
         dist.barrier()

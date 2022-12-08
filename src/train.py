@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import torch as to
 import torch.distributed as dist
+from search import MergedTrajectories
 import tqdm
 
 
@@ -55,6 +56,7 @@ def train(
         )
     else:
         forward_model = model
+        forward_model_path = model_path
         forward_optimizer = optimizer_cons(model.parameters(), **optimizer_params)
 
     device = next(forward_model.parameters()).device
@@ -81,7 +83,14 @@ def train(
     num_new_problems_solved = 0
     while num_new_problems_solved < num_problems:
         epoch += 1
-        print(f"\nBeginning epoch {epoch}, budget {current_budget}")
+        if rank == 0:
+            print(
+                "============================================================================"
+            )
+            print(f"\nBeginning epoch {epoch}, budget {current_budget}")
+            print(
+                "============================================================================\n"
+            )
         num_new_problems_solved_this_epoch = 0
         num_problems_solved_this_epoch = 0
 
@@ -196,24 +205,17 @@ def train(
                     if world_size > 1:
                         dist.all_reduce(local_opt_results, op=dist.ReduceOp.SUM)
 
-                    # todo count opt steps correctly
+                    # todo double check
                     num_batch_partials = local_opt_results[2].item()
                     if rank == 0 and num_batch_partials > 0:
                         opt_step += 1
-                        print(
-                            f"{opt_step:7}  {local_opt_results[0] / num_batch_partials:5.3f}  {local_opt_results[1] / num_batch_partials:5.3f}"
-                        )
-                        n = local_opt_results[2].item()
-                        writer.add_scalar(
-                            "loss/forward/loss_vs_opt_step",
-                            local_opt_results[0] / n,
-                            opt_step,
-                        )
-                        writer.add_scalar(
-                            "accuracy/forward/acc_vs_opt_step",
-                            local_opt_results[1] / n,
-                            opt_step,
-                        )
+                        loss = local_opt_results[0].item() / num_batch_partials
+                        acc = local_opt_results[1].item() / num_batch_partials
+                        print(f"{opt_step:7}  {loss:5.3f}  {acc:5.3f}")
+                        # fmt: off
+                        writer.add_scalar( "loss/forward/loss_vs_opt_step", loss, opt_step,)
+                        writer.add_scalar( "accuracy/forward/acc_vs_opt_step", acc, opt_step,)
+                        # fmt:on
                 if rank == 0:
                     print("")
                 return opt_step
@@ -226,12 +228,13 @@ def train(
                     backward_model,  # type:ignore
                     backward_optimizer,  # type:ignore
                     backward_solutions,  # type:ignore
+                    backward_opt_steps,  # type:ignore
                 )
 
             if rank == 0:
-                to.save(forward_model, model_path)
+                to.save(forward_model, forward_model_path)  # type:ignore
                 if bidirectional:
-                    to.save(forward_model, model_path)
+                    to.save(forward_model, backward_model_path)  # type:ignore
 
             if rank == 0:
                 batch_avg = num_problems_solved_this_batch / batch_size
@@ -296,15 +299,6 @@ class ProblemsBatchLoader:
 
     def __getitem__(self, idx):
         return self.problems[idx], self.keys[idx]
-
-
-class MergedTrajectories:
-    def __init__(self, trajectories):
-        if trajectories:
-            self.states = to.cat(tuple(t.states for t in trajectories))
-            self.actions = to.cat(tuple(t.actions for t in trajectories))
-        else:
-            return None
 
 
 def sync_grads(model: to.nn.Module, world_size):
