@@ -4,7 +4,7 @@ import copy
 from pathlib import Path
 import random
 import tqdm
-from domains.sliding_tile_puzzle import SlidingTilePuzzle
+from sliding_tile_puzzle import SlidingTilePuzzle
 
 
 def main():
@@ -13,7 +13,7 @@ def main():
     parser.add_argument(
         "-o",
         "--output-path",
-        type=Path,
+        type=lambda p: Path(p).absolute(),
         help="path to save problem instances",
     )
 
@@ -53,23 +53,28 @@ def main():
 
     args.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    problems = []
+    problems = set()
 
-    tiles = [i for i in range(0, args.width**2)]
+    tiles = np.arange(args.width**2)
     goal = SlidingTilePuzzle(tiles)
 
     # generating training instances
-    for _ in tqdm.tqdm(range(args.num_problems)):
-        state = copy.deepcopy(goal)
+    with tqdm.tqdm(total=args.num_problems) as pbar:
+        while len(problems) < args.num_problems:
+            state = copy.deepcopy(goal)
 
-        steps = random.randint(args.min_steps, args.max_steps)
-        for _ in range(steps):
-            actions = state.successors()
-            random_index = random.randint(0, len(actions) - 1)
-            random_action = actions[random_index]
-            state.apply_action(random_action)
-
-        problems.append(copy.deepcopy(state))
+            steps = random.randint(args.min_steps, args.max_steps)
+            for _ in range(steps):
+                actions = state.successors()
+                random_index = random.randint(0, len(actions) - 1)
+                random_action = actions[random_index]
+                state.apply_action(random_action)
+            state = copy.deepcopy(state)
+            if state in problems:
+                continue
+            else:
+                problems.add(state)
+                pbar.update(1)
 
     with args.output_path.open("w") as f:
         for problem in problems:

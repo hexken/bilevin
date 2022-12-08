@@ -5,7 +5,7 @@ import math
 import numpy as np
 import torch as to
 
-from domains.environment import Environment
+from environment import Environment
 
 
 class SlidingTilePuzzle(Environment):
