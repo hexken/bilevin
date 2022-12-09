@@ -101,7 +101,7 @@ def train(
 
         if rank == 0:
             problems_loader = tqdm.tqdm(
-                problems_loader, total=math.ceil(len(problems_loader) / batch_size)
+                problems_loader, total=math.ceil(num_problems / batch_size)
             )
 
         for batch_problems, batch_ids in problems_loader:
@@ -153,8 +153,7 @@ def train(
                 batch_results_t = local_batch_results
 
             batch_df = pd.DataFrame(
-                batch_results_t,
-                columns=search_result_header,
+                batch_results_t.cpu().numpy(), columns=search_result_header
             )
             batch_df["Time"] = batch_df["Time"].astype(float, copy=False) / 1000
             batch_df.sort_values("NumExpanded", inplace=True)

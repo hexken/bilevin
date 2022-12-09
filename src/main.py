@@ -218,7 +218,6 @@ if __name__ == "__main__":
     if args.domain == "SlidingTile":
         problems_gathered = []
         for file in args.problems_path.iterdir():
-            print()
             problems_gathered.extend(
                 [SlidingTilePuzzle(p) for p in file.read_text().splitlines()]
             )
@@ -245,9 +244,7 @@ if __name__ == "__main__":
         dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
 
     if rank == 0:
-        print(
-            f"Loaded {len(problems_gathered)} total problems\n  {problems_per_process} into each of {world_size} processes"
-        )
+        print(time.ctime(start_time))
         if args.wandb:
             import wandb
 
@@ -259,9 +256,14 @@ if __name__ == "__main__":
                 name=run_name,
                 save_code=True,
             )
-            print("wandb initialized")
+            print(
+                f"Logging with Weights and Biases\n  to {args.wandb_entity}/{args.wandb_project_name}/{run_name}"
+            )
 
-        print(f"Logging with tensorboard\n  to {run_name}")
+        print(f"Logging with tensorboard\n  to runs/{run_name}")
+        print(
+            f"Loaded {len(problems_gathered)} total problems\n  {problems_per_process} into each of {world_size} processes"
+        )
         writer = SummaryWriter(f"runs/{run_name}")
         writer.add_text(
             "hyperparameters",
@@ -270,6 +272,7 @@ if __name__ == "__main__":
         )
     else:
         writer = SummaryWriter()
+        writer.close()
 
     args.seed += local_rank
     random.seed(args.seed)
@@ -406,14 +409,8 @@ if __name__ == "__main__":
             if rank == 0:
                 print(f"Saving model\n  to {backward_model_path}")
 
-    if world_size > 1:
-        dist.barrier()
-
     if rank == 0:
         print(f"World size: {world_size}, rank {rank} using device: {device}")
-
-    if world_size > 1:
-        dist.barrier()
 
     if args.mode == "train":
         loss_fn = getattr(loss_fns, args.loss_fn)
@@ -446,5 +443,6 @@ if __name__ == "__main__":
             args.time_limit,
         )
 
-    print(f"Total time: {time.time() - start_time}")
-    writer.close()
+    if rank == 0:
+        print(f"Total time: {time.time() - start_time}")
+        writer.close()

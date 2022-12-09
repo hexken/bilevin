@@ -15,3 +15,5 @@ torchrun \
     --initial-budget 7000 \
     --grad-steps 10 \
     --batch-size-bootstrap 4 \
+    # --cuda
+    # --wandb
