@@ -2,7 +2,7 @@
 
 torchrun \
     --nnodes=1 \
-    --nproc_per_node=4 \
+    --nproc_per_node=48 \
     --master_addr=$(hostname)\
     --master_port=34567 \
     src/main.py \

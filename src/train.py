@@ -85,8 +85,7 @@ def train(
 
     forward_opt_steps = 0
     backward_opt_steps = 0
-    num_new_problems_solved = 0
-    while num_new_problems_solved < num_problems:
+    while len(solved_problems) < num_problems:
         epoch += 1
         if rank == 0:
             print(
