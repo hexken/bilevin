@@ -54,10 +54,15 @@ def train(
         backward_model_path = Path(
             str(model_path).replace("_forward.pt", "_backward.pt")
         )
+        for param in backward_model.parameters():
+            param.grad = to.zeros_like(param)
     else:
         forward_model = model
         forward_model_path = model_path
         forward_optimizer = optimizer_cons(model.parameters(), **optimizer_params)
+
+    for param in forward_model.parameters():
+        param.grad = to.zeros_like(param)
 
     device = next(forward_model.parameters()).device
 
@@ -302,26 +307,16 @@ class ProblemsBatchLoader:
 
 
 def sync_grads(model: to.nn.Module, world_size):
-    # todo some issues here
+    # assumes grads are not None
+    # todo scale gradients properly since not all processes contribute equally
     all_grads_list = []
     for param in model.parameters():
-        if param.grad is not None:
-            all_grads_list.append(param.grad.view(-1))
-        else:
-            zeros = param.data.new(param.data.shape).zero_()
-            all_grads_list.append(zeros.view(-1))
+        all_grads_list.append(param.grad.view(-1))
     all_grads = to.cat(all_grads_list)
     dist.all_reduce(all_grads, op=dist.ReduceOp.SUM)
     offset = 0
     for param in model.parameters():
-        if param.grad is not None:
-            param.grad.data.copy_(
-                all_grads[offset : offset + param.numel()].view_as(param.grad.data)
-                / world_size
-            )
-        else:
-            param.grad = (
-                all_grads[offset : offset + param.numel()].view_as(param.data)
-                / world_size
-            ).copy()
-            offset += param.numel()
+        param.grad.data.copy_(
+            all_grads[offset : offset + param.numel()].view_as(param.grad.data)
+        )
+        offset += param.numel()

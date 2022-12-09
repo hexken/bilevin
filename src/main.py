@@ -20,7 +20,6 @@ import models.loss_functions as loss_fns
 from search import AStar, BiLevin, GBFS, Levin, PUCT
 from test import test
 from train import train
-from utils import rank0_print
 
 
 def parse_args():
@@ -385,28 +384,33 @@ if __name__ == "__main__":
                 str(args.model_path).replace("_forward.pt", "_backward.pt")
             )
             backward_model.load_state_dict(backward_model_path)  # type:ignore
-            rank0_print(f"Loaded model\n  from  {str(args.model_path)}", rank)
-            rank0_print(f"Loaded model\n  from {str(backward_model_path)}", rank)
+            if rank == 0:
+                print(f"Loaded model\n  from  {str(args.model_path)}")
+                print(f"Loaded model\n  from {str(backward_model_path)}")
         else:
             model.load_state_dict(to.load(args.model_path))  # type:ignore
-            rank0_print(f"Loaded model\n  from  {str(args.model_path)}", rank)
+            if rank == 0:
+                print(f"Loaded model\n  from  {str(args.model_path)}")
     else:
         if args.model_path.suffix:
             args.model_path.parent.mkdir(parents=True, exist_ok=True)
         else:
             args.model_path.mkdir(parents=True, exist_ok=True)
         args.model_path = Path(args.model_path) / f"{run_name}_forward.pt"
-        rank0_print(f"Saving model\n  to {str(args.model_path)}", rank)
+        if rank == 0:
+            print(f"Saving model\n  to {str(args.model_path)}")
         if bidirectional:
             backward_model_path = Path(
                 str(args.model_path).replace("_forward.pt", "_backward.pt")
             )
-            rank0_print(f"Saving model\n  to {backward_model_path}", rank)
+            if rank == 0:
+                print(f"Saving model\n  to {backward_model_path}")
 
     if world_size > 1:
         dist.barrier()
 
-    print(f"Rank {rank} using device: {device}")
+    if rank == 0:
+        print(f"World size: {world_size}, rank {rank} using device: {device}")
 
     if world_size > 1:
         dist.barrier()
