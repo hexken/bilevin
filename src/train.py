@@ -5,6 +5,7 @@ import time
 import numpy as np
 import pandas as pd
 import torch as to
+from tabulate import tabulate
 import torch.distributed as dist
 from search import MergedTrajectories
 import tqdm
@@ -166,7 +167,7 @@ def train(
             num_problems_solved_this_batch = len(batch_solved_ids)
             num_problems_solved_this_epoch += num_problems_solved_this_batch
             if rank == 0:
-                print(batch_df)
+                print(tabulate(batch_df, headers="keys", tablefmt="psql"))
                 print(f"Solved {num_problems_solved_this_batch}/{batch_size}\n")
 
             def fit_model(model, optimizer, solutions, opt_step):
