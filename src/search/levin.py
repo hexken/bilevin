@@ -10,13 +10,7 @@ import torch.nn.functional as F
 from models.utils import mixture_uniform
 from search.levin_common import LevinNode, levin_cost, levin_cost_pred_h
 
-from .utils import (
-    Direction,
-    SearchNode,
-    Trajectory,
-    get_merged_trajectory,
-    reverse_trajectory,
-)
+from .utils import Trajectory
 
 
 class Levin:

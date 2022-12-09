@@ -302,10 +302,14 @@ class ProblemsBatchLoader:
 
 
 def sync_grads(model: to.nn.Module, world_size):
+    # todo some issues here
     all_grads_list = []
     for param in model.parameters():
         if param.grad is not None:
             all_grads_list.append(param.grad.view(-1))
+        else:
+            zeros = param.data.new(param.data.shape).zero_()
+            all_grads_list.append(zeros.view(-1))
     all_grads = to.cat(all_grads_list)
     dist.all_reduce(all_grads, op=dist.ReduceOp.SUM)
     offset = 0
@@ -315,4 +319,9 @@ def sync_grads(model: to.nn.Module, world_size):
                 all_grads[offset : offset + param.numel()].view_as(param.grad.data)
                 / world_size
             )
+        else:
+            param.grad = (
+                all_grads[offset : offset + param.numel()].view_as(param.data)
+                / world_size
+            ).copy()
             offset += param.numel()

@@ -179,7 +179,7 @@ def parse_args():
         help="the device ids that subprocess workers will use",
     )
     parser.add_argument(
-        "--track",
+        "--wandb",
         action="store_true",
         default=False,
         help="track with Weights and Biases",
@@ -249,7 +249,7 @@ if __name__ == "__main__":
         print(
             f"Loaded {len(problems_gathered)} total problems\n  {problems_per_process} into each of {world_size} processes"
         )
-        if args.track:
+        if args.wandb:
             import wandb
 
             wandb.init(
@@ -262,7 +262,7 @@ if __name__ == "__main__":
             )
             print("wandb initialized")
 
-        print(f"Logging with tensorboard\n to {run_name}")
+        print(f"Logging with tensorboard\n  to {run_name}")
         writer = SummaryWriter(f"runs/{run_name}")
         writer.add_text(
             "hyperparameters",
@@ -391,7 +391,10 @@ if __name__ == "__main__":
             model.load_state_dict(to.load(args.model_path))  # type:ignore
             rank0_print(f"Loaded model\n  from  {str(args.model_path)}", rank)
     else:
-        args.model_path.parent.mkdir(parents=True, exist_ok=True)
+        if args.model_path.suffix:
+            args.model_path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            args.model_path.mkdir(parents=True, exist_ok=True)
         args.model_path = Path(args.model_path) / f"{run_name}_forward.pt"
         rank0_print(f"Saving model\n  to {str(args.model_path)}", rank)
         if bidirectional:
@@ -400,7 +403,10 @@ if __name__ == "__main__":
             )
             rank0_print(f"Saving model\n  to {backward_model_path}", rank)
 
-    print(f"Rank {rank} using device: {device}\n")
+    if world_size > 1:
+        dist.barrier()
+
+    print(f"Rank {rank} using device: {device}")
 
     if world_size > 1:
         dist.barrier()
