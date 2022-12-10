@@ -163,9 +163,9 @@ class BiLevin:
                     # )
                 else:
                     if predicted_h:
-                        lc = levin_cost(child, predicted_h[i])
+                        raise NotImplementedError
                     else:
-                        lc = levin_cost(child, None)
+                        lc = levin_cost(child)
                 child.log_action_probs = log_action_probs[i]
                 child.levin_cost = lc  # type:ignore
 

@@ -12,3 +12,6 @@
 - Order of problems seen is only deterministic for a given world_size.
 - I compute the loss over a whole batch and do an update (repeated grad_steps times),
   in contrast to the original implementation doing an update for each trajectory in the bacth.
+- Under this training scheme (and same for the original implementation), the probability that the
+  budget increases decreases as the number of problems increases, i.e. there is a trade-off between
+  having to solve more problems and increasing the budget less frequently. See run results.

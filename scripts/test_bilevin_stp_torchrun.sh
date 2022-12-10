@@ -9,7 +9,7 @@ torchrun \
     --master_port=34567 \
     src/main.py \
     --mode train \
-    --agent Levin \
+    --agent BiLevin \
     --loss cross_entropy_loss \
     --model-path trained_models/ \
     --domain SlidingTile \

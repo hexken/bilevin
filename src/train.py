@@ -46,15 +46,13 @@ def train(
     bidirectional = agent.bidirectional
     if bidirectional:
         forward_model, backward_model = model
-        forward_optimizer = optimizer_cons(
-            forward_model.parameters(), **optimizer_params
-        )
-        backward_optimizer = optimizer_cons(
-            backward_model.parameters(), **optimizer_params
-        )
-        backward_model_path = Path(
-            str(model_path).replace("_forward.pt", "_backward.pt")
-        )
+
+        forward_optimizer = optimizer_cons( forward_model.parameters(), **optimizer_params)
+        forward_model_path = model_path
+
+        backward_optimizer = optimizer_cons( backward_model.parameters(), **optimizer_params)
+        backward_model_path = Path( str(model_path).replace("_forward.pt", "_backward.pt"))
+
         for param in backward_model.parameters():
             param.grad = to.zeros_like(param)
     else:
@@ -238,7 +236,7 @@ def train(
             if rank == 0:
                 to.save(forward_model, forward_model_path)  # type:ignore
                 if bidirectional:
-                    to.save(forward_model, backward_model_path)  # type:ignore
+                    to.save(backward_model, backward_model_path)  # type:ignore
 
             if rank == 0:
                 batch_avg = num_problems_solved_this_batch / batch_size
