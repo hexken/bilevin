@@ -174,7 +174,7 @@ def train(
                 print(tabulate(batch_df, headers="keys", tablefmt="psql"))
                 print(f"Solved {num_problems_solved_this_batch}/{batch_size}\n")
 
-            def fit_model(model, optimizer, solutions, opt_step):
+            def fit_model(model, optimizer, solutions, opt_step, name="model"):
                 if rank == 0 and solutions:
                     print(opt_result_header)
 
@@ -185,7 +185,7 @@ def train(
                 for _ in range(grad_steps):
                     optimizer.zero_grad()
                     if solutions:
-                        loss, logits = loss_fn(merged_solutions, model)
+                        loss, avg_action_nll, logits = loss_fn(merged_solutions, model)
                         loss.backward()
 
                     if world_size > 1:
@@ -195,14 +195,14 @@ def train(
                     optimizer.step()
 
                     if solutions:
-                        loss = loss.item()
+                        avg_action_nll = avg_action_nll.item()
                         with to.no_grad():
                             acc = (
                                 (logits.argmax(dim=1) == merged_solutions.actions).sum()
                                 / len(logits)
                             ).item()
 
-                        local_opt_results[0] = loss
+                        local_opt_results[0] = avg_action_nll
                         local_opt_results[1] = acc
                         local_opt_results[2] = 1
                     else:
@@ -215,21 +215,33 @@ def train(
 
                     # todo double check
                     num_batch_partials = local_opt_results[2].item()
-                    if rank == 0 and num_batch_partials > 0:
+                    if num_batch_partials > 0:
                         opt_step += 1
-                        loss = local_opt_results[0].item() / num_batch_partials
-                        acc = local_opt_results[1].item() / num_batch_partials
-                        print(f"{opt_step:7}  {loss:5.3f}  {acc:5.3f}")
-                        # fmt: off
-                        writer.add_scalar( "loss/forward/loss_vs_opt_step", loss, opt_step,)
-                        writer.add_scalar( "accuracy/forward/acc_vs_opt_step", acc, opt_step,)
-                        # fmt:on
+                        if rank == 0:
+                            loss = local_opt_results[0].item() / num_batch_partials
+                            acc = local_opt_results[1].item() / num_batch_partials
+                            print(f"{opt_step:7}  {loss:5.3f}  {acc:5.3f}")
+                            # fmt: off
+                            writer.add_scalar( f"loss/{name}/loss_vs_opt_step", loss, opt_step,)
+                            writer.add_scalar( f"accuracy/{name}/acc_vs_opt_step", acc, opt_step,)
+                            # fmt:on
+                            for param_name, param in forward_model.named_parameters():
+                                writer.add_histogram(
+                                    f"grads/{name}/{param_name}",
+                                    param.grad,
+                                    opt_step,
+                                    bins=512,
+                                )
                 if rank == 0:
                     print("")
                 return opt_step
 
             forward_opt_steps = fit_model(
-                forward_model, forward_optimizer, forward_solutions, forward_opt_steps
+                forward_model,
+                forward_optimizer,
+                forward_solutions,
+                forward_opt_steps,
+                name="forward",
             )
             if bidirectional:
                 backward_opt_steps = fit_model(
@@ -237,6 +249,7 @@ def train(
                     backward_optimizer,  # type:ignore
                     backward_solutions,  # type:ignore
                     backward_opt_steps,  # type:ignore
+                    name="backward",
                 )
 
             if rank == 0:

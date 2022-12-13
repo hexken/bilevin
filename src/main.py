@@ -29,7 +29,8 @@ def parse_args():
         "-d",
         "--domain",
         type=str,
-        choices=["SlidingTile", "Witness", "Sokoban"],
+        default="SlidingTile",
+        choices=["SlidingTile"],
         help="problem domain",
     )
     parser.add_argument(
@@ -49,11 +50,11 @@ def parse_args():
         "-l",
         "--loss-fn",
         type=str,
-        default="levin_loss",
+        default="levin_loss_avg",
         choices=[
-            "levin_loss",
+            "levin_loss_avg",
+            "levin_loss_sum",
             "improved_levin_loss",
-            "mse_loss",
             "cross_entropy_loss",
         ],
         help="loss function",
@@ -81,7 +82,7 @@ def parse_args():
         "-a",
         "--agent",
         type=str,
-        choices=["Levin", "BiLevin", "LevinStar", "PUCT", "AStar", "GBFS"],
+        choices=["Levin", "BiLevin"],
         help="name of the search agent",
     )
     parser.add_argument(
