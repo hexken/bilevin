@@ -14,15 +14,15 @@ from .utils import Trajectory
 
 
 class Levin:
-    bidirectional = False
+    bidirectional: bool = False
 
     def __init__(
         self,
-        use_default_heuristic=True,
-        use_learned_heuristic=False,
-        estimated_probability_to_go=True,
-        batch_size_expansions=32,
-        weight_uniform=0.0,
+        use_default_heuristic: bool = True,
+        use_learned_heuristic: bool = False,
+        estimated_probability_to_go: bool = True,
+        batch_size_expansions: int = 32,
+        weight_uniform: float = 0.0,
     ):
         self.use_default_heuristic = use_default_heuristic
         self.use_learned_heuristic = use_learned_heuristic

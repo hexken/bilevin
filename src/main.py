@@ -230,7 +230,7 @@ if __name__ == "__main__":
         problems_per_process = len(problems_gathered) // world_size
         for proc in range(world_size):
             problems_local = {
-                f"p{i + 1}": p
+                i + 1: p
                 for i, p in enumerate(
                     problems_gathered[
                         proc * problems_per_process : (proc + 1) * problems_per_process
@@ -239,7 +239,7 @@ if __name__ == "__main__":
                 )
             }
             problems.append(problems_local)
-        in_channels = problems[0]["p1"].getSize()
+        in_channels = problems[0][1].getSize()
 
     if world_size > 1:
         backend = "nccl" if args.cuda and to.cuda.is_available() else "gloo"
@@ -267,7 +267,9 @@ if __name__ == "__main__":
             f"Loaded {len(problems_gathered)} total problems\n  {problems_per_process} into each of {world_size} processes"
         )
         writer = SummaryWriter(f"runs/{run_name}")
-        arg_string = "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()]))
+        arg_string = "|param|value|\n|-|-|\n%s" % (
+            "\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])
+        )
         print(arg_string)
         writer.add_text(
             "hyperparameters",

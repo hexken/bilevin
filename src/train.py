@@ -135,7 +135,7 @@ def train(
                     learn=True,
                 )
 
-                local_batch_results[i, 0] = int(problem_id[1:])
+                local_batch_results[i, 0] = problem_id
                 local_batch_results[i, 1] = solution_length
                 local_batch_results[i, 2] = num_expanded
                 local_batch_results[i, 3] = num_generated
