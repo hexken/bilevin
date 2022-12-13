@@ -9,7 +9,7 @@ import torch as to
 import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 
-from domains import SlidingTilePuzzle, Sokoban, WitnessState
+from domains import SlidingTilePuzzle
 from models import (
     ConvNetDouble,
     ConvNetSingle,
@@ -17,7 +17,7 @@ from models import (
     TwoHeadedConvNetSingle,
 )
 import models.loss_functions as loss_fns
-from search import AStar, BiLevin, GBFS, Levin, PUCT
+from search import Levin, BiLevin
 from test import test
 from train import train
 
@@ -215,9 +215,14 @@ if __name__ == "__main__":
         f"{args.domain}_{args.agent}_{args.seed}_{int(start_time)}{args.exp_name}"
     )
 
+    agent = None
     problems = []
+    num_actions = 0
+    in_channels = 0
+    problems_gathered = []
+    problems_per_process = 0
     if args.domain == "SlidingTile":
-        problems_gathered = []
+        num_actions = 4
         for file in args.problems_path.iterdir():
             problems_gathered.extend(
                 [SlidingTilePuzzle(p) for p in file.read_text().splitlines()]
@@ -236,9 +241,6 @@ if __name__ == "__main__":
             }
             problems.append(problems_local)
         in_channels = problems[0]["p1"].getSize()
-    else:
-        # todo add other domains
-        raise ValueError("problem domain not recognized")
 
     if world_size > 1:
         backend = "nccl" if args.cuda and to.cuda.is_available() else "gloo"
@@ -312,14 +314,14 @@ if __name__ == "__main__":
             args.batch_size_expansions,
             args.weight_uniform,
         )
-    elif args.agent == "LevinStar":
-        agent = Levin(
-            args.use_default_heuristic,
-            args.use_learned_heuristic,
-            True,
-            args.batch_size_expansions,
-            args.weight_uniform,
-        )
+    # elif args.agent == "LevinStar":
+    #     agent = Levin(
+    #         args.use_default_heuristic,
+    #         args.use_learned_heuristic,
+    #         True,
+    #         args.batch_size_expansions,
+    #         args.weight_uniform,
+    #     )
     elif args.agent == "BiLevin":
         agent = BiLevin(
             args.use_default_heuristic,
@@ -328,32 +330,29 @@ if __name__ == "__main__":
             args.batch_size_expansions,
             args.weight_uniform,
         )
-    elif args.agent == "PUCT":
+    # elif args.agent == "PUCT":
 
-        agent = PUCT(
-            args.use_default_heuristic,
-            args.use_learned_heuristic,
-            args.batch_size_expansions,
-            1,  # todo old cpucnt param, do something
-        )
-    elif args.agent == "AStar":
-        agent = AStar(
-            args.use_default_heuristic,
-            args.use_learned_heuristic,
-            args.batch_size_expansions,
-            args.weight_astar,
-        )
-    elif args.agent == "GBFS":
-        agent = GBFS(
-            args.use_default_heuristic,
-            args.use_learned_heuristic,
-            args.batch_size_expansions,
-        )
-    else:
-        raise ValueError("Search agent not recognized")
+    #     agent = PUCT(
+    #         args.use_default_heuristic,
+    #         args.use_learned_heuristic,
+    #         args.batch_size_expansions,
+    #         1,  # todo old cpucnt param, do something
+    #     )
+    # elif args.agent == "AStar":
+    #     agent = AStar(
+    #         args.use_default_heuristic,
+    #         args.use_learned_heuristic,
+    #         args.batch_size_expansions,
+    #         args.weight_astar,
+    #     )
+    # elif args.agent == "GBFS":
+    #     agent = GBFS(
+    #         args.use_default_heuristic,
+    #         args.use_learned_heuristic,
+    #         args.batch_size_expansions,
+    #     )
 
     bidirectional = False
-    num_actions = 4
     if (
         args.agent == "Levin"
         or args.agent == "LevinMult"
