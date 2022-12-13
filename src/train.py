@@ -47,11 +47,17 @@ def train(
     if bidirectional:
         forward_model, backward_model = model
 
-        forward_optimizer = optimizer_cons( forward_model.parameters(), **optimizer_params)
+        forward_optimizer = optimizer_cons(
+            forward_model.parameters(), **optimizer_params
+        )
         forward_model_path = model_path
 
-        backward_optimizer = optimizer_cons( backward_model.parameters(), **optimizer_params)
-        backward_model_path = Path( str(model_path).replace("_forward.pt", "_backward.pt"))
+        backward_optimizer = optimizer_cons(
+            backward_model.parameters(), **optimizer_params
+        )
+        backward_model_path = Path(
+            str(model_path).replace("_forward.pt", "_backward.pt")
+        )
 
         for param in backward_model.parameters():
             param.grad = to.zeros_like(param)
@@ -70,10 +76,10 @@ def train(
         problems, batch_size=local_batch_size, shuffle=True
     )
 
-    local_opt_results = to.zeros(5, dtype=to.float32)
-    local_batch_results = to.zeros(local_batch_size, 5, dtype=to.int32).to(device)
+    local_opt_results = to.zeros(5, dtype=to.float32, device=device)
+    local_batch_results = to.zeros(local_batch_size, 5, dtype=to.int32, device=device)
     batch_results = [
-        to.zeros((local_batch_size, 5), dtype=to.int32).to(device)
+        to.zeros((local_batch_size, 5), dtype=to.int32, device=device)
         for _ in range(world_size)
     ]
 

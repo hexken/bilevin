@@ -10,7 +10,7 @@ torchrun \
     src/main.py \
     --mode train \
     --agent Levin \
-    --loss cross_entropy_loss \
+    --loss levin_loss \
     --model-path trained_models/ \
     --domain SlidingTile \
     --problems-path problems/stp_test/3x3_1000/ \

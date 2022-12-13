@@ -42,7 +42,7 @@ class SearchNode:
 
 
 class Trajectory:
-    def __init__(self, final_node: SearchNode, num_expanded: int, device=None):
+    def __init__(self, final_node: SearchNode, num_expanded: int, device: to.device):
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
@@ -57,7 +57,6 @@ class Trajectory:
         action = final_node.action
         node = final_node.parent
         self.goal = final_node.state.state_tensor(device)
-        # self.device = device if device else self.goal.device
         states = []
         actions = []
         cost_to_gos = []
@@ -91,10 +90,11 @@ def reverse_trajectory(f_trajectory: Trajectory, device=None):
     """
     device = device if device else f_trajectory.device
     dummy_node = SearchNode(state=None, parent=None, action=None, g_cost=None)
-    b_trajectory = Trajectory(dummy_node, f_trajectory.num_expanded)
+    b_trajectory = Trajectory(
+        dummy_node, num_expanded=f_trajectory.num_expanded, device=device
+    )
     if hasattr(f_trajectory, "solution_prob"):
         b_trajectory.solution_prob = f_trajectory.solution_prob
-    b_trajectory.device = device
     b_trajectory.goal = f_trajectory.goal
     b_trajectory.states = to.flip(f_trajectory.states, dims=[0])
     b_trajectory.actions = to.flip(f_trajectory.actions, dims=[0])
@@ -134,10 +134,20 @@ def get_merged_trajectory(
 
 
 class MergedTrajectories:
-    def __init__(self, trajectories):
-        if trajectories:
-            self.states = to.cat(tuple(t.states for t in trajectories))
-            self.actions = to.cat(tuple(t.actions for t in trajectories))
+    def __init__(self, trajs):
+        if trajs:
+            self.states = to.cat(tuple(t.states for t in trajs))
+            device = self.states.device
+            self.actions = to.cat(tuple(t.actions for t in trajs))
+            start_indices = [0]
+            start_indices.extend([len(t) for t in trajs[:-1]])
+            self.start_indices = to.tensor(start_indices, dtype=to.int32, device=device)
+            self.end_indices_excl = to.tensor(
+                [len(t) for t in trajs], dtype=to.int32, device=device
+            )
+            self.nums_expanded = to.tensor(
+                [t.num_expanded for t in trajs], dtype=to.float32, device=device
+            )
         else:
             return None
 

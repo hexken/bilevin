@@ -1,21 +1,18 @@
 import torch as to
 import torch.nn.functional as F
+from search.utils import MergedTrajectories
 
 
-def levin_loss(trajectory, model):
-    actions = to.tensor(trajectory.actions)
-
-    states = to.stack(trajectory.states)
-    logits = model(states)
-
-    loss = F.cross_entropy(logits, actions)
-    loss *= to.tensor(trajectory.num_expanded)
+def levin_loss(trajs: MergedTrajectories, model):
+    logits = model(trajs.states)
+    nlls = F.cross_entropy(logits, trajs.actions, reduction="none")
+    loss = to.dot(nlls, trajs.nums_expanded)
 
     return loss, logits
 
 
-def cross_entropy_loss(trajectory, model):
-    logits = model(trajectory.states)
-    loss = F.cross_entropy(logits, trajectory.actions)
+def cross_entropy_loss(trajs: MergedTrajectories, model):
+    logits = model(trajs.states)
+    loss = F.cross_entropy(logits, trajs.actions)
 
     return loss, logits
