@@ -1,29 +1,32 @@
 import math
 from pathlib import Path
 import time
+from typing import Type, Callable, Union
 
 import numpy as np
 import pandas as pd
-import torch as to
 from tabulate import tabulate
+import torch as to
 import torch.distributed as dist
-from search import MergedTrajectories
+from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
+
+from search import MergedTrajectories
 
 
 def train(
     agent,
-    model,
-    model_path,
-    loss_fn,
-    optimizer_cons,
-    optimizer_params,
-    problems,
-    writer,
-    world_size=1,
-    initial_budget=7000,
-    grad_steps=10,
-    batch_size=32,
+    model: Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]],
+    model_path: Path,
+    loss_fn: Callable,
+    optimizer_cons: Type[to.optim.Optimizer],
+    optimizer_params: dict,
+    problems: list,
+    writer: SummaryWriter,
+    world_size: int = 1,
+    initial_budget: int = 7000,
+    grad_steps: int = 10,
+    batch_size: int = 32,
 ):
     current_budget = initial_budget
 
@@ -174,7 +177,13 @@ def train(
                 print(tabulate(batch_df, headers="keys", tablefmt="psql"))
                 print(f"Solved {num_problems_solved_this_batch}/{batch_size}\n")
 
-            def fit_model(model, optimizer, solutions, opt_step, name="model"):
+            def fit_model(
+                model: to.nn.Module,
+                optimizer: to.optim.Optimizer,
+                solutions: list,
+                opt_step: int,
+                name: str = "model",
+            ):
                 if rank == 0 and solutions:
                     print(opt_result_header)
 
@@ -288,7 +297,7 @@ def train(
 
 
 class ProblemsBatchLoader:
-    def __init__(self, problems, batch_size, shuffle=True):
+    def __init__(self, problems: dict, batch_size: int, shuffle: bool = True):
         self.problems = np.array(tuple(problems.values()))
         self.keys = np.array(tuple(problems.keys()))
         self._len = len(problems)
@@ -322,7 +331,7 @@ class ProblemsBatchLoader:
         return self.problems[idx], self.keys[idx]
 
 
-def sync_grads(model: to.nn.Module, world_size):
+def sync_grads(model: to.nn.Module, world_size: int):
     # assumes grads are not None
     # todo scale gradients properly since not all processes contribute equally
     all_grads_list = []
