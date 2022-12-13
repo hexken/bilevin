@@ -187,7 +187,7 @@ def parse_args():
     parser.add_argument(
         "--wandb-project-name",
         type=str,
-        default="bi-levin",
+        default="bilevin",
         help="the wandb's project name",
     )
     parser.add_argument(
@@ -268,10 +268,11 @@ if __name__ == "__main__":
             f"Loaded {len(problems_gathered)} total problems\n  {problems_per_process} into each of {world_size} processes"
         )
         writer = SummaryWriter(f"runs/{run_name}")
+        arg_string = "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()]))
+        print(arg_string)
         writer.add_text(
             "hyperparameters",
-            "|param|value|\n|-|-|\n%s"
-            % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+            arg_string,
         )
     else:
         writer = SummaryWriter()
