@@ -62,7 +62,7 @@ def parse_args():
     parser.add_argument(
         "--weight-decay",
         type=float,
-        default=0.0,
+        default=0.001,
         help="l2 regularization weight",
     )
     parser.add_argument(
