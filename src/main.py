@@ -54,7 +54,6 @@ def parse_args():
         choices=[
             "levin_loss_avg",
             "levin_loss_sum",
-            "improved_levin_loss",
             "cross_entropy_loss",
         ],
         help="loss function",

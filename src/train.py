@@ -222,12 +222,12 @@ def train(
                             acc = local_opt_results[1].item() / num_batch_partials
                             print(f"{opt_step:7}  {loss:5.3f}  {acc:5.3f}")
                             # fmt: off
-                            writer.add_scalar( f"loss/{name}/loss_vs_opt_step", loss, opt_step,)
-                            writer.add_scalar( f"accuracy/{name}/acc_vs_opt_step", acc, opt_step,)
+                            writer.add_scalar( f"loss_vs_opt_step/{name}", loss, opt_step,)
+                            writer.add_scalar( f"acc_vs_opt_step/{name}", acc, opt_step,)
                             # fmt:on
                             for param_name, param in forward_model.named_parameters():
                                 writer.add_histogram(
-                                    f"grads/{name}/{param_name}",
+                                    f"grad_vs_opt_step/{name}/{param_name}",
                                     param.grad,
                                     opt_step,
                                     bins=512,
@@ -260,7 +260,7 @@ def train(
             if rank == 0:
                 batch_avg = num_problems_solved_this_batch / batch_size
                 # fmt: off
-                writer.add_scalar(f"search/budget_{current_budget}/batch_solved_vs_batch", batch_avg, total_batches)
+                writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, total_batches)
                 # writer.add_scalar("Search/cumulative_unique_problems_solved_vs_batch", len(solved_problems), total_batches)
                 # fmt: on
 
@@ -278,9 +278,9 @@ def train(
 
             # fmt: off
             epoch_solved = num_problems_solved_this_epoch / num_problems
-            writer.add_scalar("search/budget_vs_epoch", current_budget, epoch)
-            writer.add_scalar(f"search/budget_{current_budget}/solved_vs_epoch", epoch_solved, epoch)
-            writer.add_scalar("search/cumulative_unique_problems_solved_vs_epoch", len(solved_problems), epoch)
+            writer.add_scalar("budget_vs_epoch", current_budget, epoch)
+            writer.add_scalar(f"budget_{current_budget}/solved_vs_epoch", epoch_solved, epoch)
+            writer.add_scalar("cumulative_unique_problems_solved_vs_epoch", len(solved_problems), epoch)
             # fmt: on
 
         if num_new_problems_solved_this_epoch == 0:
