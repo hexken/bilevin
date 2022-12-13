@@ -139,17 +139,25 @@ class MergedTrajectories:
             self.states = to.cat(tuple(t.states for t in trajs))
             device = self.states.device
             self.actions = to.cat(tuple(t.actions for t in trajs))
-            start_indices = [0]
-            start_indices.extend([len(t) for t in trajs[:-1]])
-            self.start_indices = to.tensor(start_indices, dtype=to.int32, device=device)
-            self.end_indices_excl = to.tensor(
-                [len(t) for t in trajs], dtype=to.int32, device=device
+            indices = to.arange(len(trajs), device=device)
+            self.indices = to.repeat_interleave(
+                indices, to.tensor(tuple(len(t) for t in trajs))
             )
+            # start_indices = [0]
+            # start_indices.extend([len(t) for t in trajs[:-1]])
+            # self.start_indices = to.tensor(start_indices, dtype=to.int32, device=device)
+            # self.end_indices_excl = to.tensor(
+            #     [len(t) for t in trajs], dtype=to.int32, device=device
+            # )
             self.nums_expanded = to.tensor(
-                [t.num_expanded for t in trajs], dtype=to.float32, device=device
+                tuple(t.num_expanded for t in trajs), dtype=to.float32, device=device
             )
+            self._len = len(self.nums_expanded)
         else:
             return None
+
+    def __len__(self):
+        return self._len
 
 
 class Memory:

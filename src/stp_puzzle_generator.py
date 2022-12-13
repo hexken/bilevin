@@ -48,12 +48,22 @@ def main():
         default=1000,
         help="max number of steps performed backwards from the goal",
     )
+    parser.add_argument(
+        "-s",
+        "--seed",
+        type=int,
+        default=42,
+        help="random seed",
+    )
 
     args = parser.parse_args()
 
     args.output_path.parent.mkdir(parents=True, exist_ok=True)
 
     problems = set()
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
 
     tiles = np.arange(args.width**2)
     goal = SlidingTilePuzzle(tiles)
