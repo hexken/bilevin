@@ -38,4 +38,9 @@ class Environment(ABC):
     @classmethod
     @abstractmethod
     def num_actions(cls):
-        raise NotImplementedError
+        pass
+
+    @property
+    @abstractmethod
+    def in_channels(self):
+        pass

@@ -66,6 +66,10 @@ class SlidingTilePuzzle(Environment):
 
         self._goal = np.arange(self._size, dtype=np.int32)
 
+    @property
+    def in_channels(self):
+        return self._size
+
     def get_backward_problem(self):
         problem = SlidingTilePuzzle(self._tiles)
         problem._goal, problem._tiles = self._tiles, self._goal
@@ -95,9 +99,6 @@ class SlidingTilePuzzle(Environment):
 
     def copy(self):
         return copy.deepcopy(self)
-
-    def getSize(self):
-        return self._size
 
     def getWidth(self):
         return self._width

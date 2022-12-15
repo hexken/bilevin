@@ -135,6 +135,10 @@ class WitnessState(Environment):
         if state_list is not None:
             self.read_state_from_list(state_list)
 
+    @property
+    def in_channels(self):
+        return 9
+
     def __repr__(self):
         state_str = "Cells: \n"
         state_str += "\n".join(
@@ -251,7 +255,7 @@ class WitnessState(Environment):
         channels = 9
 
         # defining the 3-dimnesional array that will be filled with the puzzle's information
-        image = to.zeros((2 * self._max_lines, 2 * self._max_columns, channels))
+        image = to.zeros(channels, 2 * self._max_lines, 2 * self._max_columns)
         arr = np.asarray(image)
 
         # create one channel for each color i
@@ -259,41 +263,41 @@ class WitnessState(Environment):
             for j in range(0, self._cells.shape[0]):
                 for k in range(0, self._cells.shape[1]):
                     if self._cells[j][k] == i:
-                        arr[2 * j + 1][2 * k + 1][i] = 1
+                        arr[i][2 * j + 1][2 * k + 1] = 1
         channel_number = number_of_colors
 
         # the number_of_colors-th channel specifies the open spaces in the grid
         for j in range(0, 2 * self._lines + 1):
             for k in range(0, 2 * self._columns + 1):
-                arr[j][k][channel_number] = 1
+                arr[channel_number][j][k] = 1
 
         # channel for the current path
         channel_number += 1
         for i in range(0, self._v_seg.shape[0]):
             for j in range(0, self._v_seg.shape[1]):
                 if self._v_seg[i][j] == 1:
-                    arr[2 * i][2 * j][channel_number] = 1
-                    arr[2 * i + 1][2 * j][channel_number] = 1
-                    arr[2 * i + 2][2 * j][channel_number] = 1
+                    arr[channel_number][2 * i][2 * j] = 1
+                    arr[channel_number][2 * i + 1][2 * j] = 1
+                    arr[channel_number][2 * i + 2][2 * j] = 1
 
         for i in range(0, self._h_seg.shape[0]):
             for j in range(0, self._h_seg.shape[1]):
                 if self._h_seg[i][j] == 1:
-                    arr[2 * i][2 * j][channel_number] = 1
-                    arr[2 * i][2 * j + 1][channel_number] = 1
-                    arr[2 * i][2 * j + 2][channel_number] = 1
+                    arr[channel_number][2 * i][2 * j] = 1
+                    arr[channel_number][2 * i][2 * j + 1] = 1
+                    arr[channel_number][2 * i][2 * j + 2] = 1
 
         # channel with the tip of the snake
         channel_number += 1
-        arr[2 * self._line_tip][2 * self._column_tip][channel_number] = 1
+        arr[channel_number][2 * self._line_tip][2 * self._column_tip] = 1
 
         # channel for the exit of the puzzle
         channel_number += 1
-        arr[2 * self._line_goal][2 * self._column_goal][channel_number] = 1
+        arr[channel_number][2 * self._line_goal][2 * self._column_goal] = 1
 
         # channel for the entrance of the puzzle
         channel_number += 1
-        arr[2 * self._line_init][2 * self._column_init][channel_number] = 1
+        arr[channel_number][2 * self._line_init][2 * self._column_init] = 1
 
         return image
 

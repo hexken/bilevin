@@ -264,7 +264,7 @@ if __name__ == "__main__":
             )
         }
         problems.append(problems_local)
-    in_channels = problems[0][1].getSize()
+    in_channels = problems[0][1].in_channels
 
     if world_size > 1:
         backend = "nccl" if args.cuda and to.cuda.is_available() else "gloo"
