@@ -30,7 +30,7 @@ def parse_args():
         "--domain",
         type=str,
         default="SlidingTile",
-        choices=["SlidingTile"],
+        choices=["SlidingTile", "Witness"],
         help="problem domain",
     )
     parser.add_argument(
@@ -220,18 +220,37 @@ if __name__ == "__main__":
     in_channels = 0
     problems_gathered = []
     problems_per_process = 0
+    problem_files = sorted(args.problems_path.iterdir())
     if args.domain == "SlidingTile":
         num_actions = 4
-        for file in args.problems_path.iterdir():
+        for file in problem_files:
             problems_gathered.extend(
                 [SlidingTilePuzzle(line) for line in file.read_text().splitlines()]
             )
     elif args.domain == "Witness":
         num_actions = 4
-        for file in args.problems_path.iterdir():
+        all_lines = []
+        for file in problem_files:
+            # puzzle = file.open("r").readlines()
+            # i = 0
+            # while i < len(puzzle):
+            #     k = i
+            #     while k < len(puzzle) and puzzle[k] != "\n":
+            #         k += 1
+            #     s = WitnessState()
+            #     s.read_state_from_string(puzzle[i:k])
+            #     problems_gathered.append(s)
+            #     i = k + 1
             problems_gathered.extend(
-                [WitnessState(lines) for lines in file.read_text().splitlines("\n\n")]
+                [
+                    WitnessState(state_list=lines.splitlines())
+                    for lines in file.read_text().split("\n\n")
+                ]
             )
+            # for lines in file.read_text().split("\n\n"):
+            # all_lines.append(lines)
+            # s = WitnessState(state_string=lines)
+            # problems_gathered.append(s)
 
     problems_per_process = len(problems_gathered) // world_size
     for proc in range(world_size):
@@ -322,14 +341,6 @@ if __name__ == "__main__":
             args.batch_size_expansions,
             args.weight_uniform,
         )
-    # elif args.agent == "LevinStar":
-    #     agent = Levin(
-    #         args.use_default_heuristic,
-    #         args.use_learned_heuristic,
-    #         True,
-    #         args.batch_size_expansions,
-    #         args.weight_uniform,
-    #     )
     elif args.agent == "BiLevin":
         agent = BiLevin(
             args.use_default_heuristic,
@@ -338,29 +349,7 @@ if __name__ == "__main__":
             args.batch_size_expansions,
             args.weight_uniform,
         )
-    # elif args.agent == "PUCT":
 
-    #     agent = PUCT(
-    #         args.use_default_heuristic,
-    #         args.use_learned_heuristic,
-    #         args.batch_size_expansions,
-    #         1,  # todo old cpucnt param, do something
-    #     )
-    # elif args.agent == "AStar":
-    #     agent = AStar(
-    #         args.use_default_heuristic,
-    #         args.use_learned_heuristic,
-    #         args.batch_size_expansions,
-    #         args.weight_astar,
-    #     )
-    # elif args.agent == "GBFS":
-    #     agent = GBFS(
-    #         args.use_default_heuristic,
-    #         args.use_learned_heuristic,
-    #         args.batch_size_expansions,
-    #     )
-
-    bidirectional = False
     if (
         args.agent == "Levin"
         or args.agent == "LevinMult"
@@ -375,7 +364,6 @@ if __name__ == "__main__":
             backward_model = ConvNetDouble(in_channels, (2, 2), 32, num_actions).to(
                 device
             )
-            bidirectional = True
             model = (forward_model, backward_model)
         elif args.use_learned_heuristic:
             model = TwoHeadedConvNetSingle(in_channels, (2, 2), 32, num_actions).to(
@@ -389,7 +377,7 @@ if __name__ == "__main__":
         raise ValueError("Search agent not recognized")
 
     if args.model_path.is_file():
-        if bidirectional:
+        if agent.bidirectional:
             forward_model.load_state_dict(to.load(args.model_path))  # type:ignore
             backward_model_path = Path(
                 str(args.model_path).replace("_forward.pt", "_backward.pt")
@@ -410,7 +398,7 @@ if __name__ == "__main__":
         args.model_path = Path(args.model_path) / f"{run_name}_forward.pt"
         if rank == 0:
             print(f"Saving model\n  to {str(args.model_path)}")
-        if bidirectional:
+        if agent.bidirectional:
             backward_model_path = Path(
                 str(args.model_path).replace("_forward.pt", "_backward.pt")
             )

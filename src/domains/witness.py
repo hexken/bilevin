@@ -57,7 +57,7 @@ class WitnessState(Environment):
         column_goal=1,
         max_lines=11,
         max_columns=11,
-        state_string=None,
+        state_list=None,
     ):
         """
         GameState's constructor. The constructor receives as input the variable lines and columns,
@@ -132,14 +132,18 @@ class WitnessState(Environment):
 
         self._solution_depth = -1
 
-        if state_string is not None:
-            self.read_state_from_string(state_string)
+        if state_list is not None:
+            self.read_state_from_list(state_list)
 
     def __repr__(self):
         state_str = "Cells: \n"
-        state_str += "\n".join("\t".join("%d" % x for x in y) for y in self._cells)
+        state_str += "\n".join(
+            "\t".join("%d" % x for x in y) for y in reversed(self._cells)
+        )
         state_str += "\nDots: \n"
-        state_str += "\n".join("\t".join("%d" % x for x in y) for y in self._dots)
+        state_str += "\n".join(
+            "\t".join("%d" % x for x in y) for y in reversed(self._dots)
+        )
         return state_str
 
     def __rotated90_position(self, x, y):
@@ -1063,7 +1067,7 @@ class WitnessState(Environment):
     #
     #         return copy_state
 
-    def read_state_from_string(self, puzzle):
+    def read_state_from_list(self, puzzle):
         """
         Reads a puzzle from a string. It follows the format speficied in method save_state of this class.
         """
