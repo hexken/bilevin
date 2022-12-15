@@ -9,7 +9,7 @@ import torch as to
 import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 
-from domains import SlidingTilePuzzle
+from domains import SlidingTilePuzzle, WitnessState
 from models import (
     ConvNetDouble,
     ConvNetSingle,
@@ -224,22 +224,28 @@ if __name__ == "__main__":
         num_actions = 4
         for file in args.problems_path.iterdir():
             problems_gathered.extend(
-                [SlidingTilePuzzle(p) for p in file.read_text().splitlines()]
+                [SlidingTilePuzzle(line) for line in file.read_text().splitlines()]
+            )
+    elif args.domain == "Witness":
+        num_actions = 4
+        for file in args.problems_path.iterdir():
+            problems_gathered.extend(
+                [WitnessState(lines) for lines in file.read_text().splitlines("\n\n")]
             )
 
-        problems_per_process = len(problems_gathered) // world_size
-        for proc in range(world_size):
-            problems_local = {
-                i + 1: p
-                for i, p in enumerate(
-                    problems_gathered[
-                        proc * problems_per_process : (proc + 1) * problems_per_process
-                    ],
-                    start=proc * problems_per_process,
-                )
-            }
-            problems.append(problems_local)
-        in_channels = problems[0][1].getSize()
+    problems_per_process = len(problems_gathered) // world_size
+    for proc in range(world_size):
+        problems_local = {
+            i + 1: p
+            for i, p in enumerate(
+                problems_gathered[
+                    proc * problems_per_process : (proc + 1) * problems_per_process
+                ],
+                start=proc * problems_per_process,
+            )
+        }
+        problems.append(problems_local)
+    in_channels = problems[0][1].getSize()
 
     if world_size > 1:
         backend = "nccl" if args.cuda and to.cuda.is_available() else "gloo"
