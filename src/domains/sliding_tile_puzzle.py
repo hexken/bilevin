@@ -28,12 +28,15 @@ class SlidingTilePuzzle(Environment):
     LEFT = Action.LEFT
     RIGHT = Action.RIGHT
 
-    reverse_action = {
-        Action.UP: Action.DOWN,
-        Action.DOWN: Action.UP,
-        Action.LEFT: Action.RIGHT,
-        Action.RIGHT: Action.LEFT,
-    }
+    def reverse_action(self, action: Action):
+        if action == SlidingTilePuzzle.UP:
+            return SlidingTilePuzzle.DOWN
+        elif action == SlidingTilePuzzle.DOWN:
+            return SlidingTilePuzzle.UP
+        elif action == SlidingTilePuzzle.LEFT:
+            return SlidingTilePuzzle.RIGHT
+        elif action == SlidingTilePuzzle.RIGHT:
+            return SlidingTilePuzzle.LEFT
 
     def __init__(self, tiles):
 
@@ -111,6 +114,10 @@ class SlidingTilePuzzle(Environment):
 
     def state_equal(self, other):
         return np.array_equal(self._tiles, other._tiles)
+
+    @property
+    def state_size(self):
+        return self._width
 
     def __eq__(self, other):
         return np.array_equal(self._tiles, other._tiles)

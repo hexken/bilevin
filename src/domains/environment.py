@@ -10,6 +10,11 @@ class Environment(ABC):
     def is_solution(self):
         pass
 
+    @classmethod
+    @abstractmethod
+    def reverse_action(cls, action):
+        pass
+
     @abstractmethod
     def apply_action(self, action):
         pass
@@ -32,6 +37,11 @@ class Environment(ABC):
 
     @abstractmethod
     def state_equal(self, other):
+        pass
+
+    @property
+    @abstractmethod
+    def state_size(self):
         pass
 
     @property

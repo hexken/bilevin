@@ -85,6 +85,9 @@ class WitnessState(Environment):
         self._column_tip = column_init
         self._max_lines = max_lines
         self._max_columns = max_columns
+        assert (
+            self._max_lines == self._max_columns
+        )  # todo since the convnet currently only handles square input
 
         # Raises an exception if the initial position of the snake equals is goal position
         if (
@@ -138,6 +141,14 @@ class WitnessState(Environment):
     @property
     def in_channels(self):
         return 9
+
+    @property
+    def state_size(self):
+        """HxW"""
+        return self._max_lines * 2
+
+    def reverse_action(self, action):
+        return None
 
     def __repr__(self):
         state_str = "Cells: \n"

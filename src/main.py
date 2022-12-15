@@ -350,29 +350,24 @@ if __name__ == "__main__":
             args.weight_uniform,
         )
 
-    if (
-        args.agent == "Levin"
-        or args.agent == "LevinMult"
-        or args.agent == "LevinStar"
-        or args.agent == "PUCT"
-        or args.agent == "BiLevin"
-    ):
+    initial_size = problems[0][1].state_size
+    if args.agent == "Levin" or args.agent == "BiLevin":
         if args.agent == "BiLevin":
-            forward_model = ConvNetSingle(in_channels, (2, 2), 32, num_actions).to(
-                device
-            )
-            backward_model = ConvNetDouble(in_channels, (2, 2), 32, num_actions).to(
-                device
-            )
+            forward_model = ConvNetSingle(
+                in_channels, initial_size, (2, 2), 32, num_actions
+            ).to(device)
+            backward_model = ConvNetDouble(
+                in_channels, initial_size, (2, 2), 32, num_actions
+            ).to(device)
             model = (forward_model, backward_model)
         elif args.use_learned_heuristic:
-            model = TwoHeadedConvNetSingle(in_channels, (2, 2), 32, num_actions).to(
-                device
-            )
+            model = TwoHeadedConvNetSingle(
+                in_channels, initial_size, (2, 2), 32, num_actions
+            ).to(device)
         else:
-            model = ConvNetSingle(in_channels, (2, 2), 32, num_actions).to(device)
-    elif args.agent == "AStar" or args.agent == "GBFS":
-        model = HeuristicConvNetSingle(in_channels, (2, 2), 32, num_actions).to(device)
+            model = ConvNetSingle(
+                in_channels, initial_size, (2, 2), 32, num_actions
+            ).to(device)
     else:
         raise ValueError("Search agent not recognized")
 

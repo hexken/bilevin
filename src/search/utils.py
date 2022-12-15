@@ -19,7 +19,7 @@ class SearchNode:
         self.parent = parent
         self.action = action
         self.g_cost = g_cost
-        self.reverse_action = state.reverse_action[action] if action and state else None
+        self.reverse_action = state.reverse_action(action) if action and state else None
 
     def __eq__(self, other):
         """

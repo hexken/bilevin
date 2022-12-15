@@ -3,11 +3,13 @@ import math
 import torch.nn as nn
 import torch.nn.functional as F
 
-# todo will have to parameterize network sizes to account for all domains
-
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, kernel_size, num_filters, num_actions):
+    """Assumes a square sized input with initial_size side length"""
+
+    def __init__(
+        self, in_channels, initial_size, kernel_size, num_filters, num_actions
+    ):
         super().__init__()
         self._kernel_size = kernel_size
         self._filters = num_filters
@@ -15,7 +17,7 @@ class ConvBlock(nn.Module):
 
         self.conv1 = nn.Conv2d(in_channels, num_filters, kernel_size, padding="valid")
         self.conv2 = nn.Conv2d(num_filters, num_filters, kernel_size, padding="valid")
-        self.reduced_size = int(math.sqrt(in_channels) - 2)
+        self.reduced_size = (initial_size - 2) ** 2
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -33,11 +35,15 @@ class ConvBlock(nn.Module):
 
 
 class ConvNetSingle(nn.Module):
-    def __init__(self, in_channels, kernel_size, num_filters, num_actions):
+    def __init__(
+        self, in_channels, initial_size, kernel_size, num_filters, num_actions
+    ):
         super().__init__()
         self.num_actions = num_actions
-        self.convblock = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
-        self.linear1 = nn.Linear(num_filters * self.convblock.reduced_size**2, 128)
+        self.convblock = ConvBlock(
+            in_channels, initial_size, kernel_size, num_filters, num_actions
+        )
+        self.linear1 = nn.Linear(num_filters * self.convblock.reduced_size, 128)
         self.linear2 = nn.Linear(128, num_actions)
 
     def forward(self, x):
@@ -49,14 +55,18 @@ class ConvNetSingle(nn.Module):
 
 
 class ConvNetDouble(nn.Module):
-    def __init__(self, in_channels, kernel_size, num_filters, num_actions):
+    def __init__(
+        self, in_channels, initial_size, kernel_size, num_filters, num_actions
+    ):
         super().__init__()
         self.num_actions = num_actions
-        self.convblock1 = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
-        self.convblock2 = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
-        self.linear1 = nn.Linear(
-            num_filters * 2 * self.convblock1.reduced_size**2, 256
+        self.convblock1 = ConvBlock(
+            in_channels, initial_size, kernel_size, num_filters, num_actions
         )
+        self.convblock2 = ConvBlock(
+            in_channels, initial_size, kernel_size, num_filters, num_actions
+        )
+        self.linear1 = nn.Linear(num_filters * 2 * self.convblock1.reduced_size, 256)
         self.linear2 = nn.Linear(256, 128)
         self.linear3 = nn.Linear(128, num_actions)
 
@@ -78,11 +88,15 @@ class ConvNetDouble(nn.Module):
 
 
 class HeuristicConvNetSingle(nn.Module):
-    def __init__(self, in_channels, kernel_size, num_filters, num_actions):
+    def __init__(
+        self, in_channels, initial_size, kernel_size, num_filters, num_actions
+    ):
         super().__init__()
         self.num_actions = num_actions
-        self.convblock = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
-        self.linear1 = nn.Linear(num_filters * self.convblock.reduced_size**2, 128)
+        self.convblock = ConvBlock(
+            in_channels, initial_size, kernel_size, num_filters, num_actions
+        )
+        self.linear1 = nn.Linear(num_filters * self.convblock.reduced_size, 128)
         self.linear2 = nn.Linear(128, 1)
 
     def call(self, x):
@@ -94,15 +108,19 @@ class HeuristicConvNetSingle(nn.Module):
 
 
 class TwoHeadedConvNetSingle(nn.Module):
-    def __init__(self, in_channels, kernel_size, num_filters, num_actions):
+    def __init__(
+        self, in_channels, kernel_size, initial_size, num_filters, num_actions
+    ):
         super().__init__()
         self.num_actions = num_actions
-        self.convblock = ConvBlock(in_channels, kernel_size, num_filters, num_actions)
+        self.convblock = ConvBlock(
+            in_channels, initial_size, kernel_size, num_filters, num_actions
+        )
 
-        self.linear_c1 = nn.Linear(num_filters * self.convblock.reduced_size**2, 128)
+        self.linear_c1 = nn.Linear(num_filters * self.convblock.reduced_size, 128)
         self.linear_c2 = nn.Linear(128, num_actions)
 
-        self.linear_h1 = nn.Linear(num_filters * self.convblock.reduced_size**2, 128)
+        self.linear_h1 = nn.Linear(num_filters * self.convblock.reduced_size, 128)
         self.linear_h2 = nn.Linear(128, 1)
 
     def forward(self, x):
