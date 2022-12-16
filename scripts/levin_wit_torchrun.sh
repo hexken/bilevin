@@ -10,12 +10,12 @@ torchrun \
     src/main.py \
     --mode train \
     --agent Levin \
-    --loss levin_loss_avg \
+    --loss levin_loss_sum \
     --model-path trained_models/ \
-    --domain SlidingTile \
-    --problems-path problems/stp_test/3x3_1000/ \
+    --domain Witness \
+    --problems-path problems/witness/puzzles_4x4/ \
     --initial-budget 7000 \
     --grad-steps 10 \
     --batch-size-bootstrap 4 \
-    --wandb
+    # --wandb
     # --cuda

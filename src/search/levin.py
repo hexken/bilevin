@@ -78,7 +78,11 @@ class Levin:
 
             node = heapq.heappop(frontier)
             num_expanded += 1
+
             actions = node.state.successors_parent_pruning(node.action)
+            if not actions:
+                continue
+
             for a in actions:
                 # todo vectorize this? Will depend on how I re-implement envs
                 new_state = copy.deepcopy(node.state)
@@ -135,7 +139,7 @@ class Levin:
                 child.log_action_probs = log_action_probs[i]
                 child.levin_cost = lc  # type:ignore
 
-                if child not in reached or child.g_cost < reached[child].g_cost:
+                if child not in reached:  # or child.g_cost < reached[child].g_cost:
                     heapq.heappush(frontier, child)
                     reached[child] = child
 

@@ -43,7 +43,6 @@ class WitnessState(Environment):
     _colors = ["b", "r", "g", "c", "y", "m"]
 
     @property
-    @classmethod
     def num_actions(cls):
         return 4
 
@@ -144,7 +143,7 @@ class WitnessState(Environment):
 
     @property
     def state_size(self):
-        """HxW"""
+        """side length"""
         return self._max_lines * 2
 
     def reverse_action(self, action):
@@ -250,7 +249,7 @@ class WitnessState(Environment):
             and np.array_equal(self._h_seg, other._h_seg)
         )
 
-    def state_tensor(self):
+    def state_tensor(self, device=to.device("cpu")):
         """
         Generates an image representation for the puzzle. Currently the method supports 4 colors and includes
         the following channels (third dimension of image): one channel for each color; one channel with 1's
@@ -310,6 +309,7 @@ class WitnessState(Environment):
         channel_number += 1
         arr[channel_number][2 * self._line_init][2 * self._column_init] = 1
 
+        image = image.to(device)
         return image
 
     def get_image_representation(self):

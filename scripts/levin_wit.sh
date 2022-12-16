@@ -1,0 +1,16 @@
+#!/bin/bash
+# export OMP_NUM_THREADS=1
+# apparently this runs faster WITHOUT letting openmp use multiple threads
+
+python src/main.py \
+    --mode train \
+    --agent Levin \
+    --loss levin_loss_avg \
+    --model-path trained_models/ \
+    --domain Witness \
+    --problems-path problems/witness/puzzles_4x4/ \
+    --initial-budget 7000 \
+    --grad-steps 10 \
+    --batch-size-bootstrap 1 \
+    # --cuda
+    # --wandb \

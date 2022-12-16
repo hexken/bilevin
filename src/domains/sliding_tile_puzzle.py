@@ -13,7 +13,6 @@ class SlidingTilePuzzle(Environment):
     # todo maybe better to have an execution class that handles the execution of the environment
 
     @property
-    @classmethod
     def num_actions(cls):
         return 4
 
