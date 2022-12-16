@@ -274,6 +274,7 @@ def train(
                 batch_avg = num_problems_solved_this_batch / batch_size
                 # fmt: off
                 writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, total_batches)
+                writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), total_batches)
                 # writer.add_scalar("Search/cumulative_unique_problems_solved_vs_batch", len(solved_problems), total_batches)
                 # fmt: on
 
@@ -293,7 +294,7 @@ def train(
             epoch_solved = num_problems_solved_this_epoch / num_problems
             writer.add_scalar("budget_vs_epoch", current_budget, epoch)
             writer.add_scalar(f"budget_{current_budget}/solved_vs_epoch", epoch_solved, epoch)
-            writer.add_scalar("cumulative_unique_problems_solved_vs_epoch", len(solved_problems), epoch)
+            writer.add_scalar("cum_unique_solved_vs_epoch", len(solved_problems), epoch)
             # fmt: on
 
         if num_new_problems_solved_this_epoch == 0:

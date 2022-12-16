@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 from models.utils import mixture_uniform
 from search.agent import Agent
-from search.levin_common import LevinNode, levin_cost
+from search.levin import LevinNode, levin_cost
 
 from .utils import (
     Direction,
