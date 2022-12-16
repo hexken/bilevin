@@ -243,8 +243,9 @@ if __name__ == "__main__":
             #     i = k + 1
             problems_gathered.extend(
                 [
-                    WitnessState(state_list=lines.splitlines())
+                    WitnessState(state_list=line_list)
                     for lines in file.read_text().split("\n\n")
+                    if len(line_list := lines.splitlines()) == 4
                 ]
             )
             # for lines in file.read_text().split("\n\n"):
