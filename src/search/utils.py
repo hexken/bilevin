@@ -7,6 +7,8 @@ from typing import Type
 import numpy as np
 import torch as to
 
+from search.levin import LevinNode
+
 
 class Direction(IntEnum):
     FORWARD = 0
@@ -48,10 +50,7 @@ class Trajectory:
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
         self.num_expanded = num_expanded
-        if hasattr(
-            final_node,
-            "log_prob",
-        ) and isinstance(final_node.log_prob, float):
+        if isinstance(final_node, LevinNode):
             self.solution_prob = exp(final_node.log_prob)  # type:ignore
 
         action = final_node.action
@@ -107,7 +106,7 @@ def get_merged_trajectory(
     b_common: SearchNode,
     node_type: Type[SearchNode],
     num_expanded: int,
-    device=None,
+    device=to.device("cpu"),
 ):
     """
     Returns a new trajectory going from f_start to b_start, passing through f_common ==(state) b_common.
