@@ -141,7 +141,7 @@ class MergedTrajectories:
             self.actions = to.cat(tuple(t.actions for t in trajs))
             indices = to.arange(len(trajs), device=device)
             self.indices = to.repeat_interleave(
-                indices, to.tensor(tuple(len(t) for t in trajs))
+                indices, to.tensor(tuple(len(t) for t in trajs), device=device)
             )
             # start_indices = [0]
             # start_indices.extend([len(t) for t in trajs[:-1]])

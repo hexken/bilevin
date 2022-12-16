@@ -1,4 +1,5 @@
 import argparse
+from typing import Optional
 import os
 from pathlib import Path
 import random
@@ -17,7 +18,8 @@ from models import (
     TwoHeadedConvNetSingle,
 )
 import models.loss_functions as loss_fns
-from search import Levin, BiLevin
+from search import BiLevin, Levin
+from search.agent import Agent
 from test import test
 from train import train
 
@@ -310,30 +312,21 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
     to.manual_seed(args.seed)
     if args.torch_deterministic:
-        to.use_deterministic_agents(True)
+        to.use_deterministic_algorithms(True)
         to.backends.cudnn.benchmark = False  # type:ignore
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
-    if len(args.device_ids) > 0:
-        assert (
-            len(args.device_ids) == world_size
-        ), "you must specify the same number of device ids as `--nproc_per_node`"
-        device = to.device(
-            f"cuda:{args.device_ids[local_rank]}"
-            if to.cuda.is_available() and args.cuda
-            else "cpu"
+    device: to.device = to.device("cpu")
+    if args.cuda and not to.cuda.is_available():
+        raise ValueError("cuda is not available")
+    elif args.cuda and len(args.device_ids) < world_size:
+        raise ValueError(
+            "you must specify the same number of device ids as `--nproc_per_node`"
         )
-    else:
-        device_count = to.cuda.device_count()
-        if device_count < world_size:
-            device = to.device(
-                "cuda" if to.cuda.is_available() and args.cuda else "cpu"
-            )
-        else:
-            device = to.device(
-                f"cuda:{local_rank}" if to.cuda.is_available() and args.cuda else "cpu"
-            )
+    elif args.cuda and len(args.device_ids) >= world_size:
+        device = to.device(f"cuda:{local_rank}")
 
+    agent: Optional[Agent] = None
     if args.agent == "Levin":
         agent = Levin(
             args.use_default_heuristic,
@@ -350,6 +343,7 @@ if __name__ == "__main__":
             args.batch_size_expansions,
             args.weight_uniform,
         )
+    assert agent is not None
 
     initial_size = problems[0][1].state_size
     if args.agent == "Levin" or args.agent == "BiLevin":

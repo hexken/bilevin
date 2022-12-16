@@ -21,7 +21,7 @@ def train(
     loss_fn: Callable,
     optimizer_cons: Type[to.optim.Optimizer],
     optimizer_params: dict,
-    problems: list,
+    problems: dict[int, object],
     writer: SummaryWriter,
     world_size: int = 1,
     initial_budget: int = 7000,
@@ -48,6 +48,7 @@ def train(
 
     bidirectional = agent.bidirectional
     if bidirectional:
+        assert isinstance(model, tuple)
         forward_model, backward_model = model
 
         forward_optimizer = optimizer_cons(
@@ -65,9 +66,12 @@ def train(
         for param in backward_model.parameters():
             param.grad = to.zeros_like(param)
     else:
+        assert isinstance(model, to.nn.Module)
         forward_model = model
         forward_model_path = model_path
-        forward_optimizer = optimizer_cons(model.parameters(), **optimizer_params)
+        forward_optimizer = optimizer_cons(
+            forward_model.parameters(), **optimizer_params
+        )
 
     for param in forward_model.parameters():
         param.grad = to.zeros_like(param)
@@ -120,8 +124,8 @@ def train(
             forward_solutions = []
             to.set_grad_enabled(False)
             forward_model.eval()
+            backward_solutions = []
             if bidirectional:
-                backward_solutions = []
                 backward_model.eval()  # type:ignore
 
             num_problems_solved_this_batch = 0
@@ -336,11 +340,13 @@ def sync_grads(model: to.nn.Module, world_size: int):
     # todo scale gradients properly since not all processes contribute equally
     all_grads_list = []
     for param in model.parameters():
+        assert param.grad is not None
         all_grads_list.append(param.grad.view(-1))
     all_grads = to.cat(all_grads_list)
     dist.all_reduce(all_grads, op=dist.ReduceOp.SUM)
     offset = 0
     for param in model.parameters():
+        assert param.grad is not None
         param.grad.data.copy_(
             all_grads[offset : offset + param.numel()].view_as(param.grad.data)
         )

@@ -8,6 +8,7 @@ import torch as to
 import torch.nn.functional as F
 
 from models.utils import mixture_uniform
+from search.agent import Agent
 from search.levin_common import LevinNode, levin_cost
 
 from .utils import (
@@ -19,8 +20,10 @@ from .utils import (
 )
 
 
-class BiLevin:
-    bidirectional = True
+class BiLevin(Agent):
+    @property
+    def bidirectional(cls):
+        return True
 
     def __init__(
         self,
