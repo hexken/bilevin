@@ -285,6 +285,7 @@ if __name__ == "__main__":
                 config=vars(args),
                 name=run_name,
                 save_code=True,
+                settings=wandb.Settings(code_dir="src/"),
             )
             print(
                 f"Logging with Weights and Biases\n  to {args.wandb_entity}/{args.wandb_project_name}/{run_name}"
