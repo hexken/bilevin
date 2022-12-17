@@ -131,7 +131,7 @@ def get_merged_trajectory(
 
 
 class MergedTrajectories:
-    def __init__(self, trajs):
+    def __init__(self, trajs: list, shuffle: bool = False):
         if trajs:
             self.states = to.cat(tuple(t.states for t in trajs))
             device = self.states.device
@@ -140,54 +140,23 @@ class MergedTrajectories:
             self.indices = to.repeat_interleave(
                 indices, to.tensor(tuple(len(t) for t in trajs), device=device)
             )
-            # start_indices = [0]
-            # start_indices.extend([len(t) for t in trajs[:-1]])
-            # self.start_indices = to.tensor(start_indices, dtype=to.int32, device=device)
-            # self.end_indices_excl = to.tensor(
-            #     [len(t) for t in trajs], dtype=to.int32, device=device
-            # )
             self.nums_expanded = to.tensor(
                 tuple(t.num_expanded for t in trajs), dtype=to.float32, device=device
             )
-            self._len = len(self.nums_expanded)
+            self.num_trajs = len(self.nums_expanded)
+            self.num_states = len(self.states)
+
+            if shuffle:
+                self.shuffle()
         else:
             return None
 
     def __len__(self):
-        return self._len
+        raise NotImplementedError
 
-
-class Memory:
-    def __init__(self):
-        self._trajectories = []
-        self._max_expanded = -sys.maxsize
-
-    def add_trajectory(self, trajectory):
-        if trajectory.num_expanded > self._max_expanded:
-            self._max_expanded = trajectory.num_expanded
-
-        self._trajectories.append(trajectory)
-
-    def shuffle_trajectories(self):
-        self._random_indices = np.random.permutation(len(self._trajectories))
-
-    def next_trajectory(self):
-
-        for i in range(len(self._trajectories)):
-            traj = np.array(self._trajectories)[self._random_indices[i]]
-            traj.num_expanded /= self._max_expanded
-            yield traj
-
-    def number_trajectories(self):
-        return len(self._trajectories)
-
-    def merge_trajectories(self, other):
-        for t in other._trajectories:
-            self._trajectories.append(t)
-
-    def clear(self):
-        self._trajectories.clear()
-        self._max_expanded = -sys.maxsize
-
-    def __len__(self):
-        return len(self._trajectories)
+    def shuffle(self):
+        device = self.states.device
+        perm = to.randperm(self.num_states, device=device)
+        self.states = self.states[perm]
+        self.actions = self.actions[perm]
+        self.indices = self.indices[perm]

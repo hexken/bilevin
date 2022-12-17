@@ -233,16 +233,6 @@ if __name__ == "__main__":
         num_actions = 4
         all_lines = []
         for file in problem_files:
-            # puzzle = file.open("r").readlines()
-            # i = 0
-            # while i < len(puzzle):
-            #     k = i
-            #     while k < len(puzzle) and puzzle[k] != "\n":
-            #         k += 1
-            #     s = WitnessState()
-            #     s.read_state_from_string(puzzle[i:k])
-            #     problems_gathered.append(s)
-            #     i = k + 1
             problems_gathered.extend(
                 [
                     WitnessState(state_list=line_list)
@@ -250,10 +240,6 @@ if __name__ == "__main__":
                     if len(line_list := lines.splitlines()) == 4
                 ]
             )
-            # for lines in file.read_text().split("\n\n"):
-            # all_lines.append(lines)
-            # s = WitnessState(state_string=lines)
-            # problems_gathered.append(s)
 
     problems_per_process = len(problems_gathered) // world_size
     for proc in range(world_size):

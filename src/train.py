@@ -192,6 +192,9 @@ def train(
                     print(opt_result_header)
 
                 merged_solutions = MergedTrajectories(solutions)
+                if len(solutions) > 1:
+                    merged_solutions.shuffle()
+                    m2 = MergedTrajectories(solutions, shuffle=True)
                 to.set_grad_enabled(True)
                 model.train()
 
