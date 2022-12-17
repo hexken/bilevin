@@ -130,7 +130,7 @@ def get_merged_trajectory(
     return Trajectory(f_node, num_expanded, device=device)
 
 
-class MergedTrajectories:
+class MergedTrajectory:
     def __init__(self, trajs: list, shuffle: bool = False):
         if trajs:
             self.states = to.cat(tuple(t.states for t in trajs))

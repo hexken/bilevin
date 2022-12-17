@@ -11,13 +11,7 @@ from models.utils import mixture_uniform
 from search.agent import Agent
 from search.levin import LevinNode, levin_cost
 
-from .utils import (
-    Direction,
-    SearchNode,
-    Trajectory,
-    get_merged_trajectory,
-    reverse_trajectory,
-)
+from .utils import Direction, get_merged_trajectory
 
 
 class BiLevin(Agent):
@@ -27,16 +21,8 @@ class BiLevin(Agent):
 
     def __init__(
         self,
-        use_default_heuristic=True,
-        use_learned_heuristic=False,
-        estimated_probability_to_go=True,
-        batch_size_expansions=32,
         weight_uniform=0.0,
     ):
-        self.use_default_heuristic = use_default_heuristic
-        self.use_learned_heuristic = use_learned_heuristic
-        self.estimated_probability_to_go = estimated_probability_to_go
-        self.batch_size_expansions = batch_size_expansions
         self.weight_uniform = weight_uniform
 
     def search(
@@ -150,25 +136,12 @@ class BiLevin(Agent):
             else:
                 action_logits = _model(batch_states)
 
-            predicted_h = None
-            if isinstance(action_logits, tuple):
-                action_logits, predicted_h = action_logits
-
             log_action_probs = mixture_uniform(action_logits, self.weight_uniform)
 
             for i, child in enumerate(children_to_be_evaluated):
-                # todo vectorize this loop!
+                # todo vectorize?
 
-                if self.estimated_probability_to_go:
-                    pass
-                    # levin_cost = self.get_levin_cost_star(
-                    #     children_to_be_evaluated[i], predicted_h[i]
-                    # )
-                else:
-                    if predicted_h:
-                        raise NotImplementedError
-                    else:
-                        lc = levin_cost(child)
+                lc = levin_cost(child)
                 child.log_action_probs = log_action_probs[i]
                 child.levin_cost = lc  # type:ignore
 

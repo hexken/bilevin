@@ -1,9 +1,9 @@
 import argparse
-from typing import Optional
 import os
 from pathlib import Path
 import random
 import time
+from typing import Optional
 
 import numpy as np
 import torch as to
@@ -11,12 +11,7 @@ import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from domains import SlidingTilePuzzle, WitnessState
-from models import (
-    ConvNetDouble,
-    ConvNetSingle,
-    HeuristicConvNetSingle,
-    TwoHeadedConvNetSingle,
-)
+from models import ConvNetDouble, ConvNetSingle, TwoHeadedConvNetSingle
 import models.loss_functions as loss_fns
 from search import BiLevin, Levin
 from search.agent import Agent
@@ -80,17 +75,16 @@ def parse_args():
         help="number of gradient steps to be performed in each iteration of the Bootstrap system",
     )
     parser.add_argument(
+        "--shuffle_trajectory",
+        action="store_false",
+        help="shuffle trajectory states",
+    )
+    parser.add_argument(
         "-a",
         "--agent",
         type=str,
         choices=["Levin", "BiLevin"],
         help="name of the search agent",
-    )
-    parser.add_argument(
-        "--batch-size-expansions",
-        type=int,
-        default=32,
-        help="number of nodes to batch for expansion",
     )
     parser.add_argument(
         "--batch-size-bootstrap",
@@ -136,17 +130,17 @@ def parse_args():
         default="1.0",
         help="weight to be used with WA*.",
     )
-    parser.add_argument(
-        "--use-default-heuristic",
-        action="store_true",
-        help="use the default heuristic",
-    )
-    parser.add_argument(
-        "--use-learned-heuristic",
-        action="store_true",
-        default=False,
-        help="use the learned heuristic",
-    )
+    # parser.add_argument(
+    #     "--use-default-heuristic",
+    #     action="store_true",
+    #     help="use the default heuristic",
+    # )
+    # parser.add_argument(
+    #     "--use-learned-heuristic",
+    #     action="store_true",
+    #     default=False,
+    #     help="use the learned heuristic",
+    # )
     parser.add_argument(
         "--mode",
         type=str,
@@ -285,7 +279,12 @@ if __name__ == "__main__":
         arg_string = "|param|value|\n|-|-|\n%s" % (
             "\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])
         )
-        print(arg_string)
+        for arg in arg_string.splitlines()[2:]:
+            arg = arg.replace("|", "", 1)
+            arg = arg.replace("|", ": ", 1)
+            arg = arg.replace("|", "", 1)
+            print(arg)
+
         writer.add_text(
             "hyperparameters",
             arg_string,
@@ -316,40 +315,27 @@ if __name__ == "__main__":
     agent: Optional[Agent] = None
     if args.agent == "Levin":
         agent = Levin(
-            args.use_default_heuristic,
-            args.use_learned_heuristic,
-            False,
-            args.batch_size_expansions,
             args.weight_uniform,
         )
     elif args.agent == "BiLevin":
         agent = BiLevin(
-            args.use_default_heuristic,
-            args.use_learned_heuristic,
-            False,
-            args.batch_size_expansions,
             args.weight_uniform,
         )
     assert agent is not None
 
     initial_size = problems[0][1].state_size
-    if args.agent == "Levin" or args.agent == "BiLevin":
-        if args.agent == "BiLevin":
-            forward_model = ConvNetSingle(
-                in_channels, initial_size, (2, 2), 32, num_actions
-            ).to(device)
-            backward_model = ConvNetDouble(
-                in_channels, initial_size, (2, 2), 32, num_actions
-            ).to(device)
-            model = (forward_model, backward_model)
-        elif args.use_learned_heuristic:
-            model = TwoHeadedConvNetSingle(
-                in_channels, initial_size, (2, 2), 32, num_actions
-            ).to(device)
-        else:
-            model = ConvNetSingle(
-                in_channels, initial_size, (2, 2), 32, num_actions
-            ).to(device)
+    if args.agent == "Levin":
+        model = ConvNetSingle(in_channels, initial_size, (2, 2), 32, num_actions).to(
+            device
+        )
+    elif args.agent == "BiLevin":
+        forward_model = ConvNetSingle(
+            in_channels, initial_size, (2, 2), 32, num_actions
+        ).to(device)
+        backward_model = ConvNetDouble(
+            in_channels, initial_size, (2, 2), 32, num_actions
+        ).to(device)
+        model = (forward_model, backward_model)
     else:
         raise ValueError("Search agent not recognized")
 
@@ -405,6 +391,7 @@ if __name__ == "__main__":
             world_size,
             initial_budget=args.initial_budget,
             grad_steps=args.grad_steps,
+            shuffle_trajectory=args.shuffle_trajectory,
             batch_size=args.batch_size_bootstrap,
         )
 

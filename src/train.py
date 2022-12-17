@@ -11,7 +11,7 @@ import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
 
-from search import MergedTrajectories
+from search import MergedTrajectory
 
 
 def train(
@@ -26,6 +26,7 @@ def train(
     world_size: int = 1,
     initial_budget: int = 7000,
     grad_steps: int = 10,
+    shuffle_trajectory=False,
     batch_size: int = 32,
 ):
     current_budget = initial_budget
@@ -191,10 +192,7 @@ def train(
                 if rank == 0 and solutions:
                     print(opt_result_header)
 
-                merged_solutions = MergedTrajectories(solutions)
-                if len(solutions) > 1:
-                    merged_solutions.shuffle()
-                    m2 = MergedTrajectories(solutions, shuffle=True)
+                merged_solutions = MergedTrajectory(solutions, shuffle_trajectory)
                 to.set_grad_enabled(True)
                 model.train()
 

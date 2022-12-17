@@ -8,8 +8,8 @@ import torch as to
 import torch.nn.functional as F
 
 from models.utils import mixture_uniform
-from search.utils import SearchNode, Trajectory
 from search.agent import Agent
+from search.utils import SearchNode, Trajectory
 
 
 class Levin(Agent):
@@ -19,16 +19,8 @@ class Levin(Agent):
 
     def __init__(
         self,
-        use_default_heuristic: bool = True,
-        use_learned_heuristic: bool = False,
-        estimated_probability_to_go: bool = True,
-        batch_size_expansions: int = 32,
         weight_uniform: float = 0.0,
     ):
-        self.use_default_heuristic = use_default_heuristic
-        self.use_learned_heuristic = use_learned_heuristic
-        self.estimated_probability_to_go = estimated_probability_to_go
-        self.batch_size_expansions = batch_size_expansions
         self.weight_uniform = weight_uniform
 
     def search(
@@ -117,26 +109,11 @@ class Levin(Agent):
 
             batch_states = to.stack(state_t_of_children_to_be_evaluated).to(device)
             action_logits = model(batch_states)
-
-            predicted_h = None
-            if isinstance(action_logits, tuple):
-                action_logits, predicted_h = action_logits
-
             log_action_probs = mixture_uniform(action_logits, self.weight_uniform)
 
             for i, child in enumerate(children_to_be_evaluated):
-                # todo vectorize this loop!
-
-                if self.estimated_probability_to_go:
-                    pass
-                    # levin_cost = self.get_levin_cost_star(
-                    #     children_to_be_evaluated[i], predicted_h[i]
-                    # )
-                else:
-                    if predicted_h:
-                        lc = levin_cost_pred_h(child, predicted_h[i])
-                    else:
-                        lc = levin_cost(child)
+                # todo vectorize?
+                lc = levin_cost(child)
                 child.log_action_probs = log_action_probs[i]
                 child.levin_cost = lc  # type:ignore
 
@@ -177,9 +154,3 @@ class LevinNode(SearchNode):
 
 def levin_cost(node: LevinNode):
     return math.log(node.g_cost + 1) - node.log_prob
-
-
-def levin_cost_pred_h(node, predicted_h):
-    if predicted_h < 0:
-        predicted_h = 0
-    return math.log(predicted_h + node.g_cost) - node.log_prob
