@@ -174,13 +174,19 @@ def parse_args():
         help="the device ids that subprocess workers will use",
     )
     parser.add_argument(
+        "--track-grads",
+        action="store_true",
+        default=False,
+        help="track basic metrics with tensorboard",
+    )
+    parser.add_argument(
         "--wandb",
         action="store_true",
         default=False,
         help="track with Weights and Biases",
     )
     parser.add_argument(
-        "--wandb-project-name",
+        "--wandb-project",
         type=str,
         default="bilevin",
         help="the wandb's project name",
@@ -189,7 +195,7 @@ def parse_args():
         "--wandb-entity",
         type=str,
         default=None,
-        help="the entity (team) of wandb's project",
+        help="the entity (team) of the wandb project",
     )
     args = parser.parse_args()
     return args
@@ -259,7 +265,7 @@ if __name__ == "__main__":
             import wandb
 
             wandb.init(
-                project=args.wandb_project_name,
+                project=args.wandb_project,
                 entity=args.wandb_entity,
                 sync_tensorboard=True,
                 config=vars(args),
@@ -268,7 +274,7 @@ if __name__ == "__main__":
                 settings=wandb.Settings(code_dir="src/"),
             )
             print(
-                f"Logging with Weights and Biases\n  to {args.wandb_entity}/{args.wandb_project_name}/{run_name}"
+                f"Logging with Weights and Biases\n  to {args.wandb_entity}/{args.wandb_project}/{run_name}"
             )
 
         print(f"Logging with tensorboard\n  to runs/{run_name}")

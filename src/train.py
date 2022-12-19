@@ -196,6 +196,7 @@ def train(
                 to.set_grad_enabled(True)
                 model.train()
 
+                num_batch_partials = 0
                 for _ in range(grad_steps):
                     optimizer.zero_grad()
                     if solutions:
@@ -227,26 +228,32 @@ def train(
                     if world_size > 1:
                         dist.all_reduce(local_opt_results, op=dist.ReduceOp.SUM)
 
-                    # todo double check
                     num_batch_partials = local_opt_results[2].item()
                     if num_batch_partials > 0:
                         opt_step += 1
                         if rank == 0:
                             loss = local_opt_results[0].item() / num_batch_partials
                             acc = local_opt_results[1].item() / num_batch_partials
-                            print(f"{opt_step:7}  {loss:5.3f}  {acc:5.3f}")
-                            # fmt: off
-                            writer.add_scalar( f"loss_vs_opt_step/{name}", loss, opt_step,)
-                            writer.add_scalar( f"acc_vs_opt_step/{name}", acc, opt_step,)
-                            # fmt:on
-                            for param_name, param in forward_model.named_parameters():
-                                writer.add_histogram(
-                                    f"grad_vs_opt_step/{name}/{param_name}",
-                                    param.grad,
-                                    opt_step,
-                                    bins=512,
-                                )
-                if rank == 0:
+                            local_opt_step = opt_step % grad_steps
+                            if local_opt_step == 1 or local_opt_step == 0:
+                                print(f"{opt_step:7}  {loss:5.3f}  {acc:5.3f}")
+                                # fmt: off
+                                writer.add_scalar( f"loss_vs_opt_step/{name}", loss, opt_step,)
+                                writer.add_scalar( f"acc_vs_opt_step/{name}", acc, opt_step,)
+                                # fmt:on
+
+                if rank == 0 and num_batch_partials > 0:
+                    if total_batches % 5 == 0:
+                        for (
+                            param_name,
+                            param,
+                        ) in forward_model.named_parameters():
+                            writer.add_histogram(
+                                f"grad_vs_opt_step/{name}/{param_name}",
+                                param.grad,
+                                opt_step,
+                                bins=512,
+                            )
                     print("")
                 return opt_step
 
@@ -271,12 +278,11 @@ def train(
                 if bidirectional:
                     to.save(backward_model, backward_model_path)  # type:ignore
 
-            if rank == 0:
+            if rank == 0 and total_batches % 5 == 0:
                 batch_avg = num_problems_solved_this_batch / batch_size
                 # fmt: off
                 writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, total_batches)
                 writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), total_batches)
-                # writer.add_scalar("Search/cumulative_unique_problems_solved_vs_batch", len(solved_problems), total_batches)
                 # fmt: on
 
         if rank == 0:
