@@ -23,6 +23,10 @@ class Environment(ABC):
     def state_tensor(self):
         pass
 
+    @abstractmethod
+    def backward_problem(self):
+        pass
+
     def get_image_representation(self):
         pass
 

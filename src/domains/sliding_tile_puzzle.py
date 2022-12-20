@@ -1,11 +1,11 @@
 import copy
-from enum import IntEnum
 import math
 
 import numpy as np
 import torch as to
 
 from domains.environment import Environment
+from domains.utils import DirAction
 
 
 class SlidingTilePuzzle(Environment):
@@ -16,26 +16,20 @@ class SlidingTilePuzzle(Environment):
     def num_actions(cls):
         return 4
 
-    class Action(IntEnum):
-        RIGHT = 0
-        LEFT = 1
-        UP = 2
-        DOWN = 3
+    UP = DirAction.UP
+    DOWN = DirAction.DOWN
+    LEFT = DirAction.LEFT
+    RIGHT = DirAction.RIGHT
 
-    UP = Action.UP
-    DOWN = Action.DOWN
-    LEFT = Action.LEFT
-    RIGHT = Action.RIGHT
-
-    def reverse_action(self, action: Action):
-        if action == SlidingTilePuzzle.UP:
-            return SlidingTilePuzzle.DOWN
-        elif action == SlidingTilePuzzle.DOWN:
-            return SlidingTilePuzzle.UP
-        elif action == SlidingTilePuzzle.LEFT:
-            return SlidingTilePuzzle.RIGHT
-        elif action == SlidingTilePuzzle.RIGHT:
-            return SlidingTilePuzzle.LEFT
+    def reverse_action(self, action: DirAction):
+        if action == self.UP:
+            return self.DOWN
+        elif action == self.DOWN:
+            return self.UP
+        elif action == self.LEFT:
+            return self.RIGHT
+        elif action == self.RIGHT:
+            return self.LEFT
 
     def __init__(self, tiles):
 
@@ -72,7 +66,7 @@ class SlidingTilePuzzle(Environment):
     def in_channels(self):
         return self._size
 
-    def get_backward_problem(self):
+    def backward_problem(self):
         problem = SlidingTilePuzzle(self._tiles)
         problem._goal, problem._tiles = self._tiles, self._goal
         problem._size = self._size

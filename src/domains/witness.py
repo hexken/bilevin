@@ -1,13 +1,14 @@
-import numpy as np
-import torch as to
-import matplotlib
-from domains.environment import Environment
-
-# matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import random
 from collections import deque
 import copy
+import random
+
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import torch as to
+
+from domains.environment import Environment
+from domains.utils import DirAction
 
 
 class InvalidPuzzlePositionException(Exception):
@@ -41,6 +42,11 @@ class WitnessState(Environment):
 
     # Possible colors for separable bullets
     _colors = ["b", "r", "g", "c", "y", "m"]
+
+    UP = DirAction.UP
+    DOWN = DirAction.DOWN
+    LEFT = DirAction.LEFT
+    RIGHT = DirAction.RIGHT
 
     @property
     def num_actions(cls):
@@ -146,8 +152,27 @@ class WitnessState(Environment):
         """side length"""
         return self._max_lines * 2
 
-    def reverse_action(self, action):
-        return None
+    def reverse_action(self, action: DirAction):
+        if action == self.UP:
+            return self.DOWN
+        elif action == self.DOWN:
+            return self.UP
+        elif action == self.LEFT:
+            return self.RIGHT
+        elif action == self.RIGHT:
+            return self.LEFT
+
+    def backward_problem(self):
+        return WitnessState(
+            lines=self._lines,
+            columns=self._columns,
+            line_init=self._line_goal,
+            column_init=self._column_goal,
+            line_goal=self._line_init,
+            column_goal=self._column_init,
+            max_lines=self._max_lines,
+            max_columns=self._max_columns,
+        )
 
     def __repr__(self):
         state_str = "Cells: \n"
@@ -730,36 +755,36 @@ class WitnessState(Environment):
         #             return actions
         # moving up
         if (
-            op != 1
+            op != self.DOWN
             and self._line_tip + 1 < self._dots.shape[0]
             and self._v_seg[self._line_tip][self._column_tip] == 0
             and self._dots[self._line_tip + 1][self._column_tip] == 0
         ):
-            actions.append(0)
+            actions.append(self.UP)
         # moving down
         if (
-            op != 0
+            op != self.UP
             and self._line_tip - 1 >= 0
             and self._v_seg[self._line_tip - 1][self._column_tip] == 0
             and self._dots[self._line_tip - 1][self._column_tip] == 0
         ):
-            actions.append(1)
+            actions.append(self.DOWN)
         # moving right
         if (
-            op != 3
+            op != self.LEFT
             and self._column_tip + 1 < self._dots.shape[1]
             and self._h_seg[self._line_tip][self._column_tip] == 0
             and self._dots[self._line_tip][self._column_tip + 1] == 0
         ):
-            actions.append(2)
+            actions.append(self.RIGHT)
         # moving left
         if (
-            op != 2
+            op != self.RIGHT
             and self._column_tip - 1 >= 0
             and self._h_seg[self._line_tip][self._column_tip - 1] == 0
             and self._dots[self._line_tip][self._column_tip - 1] == 0
         ):
-            actions.append(3)
+            actions.append(self.LEFT)
         return actions
 
     def successors(self):
@@ -786,52 +811,52 @@ class WitnessState(Environment):
             and self._v_seg[self._line_tip][self._column_tip] == 0
             and self._dots[self._line_tip + 1][self._column_tip] == 0
         ):
-            actions.append(0)
+            actions.append(self.UP)
         # moving down
         if (
             self._line_tip - 1 >= 0
             and self._v_seg[self._line_tip - 1][self._column_tip] == 0
             and self._dots[self._line_tip - 1][self._column_tip] == 0
         ):
-            actions.append(1)
+            actions.append(self.DOWN)
         # moving right
         if (
             self._column_tip + 1 < self._dots.shape[1]
             and self._h_seg[self._line_tip][self._column_tip] == 0
             and self._dots[self._line_tip][self._column_tip + 1] == 0
         ):
-            actions.append(2)
+            actions.append(self.RIGHT)
         # moving left
         if (
             self._column_tip - 1 >= 0
             and self._h_seg[self._line_tip][self._column_tip - 1] == 0
             and self._dots[self._line_tip][self._column_tip - 1] == 0
         ):
-            actions.append(3)
+            actions.append(self.LEFT)
         return actions
 
-    def apply_action(self, a):
+    def apply_action(self, a: DirAction):
         """
         Applies a given action to the state. It modifies the segments visited by the snake (v_seg and h_seg),
         the intersections (dots), and the tip of the snake.
         """
         # moving up
-        if a == 0:
+        if a == self.UP:
             self._v_seg[self._line_tip][self._column_tip] = 1
             self._dots[self._line_tip + 1][self._column_tip] = 1
             self._line_tip += 1
         # moving down
-        if a == 1:
+        if a == self.DOWN:
             self._v_seg[self._line_tip - 1][self._column_tip] = 1
             self._dots[self._line_tip - 1][self._column_tip] = 1
             self._line_tip -= 1
         # moving right
-        if a == 2:
+        if a == self.RIGHT:
             self._h_seg[self._line_tip][self._column_tip] = 1
             self._dots[self._line_tip][self._column_tip + 1] = 1
             self._column_tip += 1
         # moving left
-        if a == 3:
+        if a == self.LEFT:
             self._h_seg[self._line_tip][self._column_tip - 1] = 1
             self._dots[self._line_tip][self._column_tip - 1] = 1
             self._column_tip -= 1
