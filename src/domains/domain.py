@@ -2,16 +2,6 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 
-from enum import IntEnum
-
-
-class DirAction(IntEnum):
-    RIGHT = 0
-    LEFT = 1
-    UP = 2
-    DOWN = 3
-
-
 class State(ABC):
     @abstractmethod
     def as_tensor(self):

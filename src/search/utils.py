@@ -1,16 +1,9 @@
-from enum import IntEnum
 import math
 from math import exp
-import sys
 from typing import Type
 
 import numpy as np
 import torch as to
-
-
-class Direction(IntEnum):
-    FORWARD = 0
-    BACKWARD = 1
 
 
 class SearchNode:

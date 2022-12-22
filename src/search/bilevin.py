@@ -10,7 +10,8 @@ import torch.nn.functional as F
 from models.utils import mixture_uniform
 from search.agent import Agent
 from search.levin import LevinNode, levin_cost
-from search.utils import Direction, get_merged_trajectory
+from enums import TwoDir
+from search.utils import get_merged_trajectory
 
 
 class BiLevin(Agent):
@@ -91,13 +92,13 @@ class BiLevin(Agent):
                 return (False, num_expanded, num_generated, None)
 
             if b_frontier[0] < f_frontier[0]:
-                direction = Direction.BACKWARD
+                direction = TwoDir.BACKWARD
                 _model = backward_model
                 _frontier = b_frontier
                 _reached = b_reached
                 _other_reached = f_reached
             else:
-                direction = Direction.FORWARD
+                direction = TwoDir.FORWARD
                 _model = forward_model
                 _frontier = f_frontier
                 _reached = f_reached
@@ -154,7 +155,7 @@ class BiLevin(Agent):
                 )
 
             batch_states = to.stack(state_t_of_children_to_be_evaluated).to(device)
-            if direction == Direction.BACKWARD:
+            if direction == TwoDir.BACKWARD:
                 action_logits = _model(
                     batch_states, initial_state_repeated[: len(batch_states)]
                 )
