@@ -38,8 +38,9 @@ class Domain(ABC):
 
 class Problem:
     def __init__(
-        self, domain: Domain, initial_state: State, name: Optional[str] = None
+        self,
+        name: str,
+        domain: Domain,
     ):
-        self.domain = domain
-        self.initial_state = initial_state
         self.name = name
+        self.domain = domain

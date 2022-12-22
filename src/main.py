@@ -10,12 +10,12 @@ import torch as to
 import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 
-from domains import SlidingTilePuzzle, WitnessState
-from models import ConvNetDouble, ConvNetSingle, TwoHeadedConvNetSingle
+from domains import SlidingTilePuzzle, Witness
+from domains.domain import Problem
+from models import ConvNetDouble, ConvNetSingle
 import models.loss_functions as loss_fns
 from search import BiLevin, Levin
 from search.agent import Agent
-from test import test
 from train import train
 
 
@@ -235,7 +235,7 @@ if __name__ == "__main__":
         for file in problem_files:
             problems_gathered.extend(
                 [
-                    WitnessState(state_list=line_list)
+                    Witness(puzzle=line_list)
                     for lines in file.read_text().split("\n\n")
                     if len(line_list := lines.splitlines()) == 4
                 ]
@@ -402,12 +402,13 @@ if __name__ == "__main__":
         )
 
     elif args.mode == "test":
-        test(
-            problems,
-            agent,
-            model,
-            args.time_limit,
-        )
+        raise NotImplementedError
+        # test(
+        #     problems,
+        #     agent,
+        #     model,
+        #     args.time_limit,
+        # )
 
     if rank == 0:
         print(f"Total time: {time.time() - start_time}")

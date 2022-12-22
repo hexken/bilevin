@@ -1,5 +1,4 @@
 from collections import deque
-import random
 from copy import deepcopy
 
 import matplotlib.pyplot as plt
@@ -11,61 +10,40 @@ from enums import Color, FourDir
 
 
 class WitnessState(State):
-    def __init2__(
+    def __init__(
         self,
-        head_dot_row,
-        head_dot_col,
-        goal_dot_row,
-        goal_dot_col,
-        state_list,
-        num_rows: int = 4,
-        num_cols: int = 4,
+        start_y: int,
+        start_x: int,
+        goal_y: int,
+        goal_x: int,
+        cells: np.ndarray,
+        num_rows: int,
+        num_cols: int,
+        max_rows: int,
+        max_cols: int,
     ):
+        self.start_y = start_y
+        self.start_x = start_x
+        self.head_y = start_y
+        self.head_x = start_x
+
+        self.goal_x = goal_y
+        self.goal_y = goal_x
+
         self.num_rows = num_rows
         self.num_cols = num_cols
-        self.cells = np.zeros((num_rows, num_cols))
+        self.cells = cells
+
+        self.max_rows = max_rows
+        self.max_cols = max_cols
 
         self.dots = np.zeros((num_rows + 1, num_cols + 1))
-        self.head_x = head_dot_row
-        self.head_y = head_dot_col
-        self.goal_x = goal_dot_row
-        self.goal_y = goal_dot_col
+        self.dots[self.head_y][self.head_x] = 1
 
         self.v_segs = np.zeros((num_rows, num_cols + 1))
         self.h_segs = np.zeros((num_rows + 1, num_cols))
 
-        # self.read_state_from_list(state_list)
-
-    def __init__(self, puzzle, max_rows: int = 11, max_cols: int = 11):
-        self.max_rows = max_rows
-        self.max_cols = max_cols
-
-        values = puzzle[0].replace("Size: ", "").split(" ")
-        self.num_rows = int(values[0])
-        self.num_cols = int(values[1])
-
-        values = puzzle[1].replace("Init: ", "").split(" ")
-        self.head_y = int(values[0])
-        self.head_x = int(values[1])
-        self.start_y = self.head_y
-        self.start_x = self.head_x
-
-        values = puzzle[2].replace("Goal: ", "").split(" ")
-        self.goal_y = int(values[0])
-        self.goal_x = int(values[1])
-
-        self.v_segs = np.zeros((self.num_rows, self.num_cols + 1))
-        self.h_segs = np.zeros((self.num_rows + 1, self.num_cols))
-        self.dots = np.zeros((self.num_rows + 1, self.num_cols + 1))
-        self.dots[self.head_y][self.head_x] = 1
-
-        self.cells = np.zeros((self.num_rows, self.num_cols))
-        values = puzzle[3].replace("Colors: |", "").split("|")
-        for t in values:
-            numbers = t.split(" ")
-            self.cells[int(numbers[0])][int(numbers[1])] = int(numbers[2])
-
-    def ishead_at_goal(self):
+    def is_head_at_goal(self):
         return self.head_y == self.goal_y and self.head_x == self.goal_x
 
     def as_tensor(self, device=to.device("cpu")):
@@ -143,13 +121,14 @@ class WitnessState(State):
         return state_str
 
     def __hash__(self):
-        return hash((str(self.v_segs), str(self.h_segs), str(self.cells)))
+        # todo I removed the cells check in hash and eq, since they should all be the same for a
+        # given problem. Double check
+        return hash((str(self.v_segs), str(self.h_segs)))
 
     def __eq__(self, other):
         return (
             np.array_equal(self.v_segs, other.v_segs)
             and np.array_equal(self.h_segs, other.h_segs)
-            and np.array_equal(self.cells, other.cells)
             and np.array_equal(self.dots, other.dots)
         )
 
@@ -295,61 +274,52 @@ class WitnessState(State):
 class Witness(Domain):
     def __init__(
         self,
-        initial_state_list,
+        puzzle,
         max_rows=11,
         max_cols=11,
     ):
-        self.initial_state = WitnessState(initial_state_list, max_rows, max_cols)
-
-        self.start_y = self.initial_state.start_y
-        self.start_x = self.initial_state.start_x
-        self.goal_y = self.initial_state.goal_y
-        self.goal_x = self.initial_state.goal_x
-        self.num_rows = self.initial_state.num_rows
-        self.num_cols = self.initial_state.num_cols
-        self.max_rows = self.initial_state.max_rows
-        self.max_cols = self.initial_state.max_cols
         assert self.max_rows == self.max_cols
-
-        self.cells = None
-        self.all_dots = None
-        self.all_v_segs = None
-        self.all_h_segs = None
-
-    def __init2__(
-        self,
-        start_y,
-        start_x,
-        goal_y,
-        goal_x,
-        initial_state_list,
-        num_rows=4,
-        num_cols=4,
-        max_rows=11,
-        max_cols=11,
-    ):
-        self.start_y = start_y
-        self.start_x = start_x
-        self.goal_y = goal_y
-        self.goal_x = goal_x
-        self.num_rows = num_rows
-        self.num_cols = num_cols
         self.max_rows = max_rows
         self.max_cols = max_cols
-        assert self.max_rows == self.max_cols
 
-        self.cells = None
+        values = puzzle[0].replace("Size: ", "").split(" ")
+        self.num_rows = int(values[0])
+        self.num_cols = int(values[1])
+
+        values = puzzle[1].replace("Init: ", "").split(" ")
+        self.start_y = int(values[0])
+        self.start_x = int(values[1])
+
+        values = puzzle[2].replace("Goal: ", "").split(" ")
+        self.goal_y = int(values[0])
+        self.goal_x = int(values[1])
+
+        self.cells = np.zeros((self.num_rows, self.num_cols))
+        values = puzzle[3].replace("Colors: |", "").split("|")
+        for t in values:
+            numbers = t.split(" ")
+            self.cells[int(numbers[0])][int(numbers[1])] = int(numbers[2])
+
         self.all_dots = None
         self.all_v_segs = None
         self.all_h_segs = None
 
-        self.initial_state = WitnessState(initial_state_list, max_rows, max_cols)
+        self.initial_state = WitnessState(
+            self.start_y,
+            self.start_x,
+            self.goal_y,
+            self.goal_x,
+            self.cells,
+            self.num_rows,
+            self.num_cols,
+            self.max_rows,
+            self.max_cols,
+        )
 
     def reset(self):
-        self.cells = self.initial_state.cells.copy()
         self.all_dots = self.initial_state.dots.copy()
-        self.all_v_segs = self.initial_state.v_segs.copy()
-        self.all_h_segs = self.initial_state.h_segs.copy()
+        self.all_v_segs = np.zeros_like(self.initial_state.v_segs)
+        self.all_h_segs = np.zeros_like(self.initial_state.h_segs)
 
         return self.initial_state  # todo might need deeopcopy, check mutability reqs
 
@@ -376,7 +346,7 @@ class Witness(Domain):
         elif action == FourDir.RIGHT:
             return FourDir.LEFT
 
-    def successors_parent_pruning(self, parent_action, state):
+    def actions(self, parent_action, state):
         """
         Successor function used by planners trying to solve the puzzle. The method returns
         a list with legal actions for the state. The valid actions for the domain are {U, D, L, R}.
@@ -431,7 +401,7 @@ class Witness(Domain):
 
         return actions
 
-    def successors(self, state):
+    def actions_unpruned(self, state):
         """
         Successor function used by planners trying to solve the puzzle. The method returns
         a list with legal actions for the state. The valid actions for the domain are {U, D, L, R}.
@@ -519,7 +489,7 @@ class Witness(Domain):
         The BFS uses the cells (line and column) as states and verifies whether cells with a bullet of a given color
         can only reach (and be reached) by cells with bullets of the same color (or of the neutral color, denoted as zero in this implementation)
         """
-        if not state.ishead_at_goal():
+        if not state.is_head_at_goal():
             return False
 
         non_visited_states = set()
@@ -543,7 +513,7 @@ class Witness(Domain):
                 # remove first cell (state) from queue
                 cell = open_bfs.popleft()
 
-                def _successors(self, cell):
+                def reachable_neighbors(self, cell):
                     """
                     Successor function use in the Breadth-first search (BFS) performed to validate a solution.
                     An adjacent cell c' is amongst the successors of cell c if there is no segment (v_seg or h_seg)
@@ -551,45 +521,45 @@ class Witness(Domain):
 
                     This method is meant to be called only from within GameState
                     """
-                    children = []
+                    neighbors = []
                     row, col = cell
                     # move up
                     if (
                         row + 1 < self.cells.shape[0]
                         and state.h_segs[row + 1][col] == 0
                     ):
-                        children.append((row + 1, col))
+                        neighbors.append((row + 1, col))
                     # move down
                     if row > 0 and state.h_segs[row][col] == 0:
-                        children.append((row - 1, col))
+                        neighbors.append((row - 1, col))
                     # move right
                     if (
                         col + 1 < self.cells.shape[1]
                         and state.v_segs[row][col + 1] == 0
                     ):
-                        children.append((row, col + 1))
+                        neighbors.append((row, col + 1))
                     # move left
                     if col > 0 and state.v_segs[row][col] == 0:
-                        children.append((row, col - 1))
-                    return children
+                        neighbors.append((row, col - 1))
+                    return neighbors
 
-                children = _successors(self, cell)
-                for c in children:
+                neighbors = reachable_neighbors(self, cell)
+                for neighbor in neighbors:
                     # If c is a duplicate, then continue with the next child
-                    if closed_bfs[c] == 1:
+                    if closed_bfs[neighbor] == 1:
                         continue
                     # If c's color isn't neutral (zero) and it is different from current_color, then state isn't a soution
                     if (
                         current_color != Color.NEUTRAL
-                        and state.cells[c] != Color.NEUTRAL
-                        and state.cells[c] != current_color
+                        and state.cells[neighbor] != Color.NEUTRAL
+                        and state.cells[neighbor] != current_color
                     ):
                         return False
                     # If current_color is neutral (zero) and c's color isn't, then attribute c's color to current_color
-                    if state.cells[c] != Color.NEUTRAL:
-                        current_color = state.cells[c]
+                    if state.cells[neighbor] != Color.NEUTRAL:
+                        current_color = state.cells[neighbor]
                     # Add c to BFS's open list
-                    open_bfs.append(c)
+                    open_bfs.append(neighbor)
                     # mark state c as visited
-                    closed_bfs[c] = 1
+                    closed_bfs[neighbor] = 1
         return True
