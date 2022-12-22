@@ -35,11 +35,9 @@ class Levin(Agent):
         """ """
         device = next(model.parameters()).device
 
-        state = problem.state_tensor().to(device)
+        state = problem.state_tensor(device)
 
         action_logits = model(state)
-        if isinstance(action_logits, tuple):
-            action_logits = action_logits[0]
 
         node = LevinNode(
             problem,

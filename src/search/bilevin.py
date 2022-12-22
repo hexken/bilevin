@@ -10,8 +10,7 @@ import torch.nn.functional as F
 from models.utils import mixture_uniform
 from search.agent import Agent
 from search.levin import LevinNode, levin_cost
-
-from .utils import Direction, get_merged_trajectory
+from search.utils import Direction, get_merged_trajectory
 
 
 class BiLevin(Agent):
@@ -36,10 +35,10 @@ class BiLevin(Agent):
     ):
         """ """
         device = next(model[0].parameters()).device
-        b_problem = problem.get_backward_problem()
+        b_problem = problem.backward_problem()
 
-        f_state = problem.state_tensor().to(device)
-        b_state = b_problem.state_tensor().to(device)
+        f_state = problem.state_tensor(device)
+        b_state = b_problem.state_tensor(device)
         initial_state = f_state.clone()
         dims = [1] * initial_state.dim()
         initial_state_repeated = initial_state.repeat(problem.num_actions, *dims)
@@ -48,10 +47,6 @@ class BiLevin(Agent):
 
         f_action_logits = forward_model(f_state)
         b_action_logits = backward_model(b_state, initial_state)
-
-        if isinstance(f_action_logits, tuple):
-            f_action_logits = f_action_logits[0]
-            b_action_logits = b_action_logits[0]
 
         f_start_node = LevinNode(
             problem,
@@ -85,7 +80,8 @@ class BiLevin(Agent):
 
         num_expanded = 0
         num_generated = 0
-        while len(f_frontier) > 0 and len(b_frontier) > 0:
+        while len(f_frontier) > 0 or len(b_frontier) > 0:
+            # todo we don't consider problems where a queue could empty?
 
             if (
                 (budget and num_expanded >= budget)
@@ -125,32 +121,12 @@ class BiLevin(Agent):
                 )
                 num_generated += 1
 
-                children_to_be_evaluated.append(new_node)
-                state_t_of_children_to_be_evaluated.append(new_state.state_tensor())
-
-            batch_states = to.stack(state_t_of_children_to_be_evaluated).to(device)
-            if direction == Direction.BACKWARD:
-                action_logits = _model(
-                    batch_states, initial_state_repeated[: len(batch_states)]
-                )
-            else:
-                action_logits = _model(batch_states)
-
-            log_action_probs = mixture_uniform(action_logits, self.weight_uniform)
-
-            for i, child in enumerate(children_to_be_evaluated):
-                # todo vectorize?
-
-                lc = levin_cost(child)
-                child.log_action_probs = log_action_probs[i]
-                child.levin_cost = lc  # type:ignore
-
-                if child not in _reached or child.g_cost < _reached[child].g_cost:
-                    heapq.heappush(_frontier, child)
-                    _reached[child] = child
-                    if child in _other_reached:  # solution found
-                        f_common_node = f_reached[child]
-                        b_common_node = b_reached[child]
+                if new_node not in _reached:
+                    _reached[new_node] = new_node
+                    # todo
+                    if new_node in _other_reached:  # solution found
+                        f_common_node = f_reached[new_node]
+                        b_common_node = b_reached[new_node]
 
                         forward_traj = get_merged_trajectory(
                             f_common_node,
@@ -166,19 +142,34 @@ class BiLevin(Agent):
                                 LevinNode,
                                 num_expanded,
                             )
-                            return (
-                                len(forward_traj),
-                                num_expanded,
-                                num_generated,
-                                (forward_traj, backward_traj),
-                            )
+                            trajs = forward_traj, backward_traj
                         else:
-                            return (
-                                len(forward_traj),
-                                num_expanded,
-                                num_generated,
-                                forward_traj,
-                            )
+                            trajs = forward_traj
+
+                        return len(forward_traj), num_expanded, num_generated, trajs
+
+                children_to_be_evaluated.append(new_node)
+                state_t_of_children_to_be_evaluated.append(
+                    new_state.state_tensor(device)
+                )
+
+            batch_states = to.stack(state_t_of_children_to_be_evaluated).to(device)
+            if direction == Direction.BACKWARD:
+                action_logits = _model(
+                    batch_states, initial_state_repeated[: len(batch_states)]
+                )
+            else:
+                action_logits = _model(batch_states)
+
+            log_action_probs = mixture_uniform(action_logits, self.weight_uniform)
+
+            for i, new_node in enumerate(children_to_be_evaluated):
+                # todo vectorize?
+
+                lc = levin_cost(new_node)
+                new_node.log_action_probs = log_action_probs[i]
+                new_node.levin_cost = lc  # type:ignore
+                heapq.heappush(_frontier, new_node)
 
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []
