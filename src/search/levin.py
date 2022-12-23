@@ -34,13 +34,15 @@ class Levin(Agent):
     ):
         """ """
         device = next(model.parameters()).device
+        problem.plot()
 
-        state = problem.state_tensor(device)
+        state = problem.reset()
+        state_t = state.as_tensor(device)
 
-        action_logits = model(state)
+        action_logits = model(state_t)
 
         node = LevinNode(
-            problem,
+            state,
             g_cost=0,
             log_prob=1.0,
             levin_cost=1,
@@ -70,14 +72,13 @@ class Levin(Agent):
             node = heapq.heappop(frontier)
             num_expanded += 1
 
-            actions = node.state.successors_parent_pruning(node.action)
+            actions = problem.actions(node.action, node.state)
             if not actions:
                 continue
 
             for a in actions:
                 # todo vectorize this? Will depend on how I re-implement envs
-                new_state = copy.deepcopy(node.state)
-                new_state.apply_action(a)
+                new_state = problem.result(node.state, a)
 
                 new_node = LevinNode(
                     new_state,
@@ -89,7 +90,7 @@ class Levin(Agent):
                 )
                 num_generated += 1
 
-                if new_state.is_solution():
+                if problem.is_goal(new_state):
                     solution_len = new_node.g_cost
                     trajectory = Trajectory(new_node, num_expanded, device)
                     if learn:
@@ -103,9 +104,9 @@ class Levin(Agent):
                         return solution_len, num_expanded, num_generated, trajectory
 
                 children_to_be_evaluated.append(new_node)
-                state_t_of_children_to_be_evaluated.append(new_state.state_tensor())
+                state_t_of_children_to_be_evaluated.append(new_state.as_tensor(device))
 
-            batch_states = to.stack(state_t_of_children_to_be_evaluated).to(device)
+            batch_states = to.stack(state_t_of_children_to_be_evaluated)
             action_logits = model(batch_states)
             log_action_probs = mixture_uniform(action_logits, self.weight_uniform)
 

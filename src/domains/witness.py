@@ -132,30 +132,21 @@ class WitnessState(State):
             and np.array_equal(self.dots, other.dots)
         )
 
-    def print(self):
-        image = self.as_tensor()
-        for i in range(0, image.shape[2]):
-            for j in range(0, image.shape[0]):
-                for k in range(0, image.shape[0]):
-                    print(image[j][k][i], end=" ")
-                print()
-            print("\n\n")
-
     def plot(self, filename=None):
         """
         This method plots the state. Several features in this method are hard-coded and might
         need adjustment as one changes the size of the puzzle. For example, the size of the figure is set to be fixed
         to [5, 5] (see below).
         """
-        fig, (ax,) = plt.subplots(figsize=(5, 5))
+        fig, ax = plt.subplots(figsize=(5, 5))
         # fig.patch.set_facecolor((1, 1, 1))
 
         # draw vertical lines of the grid
         for y in range(self.dots.shape[1]):
-            ax.plot([y, y], [0, self.cells.shape[0]], Color.BLACK)
+            ax.plot([y, y], [0, self.cells.shape[0]], str(Color.BLACK))
         # draw horizontal lines of the grid
         for x in range(self.dots.shape[0]):
-            ax.plot([0, self.cells.shape[1]], [x, x], Color.BLACK)
+            ax.plot([0, self.cells.shape[1]], [x, x], str(Color.BLACK))
 
         # scale the axis area to fill the whole figure
         ax.set_position([0, 0, 1, 1])
@@ -169,16 +160,17 @@ class WitnessState(State):
         for i in range(self.v_segs.shape[0]):
             for j in range(self.v_segs.shape[1]):
                 if self.v_segs[i][j] == 1:
-                    ax.plot([j, j], [i, i + 1], Color.RED, linewidth=5)
+                    ax.plot([j, j], [i, i + 1], str(Color.RED), linewidth=5)
 
         # Draw the horizontal segments of the path
         for i in range(self.h_segs.shape[0]):
             for j in range(self.h_segs.shape[1]):
                 if self.h_segs[i][j] == 1:
-                    ax.plot([j, j + 1], [i, i], Color.RED, linewidth=5)
+                    ax.plot([j, j + 1], [i, i], str(Color.RED), linewidth=5)
 
         # Draw the separable bullets according to the values in self.cells and Color enum type
         offset = 0.5
+        color_strings = Color.str_values()[1:]
         for i in range(self.cells.shape[0]):
             for j in range(self.cells.shape[1]):
                 if self.cells[i][j] != 0:
@@ -188,7 +180,7 @@ class WitnessState(State):
                         "o",
                         markersize=15,
                         markeredgecolor=(0, 0, 0),
-                        markerfacecolor=Color.int_values()[int(self.cells[i][j] - 1)],
+                        markerfacecolor=color_strings[int(self.cells[i][j] - 1)],
                         markeredgewidth=2,
                     )
 
@@ -202,7 +194,7 @@ class WitnessState(State):
                         "o",
                         markersize=10,
                         markeredgecolor=(0, 0, 0),
-                        markerfacecolor=Color.RED,
+                        markerfacecolor=str(Color.RED),
                         markeredgewidth=0,
                     )
                 else:
@@ -212,7 +204,7 @@ class WitnessState(State):
                         "o",
                         markersize=10,
                         markeredgecolor=(0, 0, 0),
-                        markerfacecolor=Color.BLACK,
+                        markerfacecolor=str(Color.BLACK),
                         markeredgewidth=0,
                     )
 
@@ -223,7 +215,7 @@ class WitnessState(State):
             ">",
             markersize=10,
             markeredgecolor=(0, 0, 0),
-            markerfacecolor=Color.RED,
+            markerfacecolor=str(Color.RED),
             markeredgewidth=0,
         )
 
@@ -250,7 +242,7 @@ class WitnessState(State):
                 exit_symbol,
                 markersize=10,
                 markeredgecolor=(0, 0, 0),
-                markerfacecolor=Color.BLACK,
+                markerfacecolor=str(Color.BLACK),
                 markeredgewidth=0,
             )
         else:
@@ -260,7 +252,7 @@ class WitnessState(State):
                 exit_symbol,
                 markersize=10,
                 markeredgecolor=(0, 0, 0),
-                markerfacecolor=Color.RED,
+                markerfacecolor=str(Color.RED),
                 markeredgewidth=0,
             )
 
@@ -278,7 +270,7 @@ class Witness(Domain):
         max_rows=11,
         max_cols=11,
     ):
-        assert self.max_rows == self.max_cols
+        assert max_rows == max_cols
         self.max_rows = max_rows
         self.max_cols = max_cols
 
@@ -346,7 +338,7 @@ class Witness(Domain):
         elif action == FourDir.RIGHT:
             return FourDir.LEFT
 
-    def actions(self, parent_action, state):
+    def actions(self, parent_action: FourDir, state: WitnessState):
         """
         Successor function used by planners trying to solve the puzzle. The method returns
         a list with legal actions for the state. The valid actions for the domain are {U, D, L, R}.
@@ -378,30 +370,30 @@ class Witness(Domain):
         if (
             parent_action != FourDir.UP
             and state.head_y - 1 >= 0
-            and state._v_seg[state.head_y - 1][state.head_x] == 0
-            and state._dots[state.head_y - 1][state.head_x] == 0
+            and state.v_segs[state.head_y - 1][state.head_x] == 0
+            and state.dots[state.head_y - 1][state.head_x] == 0
         ):
             actions.append(FourDir.DOWN)
         # moving right
         if (
             parent_action != FourDir.LEFT
-            and state.head_x + 1 < state._dots.shape[1]
-            and state._h_seg[state.head_y][state.head_x] == 0
-            and state._dots[state.head_y][state.head_x + 1] == 0
+            and state.head_x + 1 < state.dots.shape[1]
+            and state.h_segs[state.head_y][state.head_x] == 0
+            and state.dots[state.head_y][state.head_x + 1] == 0
         ):
             actions.append(FourDir.RIGHT)
         # moving left
         if (
             parent_action != FourDir.RIGHT
             and state.head_x - 1 >= 0
-            and state._h_seg[state.head_y][state.head_x - 1] == 0
-            and state._dots[state.head_y][state.head_x - 1] == 0
+            and state.h_segs[state.head_y][state.head_x - 1] == 0
+            and state.dots[state.head_y][state.head_x - 1] == 0
         ):
             actions.append(FourDir.LEFT)
 
         return actions
 
-    def actions_unpruned(self, state):
+    def actions_unpruned(self, state: WitnessState):
         """
         Successor function used by planners trying to solve the puzzle. The method returns
         a list with legal actions for the state. The valid actions for the domain are {U, D, L, R}.
@@ -421,7 +413,7 @@ class Witness(Domain):
         #             return actions
         # moving up
         if (
-            state.head_y + 1 < state._dots.shape[0]
+            state.head_y + 1 < state.dots.shape[0]
             and state.v_segs[state.head_y][state.head_x] == 0
             and state.dots[state.head_y + 1][state.head_x] == 0
         ):
@@ -435,7 +427,7 @@ class Witness(Domain):
             actions.append(FourDir.DOWN)
         # moving right
         if (
-            state.head_x + 1 < state._dots.shape[1]
+            state.head_x + 1 < state.dots.shape[1]
             and state.h_segs[state.head_y][state.head_x] == 0
             and state.dots[state.head_y][state.head_x + 1] == 0
         ):
@@ -450,7 +442,7 @@ class Witness(Domain):
 
         return actions
 
-    def apply_action(self, state, action: FourDir):
+    def result(self, state: WitnessState, action: FourDir):
         """
         Applies a given action to the state. It modifies the segments visited by the snake (v_seg and h_seg),
         the intersections (dots), and the tip of the snake.
@@ -480,7 +472,7 @@ class Witness(Domain):
 
         return new_state
 
-    def is_solution(self, state):
+    def is_goal(self, state: WitnessState):
         """
         Verifies whether the state's path represents a valid solution. This is performed by verifying the following
         (1) the tip of the snake is at the goal position
@@ -563,3 +555,9 @@ class Witness(Domain):
                     # mark state c as visited
                     closed_bfs[neighbor] = 1
         return True
+
+    def __repr__(self):
+        return self.initial_state.__repr__()
+
+    def plot(self, filename=None):
+        self.initial_state.plot(filename)

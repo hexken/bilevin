@@ -5,7 +5,7 @@ import numpy as np
 import torch as to
 
 from domains.environment import Environment
-from domains.utils import DirAction
+from enums import FourDir
 
 
 class SlidingTilePuzzle(Environment):
@@ -16,12 +16,12 @@ class SlidingTilePuzzle(Environment):
     def num_actions(cls):
         return 4
 
-    UP = DirAction.UP
-    DOWN = DirAction.DOWN
-    LEFT = DirAction.LEFT
-    RIGHT = DirAction.RIGHT
+    UP = FourDir.UP
+    DOWN = FourDir.DOWN
+    LEFT = FourDir.LEFT
+    RIGHT = FourDir.RIGHT
 
-    def reverse_action(self, action: DirAction):
+    def reverse_action(self, action: FourDir):
         if action == self.UP:
             return self.DOWN
         elif action == self.DOWN:

@@ -12,7 +12,6 @@ class SearchNode:
         self.parent = parent
         self.action = action
         self.g_cost = g_cost
-        self.reverse_action = state.reverse_action(action) if action and state else None
 
     def __eq__(self, other):
         """
@@ -32,6 +31,11 @@ class SearchNode:
         Hash function used in the closed list
         """
         return self.state.__hash__()
+
+
+class BidirectionalSearchNode(SearchNode):
+    def __init__(self, state, parent, action, g_cost):
+        super().__init__(state, parent, action, g_cost)
 
 
 class Trajectory:

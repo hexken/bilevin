@@ -31,10 +31,6 @@ class Domain(ABC):
     def result(self, action: int, state: State):
         pass
 
-    @abstractmethod
-    def state_equal(self, state1, state2):
-        pass
-
 
 class Problem:
     def __init__(
