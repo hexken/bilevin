@@ -50,14 +50,14 @@ class Trajectory:
 
         action = final_node.action
         node = final_node.parent
-        self.goal = final_node.state.state_tensor(device)
+        self.goal = final_node.state.as_tensor(device)
         states = []
         actions = []
         cost_to_gos = []
         cost = 1
 
         while node:
-            states.append(node.state.state_tensor(device))
+            states.append(node.state.as_tensor(device))
             actions.append(action)
             cost_to_gos.append(cost)
             action = node.action

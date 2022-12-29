@@ -28,6 +28,7 @@ def train(
     grad_steps: int = 10,
     shuffle_trajectory=False,
     batch_size: int = 32,
+    track_params: bool = False,
 ):
     current_budget = initial_budget
 
@@ -232,26 +233,28 @@ def train(
                     if num_batch_partials > 0:
                         opt_step += 1
                         if rank == 0:
-                            loss = local_opt_results[0].item() / num_batch_partials
-                            acc = local_opt_results[1].item() / num_batch_partials
                             local_opt_step = opt_step % grad_steps
+                            batch_opt_step = opt_step // grad_steps
                             if local_opt_step == 1 or local_opt_step == 0:
+                                loss = local_opt_results[0].item() / num_batch_partials
+                                acc = local_opt_results[1].item() / num_batch_partials
                                 print(f"{opt_step:7}  {loss:5.3f}  {acc:5.3f}")
-                                # fmt: off
-                                writer.add_scalar( f"loss_vs_opt_step/{name}", loss, opt_step,)
-                                writer.add_scalar( f"acc_vs_opt_step/{name}", acc, opt_step,)
-                                # fmt:on
+                                if local_opt_step == 0:
+                                    # fmt: off
+                                    writer.add_scalar( f"loss_vs_opt_step/{name}", loss, batch_opt_step,)
+                                    writer.add_scalar( f"acc_vs_opt_step/{name}", acc, batch_opt_step,)
+                                    # fmt:on
 
                 if rank == 0 and num_batch_partials > 0:
-                    if total_batches % 5 == 0:
+                    if track_params and total_batches % 5 == 0:
                         for (
                             param_name,
                             param,
                         ) in forward_model.named_parameters():
                             writer.add_histogram(
-                                f"grad_vs_opt_step/{name}/{param_name}",
-                                param.grad,
-                                opt_step,
+                                f"param_vs_opt_step/{name}/{param_name}",
+                                param.data,
+                                batch_opt_step,
                                 bins=512,
                             )
                     print("")

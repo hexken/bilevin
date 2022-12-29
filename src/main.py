@@ -174,7 +174,7 @@ def parse_args():
         help="the device ids that subprocess workers will use",
     )
     parser.add_argument(
-        "--track-grads",
+        "--track-params",
         action="store_true",
         default=False,
         help="track basic metrics with tensorboard",
@@ -194,7 +194,7 @@ def parse_args():
     parser.add_argument(
         "--wandb-entity",
         type=str,
-        default=None,
+        default="ken-levi",
         help="the entity (team) of the wandb project",
     )
     args = parser.parse_args()
@@ -399,6 +399,7 @@ if __name__ == "__main__":
             grad_steps=args.grad_steps,
             shuffle_trajectory=args.shuffle_trajectory,
             batch_size=args.batch_size_bootstrap,
+            track_params=args.track_params,
         )
 
     elif args.mode == "test":
