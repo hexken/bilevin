@@ -1,13 +1,12 @@
 from collections import deque
-from itertools import product
 from copy import deepcopy
-
-import matplotlib.pyplot as plt
-import numpy as np
-import torch as to
+from itertools import product
 
 from domains.domain import Domain, State
 from enums import Color, FourDir
+import matplotlib.pyplot as plt
+import numpy as np
+import torch as to
 
 
 class WitnessState(State):
@@ -370,7 +369,7 @@ class Witness(Domain):
         # moving down
         if (
             parent_action != FourDir.UP
-            and state.head_y - 1 >= 0
+            and state.head_y >= 1
             and state.v_segs[state.head_y - 1][state.head_x] == 0
             and state.dots[state.head_y - 1][state.head_x] == 0
         ):
@@ -386,7 +385,7 @@ class Witness(Domain):
         # moving left
         if (
             parent_action != FourDir.RIGHT
-            and state.head_x - 1 >= 0
+            and state.head_x >= 1
             and state.h_segs[state.head_y][state.head_x - 1] == 0
             and state.dots[state.head_y][state.head_x - 1] == 0
         ):
@@ -487,24 +486,22 @@ class Witness(Domain):
 
         # state.plot()
         current_color = Color.NEUTRAL
-        closed_bfs = np.zeros((self.num_rows, self.num_cols))
-        non_visited_states = [
-            (i, j) for i, j in product(range(self.num_rows), range(self.num_cols))
-        ]
+        visited = np.zeros((self.num_rows, self.num_cols))
+        cells = [(i, j) for i, j in product(range(self.num_rows), range(self.num_cols))]
 
-        while len(non_visited_states) != 0:
-            root = non_visited_states.pop()
+        while len(cells) != 0:
+            root = cells.pop()
             # If root of new BFS search was already visited, then go to the next state
-            if closed_bfs[root] == 1:
+            if visited[root] == 1:
                 continue
-            current_color = state.cells[root]
+            current_color = Color(state.cells[root])
 
-            open_bfs = deque()
-            open_bfs.append(root)
-            closed_bfs[root] = 1
-            while len(open_bfs) != 0:
+            frontier = deque()
+            frontier.append(root)
+            visited[root] = 1
+            while len(frontier) != 0:
                 # remove first cell (state) from queue
-                cell = open_bfs.popleft()
+                cell = frontier.popleft()
 
                 def reachable_neighbors(self, cell):
                     """
@@ -517,19 +514,13 @@ class Witness(Domain):
                     neighbors = []
                     row, col = cell
                     # move up
-                    if (
-                        row + 1 < self.num_rows
-                        and state.h_segs[row + 1][col] == 0
-                    ):
+                    if row + 1 < self.num_rows and state.h_segs[row + 1][col] == 0:
                         neighbors.append((row + 1, col))
                     # move down
                     if row > 0 and state.h_segs[row][col] == 0:
                         neighbors.append((row - 1, col))
                     # move right
-                    if (
-                        col + 1 < self.num_cols
-                        and state.v_segs[row][col + 1] == 0
-                    ):
+                    if col + 1 < self.num_cols and state.v_segs[row][col + 1] == 0:
                         neighbors.append((row, col + 1))
                     # move left
                     if col > 0 and state.v_segs[row][col] == 0:
@@ -539,22 +530,22 @@ class Witness(Domain):
                 neighbors = reachable_neighbors(self, cell)
                 for neighbor in neighbors:
                     # If neighbor is a duplicate, then continue with the next child
-                    if closed_bfs[neighbor] == 1:
+                    if visited[neighbor] == 1:
                         continue
-                    # If c's color isn't neutral (zero) and it is different from current_color, then state isn't a soution
+                    # If neighbor's color isn't neutral (zero) and it is different from current_color, then state isn't a soution
                     if (
                         current_color != Color.NEUTRAL
-                        and state.cells[neighbor] != Color.NEUTRAL
-                        and state.cells[neighbor] != current_color
+                        and Color(state.cells[neighbor]) != Color.NEUTRAL
+                        and Color(state.cells[neighbor]) != current_color
                     ):
                         return False
-                    # If current_color is neutral (zero) and c's color isn't, then attribute c's color to current_color
-                    if state.cells[neighbor] != Color.NEUTRAL:
-                        current_color = state.cells[neighbor]
+                    # If current_color is neutral (zero) and neighbor's color isn't, then attribute c's color to current_color
+                    if current_color == Color.NEUTRAL:
+                        current_color = Color(state.cells[neighbor])
                     # Add c to BFS's open list
-                    open_bfs.append(neighbor)
+                    frontier.append(neighbor)
                     # mark state c as visited
-                    closed_bfs[neighbor] = 1
+                    visited[neighbor] = 1
         return True
 
     def __repr__(self):
