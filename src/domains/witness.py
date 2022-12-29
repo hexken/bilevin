@@ -1,4 +1,5 @@
 from collections import deque
+from itertools import product
 from copy import deepcopy
 
 import matplotlib.pyplot as plt
@@ -123,7 +124,7 @@ class WitnessState(State):
     def __hash__(self):
         # todo I removed the cells check in hash and eq, since they should all be the same for a
         # given problem. Double check
-        return hash((str(self.v_segs), str(self.h_segs)))
+        return hash((self.v_segs.tobytes(), self.h_segs.tobytes()))
 
     def __eq__(self, other):
         return (
@@ -286,7 +287,7 @@ class Witness(Domain):
         self.goal_y = int(values[0])
         self.goal_x = int(values[1])
 
-        self.cells = np.zeros((self.num_rows, self.num_cols))
+        self.cells = np.zeros((self.num_rows, self.num_cols), dtype=np.int32)
         values = puzzle[3].replace("Colors: |", "").split("|")
         for t in values:
             numbers = t.split(" ")
@@ -484,12 +485,12 @@ class Witness(Domain):
         if not state.is_head_at_goal():
             return False
 
-        non_visited_states = set()
+        # state.plot()
         current_color = Color.NEUTRAL
         closed_bfs = np.zeros((self.num_rows, self.num_cols))
-        for i in range(state.cells.shape[0]):
-            for j in range(state.cells.shape[1]):
-                non_visited_states.add((i, j))
+        non_visited_states = [
+            (i, j) for i, j in product(range(self.num_rows), range(self.num_cols))
+        ]
 
         while len(non_visited_states) != 0:
             root = non_visited_states.pop()
@@ -517,7 +518,7 @@ class Witness(Domain):
                     row, col = cell
                     # move up
                     if (
-                        row + 1 < self.cells.shape[0]
+                        row + 1 < self.num_rows
                         and state.h_segs[row + 1][col] == 0
                     ):
                         neighbors.append((row + 1, col))
@@ -526,7 +527,7 @@ class Witness(Domain):
                         neighbors.append((row - 1, col))
                     # move right
                     if (
-                        col + 1 < self.cells.shape[1]
+                        col + 1 < self.num_cols
                         and state.v_segs[row][col + 1] == 0
                     ):
                         neighbors.append((row, col + 1))
@@ -537,7 +538,7 @@ class Witness(Domain):
 
                 neighbors = reachable_neighbors(self, cell)
                 for neighbor in neighbors:
-                    # If c is a duplicate, then continue with the next child
+                    # If neighbor is a duplicate, then continue with the next child
                     if closed_bfs[neighbor] == 1:
                         continue
                     # If c's color isn't neutral (zero) and it is different from current_color, then state isn't a soution

@@ -8,10 +8,10 @@ class TwoDir(IntEnum):
 
 
 class FourDir(IntEnum):
-    RIGHT = 0
-    LEFT = 1
-    UP = 2
-    DOWN = 3
+    UP = 0
+    DOWN = 1
+    RIGHT = 2
+    LEFT = 3
 
 
 class Color(AEnum):

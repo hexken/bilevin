@@ -1,12 +1,13 @@
-import copy
 import heapq
 import math
 import time
+from typing import Optional
 
 import numpy as np
 import torch as to
 import torch.nn.functional as F
 
+from domains.domain import State
 from models.utils import mixture_uniform
 from search.agent import Agent
 from search.utils import SearchNode, Trajectory
@@ -34,7 +35,6 @@ class Levin(Agent):
     ):
         """ """
         device = next(model.parameters()).device
-        problem.plot()
 
         state = problem.reset()
         state_t = state.as_tensor(device)
@@ -85,7 +85,7 @@ class Levin(Agent):
                     node,
                     a,
                     node.g_cost + 1,
-                    node.log_prob + node.log_action_probs[a],
+                    node.log_prob + node.log_action_probs[a].item(),
                     num_expanded_when_generated=num_expanded,
                 )
                 num_generated += 1
@@ -130,14 +130,14 @@ class Levin(Agent):
 class LevinNode(SearchNode):
     def __init__(
         self,
-        state,
-        parent=None,
+        state: Optional[State],
+        parent: Optional[SearchNode] = None,
         action=None,
-        g_cost=None,
-        log_prob=None,
-        levin_cost=None,
-        log_action_probs=None,
-        num_expanded_when_generated=None,
+        g_cost: Optional[float] = None,
+        log_prob: Optional[float] = None,
+        levin_cost: Optional[float] = None,
+        log_action_probs: Optional[to.Tensor] = None,
+        num_expanded_when_generated: Optional[int] = None,
     ):
         super().__init__(state, parent, action, g_cost)
         self.log_prob = log_prob
@@ -152,4 +152,4 @@ class LevinNode(SearchNode):
 
 
 def levin_cost(node: LevinNode):
-    return math.log(node.g_cost + 1) - node.log_prob
+    return math.log(node.g_cost + 1) - node.log_prob  # type:ignore
