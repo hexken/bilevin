@@ -77,14 +77,15 @@ class BiLevin(Agent):
         f_reached[f_start_node] = f_start_node
         b_reached[b_start_node] = b_start_node
 
+        f_problem.update(f_start_node)
+        b_problem.update(b_start_node)
+
         children_to_be_evaluated = []
         state_t_of_children_to_be_evaluated = []
 
         num_expanded = 0
         num_generated = 0
         while len(f_frontier) > 0 or len(b_frontier) > 0:
-            # todo we don't consider problems where a queue could empty?
-
             if (
                 (budget and num_expanded >= budget)
                 or end_time
@@ -92,20 +93,25 @@ class BiLevin(Agent):
             ):
                 return (False, num_expanded, num_generated, None)
 
+            if len(f_frontier) == 0 or len(b_frontier) == 0:
+                print("hi")
+
             if b_frontier[0] < f_frontier[0]:
                 direction = TwoDir.BACKWARD
                 _problem = b_problem
                 _model = backward_model
                 _frontier = b_frontier
                 _reached = b_reached
-                _other_reached = f_reached
+                other_reached = f_reached
+                other_problem = f_problem
             else:
                 direction = TwoDir.FORWARD
                 _problem = f_problem
                 _model = forward_model
                 _frontier = f_frontier
                 _reached = f_reached
-                _other_reached = b_reached
+                other_reached = b_reached
+                other_problem = b_problem
 
             node = heapq.heappop(_frontier)
             num_expanded += 1
@@ -114,7 +120,6 @@ class BiLevin(Agent):
                 continue
 
             for a in actions:
-                # todo vectorize this? Will depend on how I re-implement envs
                 new_state = _problem.result(node.state, a)
 
                 new_node = LevinNode(
@@ -129,8 +134,9 @@ class BiLevin(Agent):
 
                 if new_node not in _reached:
                     _reached[new_node] = new_node
-                    # todo
-                    if new_node in _other_reached:  # solution found
+                    _problem.update(new_node)
+                    if _problem.is_bidirectional_goal(new_node, other_problem):
+                        print("hi")
                         f_common_node = f_reached[new_node]
                         b_common_node = b_reached[new_node]
 
@@ -162,17 +168,15 @@ class BiLevin(Agent):
             log_action_probs = mixture_uniform(action_logits, self.weight_uniform)
 
             for i, child in enumerate(children_to_be_evaluated):
-                # todo vectorize?
                 lc = levin_cost(child)
                 child.log_action_probs = log_action_probs[i]
-                child.levin_cost = lc  # type:ignore
+                child.levin_cost = lc
 
-                if child not in reached:  # or child.g_cost < reached[child].g_cost:
-                    heapq.heappush(frontier, child)
-                    _reached[child] = child
+                if child not in _reached:
+                    heapq.heappush(_frontier, child)
 
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []
 
-        print("Emptied Open List in problem: ", problem_name)
+        print("Emptied frontiers for problem: ", problem_name)
         return False, num_expanded, num_generated, None

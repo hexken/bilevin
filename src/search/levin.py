@@ -77,7 +77,6 @@ class Levin(Agent):
                 continue
 
             for a in actions:
-                # todo vectorize this? Will depend on how I re-implement envs
                 new_state = problem.result(node.state, a)
 
                 new_node = LevinNode(
@@ -111,7 +110,6 @@ class Levin(Agent):
             log_action_probs = mixture_uniform(action_logits, self.weight_uniform)
 
             for i, child in enumerate(children_to_be_evaluated):
-                # todo vectorize?
                 lc = levin_cost(child)
                 child.log_action_probs = log_action_probs[i]
                 child.levin_cost = lc  # type:ignore
@@ -123,7 +121,7 @@ class Levin(Agent):
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []
 
-        print("Emptied Open List in problem: ", problem_name)
+        print("Emptied frontier during problem: ", problem_name)
         return False, num_expanded, num_generated, None
 
 

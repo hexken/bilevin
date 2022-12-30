@@ -1,12 +1,14 @@
-from collections import deque
+from collections import defaultdict, deque
 from copy import deepcopy
 from itertools import product
 
-from domains.domain import Domain, State
-from enums import Color, FourDir
 import matplotlib.pyplot as plt
 import numpy as np
 import torch as to
+
+from domains.domain import Domain, State
+from enums import Color, FourDir
+from src.search.utils import SearchNode
 
 
 class WitnessState(State):
@@ -304,8 +306,17 @@ class Witness(Domain):
             self.max_cols,
         )
 
+        self.heads = {}
+
     def reset(self):
         return self.initial_state  # todo might need deeopcopy, check mutability reqs
+
+    def update(self, node: SearchNode):
+        head = (node.state.head_x, node.state.head_y)
+        if head in self.heads:
+            self.heads[head].append(node)
+        else:
+            self.heads[head] = [node]
 
     @property
     def num_actions(cls):
@@ -540,8 +551,19 @@ class Witness(Domain):
                     visited[neighbor] = 1
         return True
 
-    def is_bidirectional_goal(self, state: WitnessState, other_reached: dict):
-        pass
+    def is_bidirectional_goal(self, node, other_problem):
+        state = node.state
+        head_dot = (state.head_x, state.head_y)
+        if head_dot not in other_problem.heads:
+            return
+        for other_node in other_problem.heads[head_dot]:
+            merged_state = deepcopy(state)
+            other_state = other_node.state
+            merged_state.dots += other_state.dots
+            merged_state.v_segs += other_state.v_segs
+            merged_state.h_segs += other_state.h_segs
+            merged_state.head_x = other_state.goal_x
+            merged_state.head_y = other_state.goal_y
 
     def backward_problem(self):
         domain = deepcopy(self)
