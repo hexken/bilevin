@@ -338,10 +338,10 @@ if __name__ == "__main__":
         forward_model = ConvNetSingle(
             in_channels, initial_size, (2, 2), 32, num_actions
         ).to(device)
-        backward_model = ConvNetDouble(
+        backward_model = ConvNetSingle(
             in_channels, initial_size, (2, 2), 32, num_actions
         ).to(device)
-        model = (forward_model, backward_model)
+        model = forward_model, backward_model
     else:
         raise ValueError("Search agent not recognized")
 

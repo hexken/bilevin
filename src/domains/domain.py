@@ -20,6 +20,10 @@ class Domain(ABC):
         pass
 
     @abstractmethod
+    def reset(self, state: State) -> bool:
+        pass
+
+    @abstractmethod
     def actions(self, state: State):
         pass
 

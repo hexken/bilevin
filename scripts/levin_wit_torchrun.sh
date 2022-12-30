@@ -17,5 +17,5 @@ torchrun \
     --initial-budget 2000 \
     --grad-steps 10 \
     --batch-size-bootstrap 4 \
-    --track-grads \
+    # --track-params \
     # --wandb

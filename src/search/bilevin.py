@@ -21,7 +21,7 @@ class BiLevin(Agent):
 
     def __init__(
         self,
-        weight_uniform=0.0,
+        weight_uniform: float = 0.0,
     ):
         self.weight_uniform = weight_uniform
 
@@ -36,21 +36,22 @@ class BiLevin(Agent):
     ):
         """ """
         device = next(model[0].parameters()).device
+        f_problem = problem
         b_problem = problem.backward_problem()
 
-        f_state = problem.state_tensor(device)
-        b_state = b_problem.state_tensor(device)
-        initial_state = f_state.clone()
-        dims = [1] * initial_state.dim()
-        initial_state_repeated = initial_state.repeat(problem.num_actions, *dims)
+        f_state = problem.reset()
+        f_state_t = f_state.as_tensor(device)
+
+        b_state = b_problem.reset()
+        b_state_t = b_state.as_tensor(device)
 
         forward_model, backward_model = model
 
-        f_action_logits = forward_model(f_state)
-        b_action_logits = backward_model(b_state, initial_state)
+        f_action_logits = forward_model(f_state_t)
+        b_action_logits = backward_model(b_state_t)
 
         f_start_node = LevinNode(
-            problem,
+            f_state,
             g_cost=0,
             log_prob=1.0,
             levin_cost=1,
@@ -59,7 +60,7 @@ class BiLevin(Agent):
         )
 
         b_start_node = LevinNode(
-            b_problem,
+            b_state,
             g_cost=0,
             log_prob=1.0,
             levin_cost=1,
@@ -93,12 +94,14 @@ class BiLevin(Agent):
 
             if b_frontier[0] < f_frontier[0]:
                 direction = TwoDir.BACKWARD
+                _problem = b_problem
                 _model = backward_model
                 _frontier = b_frontier
                 _reached = b_reached
                 _other_reached = f_reached
             else:
                 direction = TwoDir.FORWARD
+                _problem = f_problem
                 _model = forward_model
                 _frontier = f_frontier
                 _reached = f_reached
@@ -106,18 +109,20 @@ class BiLevin(Agent):
 
             node = heapq.heappop(_frontier)
             num_expanded += 1
-            actions = node.state.successors_parent_pruning(node.action)
+            actions = _problem.actions(node.action, node.state)
+            if not actions:
+                continue
+
             for a in actions:
                 # todo vectorize this? Will depend on how I re-implement envs
-                new_state = copy.deepcopy(node.state)
-                new_state.apply_action(a)
+                new_state = _problem.result(node.state, a)
 
                 new_node = LevinNode(
                     new_state,
                     node,
                     a,
                     node.g_cost + 1,
-                    node.log_prob + node.log_action_probs[a],
+                    node.log_prob + node.log_action_probs[a].item(),
                     num_expanded_when_generated=num_expanded,
                 )
                 num_generated += 1
@@ -150,27 +155,21 @@ class BiLevin(Agent):
                         return len(forward_traj), num_expanded, num_generated, trajs
 
                 children_to_be_evaluated.append(new_node)
-                state_t_of_children_to_be_evaluated.append(
-                    new_state.state_tensor(device)
-                )
+                state_t_of_children_to_be_evaluated.append(new_state.as_tensor(device))
 
-            batch_states = to.stack(state_t_of_children_to_be_evaluated).to(device)
-            if direction == TwoDir.BACKWARD:
-                action_logits = _model(
-                    batch_states, initial_state_repeated[: len(batch_states)]
-                )
-            else:
-                action_logits = _model(batch_states)
-
+            batch_states = to.stack(state_t_of_children_to_be_evaluated)
+            action_logits = _model(batch_states)
             log_action_probs = mixture_uniform(action_logits, self.weight_uniform)
 
-            for i, new_node in enumerate(children_to_be_evaluated):
+            for i, child in enumerate(children_to_be_evaluated):
                 # todo vectorize?
+                lc = levin_cost(child)
+                child.log_action_probs = log_action_probs[i]
+                child.levin_cost = lc  # type:ignore
 
-                lc = levin_cost(new_node)
-                new_node.log_action_probs = log_action_probs[i]
-                new_node.levin_cost = lc  # type:ignore
-                heapq.heappush(_frontier, new_node)
+                if child not in reached:  # or child.g_cost < reached[child].g_cost:
+                    heapq.heappush(frontier, child)
+                    _reached[child] = child
 
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []

@@ -9,13 +9,13 @@ torchrun \
     --master_port=34567 \
     src/main.py \
     --mode train \
-    --agent Levin \
-    --loss levin_loss_avg \
+    --agent BiLevin \
+    --loss levin_loss_sum \
     --model-path trained_models/ \
-    --domain SlidingTile \
-    --problems-path problems/stp_test/3x3_20/ \
-    --initial-budget 7000 \
+    --domain Witness \
+    --problems-path problems/witness/puzzles_4x4_50k_train/ \
+    --initial-budget 2000 \
     --grad-steps 10 \
     --batch-size-bootstrap 4 \
-    --wandb
-    # --cuda
+    # --track-params \
+    # --wandb

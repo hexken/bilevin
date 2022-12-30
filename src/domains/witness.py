@@ -292,10 +292,6 @@ class Witness(Domain):
             numbers = t.split(" ")
             self.cells[int(numbers[0])][int(numbers[1])] = int(numbers[2])
 
-        self.all_dots = None
-        self.all_v_segs = None
-        self.all_h_segs = None
-
         self.initial_state = WitnessState(
             self.start_y,
             self.start_x,
@@ -309,10 +305,6 @@ class Witness(Domain):
         )
 
     def reset(self):
-        self.all_dots = self.initial_state.dots.copy()
-        self.all_v_segs = np.zeros_like(self.initial_state.v_segs)
-        self.all_h_segs = np.zeros_like(self.initial_state.h_segs)
-
         return self.initial_state  # todo might need deeopcopy, check mutability reqs
 
     @property
@@ -547,6 +539,26 @@ class Witness(Domain):
                     # mark state c as visited
                     visited[neighbor] = 1
         return True
+
+    def is_bidirectional_goal(self, state: WitnessState, other_reached: dict):
+        pass
+
+    def backward_problem(self):
+        domain = deepcopy(self)
+
+        domain.goal_x = self.start_x
+        domain.goal_y = self.start_y
+        domain.start_x = self.goal_x
+        domain.start_y = self.goal_y
+
+        domain.initial_state.dots[self.start_y, self.start_x] = 0
+        domain.initial_state.dots[self.goal_y, self.goal_x] = 1
+        domain.initial_state.goal_x = self.start_x
+        domain.initial_state.goal_y = self.start_y
+        domain.initial_state.start_x = self.goal_x
+        domain.initial_state.start_y = self.goal_y
+
+        return domain
 
     def __repr__(self):
         return self.initial_state.__repr__()
