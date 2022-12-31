@@ -1,7 +1,7 @@
 from collections import defaultdict, deque
 from copy import deepcopy
 from itertools import product
-from typing import Type, Optional
+from typing import Optional, Type
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,7 +10,7 @@ import torch as to
 from domains.domain import Domain, State
 from enums import Color, FourDir
 from search.utils import Trajectory
-from src.search.utils import SearchNode
+from search.utils import SearchNode
 
 
 class WitnessState(State):
@@ -559,23 +559,6 @@ class Witness(Domain):
                     visited[neighbor] = 1
         return True
 
-    def reverse_trajectory(self, f_trajectory: Trajectory, device=None):
-        """
-        Returns a new a trajectory that is the reverse of f_trajectory.
-        """
-        device = device if device else f_trajectory.device
-        dummy_node = SearchNode(state=None, parent=None, action=None, g_cost=None)
-        b_trajectory = Trajectory(
-            dummy_node, num_expanded=f_trajectory.num_expanded, device=device
-        )
-        if hasattr(f_trajectory, "solution_prob"):
-            b_trajectory.solution_prob = f_trajectory.solution_prob
-        b_trajectory.goal = f_trajectory.goal
-        b_trajectory.states = to.flip(f_trajectory.states, dims=[0])
-        b_trajectory.actions = to.flip(f_trajectory.actions, dims=[0])
-        b_trajectory.cost_to_gos = to.flip(f_trajectory.cost_to_gos, dims=[0])
-        return b_trajectory
-
     def get_merged_trajectory(
         self,
         f_common: SearchNode,
@@ -625,8 +608,8 @@ class Witness(Domain):
         return Trajectory(f_node, num_expanded, device=device)
 
     def try_make_solution(
-        self, node, other_problem, num_expanded
-    ) -> Optional[tuple[Trajectory]]:
+        self, node, other_problem, num_expanded, device=to.device("cpu")
+    ) -> Optional[tuple[Trajectory, Trajectory]]:
         state = node.state
         head_dot = (state.head_row, state.head_col)
         if head_dot not in other_problem.heads:
@@ -646,21 +629,19 @@ class Witness(Domain):
 
             if other_problem.is_goal(merged_state):
                 if self.forward:
-                    f_problem = self
                     f_common_node = node
-                    b_problem = other_problem
                     b_common_node = other_node
                 else:
-                    f_problem = other_problem
                     f_common_node = other_node
-                    b_problem = self
                     b_common_node = node
 
                 f_traj = self.get_merged_trajectory(
-                    f_common_node, b_common_node, type(node), num_expanded
+                    f_common_node, b_common_node, type(node), num_expanded, device
                 )
-                x = 21
-                return (f_traj,)
+                b_traj = self.get_merged_trajectory(
+                    b_common_node, f_common_node, type(node), num_expanded, device
+                )
+                return (f_traj, b_traj)
 
         return None
 

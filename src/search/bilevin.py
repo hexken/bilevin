@@ -135,9 +135,11 @@ class BiLevin(Agent):
                 if new_node not in _reached:
                     _reached[new_node] = new_node
                     _problem.update(new_node)
+
                     trajs = _problem.try_make_solution(
                         new_node, other_problem, num_expanded
                     )
+
                     if trajs:
                         return len(trajs), num_expanded, num_generated, trajs
 

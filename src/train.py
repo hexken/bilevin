@@ -123,10 +123,10 @@ def train(
             if rank == 0:
                 print(f"\n\nBatch {total_batches}\n")
 
-            forward_solutions = []
+            forward_trajs = []
             to.set_grad_enabled(False)
             forward_model.eval()
-            backward_solutions = []
+            backward_trajs = []
             if bidirectional:
                 backward_model.eval()  # type:ignore
 
@@ -148,7 +148,7 @@ def train(
                 local_batch_results[i, 4] = int((time.time() - start_time) * 1000)
 
                 if solution_length:
-                    forward_solutions.append(traj[0])
+                    forward_trajs.append(traj[0])
                     if bidirectional:
                         btraj = traj[1]
                         dims = [1] * btraj.states.dim()
@@ -157,7 +157,7 @@ def train(
                             (btraj.states, goal_repeated)
                         )
                         btraj.states = btraj_states_with_goal
-                        backward_solutions.append(btraj)
+                        backward_trajs.append(btraj)
 
             if world_size > 1:
                 dist.all_gather(batch_results, local_batch_results)
@@ -186,22 +186,22 @@ def train(
             def fit_model(
                 model: to.nn.Module,
                 optimizer: to.optim.Optimizer,
-                solutions: list,
+                trajs: list,
                 opt_step: int,
                 name: str = "model",
             ):
-                if rank == 0 and solutions:
+                if rank == 0 and trajs:
                     print(opt_result_header)
 
-                merged_solutions = MergedTrajectory(solutions, shuffle_trajectory)
+                merged_traj = MergedTrajectory(trajs, shuffle_trajectory)
                 to.set_grad_enabled(True)
                 model.train()
 
                 num_batch_partials = 0
                 for _ in range(grad_steps):
                     optimizer.zero_grad()
-                    if solutions:
-                        loss, avg_action_nll, logits = loss_fn(merged_solutions, model)
+                    if trajs:
+                        loss, avg_action_nll, logits = loss_fn(merged_traj, model)
                         loss.backward()
 
                     if world_size > 1:
@@ -210,11 +210,11 @@ def train(
 
                     optimizer.step()
 
-                    if solutions:
+                    if trajs:
                         avg_action_nll = avg_action_nll.item()
                         with to.no_grad():
                             acc = (
-                                (logits.argmax(dim=1) == merged_solutions.actions).sum()
+                                (logits.argmax(dim=1) == merged_traj.actions).sum()
                                 / len(logits)
                             ).item()
 
@@ -263,7 +263,7 @@ def train(
             forward_opt_steps = fit_model(
                 forward_model,
                 forward_optimizer,
-                forward_solutions,
+                forward_trajs,
                 forward_opt_steps,
                 name="forward",
             )
@@ -271,7 +271,7 @@ def train(
                 backward_opt_steps = fit_model(
                     backward_model,  # type:ignore
                     backward_optimizer,  # type:ignore
-                    backward_solutions,  # type:ignore
+                    backward_trajs,  # type:ignore
                     backward_opt_steps,  # type:ignore
                     name="backward",
                 )

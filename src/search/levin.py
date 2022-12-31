@@ -91,16 +91,16 @@ class Levin(Agent):
 
                 if problem.is_goal(new_state):
                     solution_len = new_node.g_cost
-                    trajectory = Trajectory(new_node, num_expanded, device)
+                    traj = Trajectory(new_node, num_expanded, device)
                     if learn:
                         return (
                             solution_len,
                             num_expanded,
                             num_generated,
-                            (trajectory,),
+                            (traj,),
                         )
                     else:
-                        return solution_len, num_expanded, num_generated, trajectory
+                        return solution_len, num_expanded, num_generated, traj
 
                 children_to_be_evaluated.append(new_node)
                 state_t_of_children_to_be_evaluated.append(new_state.as_tensor(device))

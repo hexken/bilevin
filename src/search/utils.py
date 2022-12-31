@@ -45,8 +45,8 @@ class Trajectory:
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
         self.num_expanded = num_expanded
-        if hasattr(final_node, "log_prob"):
-            self.solution_prob = exp(final_node.log_prob)  # type:ignore
+        # if hasattr(final_node, "log_prob"):
+        #     self.solution_prob = exp(final_node.log_prob)  # type:ignore
 
         action = final_node.parent_action
         node = final_node.parent
@@ -60,7 +60,7 @@ class Trajectory:
             states.append(node.state.as_tensor(device))
             actions.append(action)
             cost_to_gos.append(cost)
-            action = node.action
+            action = node.parent_action
             node = node.parent
             cost += 1
 
@@ -97,7 +97,6 @@ def reverse_trajectory(f_trajectory: Trajectory, device=None):
 
 
 def get_merged_trajectory(
-    f_problem,
     f_common: SearchNode,
     b_common: SearchNode,
     node_type: Type[SearchNode],

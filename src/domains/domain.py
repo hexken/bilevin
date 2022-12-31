@@ -35,6 +35,14 @@ class Domain(ABC):
     def result(self, action: int, state: State):
         pass
 
+    @abstractmethod
+    def try_make_solution(self, action: int, state: State):
+        pass
+
+    @abstractmethod
+    def get_merged_trajectory(self, action: int, state: State):
+        pass
+
 
 class Problem:
     def __init__(
