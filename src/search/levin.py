@@ -130,14 +130,14 @@ class LevinNode(SearchNode):
         self,
         state: Optional[State],
         parent: Optional[SearchNode] = None,
-        action=None,
+        parent_action=None,
         g_cost: Optional[float] = None,
         log_prob: Optional[float] = None,
         levin_cost: Optional[float] = None,
         log_action_probs: Optional[to.Tensor] = None,
         num_expanded_when_generated: Optional[int] = None,
     ):
-        super().__init__(state, parent, action, g_cost)
+        super().__init__(state, parent, parent_action, g_cost)
         self.log_prob = log_prob
         self.levin_cost = levin_cost
         self.log_action_probs = log_action_probs

@@ -7,10 +7,10 @@ import torch as to
 
 
 class SearchNode:
-    def __init__(self, state, parent, action, g_cost):
+    def __init__(self, state, parent, parent_action, g_cost):
         self.state = state
         self.parent = parent
-        self.action = action
+        self.parent_action = parent_action
         self.g_cost = g_cost
 
     def __eq__(self, other):
@@ -48,7 +48,7 @@ class Trajectory:
         if hasattr(final_node, "log_prob"):
             self.solution_prob = exp(final_node.log_prob)  # type:ignore
 
-        action = final_node.action
+        action = final_node.parent_action
         node = final_node.parent
         self.goal = final_node.state.as_tensor(device)
         states = []
@@ -97,6 +97,7 @@ def reverse_trajectory(f_trajectory: Trajectory, device=None):
 
 
 def get_merged_trajectory(
+    f_problem,
     f_common: SearchNode,
     b_common: SearchNode,
     node_type: Type[SearchNode],
@@ -117,7 +118,7 @@ def get_merged_trajectory(
         new_f_node = node_type(
             state=b_node.state,
             parent=f_node,
-            action=prev_b_node.reverse_action,
+            parent_action=prev_b_node.reverse_action,
             g_cost=f_node.g_cost + 1,
         )
         f_node = new_f_node

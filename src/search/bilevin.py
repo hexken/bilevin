@@ -115,7 +115,7 @@ class BiLevin(Agent):
 
             node = heapq.heappop(_frontier)
             num_expanded += 1
-            actions = _problem.actions(node.action, node.state)
+            actions = _problem.actions(node.parent_action, node.state)
             if not actions:
                 continue
 
@@ -135,30 +135,11 @@ class BiLevin(Agent):
                 if new_node not in _reached:
                     _reached[new_node] = new_node
                     _problem.update(new_node)
-                    if _problem.is_bidirectional_goal(new_node, other_problem):
-                        print("hi")
-                        f_common_node = f_reached[new_node]
-                        b_common_node = b_reached[new_node]
-
-                        forward_traj = get_merged_trajectory(
-                            f_common_node,
-                            b_common_node,
-                            LevinNode,
-                            num_expanded,
-                        )
-
-                        if learn:
-                            backward_traj = get_merged_trajectory(
-                                b_common_node,
-                                f_common_node,
-                                LevinNode,
-                                num_expanded,
-                            )
-                            trajs = forward_traj, backward_traj
-                        else:
-                            trajs = forward_traj
-
-                        return len(forward_traj), num_expanded, num_generated, trajs
+                    trajs = _problem.try_make_solution(
+                        new_node, other_problem, num_expanded
+                    )
+                    if trajs:
+                        return len(trajs), num_expanded, num_generated, trajs
 
                 children_to_be_evaluated.append(new_node)
                 state_t_of_children_to_be_evaluated.append(new_state.as_tensor(device))
@@ -171,9 +152,7 @@ class BiLevin(Agent):
                 lc = levin_cost(child)
                 child.log_action_probs = log_action_probs[i]
                 child.levin_cost = lc
-
-                if child not in _reached:
-                    heapq.heappush(_frontier, child)
+                heapq.heappush(_frontier, child)
 
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []

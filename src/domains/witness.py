@@ -1,6 +1,7 @@
 from collections import defaultdict, deque
 from copy import deepcopy
 from itertools import product
+from typing import Type, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,29 +9,34 @@ import torch as to
 
 from domains.domain import Domain, State
 from enums import Color, FourDir
+from search.utils import Trajectory
 from src.search.utils import SearchNode
 
 
 class WitnessState(State):
+    """
+    dots origin is bottom left of plot(). head row col refers to dots, seg row/cols refer to cells.
+    """
+
     def __init__(
         self,
-        start_y: int,
-        start_x: int,
-        goal_y: int,
-        goal_x: int,
+        start_row: int,
+        start_col: int,
+        goal_row: int,
+        goal_col: int,
         cells: np.ndarray,
         num_rows: int,
         num_cols: int,
         max_rows: int,
         max_cols: int,
     ):
-        self.start_y = start_y
-        self.start_x = start_x
-        self.head_y = start_y
-        self.head_x = start_x
+        self.start_col = start_col
+        self.start_row = start_row
+        self.head_col = start_col
+        self.head_row = start_row
 
-        self.goal_x = goal_y
-        self.goal_y = goal_x
+        self.goal_row = goal_row
+        self.goal_col = goal_col
 
         self.num_rows = num_rows
         self.num_cols = num_cols
@@ -40,13 +46,13 @@ class WitnessState(State):
         self.max_cols = max_cols
 
         self.dots = np.zeros((num_rows + 1, num_cols + 1))
-        self.dots[self.head_y][self.head_x] = 1
+        self.dots[self.head_row, self.head_col] = 1
 
         self.v_segs = np.zeros((num_rows, num_cols + 1))
         self.h_segs = np.zeros((num_rows + 1, num_cols))
 
     def is_head_at_goal(self):
-        return self.head_y == self.goal_y and self.head_x == self.goal_x
+        return self.head_row == self.goal_col and self.head_col == self.goal_col
 
     def as_tensor(self, device=to.device("cpu")):
         """
@@ -98,15 +104,15 @@ class WitnessState(State):
 
         # channel with the tip of the snake
         channel_number += 1
-        arr[channel_number][2 * self.head_y][2 * self.head_x] = 1
+        arr[channel_number][2 * self.head_row][2 * self.head_col] = 1
 
         # channel for the exit of the puzzle
         channel_number += 1
-        arr[channel_number][2 * self.goal_y][2 * self.goal_x] = 1
+        arr[channel_number][2 * self.goal_col][2 * self.goal_col] = 1
 
         # channel for the entrance of the puzzle
         channel_number += 1
-        arr[channel_number][2 * self.head_y][2 * self.head_x] = 1
+        arr[channel_number][2 * self.head_row][2 * self.head_col] = 1
 
         image = image.to(device)
         return image
@@ -212,8 +218,8 @@ class WitnessState(State):
 
         # Draw the entrance of the puzzle in red as it is always on the state's path
         ax.plot(
-            self.start_x - 0.15,
-            self.start_y,
+            self.start_col - 0.15,
+            self.start_row,
             ">",
             markersize=10,
             markeredgecolor=(0, 0, 0),
@@ -224,23 +230,23 @@ class WitnessState(State):
         column_exit_offset = 0
         row_exit_offset = 0
 
-        if self.goal_x == self.num_cols:
+        if self.goal_col == self.num_cols:
             column_exit_offset = 0.15
             exit_symbol = ">"
-        elif self.goal_x == 0:
+        elif self.goal_col == 0:
             column_exit_offset = -0.15
             exit_symbol = "<"
-        elif self.goal_y == self.num_rows:
+        elif self.goal_col == self.num_rows:
             row_exit_offset = 0.15
             exit_symbol = "^"
         else:
             row_exit_offset = -0.15
             exit_symbol = "v"
         # Draw the exit of the puzzle: red if it is on a path, black otherwise
-        if self.dots[self.goal_y][self.goal_x] == 0:
+        if self.dots[self.goal_col][self.goal_col] == 0:
             ax.plot(
-                self.goal_x + column_exit_offset,
-                self.goal_y + row_exit_offset,
+                self.goal_col + column_exit_offset,
+                self.goal_col + row_exit_offset,
                 exit_symbol,
                 markersize=10,
                 markeredgecolor=(0, 0, 0),
@@ -249,8 +255,8 @@ class WitnessState(State):
             )
         else:
             ax.plot(
-                self.goal_x + column_exit_offset,
-                self.goal_y + row_exit_offset,
+                self.goal_col + column_exit_offset,
+                self.goal_col + row_exit_offset,
                 exit_symbol,
                 markersize=10,
                 markeredgecolor=(0, 0, 0),
@@ -281,12 +287,12 @@ class Witness(Domain):
         self.num_cols = int(values[1])
 
         values = puzzle[1].replace("Init: ", "").split(" ")
-        self.start_y = int(values[0])
-        self.start_x = int(values[1])
+        self.start_row = int(values[0])
+        self.start_col = int(values[1])
 
         values = puzzle[2].replace("Goal: ", "").split(" ")
-        self.goal_y = int(values[0])
-        self.goal_x = int(values[1])
+        self.goal_row = int(values[0])
+        self.goal_col = int(values[1])
 
         self.cells = np.zeros((self.num_rows, self.num_cols), dtype=np.int32)
         values = puzzle[3].replace("Colors: |", "").split("|")
@@ -295,10 +301,10 @@ class Witness(Domain):
             self.cells[int(numbers[0])][int(numbers[1])] = int(numbers[2])
 
         self.initial_state = WitnessState(
-            self.start_y,
-            self.start_x,
-            self.goal_y,
-            self.goal_x,
+            self.start_row,
+            self.start_col,
+            self.goal_row,
+            self.goal_col,
             self.cells,
             self.num_rows,
             self.num_cols,
@@ -308,11 +314,13 @@ class Witness(Domain):
 
         self.heads = {}
 
+        self.forward = True
+
     def reset(self):
         return self.initial_state  # todo might need deeopcopy, check mutability reqs
 
     def update(self, node: SearchNode):
-        head = (node.state.head_x, node.state.head_y)
+        head = (node.state.head_row, node.state.head_col)
         if head in self.heads:
             self.heads[head].append(node)
         else:
@@ -364,33 +372,33 @@ class Witness(Domain):
         # moving up
         if (
             parent_action != FourDir.DOWN
-            and state.head_y + 1 < state.dots.shape[0]
-            and state.v_segs[state.head_y][state.head_x] == 0
-            and state.dots[state.head_y + 1][state.head_x] == 0
+            and state.head_row + 1 < state.dots.shape[0]
+            and state.v_segs[state.head_row][state.head_col] == 0
+            and state.dots[state.head_row + 1][state.head_col] == 0
         ):
             actions.append(FourDir.UP)
         # moving down
         if (
             parent_action != FourDir.UP
-            and state.head_y >= 1
-            and state.v_segs[state.head_y - 1][state.head_x] == 0
-            and state.dots[state.head_y - 1][state.head_x] == 0
+            and state.head_row >= 1
+            and state.v_segs[state.head_row - 1][state.head_col] == 0
+            and state.dots[state.head_row - 1][state.head_col] == 0
         ):
             actions.append(FourDir.DOWN)
         # moving right
         if (
             parent_action != FourDir.LEFT
-            and state.head_x + 1 < state.dots.shape[1]
-            and state.h_segs[state.head_y][state.head_x] == 0
-            and state.dots[state.head_y][state.head_x + 1] == 0
+            and state.head_col + 1 < state.dots.shape[1]
+            and state.h_segs[state.head_row][state.head_col] == 0
+            and state.dots[state.head_row][state.head_col + 1] == 0
         ):
             actions.append(FourDir.RIGHT)
         # moving left
         if (
             parent_action != FourDir.RIGHT
-            and state.head_x >= 1
-            and state.h_segs[state.head_y][state.head_x - 1] == 0
-            and state.dots[state.head_y][state.head_x - 1] == 0
+            and state.head_col >= 1
+            and state.h_segs[state.head_row][state.head_col - 1] == 0
+            and state.dots[state.head_row][state.head_col - 1] == 0
         ):
             actions.append(FourDir.LEFT)
 
@@ -416,30 +424,30 @@ class Witness(Domain):
         #             return actions
         # moving up
         if (
-            state.head_y + 1 < state.dots.shape[0]
-            and state.v_segs[state.head_y][state.head_x] == 0
-            and state.dots[state.head_y + 1][state.head_x] == 0
+            state.head_row + 1 < state.dots.shape[0]
+            and state.v_segs[state.head_row][state.head_col] == 0
+            and state.dots[state.head_row + 1][state.head_col] == 0
         ):
             actions.append(FourDir.UP)
         # moving down
         if (
-            state.head_y - 1 >= 0
-            and state.v_segs[state.head_y - 1][state.head_x] == 0
-            and state.dots[state.head_y - 1][state.head_x] == 0
+            state.head_row - 1 >= 0
+            and state.v_segs[state.head_row - 1][state.head_col] == 0
+            and state.dots[state.head_row - 1][state.head_col] == 0
         ):
             actions.append(FourDir.DOWN)
         # moving right
         if (
-            state.head_x + 1 < state.dots.shape[1]
-            and state.h_segs[state.head_y][state.head_x] == 0
-            and state.dots[state.head_y][state.head_x + 1] == 0
+            state.head_col + 1 < state.dots.shape[1]
+            and state.h_segs[state.head_row][state.head_col] == 0
+            and state.dots[state.head_row][state.head_col + 1] == 0
         ):
             actions.append(FourDir.RIGHT)
         # moving left
         if (
-            state.head_x - 1 >= 0
-            and state.h_segs[state.head_y][state.head_x - 1] == 0
-            and state.dots[state.head_y][state.head_x - 1] == 0
+            state.head_col - 1 >= 0
+            and state.h_segs[state.head_row][state.head_col - 1] == 0
+            and state.dots[state.head_row][state.head_col - 1] == 0
         ):
             actions.append(FourDir.LEFT)
 
@@ -454,24 +462,24 @@ class Witness(Domain):
 
         # moving up
         if action == FourDir.UP:
-            new_state.v_segs[new_state.head_y][new_state.head_x] = 1
-            new_state.dots[new_state.head_y + 1][new_state.head_x] = 1
-            new_state.head_y += 1
+            new_state.v_segs[new_state.head_row][new_state.head_col] = 1
+            new_state.dots[new_state.head_row + 1][new_state.head_col] = 1
+            new_state.head_row += 1
         # moving down
         if action == FourDir.DOWN:
-            new_state.v_segs[new_state.head_y - 1][new_state.head_x] = 1
-            new_state.dots[new_state.head_y - 1][new_state.head_x] = 1
-            new_state.head_y -= 1
+            new_state.v_segs[new_state.head_row - 1][new_state.head_col] = 1
+            new_state.dots[new_state.head_row - 1][new_state.head_col] = 1
+            new_state.head_row -= 1
         # moving right
         if action == FourDir.RIGHT:
-            new_state.h_segs[new_state.head_y][new_state.head_x] = 1
-            new_state.dots[new_state.head_y][new_state.head_x + 1] = 1
-            new_state.head_x += 1
+            new_state.h_segs[new_state.head_row][new_state.head_col] = 1
+            new_state.dots[new_state.head_row][new_state.head_col + 1] = 1
+            new_state.head_col += 1
         # moving left
         if action == FourDir.LEFT:
-            new_state.h_segs[new_state.head_y][new_state.head_x - 1] = 1
-            new_state.dots[new_state.head_y][new_state.head_x - 1] = 1
-            new_state.head_x -= 1
+            new_state.h_segs[new_state.head_row][new_state.head_col - 1] = 1
+            new_state.dots[new_state.head_row][new_state.head_col - 1] = 1
+            new_state.head_col -= 1
 
         return new_state
 
@@ -551,34 +559,134 @@ class Witness(Domain):
                     visited[neighbor] = 1
         return True
 
-    def is_bidirectional_goal(self, node, other_problem):
+    def reverse_trajectory(self, f_trajectory: Trajectory, device=None):
+        """
+        Returns a new a trajectory that is the reverse of f_trajectory.
+        """
+        device = device if device else f_trajectory.device
+        dummy_node = SearchNode(state=None, parent=None, action=None, g_cost=None)
+        b_trajectory = Trajectory(
+            dummy_node, num_expanded=f_trajectory.num_expanded, device=device
+        )
+        if hasattr(f_trajectory, "solution_prob"):
+            b_trajectory.solution_prob = f_trajectory.solution_prob
+        b_trajectory.goal = f_trajectory.goal
+        b_trajectory.states = to.flip(f_trajectory.states, dims=[0])
+        b_trajectory.actions = to.flip(f_trajectory.actions, dims=[0])
+        b_trajectory.cost_to_gos = to.flip(f_trajectory.cost_to_gos, dims=[0])
+        return b_trajectory
+
+    def get_merged_trajectory(
+        self,
+        f_common: SearchNode,
+        b_common: SearchNode,
+        node_type: Type[SearchNode],
+        num_expanded: int,
+        device=to.device("cpu"),
+    ):
+        """
+        Returns a new trajectory going from f_start to b_start, passing through merge(f_common, b_common).
+        """
+        # todo if this is slow, can build the Trajectory directly without creating nodes
+        f_node = f_common
+        parent_b_node = b_common.parent
+        while parent_b_node:
+            new_state = deepcopy(f_node.state)
+            new_state.dots[parent_b_node.head_row, parent_b_node.head_col] = 1
+
+            b_parent_action = parent_b_node.action
+            if b_parent_action == FourDir.UP:
+                new_state.v_segs[new_state.head_row - 1, new_state.head_col] = 1
+                new_state.head_row -= 1
+            elif b_parent_action == FourDir.DOWN:
+                new_state.v_segs[new_state.head_row, new_state.head_col] = 1
+                new_state.head_row += 1
+            elif b_parent_action == FourDir.RIGHT:
+                new_state.h_segs[new_state.head_row, new_state.head_col - 1] = 1
+                new_state.head_col -= 1
+            elif b_parent_action == FourDir.LEFT:
+                new_state.h_segs[new_state.head_row, new_state.head_col] = 1
+                new_state.head_col += 1
+            else:
+                raise ValueError("Invalid parent action")
+
+            new_f_node = node_type(
+                state=new_state,
+                parent=f_node,
+                parent_action=self.reverse_action(b_parent_action),
+                g_cost=f_node.g_cost + 1,
+            )
+            f_node = new_f_node
+            parent_b_node = parent_b_node.parent
+
+        return Trajectory(f_node, num_expanded, device=device)
+
+    def try_make_solution(
+        self, node, other_problem, num_expanded
+    ) -> Optional[tuple[Trajectory]]:
         state = node.state
-        head_dot = (state.head_x, state.head_y)
+        head_dot = (state.head_row, state.head_col)
         if head_dot not in other_problem.heads:
-            return
+            return None
         for other_node in other_problem.heads[head_dot]:
             merged_state = deepcopy(state)
             other_state = other_node.state
+
+            merged_state.dots[head_dot] = 0
             merged_state.dots += other_state.dots
+
             merged_state.v_segs += other_state.v_segs
             merged_state.h_segs += other_state.h_segs
-            merged_state.head_x = other_state.goal_x
-            merged_state.head_y = other_state.goal_y
+
+            merged_state.head_row = other_state.start_row
+            merged_state.head_col = other_state.start_col
+
+            if other_problem.is_goal(merged_state):
+
+                if self.forward:
+                    f_problem = self
+                    f_common_node = node
+                    b_problem = other_problem
+                    b_common_node = other_node
+                else:
+                    f_problem = other_problem
+                    f_common_node = other_node
+                    b_problem = self
+                    b_common_node = node
+
+                f_traj = self.get_merged_trajectory(
+                    f_common_node, b_common_node, type(node), num_expanded
+                )
+                x=21
+                return (f_traj,)
+
+        return None
 
     def backward_problem(self):
+        """
+        Should only be called on a fresh domain (no calls to update)
+        """
         domain = deepcopy(self)
 
-        domain.goal_x = self.start_x
-        domain.goal_y = self.start_y
-        domain.start_x = self.goal_x
-        domain.start_y = self.goal_y
+        domain.goal_row = self.start_row
+        domain.goal_col = self.start_col
 
-        domain.initial_state.dots[self.start_y, self.start_x] = 0
-        domain.initial_state.dots[self.goal_y, self.goal_x] = 1
-        domain.initial_state.goal_x = self.start_x
-        domain.initial_state.goal_y = self.start_y
-        domain.initial_state.start_x = self.goal_x
-        domain.initial_state.start_y = self.goal_y
+        domain.start_row = self.goal_row
+        domain.start_col = self.goal_col
+
+        domain.initial_state.dots[self.start_row, self.start_col] = 0
+        domain.initial_state.dots[self.goal_row, self.goal_col] = 1
+
+        domain.initial_state.start_row = self.goal_row
+        domain.initial_state.start_col = self.goal_col
+
+        domain.initial_state.head_row = self.goal_row
+        domain.initial_state.head_col = self.goal_col
+
+        domain.initial_state.goal_row = self.start_row
+        domain.initial_state.goal_col = self.start_col
+
+        domain.forward = False
 
         return domain
 
