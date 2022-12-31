@@ -590,21 +590,23 @@ class Witness(Domain):
         # todo if this is slow, can build the Trajectory directly without creating nodes
         f_node = f_common
         parent_b_node = b_common.parent
+        parent_b_action = b_common.parent_action
         while parent_b_node:
             new_state = deepcopy(f_node.state)
-            new_state.dots[parent_b_node.head_row, parent_b_node.head_col] = 1
+            new_state.dots[
+                parent_b_node.state.head_row, parent_b_node.state.head_col
+            ] = 1
 
-            b_parent_action = parent_b_node.action
-            if b_parent_action == FourDir.UP:
+            if parent_b_action == FourDir.UP:
                 new_state.v_segs[new_state.head_row - 1, new_state.head_col] = 1
                 new_state.head_row -= 1
-            elif b_parent_action == FourDir.DOWN:
+            elif parent_b_action == FourDir.DOWN:
                 new_state.v_segs[new_state.head_row, new_state.head_col] = 1
                 new_state.head_row += 1
-            elif b_parent_action == FourDir.RIGHT:
+            elif parent_b_action == FourDir.RIGHT:
                 new_state.h_segs[new_state.head_row, new_state.head_col - 1] = 1
                 new_state.head_col -= 1
-            elif b_parent_action == FourDir.LEFT:
+            elif parent_b_action == FourDir.LEFT:
                 new_state.h_segs[new_state.head_row, new_state.head_col] = 1
                 new_state.head_col += 1
             else:
@@ -613,10 +615,11 @@ class Witness(Domain):
             new_f_node = node_type(
                 state=new_state,
                 parent=f_node,
-                parent_action=self.reverse_action(b_parent_action),
+                parent_action=self.reverse_action(parent_b_action),
                 g_cost=f_node.g_cost + 1,
             )
             f_node = new_f_node
+            parent_b_action = parent_b_node.parent_action
             parent_b_node = parent_b_node.parent
 
         return Trajectory(f_node, num_expanded, device=device)
@@ -642,7 +645,6 @@ class Witness(Domain):
             merged_state.head_col = other_state.start_col
 
             if other_problem.is_goal(merged_state):
-
                 if self.forward:
                     f_problem = self
                     f_common_node = node
@@ -657,7 +659,7 @@ class Witness(Domain):
                 f_traj = self.get_merged_trajectory(
                     f_common_node, b_common_node, type(node), num_expanded
                 )
-                x=21
+                x = 21
                 return (f_traj,)
 
         return None
