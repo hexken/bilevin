@@ -11,8 +11,7 @@ import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from domains import SlidingTilePuzzle, Witness
-from domains.domain import Problem
-from models import ConvNetDouble, ConvNetSingle
+from models import ConvNetSingle
 import models.loss_functions as loss_fns
 from search import BiLevin, Levin
 from search.agent import Agent

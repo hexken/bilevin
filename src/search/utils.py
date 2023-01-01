@@ -1,8 +1,5 @@
-import math
-from math import exp
 from typing import Type
 
-import numpy as np
 import torch as to
 
 
