@@ -77,42 +77,42 @@ class WitnessState(State):
         for i in range(0, number_of_colors):
             for j in range(0, self.cells.shape[0]):
                 for k in range(0, self.cells.shape[1]):
-                    if self.cells[j][k] == i:
-                        arr[i][2 * j + 1][2 * k + 1] = 1
+                    if self.cells[j, k] == i:
+                        arr[i, 2 * j + 1, 2 * k + 1] = 1
         channel_number = number_of_colors
 
         # the number_of_colors-th channel specifies the open spaces in the grid
         for j in range(0, 2 * self.num_rows + 1):
             for k in range(0, 2 * self.num_cols + 1):
-                arr[channel_number][j][k] = 1
+                arr[channel_number, j, k] = 1
 
         # channel for the current path
         channel_number += 1
         for i in range(0, self.v_segs.shape[0]):
             for j in range(0, self.v_segs.shape[1]):
-                if self.v_segs[i][j] == 1:
-                    arr[channel_number][2 * i][2 * j] = 1
-                    arr[channel_number][2 * i + 1][2 * j] = 1
-                    arr[channel_number][2 * i + 2][2 * j] = 1
+                if self.v_segs[i, j] == 1:
+                    arr[channel_number, 2 * i, 2 * j] = 1
+                    arr[channel_number, 2 * i + 1, 2 * j] = 1
+                    arr[channel_number, 2 * i + 2, 2 * j] = 1
 
         for i in range(0, self.h_segs.shape[0]):
             for j in range(0, self.h_segs.shape[1]):
-                if self.h_segs[i][j] == 1:
-                    arr[channel_number][2 * i][2 * j] = 1
-                    arr[channel_number][2 * i][2 * j + 1] = 1
-                    arr[channel_number][2 * i][2 * j + 2] = 1
+                if self.h_segs[i, j] == 1:
+                    arr[channel_number, 2 * i, 2 * j] = 1
+                    arr[channel_number, 2 * i, 2 * j + 1] = 1
+                    arr[channel_number, 2 * i, 2 * j + 2] = 1
 
         # channel with the tip of the snake
         channel_number += 1
-        arr[channel_number][2 * self.head_row][2 * self.head_col] = 1
+        arr[channel_number, 2 * self.head_row, 2 * self.head_col] = 1
 
         # channel for the exit of the puzzle
         channel_number += 1
-        arr[channel_number][2 * self.goal_col][2 * self.goal_col] = 1
+        arr[channel_number, 2 * self.goal_col, 2 * self.goal_col] = 1
 
         # channel for the entrance of the puzzle
         channel_number += 1
-        arr[channel_number][2 * self.head_row][2 * self.head_col] = 1
+        arr[channel_number, 2 * self.head_row, 2 * self.head_col] = 1
 
         image = image.to(device)
         return image
@@ -167,13 +167,13 @@ class WitnessState(State):
         # Draw the vertical segments of the path
         for i in range(self.v_segs.shape[0]):
             for j in range(self.v_segs.shape[1]):
-                if self.v_segs[i][j] == 1:
+                if self.v_segs[i, j] == 1:
                     ax.plot([j, j], [i, i + 1], str(Color.RED), linewidth=5)
 
         # Draw the horizontal segments of the path
         for i in range(self.h_segs.shape[0]):
             for j in range(self.h_segs.shape[1]):
-                if self.h_segs[i][j] == 1:
+                if self.h_segs[i, j] == 1:
                     ax.plot([j, j + 1], [i, i], str(Color.RED), linewidth=5)
 
         # Draw the separable bullets according to the values in self.cells and Color enum type
@@ -181,21 +181,21 @@ class WitnessState(State):
         color_strings = Color.str_values()[1:]
         for i in range(self.cells.shape[0]):
             for j in range(self.cells.shape[1]):
-                if self.cells[i][j] != 0:
+                if self.cells[i, j] != 0:
                     ax.plot(
                         j + offset,
                         i + offset,
                         "o",
                         markersize=15,
                         markeredgecolor=(0, 0, 0),
-                        markerfacecolor=color_strings[int(self.cells[i][j] - 1)],
+                        markerfacecolor=color_strings[int(self.cells[i, j] - 1)],
                         markeredgewidth=2,
                     )
 
         # Draw the intersection of lines: red for an intersection that belongs to a path and black otherwise
         for i in range(self.dots.shape[0]):
             for j in range(self.dots.shape[1]):
-                if self.dots[i][j] != 0:
+                if self.dots[i, j] != 0:
                     ax.plot(
                         j,
                         i,
@@ -243,7 +243,7 @@ class WitnessState(State):
             row_exit_offset = -0.15
             exit_symbol = "v"
         # Draw the exit of the puzzle: red if it is on a path, black otherwise
-        if self.dots[self.goal_col][self.goal_col] == 0:
+        if self.dots[self.goal_col, self.goal_col] == 0:
             ax.plot(
                 self.goal_col + column_exit_offset,
                 self.goal_col + row_exit_offset,
@@ -298,7 +298,7 @@ class Witness(Domain):
         values = puzzle[3].replace("Colors: |", "").split("|")
         for t in values:
             numbers = t.split(" ")
-            self.cells[int(numbers[0])][int(numbers[1])] = int(numbers[2])
+            self.cells[int(numbers[0]), int(numbers[1])] = int(numbers[2])
 
         self.initial_state = WitnessState(
             self.start_row,
@@ -373,32 +373,32 @@ class Witness(Domain):
         if (
             parent_action != FourDir.DOWN
             and state.head_row + 1 < state.dots.shape[0]
-            and state.v_segs[state.head_row][state.head_col] == 0
-            and state.dots[state.head_row + 1][state.head_col] == 0
+            and state.v_segs[state.head_row, state.head_col] == 0
+            and state.dots[state.head_row + 1, state.head_col] == 0
         ):
             actions.append(FourDir.UP)
         # moving down
         if (
             parent_action != FourDir.UP
             and state.head_row >= 1
-            and state.v_segs[state.head_row - 1][state.head_col] == 0
-            and state.dots[state.head_row - 1][state.head_col] == 0
+            and state.v_segs[state.head_row - 1, state.head_col] == 0
+            and state.dots[state.head_row - 1, state.head_col] == 0
         ):
             actions.append(FourDir.DOWN)
         # moving right
         if (
             parent_action != FourDir.LEFT
             and state.head_col + 1 < state.dots.shape[1]
-            and state.h_segs[state.head_row][state.head_col] == 0
-            and state.dots[state.head_row][state.head_col + 1] == 0
+            and state.h_segs[state.head_row, state.head_col] == 0
+            and state.dots[state.head_row, state.head_col + 1] == 0
         ):
             actions.append(FourDir.RIGHT)
         # moving left
         if (
             parent_action != FourDir.RIGHT
             and state.head_col >= 1
-            and state.h_segs[state.head_row][state.head_col - 1] == 0
-            and state.dots[state.head_row][state.head_col - 1] == 0
+            and state.h_segs[state.head_row, state.head_col - 1] == 0
+            and state.dots[state.head_row, state.head_col - 1] == 0
         ):
             actions.append(FourDir.LEFT)
 
@@ -425,29 +425,29 @@ class Witness(Domain):
         # moving up
         if (
             state.head_row + 1 < state.dots.shape[0]
-            and state.v_segs[state.head_row][state.head_col] == 0
-            and state.dots[state.head_row + 1][state.head_col] == 0
+            and state.v_segs[state.head_row, state.head_col] == 0
+            and state.dots[state.head_row + 1, state.head_col] == 0
         ):
             actions.append(FourDir.UP)
         # moving down
         if (
             state.head_row - 1 >= 0
-            and state.v_segs[state.head_row - 1][state.head_col] == 0
-            and state.dots[state.head_row - 1][state.head_col] == 0
+            and state.v_segs[state.head_row - 1, state.head_col] == 0
+            and state.dots[state.head_row - 1, state.head_col] == 0
         ):
             actions.append(FourDir.DOWN)
         # moving right
         if (
             state.head_col + 1 < state.dots.shape[1]
-            and state.h_segs[state.head_row][state.head_col] == 0
-            and state.dots[state.head_row][state.head_col + 1] == 0
+            and state.h_segs[state.head_row, state.head_col] == 0
+            and state.dots[state.head_row, state.head_col + 1] == 0
         ):
             actions.append(FourDir.RIGHT)
         # moving left
         if (
             state.head_col - 1 >= 0
-            and state.h_segs[state.head_row][state.head_col - 1] == 0
-            and state.dots[state.head_row][state.head_col - 1] == 0
+            and state.h_segs[state.head_row, state.head_col - 1] == 0
+            and state.dots[state.head_row, state.head_col - 1] == 0
         ):
             actions.append(FourDir.LEFT)
 
@@ -462,23 +462,23 @@ class Witness(Domain):
 
         # moving up
         if action == FourDir.UP:
-            new_state.v_segs[new_state.head_row][new_state.head_col] = 1
-            new_state.dots[new_state.head_row + 1][new_state.head_col] = 1
+            new_state.v_segs[new_state.head_row, new_state.head_col] = 1
+            new_state.dots[new_state.head_row + 1, new_state.head_col] = 1
             new_state.head_row += 1
         # moving down
         if action == FourDir.DOWN:
-            new_state.v_segs[new_state.head_row - 1][new_state.head_col] = 1
-            new_state.dots[new_state.head_row - 1][new_state.head_col] = 1
+            new_state.v_segs[new_state.head_row - 1, new_state.head_col] = 1
+            new_state.dots[new_state.head_row - 1, new_state.head_col] = 1
             new_state.head_row -= 1
         # moving right
         if action == FourDir.RIGHT:
-            new_state.h_segs[new_state.head_row][new_state.head_col] = 1
-            new_state.dots[new_state.head_row][new_state.head_col + 1] = 1
+            new_state.h_segs[new_state.head_row, new_state.head_col] = 1
+            new_state.dots[new_state.head_row, new_state.head_col + 1] = 1
             new_state.head_col += 1
         # moving left
         if action == FourDir.LEFT:
-            new_state.h_segs[new_state.head_row][new_state.head_col - 1] = 1
-            new_state.dots[new_state.head_row][new_state.head_col - 1] = 1
+            new_state.h_segs[new_state.head_row, new_state.head_col - 1] = 1
+            new_state.dots[new_state.head_row, new_state.head_col - 1] = 1
             new_state.head_col -= 1
 
         return new_state
@@ -495,9 +495,8 @@ class Witness(Domain):
         if not state.is_head_at_goal():
             return False
 
-        # state.plot()
-        current_color = Color.NEUTRAL
         visited = np.zeros((self.num_rows, self.num_cols))
+        # todo populate with only non-neutral colored cells?
         cells = [(i, j) for i, j in product(range(self.num_rows), range(self.num_cols))]
 
         while len(cells) != 0:
@@ -525,16 +524,16 @@ class Witness(Domain):
                     neighbors = []
                     row, col = cell
                     # move up
-                    if row + 1 < self.num_rows and state.h_segs[row + 1][col] == 0:
+                    if row + 1 < self.num_rows and state.h_segs[row + 1, col] == 0:
                         neighbors.append((row + 1, col))
                     # move down
-                    if row > 0 and state.h_segs[row][col] == 0:
+                    if row > 0 and state.h_segs[row, col] == 0:
                         neighbors.append((row - 1, col))
                     # move right
-                    if col + 1 < self.num_cols and state.v_segs[row][col + 1] == 0:
+                    if col + 1 < self.num_cols and state.v_segs[row, col + 1] == 0:
                         neighbors.append((row, col + 1))
                     # move left
-                    if col > 0 and state.v_segs[row][col] == 0:
+                    if col > 0 and state.v_segs[row, col] == 0:
                         neighbors.append((row, col - 1))
                     return neighbors
 
