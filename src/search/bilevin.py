@@ -141,7 +141,8 @@ class BiLevin(Agent):
                     )
 
                     if trajs:
-                        return len(trajs), num_expanded, num_generated, trajs
+                        assert len(trajs[0]) == len(trajs[1])
+                        return len(trajs[0]), num_expanded, num_generated, trajs
 
                 children_to_be_evaluated.append(new_node)
                 state_t_of_children_to_be_evaluated.append(new_state.as_tensor(device))
