@@ -3,9 +3,7 @@ import math
 import time
 from typing import Optional
 
-import numpy as np
 import torch as to
-import torch.nn.functional as F
 
 from domains.domain import State
 from models.utils import mixture_uniform
@@ -72,7 +70,7 @@ class Levin(Agent):
             node = heapq.heappop(frontier)
             num_expanded += 1
 
-            actions = problem.actions(node.action, node.state)
+            actions = problem.actions(node.parent_action, node.state)
             if not actions:
                 continue
 
