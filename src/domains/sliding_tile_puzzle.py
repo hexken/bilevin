@@ -4,231 +4,159 @@ import math
 import numpy as np
 import torch as to
 
-from domains.environment import Environment
+from domains.domain import Domain, State
 from enums import FourDir
 
 
-class SlidingTilePuzzle(Environment):
-    # todo vectorize this by using a tensor for maintaining state and permuting
-    # todo maybe better to have an execution class that handles the execution of the environment
+class SlidingTilePuzzleState(State):
+    def __init__(
+        self, tiles: np.ndarray, blank_pos: tuple[int, int], width: int, num_tiles: int
+    ):
+        self.tiles = tiles
+        self.blank_pos = blank_pos
+        self.width = width
+        self.num_tiles = num_tiles
+
+    def as_tensor(self, device=to.device("cpu")):
+
+        arr = to.zeros((self.num_tiles, self.width, self.width), device=device)
+        arr[:, self.tiles] = 1
+        x=2
+        return arr
+
+    def __repr__(self):
+        return self.one_line()
+
+    def __hash__(self):
+        return hash(self.tiles.tobytes())
+
+    def __eq__(self, other):
+        return np.array_equal(self.tiles, other.tiles)
+
+    def one_line(self):
+        return " ".join(str(t) for t in self.tiles)
+
+    def print(self):
+        for i in range(len(self.tiles)):
+            print(self.tiles[i], end=" ")
+            if (i + 1) % self.width == 0:
+                print()
+
+
+class SlidingTilePuzzle(Domain):
+    def __init__(self, tiles: str):
+        tiles_l = tiles.replace("\n", "").split(" ")
+        self.num_tiles = len(tiles_l)
+        self.width = int(math.sqrt(self.num_tiles))
+        tiles_arr = np.zeros((self.width, self.width), dtype=np.int32)
+
+        for i, tile in enumerate(tiles_l):
+            row = i // self.width
+            col = i % self.width
+            val = int(tile)
+            tiles_arr[row, col] = val
+
+            if val == 0:
+                blank_pos = (row, col)
+
+        self.initial_state = SlidingTilePuzzleState(
+            tiles_arr, blank_pos, self.width, self.num_tiles  # type:ignore
+        )
+
+        self.goal = np.arange(self.num_tiles, dtype=np.int32).reshape(
+            self.width, self.width
+        )
+
+    def reset(self):
+        return self.initial_state
+
+    @property
+    def state_size(self):
+        return self.width
 
     @property
     def num_actions(cls):
         return 4
 
-    UP = FourDir.UP
-    DOWN = FourDir.DOWN
-    LEFT = FourDir.LEFT
-    RIGHT = FourDir.RIGHT
-
-    def reverse_action(self, action: FourDir):
-        if action == self.UP:
-            return self.DOWN
-        elif action == self.DOWN:
-            return self.UP
-        elif action == self.LEFT:
-            return self.RIGHT
-        elif action == self.RIGHT:
-            return self.LEFT
-
-    def __init__(self, tiles):
-
-        if isinstance(tiles, str):
-            tiles = tiles.replace("\n", "").split(" ")
-            self._size = len(tiles)
-            self._tiles = np.zeros(self._size, dtype=np.int32)
-
-            for i, tile in enumerate(tiles):
-                if tile == "":
-                    continue
-                if tile == "B":
-                    self._tiles[i] = 0
-                else:
-                    self._tiles[i] = int(tile)
-        elif isinstance(tiles, np.ndarray):
-            self._tiles = tiles.copy()
-            self._size = len(tiles)
-        else:
-            raise NotImplementedError("tiles must be specified by a string")
-
-        self._width = int(math.sqrt(self._size))
-        self._pos = np.zeros(self._size, dtype=np.int32)
-
-        for i in range(self._size):
-            self._pos[self._tiles[i]] = i
-
-            if self._tiles[i] == 0:
-                self._blank = i
-
-        self._goal = np.arange(self._size, dtype=np.int32)
-
     @property
     def in_channels(self):
-        return self._size
+        return self.num_tiles
+
+    def reverse_action(self, action: FourDir):
+        if action == FourDir.UP:
+            return FourDir.DOWN
+        elif action == FourDir.DOWN:
+            return FourDir.UP
+        elif action == FourDir.LEFT:
+            return FourDir.RIGHT
+        elif action == FourDir.RIGHT:
+            return FourDir.LEFT
 
     def backward_problem(self):
-        problem = SlidingTilePuzzle(self._tiles)
-        problem._goal, problem._tiles = self._tiles, self._goal
-        problem._size = self._size
-        problem._width = self._width
-        problem._pos = np.zeros(self._size, dtype=np.int32)
-
-        for i in range(self._size):
-            self._pos[self._tiles[i]] = i
-
-            if self._tiles[i] == 0:
-                self._blank = i
+        problem = copy.deepcopy(self)
+        problem.goal = problem.initial_state.tiles
+        problem.initial_state = SlidingTilePuzzleState(
+            problem.goal, (0, 0), problem.width, problem.num_tiles
+        )
         return problem
 
-    def is_valid(self):
-        t = 0
+    def actions(self, parent_action: FourDir, state: SlidingTilePuzzleState):
+        return self.actions_unpruned(state)
 
-        if not (self._width & 1) > 0:
-            t = self._pos[0] // self._width
-
-        for i in range(2, self._size):
-            for l in range(1, i):
-                if self._pos[i] < self._pos[l]:
-                    t += 1
-
-        return (int(t) & 1) ^ 1 == 1
-
-    def copy(self):
-        return copy.deepcopy(self)
-
-    def getWidth(self):
-        return self._width
-
-    def getValueTile(self, i):
-        return self._tiles[i]
-
-    def __hash__(self):
-        return hash("".join((str(t) for t in self._tiles)))
-
-    def state_equal(self, other):
-        return np.array_equal(self._tiles, other._tiles)
-
-    @property
-    def state_size(self):
-        return self._width
-
-    def __eq__(self, other):
-        return np.array_equal(self._tiles, other._tiles)
-
-    def successors(self):
+    def actions_unpruned(self, state: SlidingTilePuzzleState):
         actions = []
+        blank_row = state.blank_pos[0]
+        blank_col = state.blank_pos[1]
 
-        if not ((self._blank + 1) % self._width == 0):  # and op != self._W:
-            actions.append(self.RIGHT)
+        if blank_col != state.width - 1:
+            actions.append(FourDir.RIGHT)
 
-        if self._blank > self._width - 1:  # and op != self._S:
-            actions.append(self.UP)
+        if blank_row != 0:
+            actions.append(FourDir.UP)
 
-        if not ((self._blank) % self._width == 0):  # and op != self._E:
-            actions.append(self.LEFT)
+        if blank_col != 0:
+            actions.append(FourDir.LEFT)
 
-        if self._blank < self._size - self._width:  # and op != self._N:
-            actions.append(self.DOWN)
+        if blank_row != state.width - 1:
+            actions.append(FourDir.DOWN)
 
         return actions
 
-    def successors_parent_pruning(self, op):
-        actions = []
+    def result(self, state: SlidingTilePuzzleState, action: FourDir):
+        blank_pos = state.blank_pos
+        blank_row = state.blank_pos[0]
+        blank_col = state.blank_pos[1]
 
-        if not ((self._blank + 1) % self._width == 0) and op != self.LEFT:
-            actions.append(self.RIGHT)
-
-        if self._blank > self._width - 1 and op != self.DOWN:
-            actions.append(self.UP)
-
-        if not ((self._blank) % self._width == 0) and op != self.RIGHT:
-            actions.append(self.LEFT)
-
-        if self._blank < self._size - self._width and op != self.UP:
-            actions.append(self.DOWN)
-
-        return actions
-
-    def apply_action(self, action):
-
-        if action == self.UP:
-            self._tiles[self._blank] = self._tiles[self._blank - self._width]
-            self._pos[self._tiles[self._blank - self._width]] = self._blank
-            self._tiles[self._blank - self._width] = 0
-            self._pos[0] = self._blank - self._width
-            self._blank = self._blank - self._width
-
-        elif action == self.DOWN:
-            self._tiles[self._blank] = self._tiles[self._blank + self._width]
-            self._pos[self._tiles[self._blank + self._width]] = self._blank
-            self._tiles[self._blank + self._width] = 0
-            self._pos[0] = self._blank + self._width
-            self._blank = self._blank + self._width
-
-        elif action == self.RIGHT:
-            self._tiles[self._blank] = self._tiles[self._blank + 1]
-            self._pos[self._tiles[self._blank + 1]] = self._blank
-            self._tiles[self._blank + 1] = 0
-            self._pos[0] = self._blank + 1
-            self._blank = self._blank + 1
-
-        elif action == self.LEFT:
-            self._tiles[self._blank] = self._tiles[self._blank - 1]
-            self._pos[self._tiles[self._blank - 1]] = self._blank
-            self._tiles[self._blank - 1] = 0
-            self._pos[0] = self._blank - 1
-            self._blank = self._blank - 1
-        else:
-            raise ValueError(f"Invalid action: {action}")
-
-    def is_solution(self):
-        return np.array_equal(self._tiles, self._goal)
-
-    def get_image_representation(self):
-
-        image = np.zeros((self._size, self._width, self._width), dtype=np.float32)
-
-        for num in range(self._size):
-            row = int(self._pos[num] / self._width)
-            col = int(self._pos[num] % self._width)
-
-            image[num, row, col] = 1
-
-        return image
-
-    def state_tensor(self, device=to.device("cpu")):
-
-        image = to.zeros((self._size, self._width, self._width))
-        arr = np.asarray(image)
-
-        for num in range(self._size):
-            row = int(self._pos[num] / self._width)
-            col = int(self._pos[num] % self._width)
-
-            arr[num, row, col] = 1
-
-        image = image.to(device)
-        return image
-
-    def heuristic_value(self):
-        h = 0
-
-        for i in range(0, self._size):
-            if self._tiles[i] == 0:
-                continue
-            h = (
-                h
-                + abs((self._tiles[i] % self._width) - (i % self._width))
-                + abs(int((self._tiles[i] / self._width)) - int((i / self._width)))
+        if action == FourDir.UP:
+            state.tiles[blank_pos], state.tiles[blank_row - 1, blank_col] = (
+                state.tiles[blank_row - 1, blank_col],
+                state.tiles[blank_pos],
             )
+            state.blank_pos = (blank_row - 1, blank_col)
 
-        return h
+        elif action == FourDir.DOWN:
+            state.tiles[blank_pos], state.tiles[blank_row + 1, blank_col] = (
+                state.tiles[blank_row + 1, blank_col],
+                state.tiles[blank_pos],
+            )
+            state.blank_pos = (blank_row + 1, blank_col)
 
-    def print(self):
-        for i in range(len(self._tiles)):
-            print(self._tiles[i], end=" ")
-            if (i + 1) % self._width == 0:
-                print()
+        elif action == FourDir.RIGHT:
+            state.tiles[blank_pos], state.tiles[blank_row, blank_col + 1] = (
+                state.tiles[blank_row, blank_col + 1],
+                state.tiles[blank_pos],
+            )
+            state.blank_pos = (blank_row, blank_col + 1)
 
-    def one_line(self):
-        return " ".join(str(t) for t in self._tiles)
+        elif action == FourDir.LEFT:
+            state.tiles[blank_pos], state.tiles[blank_row, blank_col - 1] = (
+                state.tiles[blank_row, blank_col - 1],
+                state.tiles[blank_pos],
+            )
+            state.blank_pos = (blank_row, blank_col - 1)
+
+    def is_goal(self, state: SlidingTilePuzzleState):
+        return np.array_equal(state.tiles, self.goal)
+
+    def try_make_solution(self, state: SlidingTilePuzzleState, other_problem):
+        pass

@@ -110,9 +110,9 @@ class Levin(Agent):
             for i, child in enumerate(children_to_be_evaluated):
                 lc = levin_cost(child)
                 child.log_action_probs = log_action_probs[i]
-                child.levin_cost = lc  # type:ignore
+                child.levin_cost = lc
 
-                if child not in reached:  # or child.g_cost < reached[child].g_cost:
+                if child not in reached:
                     heapq.heappush(frontier, child)
                     reached[child] = child
 

@@ -7,6 +7,18 @@ class State(ABC):
     def as_tensor(self):
         pass
 
+    @abstractmethod
+    def __repr__(self):
+        pass
+
+    @abstractmethod
+    def __eq__(self):
+        pass
+
+    @abstractmethod
+    def __hash__(self):
+        pass
+
 
 class Domain(ABC):
     @property
@@ -37,10 +49,6 @@ class Domain(ABC):
 
     @abstractmethod
     def try_make_solution(self, action: int, state: State):
-        pass
-
-    @abstractmethod
-    def get_merged_trajectory(self, action: int, state: State):
         pass
 
 

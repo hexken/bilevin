@@ -25,8 +25,8 @@ def parse_args():
         "-d",
         "--domain",
         type=str,
-        default="SlidingTile",
-        choices=["SlidingTile", "Witness"],
+        default="SlidingTilePuzzle",
+        choices=["SlidingTilePuzzle", "Witness"],
         help="problem domain",
     )
     parser.add_argument(
@@ -222,14 +222,13 @@ if __name__ == "__main__":
     problems_gathered = []
     problems_per_process = 0
     problem_files = sorted(args.problems_path.iterdir())
-    if args.domain == "SlidingTile":
-        num_actions = 4
+
+    if args.domain == "SlidingTilePuzzle":
         for file in problem_files:
             problems_gathered.extend(
                 [SlidingTilePuzzle(line) for line in file.read_text().splitlines()]
             )
     elif args.domain == "Witness":
-        num_actions = 4
         all_lines = []
         for file in problem_files:
             problems_gathered.extend(
@@ -252,6 +251,8 @@ if __name__ == "__main__":
             )
         }
         problems.append(problems_local)
+
+    num_actions = problems[0][1].num_actions
     in_channels = problems[0][1].in_channels
 
     if world_size > 1:
@@ -346,7 +347,7 @@ if __name__ == "__main__":
 
     if args.model_path.is_file():
         if agent.bidirectional:
-            forward_model.load_state_dict(to.load(args.model_path))  # type:ignore
+            forward_model.load_state_dict(to.load(args.model_path))
             backward_model_path = Path(
                 str(args.model_path).replace("_forward.pt", "_backward.pt")
             )

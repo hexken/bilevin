@@ -15,7 +15,28 @@ from search.utils import SearchNode
 
 class WitnessState(State):
     """
-    dots origin is bottom left of plot(). head row col refers to dots, seg row/cols refer to cells.
+    A Witness State.
+
+    Parameters
+    ----------
+    start_row : int
+        The starting row of the snake, where row refers to the horizontal grid lines with with 0
+        corresponding to the bottom grid line.
+    start_col : int
+        The starting column of the snake, where column refers to the vertical grid lines with with 0
+        corresponding to the leftmost grid line.
+    goal_row : int
+        The goal row of the snake, where row refers to the horizontal grid lines with with 0
+        corresponding to the bottom grid line.
+    goal_col : int
+        The goal column of the snake, where column refers to the vertical grid lines with with 0
+        corresponding to the leftmost grid line.
+    cells : np.ndarray
+        Stores the color of each cell in the grid. The first dimension of the array corresponds to
+        the rows, second dimension columns. NOTE that cell row/col refer to the cells, not the grid
+        intersections as in the start/goal attrs.
+
+    other row attrs refer to the cell row/cols.
     """
 
     def __init__(
@@ -272,12 +293,26 @@ class WitnessState(State):
 
 
 class Witness(Domain):
+    """
+    An executor for a Witness problem.
+    """
+
     def __init__(
         self,
         puzzle,
         max_rows=11,
         max_cols=11,
     ):
+        """
+        Initializes  a witness executor specific to a problem, and creates the initial state.
+
+        Parameters
+        ----------
+        puzzle :
+            A 3 element list of strings. The elements correspond to the Size, Init, Goal, and
+            Colors, as
+            specified in the witness puzzle dataset, or the generator script.
+        """
         assert max_rows == max_cols
         self.max_rows = max_rows
         self.max_cols = max_cols
@@ -609,6 +644,13 @@ class Witness(Domain):
     def try_make_solution(
         self, node, other_problem, num_expanded, device=to.device("cpu")
     ) -> Optional[tuple[Trajectory, Trajectory]]:
+        """
+        Tries to create a solution from the current node and the nodes visited by the other search
+        direction. Check if the heads coincide, and if so create a single node with its trajectory
+        in the direction specified by self. Check if the merged state is a goal state and create a
+        forward and backward Trajectory if so.
+
+        """
         state = node.state
         head_dot = (state.head_row, state.head_col)
         if head_dot not in other_problem.heads:
@@ -626,7 +668,7 @@ class Witness(Domain):
             merged_state.head_row = other_state.start_row
             merged_state.head_col = other_state.start_col
 
-            if other_problem.is_goal(merged_state):
+            if self.is_goal(merged_state):
                 if self.forward:
                     f_common_node = node
                     b_common_node = other_node
@@ -646,7 +688,8 @@ class Witness(Domain):
 
     def backward_problem(self):
         """
-        Should only be called on a fresh domain (no calls to update)
+        Should only be called on a fresh domain (no calls to update). Reverses a witness problem by
+        reversing the head and goal (and updating dots to be consistent with this change).
         """
         domain = deepcopy(self)
 
