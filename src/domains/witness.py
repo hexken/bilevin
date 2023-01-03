@@ -352,7 +352,7 @@ class Witness(Domain):
         self.forward = True
 
     def reset(self):
-        return self.initial_state  # todo might need deeopcopy, check mutability reqs
+        return self.initial_state
 
     def update(self, node: SearchNode):
         head = (node.state.head_row, node.state.head_col)

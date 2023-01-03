@@ -239,6 +239,9 @@ if __name__ == "__main__":
             )
         backward = "single"
 
+    for p in problems_gathered:
+        assert not p.is_goal(p.initial_state)
+
     problems_per_process = len(problems_gathered) // world_size
     for proc in range(world_size):
         problems_local = {

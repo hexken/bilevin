@@ -40,8 +40,8 @@ class SlidingTilePuzzleState(State):
             return arr
         else:
             return to.stack(
-                (arr, SlidingTilePuzzle._forward_initial_state_t)
-            )  # type:ignore
+                (arr, SlidingTilePuzzle._forward_initial_state_t)  # type:ignore
+            )
 
     def __repr__(self):
         return self.one_line()
@@ -202,18 +202,6 @@ class SlidingTilePuzzle(Domain):
     def is_goal(self, state: SlidingTilePuzzleState):
         return np.array_equal(state.tiles, self.goal)
 
-    def reverse_trajectory(
-        self, traj: Trajectory, device: to.device = to.device("cpu")
-    ):
-        """
-        Returns a new a trajectory that is the reverse of f_trajectory.
-        """
-        b_traj = deepcopy(traj)
-        b_traj.states = to.flip(traj.states, dims=[0])
-        b_traj.actions = to.flip(traj.actions, dims=[0])
-        b_traj.cost_to_gos = to.flip(traj.cost_to_gos, dims=[0])
-        return b_traj
-
     def get_merged_trajectory(
         self,
         dir1_common: SearchNode,
@@ -276,7 +264,6 @@ class SlidingTilePuzzle(Domain):
             b_traj = self.get_merged_trajectory(
                 b_common_node, f_common_node, type(node), num_expanded, device
             )
-            # b_traj = self.get_merged_trajectory()(f_traj)
 
             return (f_traj, b_traj)
         else:
