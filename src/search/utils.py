@@ -75,53 +75,6 @@ class Trajectory:
         return len(self.states)
 
 
-def reverse_trajectory(f_trajectory: Trajectory, device=None):
-    """
-    Returns a new a trajectory that is the reverse of f_trajectory.
-    """
-    device = device if device else f_trajectory.device
-    dummy_node = SearchNode(state=None, parent=None, action=None, g_cost=None)
-    b_trajectory = Trajectory(
-        dummy_node, num_expanded=f_trajectory.num_expanded, device=device
-    )
-    if hasattr(f_trajectory, "solution_prob"):
-        b_trajectory.solution_prob = f_trajectory.solution_prob
-    b_trajectory.goal = f_trajectory.goal
-    b_trajectory.states = to.flip(f_trajectory.states, dims=[0])
-    b_trajectory.actions = to.flip(f_trajectory.actions, dims=[0])
-    b_trajectory.cost_to_gos = to.flip(f_trajectory.cost_to_gos, dims=[0])
-    return b_trajectory
-
-
-def get_merged_trajectory(
-    f_common: SearchNode,
-    b_common: SearchNode,
-    node_type: Type[SearchNode],
-    num_expanded: int,
-    device=to.device("cpu"),
-):
-    """
-    Returns a new trajectory going from f_start to b_start, passing through f_common ==(state) b_common.
-    """
-    # todo if this is slow, can build the Trajectory directly without creating nodes
-    assert f_common.state == b_common.state
-    f_node = f_common
-    b_node = b_common
-    prev_b_node = b_node
-    b_node = b_node.parent
-    # todo still not correct!
-    while b_node:
-        new_f_node = node_type(
-            state=b_node.state,
-            parent=f_node,
-            parent_action=prev_b_node.reverse_action,
-            g_cost=f_node.g_cost + 1,
-        )
-        f_node = new_f_node
-        prev_b_node = b_node
-        b_node = b_node.parent
-
-    return Trajectory(f_node, num_expanded, device=device)
 
 
 class MergedTrajectory:

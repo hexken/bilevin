@@ -1,5 +1,10 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Optional
+
+import torch as to
+
+from search.utils import SearchNode, Trajectory
 
 
 class State(ABC):
@@ -36,6 +41,10 @@ class Domain(ABC):
         pass
 
     @abstractmethod
+    def update(self, node: SearchNode):
+        pass
+
+    @abstractmethod
     def actions(self, state: State):
         pass
 
@@ -44,11 +53,13 @@ class Domain(ABC):
         pass
 
     @abstractmethod
-    def result(self, action: int, state: State):
+    def result(self, action, state: State):
         pass
 
     @abstractmethod
-    def try_make_solution(self, action: int, state: State):
+    def try_make_solution(
+        self, state: State, other_problem: Domain, num_expanded: int, device: to.device
+    ) -> Optional[tuple[Trajectory, Trajectory]]:
         pass
 
 

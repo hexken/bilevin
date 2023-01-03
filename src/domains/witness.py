@@ -152,7 +152,7 @@ class WitnessState(State):
     def __hash__(self):
         # todo I removed the cells check in hash and eq, since they should all be the same for a
         # given problem. Double check
-        return hash((self.v_segs.tobytes(), self.h_segs.tobytes()))
+        return (self.v_segs.tobytes(), self.h_segs.tobytes()).__hash__()
 
     def __eq__(self, other):
         return (
@@ -604,7 +604,6 @@ class Witness(Domain):
         """
         Returns a new trajectory going from f_start to b_start, passing through merge(f_common, b_common).
         """
-        # todo if this is slow, can build the Trajectory directly without creating nodes
         f_node = f_common
         parent_b_node = b_common.parent
         parent_b_action = b_common.parent_action
@@ -642,7 +641,7 @@ class Witness(Domain):
         return Trajectory(f_node, num_expanded, device=device)
 
     def try_make_solution(
-        self, node, other_problem, num_expanded, device=to.device("cpu")
+        self, node, other_problem, num_expanded, device: to.device = to.device("cpu")
     ) -> Optional[tuple[Trajectory, Trajectory]]:
         """
         Tries to create a solution from the current node and the nodes visited by the other search
