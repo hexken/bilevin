@@ -11,7 +11,7 @@ import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from domains import SlidingTilePuzzle, Witness
-from models import ConvNetSingle
+from models import ConvNetSingle, ConvNetDouble
 import models.loss_functions as loss_fns
 from search import BiLevin, Levin
 from search.agent import Agent
@@ -215,10 +215,8 @@ if __name__ == "__main__":
         f"{args.domain}_{args.agent}_{args.seed}_{int(start_time)}{args.exp_name}"
     )
 
-    agent = None
     problems = []
-    num_actions = 0
-    in_channels = 0
+    double_backward = False
     problems_gathered = []
     problems_per_process = 0
     problem_files = sorted(args.problems_path.iterdir())
@@ -228,6 +226,7 @@ if __name__ == "__main__":
             problems_gathered.extend(
                 [SlidingTilePuzzle(line) for line in file.read_text().splitlines()]
             )
+        double_backward = True
     elif args.domain == "Witness":
         all_lines = []
         for file in problem_files:
@@ -238,6 +237,7 @@ if __name__ == "__main__":
                     if len(line_list := lines.splitlines()) == 4
                 ]
             )
+        backward = "single"
 
     problems_per_process = len(problems_gathered) // world_size
     for proc in range(world_size):
@@ -254,6 +254,7 @@ if __name__ == "__main__":
 
     num_actions = problems[0][1].num_actions
     in_channels = problems[0][1].in_channels
+    initial_size = problems[0][1].state_size
 
     if world_size > 1:
         backend = "nccl" if args.cuda and to.cuda.is_available() else "gloo"
@@ -329,7 +330,6 @@ if __name__ == "__main__":
         )
     assert agent is not None
 
-    initial_size = problems[0][1].state_size
     if args.agent == "Levin":
         model = ConvNetSingle(in_channels, initial_size, (2, 2), 32, num_actions).to(
             device
@@ -338,16 +338,21 @@ if __name__ == "__main__":
         forward_model = ConvNetSingle(
             in_channels, initial_size, (2, 2), 32, num_actions
         ).to(device)
-        backward_model = ConvNetSingle(
-            in_channels, initial_size, (2, 2), 32, num_actions
-        ).to(device)
+        if double_backward:
+            backward_model = ConvNetDouble(
+                in_channels, initial_size, (2, 2), 32, num_actions
+            ).to(device)
+        else:
+            backward_model = ConvNetSingle(
+                in_channels, initial_size, (2, 2), 32, num_actions
+            ).to(device)
         model = forward_model, backward_model
     else:
         raise ValueError("Search agent not recognized")
 
     if args.model_path.is_file():
         if agent.bidirectional:
-            forward_model.load_state_dict(to.load(args.model_path))
+            forward_model.load_state_dict(to.load(args.model_path))  # type:ignore
             backward_model_path = Path(
                 str(args.model_path).replace("_forward.pt", "_backward.pt")
             )

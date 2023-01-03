@@ -35,10 +35,10 @@ class BiLevin(Agent):
         b_problem = problem.backward_problem()
 
         f_state = problem.reset()
-        f_state_t = f_state.as_tensor(device)
+        f_state_t = f_state.as_tensor(device).unsqueeze(0)
 
         b_state = b_problem.reset()
-        b_state_t = b_state.as_tensor(device)
+        b_state_t = b_state.as_tensor(device).unsqueeze(0)
 
         forward_model, backward_model = model
 
@@ -50,7 +50,7 @@ class BiLevin(Agent):
             g_cost=0,
             log_prob=1.0,
             levin_cost=1,
-            log_action_probs=mixture_uniform(f_action_logits, self.weight_uniform),
+            log_action_probs=mixture_uniform(f_action_logits[0], self.weight_uniform),
             num_expanded_when_generated=0,
         )
 
@@ -59,7 +59,7 @@ class BiLevin(Agent):
             g_cost=0,
             log_prob=1.0,
             levin_cost=1,
-            log_action_probs=mixture_uniform(b_action_logits, self.weight_uniform),
+            log_action_probs=mixture_uniform(b_action_logits[0], self.weight_uniform),
             num_expanded_when_generated=0,
         )
 
@@ -87,9 +87,6 @@ class BiLevin(Agent):
                 and time.time() > end_time
             ):
                 return (False, num_expanded, num_generated, None)
-
-            if len(f_frontier) == 0 or len(b_frontier) == 0:
-                print("hi")
 
             if b_frontier[0] < f_frontier[0]:
                 direction = TwoDir.BACKWARD

@@ -1,14 +1,17 @@
+from __future__ import annotations
 import heapq
 import math
 import time
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import torch as to
 
-from domains.domain import State
 from models.utils import mixture_uniform
 from search.agent import Agent
 from search.utils import SearchNode, Trajectory
+
+if TYPE_CHECKING:
+    from domains.domain import State
 
 
 class Levin(Agent):
@@ -35,7 +38,7 @@ class Levin(Agent):
         device = next(model.parameters()).device
 
         state = problem.reset()
-        state_t = state.as_tensor(device)
+        state_t = state.as_tensor(device).unsqueeze(0)
 
         action_logits = model(state_t)
 
@@ -44,7 +47,7 @@ class Levin(Agent):
             g_cost=0,
             log_prob=1.0,
             levin_cost=1,
-            log_action_probs=mixture_uniform(action_logits, self.weight_uniform),
+            log_action_probs=mixture_uniform(action_logits[0], self.weight_uniform),
             num_expanded_when_generated=0,
         )
 

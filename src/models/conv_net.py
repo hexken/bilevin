@@ -23,13 +23,7 @@ class ConvBlock(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
 
-        dims = len(x.shape)
-        if dims == 4:
-            x = x.flatten(1)
-        elif dims == 3:
-            x = x.flatten()
-        else:
-            raise ValueError("Invalid input shape")
+        x = x.flatten(1)
 
         return x
 
@@ -70,14 +64,13 @@ class ConvNetDouble(nn.Module):
         self.linear2 = nn.Linear(256, 128)
         self.linear3 = nn.Linear(128, num_actions)
 
-    def forward(self, x1, x2):
+    def forward(self, x):
         """
         x1: current state
         x2: goal state
         """
-
-        x1 = self.convblock1(x1)
-        x2 = self.convblock2(x2)
+        x1 = self.convblock1(x[:, 0])
+        x2 = self.convblock2(x[:, 1])
 
         x = to.cat((x1, x2), dim=-1)
         x = F.relu(self.linear1(x))

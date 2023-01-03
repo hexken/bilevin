@@ -595,50 +595,51 @@ class Witness(Domain):
 
     def get_merged_trajectory(
         self,
-        f_common: SearchNode,
-        b_common: SearchNode,
+        dir1_common: SearchNode,
+        dir2_common: SearchNode,
         node_type: Type[SearchNode],
         num_expanded: int,
         device=to.device("cpu"),
     ):
         """
-        Returns a new trajectory going from f_start to b_start, passing through merge(f_common, b_common).
+        Returns a new trajectory going from dir1_start to dir2_start, passing through
+        merge(dir1_common, dir2_common).
         """
-        f_node = f_common
-        parent_b_node = b_common.parent
-        parent_b_action = b_common.parent_action
-        while parent_b_node:
-            new_state = deepcopy(f_node.state)
+        dir1_node = dir1_common
+        parent_dir2_node = dir2_common.parent
+        parent_dir2_action = dir2_common.parent_action
+        while parent_dir2_node:
+            new_state = deepcopy(dir1_node.state)
             new_state.dots[
-                parent_b_node.state.head_row, parent_b_node.state.head_col
+                parent_dir2_node.state.head_row, parent_dir2_node.state.head_col
             ] = 1
 
-            if parent_b_action == FourDir.UP:
+            if parent_dir2_action == FourDir.UP:
                 new_state.v_segs[new_state.head_row - 1, new_state.head_col] = 1
                 new_state.head_row -= 1
-            elif parent_b_action == FourDir.DOWN:
+            elif parent_dir2_action == FourDir.DOWN:
                 new_state.v_segs[new_state.head_row, new_state.head_col] = 1
                 new_state.head_row += 1
-            elif parent_b_action == FourDir.RIGHT:
+            elif parent_dir2_action == FourDir.RIGHT:
                 new_state.h_segs[new_state.head_row, new_state.head_col - 1] = 1
                 new_state.head_col -= 1
-            elif parent_b_action == FourDir.LEFT:
+            elif parent_dir2_action == FourDir.LEFT:
                 new_state.h_segs[new_state.head_row, new_state.head_col] = 1
                 new_state.head_col += 1
             else:
                 raise ValueError("Invalid parent action")
 
-            new_f_node = node_type(
+            new_dir1_node = node_type(
                 state=new_state,
-                parent=f_node,
-                parent_action=self.reverse_action(parent_b_action),
-                g_cost=f_node.g_cost + 1,
+                parent=dir1_node,
+                parent_action=self.reverse_action(parent_dir2_action),
+                g_cost=dir1_node.g_cost + 1,
             )
-            f_node = new_f_node
-            parent_b_action = parent_b_node.parent_action
-            parent_b_node = parent_b_node.parent
+            dir1_node = new_dir1_node
+            parent_dir2_action = parent_dir2_node.parent_action
+            parent_dir2_node = parent_dir2_node.parent
 
-        return Trajectory(f_node, num_expanded, device=device)
+        return Trajectory(dir1_node, num_expanded, device=device)
 
     def try_make_solution(
         self, node, other_problem, num_expanded, device: to.device = to.device("cpu")

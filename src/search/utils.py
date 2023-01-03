@@ -36,18 +36,24 @@ class BidirectionalSearchNode(SearchNode):
 
 
 class Trajectory:
-    def __init__(self, final_node: SearchNode, num_expanded: int, device: to.device):
+    def __init__(
+        self,
+        final_node: SearchNode,
+        num_expanded: int,
+        device: to.device = to.device("cpu"),
+    ):
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
+        self.device = device
         self.num_expanded = num_expanded
         # if hasattr(final_node, "log_prob"):
         #     self.solution_prob = exp(final_node.log_prob)  # type:ignore
 
         action = final_node.parent_action
         node = final_node.parent
-        self.goal = final_node.state.as_tensor(device)
+        # self.goal = final_node.state.as_tensor(device)
         states = []
         actions = []
         cost_to_gos = []
@@ -73,8 +79,6 @@ class Trajectory:
 
     def __len__(self):
         return len(self.states)
-
-
 
 
 class MergedTrajectory:

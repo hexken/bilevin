@@ -150,15 +150,7 @@ def train(
                 if solution_length:
                     forward_trajs.append(traj[0])
                     if bidirectional:
-                        # btraj = traj[1]
-                        # dims = [1] * btraj.states.dim()
-                        # goal_repeated = btraj.goal.repeat(len(btraj.states), *dims)
-                        # btraj_states_with_goal = to.vstack(
-                        #     (btraj.states, goal_repeated)
-                        # )
-                        # btraj.states = btraj_states_with_goal
-                        # backward_trajs.append(btraj)
-                        backward_trajs.append(traj[0])
+                        backward_trajs.append(traj[1])
 
             if world_size > 1:
                 dist.all_gather(batch_results, local_batch_results)
