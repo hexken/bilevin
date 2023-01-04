@@ -9,9 +9,10 @@ import numpy as np
 import torch as to
 import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
+import wandb
 
 from domains import SlidingTilePuzzle, Witness
-from models import ConvNetSingle, ConvNetDouble
+from models import ConvNetDouble, ConvNetSingle
 import models.loss_functions as loss_fns
 from search import BiLevin, Levin
 from search.agent import Agent
@@ -179,9 +180,10 @@ def parse_args():
         help="track basic metrics with tensorboard",
     )
     parser.add_argument(
-        "--wandb",
-        action="store_true",
-        default=False,
+        "--wandb-mode",
+        type=str,
+        default="disabled",
+        choices=["disabled", "online", "offline"],
         help="track with Weights and Biases",
     )
     parser.add_argument(
@@ -264,18 +266,17 @@ if __name__ == "__main__":
 
     if rank == 0:
         print(time.ctime(start_time))
-        if args.wandb:
-            import wandb
-
-            wandb.init(
-                project=args.wandb_project,
-                entity=args.wandb_entity,
-                sync_tensorboard=True,
-                config=vars(args),
-                name=run_name,
-                save_code=True,
-                settings=wandb.Settings(code_dir="src/"),
-            )
+        wandb.init(
+            mode=args.wandb_mode,
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=vars(args),
+            name=run_name,
+            save_code=True,
+            settings=wandb.Settings(code_dir="src/"),
+        )
+        if args.wandb_mode != "disabled":
             print(
                 f"Logging with Weights and Biases\n  to {args.wandb_entity}/{args.wandb_project}/{run_name}"
             )
