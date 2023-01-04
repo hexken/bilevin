@@ -237,7 +237,6 @@ if __name__ == "__main__":
                     if len(line_list := lines.splitlines()) == 4
                 ]
             )
-        backward = "single"
 
     for p in problems_gathered:
         assert not p.is_goal(p.initial_state)

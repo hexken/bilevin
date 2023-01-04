@@ -73,7 +73,7 @@ class WitnessState(State):
         self.h_segs = np.zeros((num_rows + 1, num_cols))
 
     def is_head_at_goal(self):
-        return self.head_row == self.goal_col and self.head_col == self.goal_col
+        return self.head_row == self.goal_row and self.head_col == self.goal_col
 
     def as_tensor(self, device=to.device("cpu")):
         """
@@ -129,7 +129,7 @@ class WitnessState(State):
 
         # channel for the exit of the puzzle
         channel_number += 1
-        arr[channel_number, 2 * self.goal_col, 2 * self.goal_col] = 1
+        arr[channel_number, 2 * self.goal_row, 2 * self.goal_col] = 1
 
         # channel for the entrance of the puzzle
         channel_number += 1
@@ -257,17 +257,17 @@ class WitnessState(State):
         elif self.goal_col == 0:
             column_exit_offset = -0.15
             exit_symbol = "<"
-        elif self.goal_col == self.num_rows:
+        elif self.goal_row == self.num_rows:
             row_exit_offset = 0.15
             exit_symbol = "^"
         else:
             row_exit_offset = -0.15
             exit_symbol = "v"
         # Draw the exit of the puzzle: red if it is on a path, black otherwise
-        if self.dots[self.goal_col, self.goal_col] == 0:
+        if self.dots[self.goal_row, self.goal_col] == 0:
             ax.plot(
                 self.goal_col + column_exit_offset,
-                self.goal_col + row_exit_offset,
+                self.goal_row + row_exit_offset,
                 exit_symbol,
                 markersize=10,
                 markeredgecolor=(0, 0, 0),
@@ -277,7 +277,7 @@ class WitnessState(State):
         else:
             ax.plot(
                 self.goal_col + column_exit_offset,
-                self.goal_col + row_exit_offset,
+                self.goal_row + row_exit_offset,
                 exit_symbol,
                 markersize=10,
                 markeredgecolor=(0, 0, 0),
