@@ -78,7 +78,7 @@ class WitnessState(State):
     def as_tensor(self, device=to.device("cpu")):
         """
         Generates an image representation for the puzzle. Currently the method supports 4 colors and includes
-        the following channels (third dimension of image): one channel for each color; one channel with 1's
+        the following channels (1st dimension of image): one channel for each color; one channel with 1's
         where is "open" in the grid (this allows learning systems to work with a fixed image size defined
         by max_lines and max_columns); one channel for the current path (cells occupied by the snake);
         one channel for the tip of the snake; one channel for the exit of the puzzle; one channel for the
@@ -95,33 +95,96 @@ class WitnessState(State):
         arr = np.asarray(image)
 
         # create one channel for each color i
-        for i in range(0, number_of_colors):
-            for j in range(0, self.cells.shape[0]):
-                for k in range(0, self.cells.shape[1]):
+        for i in range(number_of_colors):
+            for j in range(self.num_rows):
+                for k in range(self.num_cols):
                     if self.cells[j, k] == i:
                         arr[i, 2 * j + 1, 2 * k + 1] = 1
         channel_number = number_of_colors
 
         # the number_of_colors-th channel specifies the open spaces in the grid
-        for j in range(0, 2 * self.num_rows + 1):
-            for k in range(0, 2 * self.num_cols + 1):
+        for j in range(2 * self.num_rows + 1):
+            for k in range(2 * self.num_cols + 1):
                 arr[channel_number, j, k] = 1
 
         # channel for the current path
+        # vsegs
         channel_number += 1
-        for i in range(0, self.v_segs.shape[0]):
-            for j in range(0, self.v_segs.shape[1]):
+        for i in range(self.num_rows):
+            for j in range(self.num_cols + 1):
                 if self.v_segs[i, j] == 1:
                     arr[channel_number, 2 * i, 2 * j] = 1
                     arr[channel_number, 2 * i + 1, 2 * j] = 1
                     arr[channel_number, 2 * i + 2, 2 * j] = 1
 
-        for i in range(0, self.h_segs.shape[0]):
-            for j in range(0, self.h_segs.shape[1]):
+        # hsegs
+        for i in range(self.num_rows + 1):
+            for j in range(self.num_cols):
                 if self.h_segs[i, j] == 1:
                     arr[channel_number, 2 * i, 2 * j] = 1
                     arr[channel_number, 2 * i, 2 * j + 1] = 1
                     arr[channel_number, 2 * i, 2 * j + 2] = 1
+
+        # channel with the tip of the snake
+        channel_number += 1
+        arr[channel_number, 2 * self.head_row, 2 * self.head_col] = 1
+
+        # channel for the exit of the puzzle
+        channel_number += 1
+        arr[channel_number, 2 * self.goal_row, 2 * self.goal_col] = 1
+
+        # channel for the entrance of the puzzle
+        channel_number += 1
+        arr[channel_number, 2 * self.head_row, 2 * self.head_col] = 1
+
+        image = image.to(device)
+        return image
+
+    def as_tensor2(self, device=to.device("cpu")):
+        """
+        Generates an image representation for the puzzle. Currently the method supports 4 colors and includes
+        the following channels (1st dimension of image): one channel for each color; one channel with 1's
+        where is "open" in the grid (this allows learning systems to work with a fixed image size defined
+        by max_lines and max_columns); one channel for the current path (cells occupied by the snake);
+        one channel for the tip of the snake; one channel for the exit of the puzzle; one channel for the
+        entrance of the snake. In total there are 9 different channels.
+
+        Each channel is a matrix with zeros and ones. The image returned is a 3-dimensional numpy array.
+        """
+
+        num_colors = 4
+        channels = 9
+
+        # defining the 3-dimnesional array that will be filled with the puzzle's information
+        image = to.zeros(channels, 2 * self.max_rows, 2 * self.max_cols)
+        arr = np.asarray(image)
+
+        # create one channel for each color i
+        for i, j, k in product(
+            range(num_colors), range(self.num_rows), range(self.num_cols)
+        ):
+            if self.cells[j, k] == i:
+                arr[i, 2 * j + 1, 2 * k + 1] = 1
+        channel_number = num_colors
+
+        # the number_of_colors-th channel specifies the open spaces in the grid
+        for j, k in product(range(2 * self.num_rows + 1), range(2 * self.num_cols + 1)):
+            arr[channel_number, j, k] = 1
+
+        # channel for the current path
+        # vsegs
+        channel_number += 1
+        for i, j in product(range(self.num_rows), range(self.num_cols + 1)):
+            if self.v_segs[i, j] == 1:
+                arr[channel_number, 2 * i, 2 * j] = 1
+                arr[channel_number, 2 * i + 1, 2 * j] = 1
+                arr[channel_number, 2 * i + 2, 2 * j] = 1
+        # hsegs
+        for i, j in product(range(self.num_rows + 1), range(self.num_cols)):
+            if self.h_segs[i, j] == 1:
+                arr[channel_number, 2 * i, 2 * j] = 1
+                arr[channel_number, 2 * i, 2 * j + 1] = 1
+                arr[channel_number, 2 * i, 2 * j + 2] = 1
 
         # channel with the tip of the snake
         channel_number += 1

@@ -13,4 +13,4 @@ python src/main.py \
     --grad-steps 10 \
     --batch-size-bootstrap 1 \
     --seed 1 \
-    --wandb online
+    --wandb disabled
