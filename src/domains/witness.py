@@ -415,6 +415,7 @@ class Witness(Domain):
         self.forward = True
 
     def reset(self):
+        self.heads = {}
         return self.initial_state
 
     def update(self, node: SearchNode):
@@ -608,7 +609,6 @@ class Witness(Domain):
             frontier.append(root)
             visited[root] = 1
             while len(frontier) != 0:
-                # remove first cell (state) from queue
                 cell = frontier.popleft()
 
                 def reachable_neighbors(self, cell):

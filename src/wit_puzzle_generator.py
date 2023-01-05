@@ -1,253 +1,164 @@
 import argparse
-from concurrent.futures.process import ProcessPoolExecutor
-import copy
-import os
+from collections import deque
+from itertools import product
+from pathlib import Path
 import random
-import time
 
 import numpy as np
+import tqdm
 
-from domains.witness import WitnessState
-
-
-class PuzzleGenerator:
-    def fill_region(self, state, region, color, prob):
-        """
-        Fills the percentage specified in variable prob of grid cells with bullets of the color
-        specified in the variable color.
-        """
-        filled_with_color = False
-        for i in range(0, len(region)):
-            random_number = random.random()
-
-            if random_number <= prob:
-                state.add_color(region[i][0], region[i][1], color)
-                filled_with_color = True
-        return filled_with_color
-
-    def generate_random_path(
-        self, lines, columns, line_init, column_init, line_goal, column_goal
-    ):
-        """
-        Generates a solution path for a grid with starting position at (line_init, column_init)
-        and finishing position at (line_goal, column_goal). The grid is defined by a grid of size
-        lines x columns.
-
-        Returns a GameState instance representing the path.
-        """
-        while True:
-            state = WitnessState(
-                lines, columns, line_init, column_init, line_goal, column_goal
-            )
-            actions = state.successors()
-            while actions:
-                rand_action = random.randint(0, len(actions) - 1)
-                state.apply_action(actions[rand_action])
-                if state.has_tip_reached_goal():
-                    return state
-                actions = state.successors()
-
-    def generate_puzzles_of_size(self, input_data):
-
-        size = input_data[0]
-        minimum_number_regions = input_data[1]
-        color_bullets = input_data[2]
-        bullet_probability = input_data[3]
-
-        states = []
-        for i in range(1, size[1] + 1):
-            # lines, columns, line_init, column_init, line_goal, column_goal
-            states.append(self.generate_random_path(size[0], size[1], 0, 0, 0, i))
-            states.append(self.generate_random_path(size[0], size[1], 0, 0, size[0], i))
-        for i in range(1, size[0] + 1):
-            # lines, columns, line_init, column_init, line_goal, column_goal
-            states.append(self.generate_random_path(size[0], size[1], 0, 0, i, 0))
-            states.append(self.generate_random_path(size[0], size[1], 0, 0, i, size[1]))
-
-        #             np.random.shuffle(states)
-        filled_states = []
-
-        for state in states:
-            regions = state.partition_cells()
-
-            if len(regions) < minimum_number_regions:
-                continue
-
-            used_colors = set()
-            for region in regions:
-                color = np.random.randint(1, high=len(color_bullets) + 1)
-                while (
-                    size[0] > 2
-                    and color in used_colors
-                    and len(used_colors) < len(color_bullets)
-                ):
-                    color = np.random.randint(1, high=len(color_bullets) + 1)
-                if self.fill_region(state, region, color, bullet_probability):
-                    used_colors.add(color)
-
-            if len(used_colors) < 2:
-                continue
-
-            filled_states.append(state)
-
-        return filled_states
-
-    def generate_puzzles_with_random_paths(
-        self,
-        puzzle_size,
-        bullet_probability,
-        color_bullets,
-        time_limit,
-        puzzle_folder,
-        number_puzzles,
-        ncpus,
-    ):
-        """
-        Generates a set of puzzles for the sizes given in puzzle_sizes. Currently the puzzles
-        have their starting position at (0, 0) and any finishing position at the edge of the grid.
-
-        All generated puzzles are saved in a folder determined by variable puzzle_folder.
-        """
-        start_time = time.time()
-
-        puzzles_generated = set()
-        minimum_number_regions = 2
-        if puzzle_size[0] == 3:
-            minimum_number_regions = 2
-        if puzzle_size[0] >= 4:
-            minimum_number_regions = 4
-        if puzzle_size[0] >= 10:
-            minimum_number_regions = 5
-
-        while (
-            time.time() - start_time < time_limit - 10
-            and len(puzzles_generated) < number_puzzles
-        ):
-
-            with ProcessPoolExecutor(max_workers=ncpus) as executor:
-                args = (
-                    (
-                        puzzle_size,
-                        minimum_number_regions,
-                        color_bullets,
-                        bullet_probability,
-                    )
-                    for _ in range(10 * ncpus)
-                )
-                results = executor.map(self.generate_puzzles_of_size, args)
-
-                for result in results:
-                    puzzles = result
-
-                    for puzzle in puzzles:
-                        puzzle.clear_path()
-
-                        if puzzle not in puzzles_generated:
-                            puzzles_generated.add(puzzle)
-        puzzle_id = 1
-        for puzzle in puzzles_generated:
-            puzzle.save_state(
-                puzzle_folder
-                + "/"
-                + str(puzzle_size[0])
-                + "x"
-                + str(puzzle_size[1])
-                + "_"
-                + str(puzzle_id)
-            )
-
-            if puzzle_id == number_puzzles:
-                break
-
-            puzzle_id += 1
-
-        print(
-            "Generated ",
-            len(puzzles_generated),
-            " puzzles in ",
-            time.time() - start_time,
-            " seconds",
-        )
+from domains.witness import Witness, WitnessState
+from enums import Color
 
 
 def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-folder",
-        action="store",
-        dest="puzzle_folder",
-        default="test_puzzle_output",
-        help="Folder where the generated instances will be saved",
+        "-o",
+        "--output-path",
+        type=lambda p: Path(p).absolute(),
+        help="path to save problem instances",
     )
 
     parser.add_argument(
-        "-time",
-        action="store",
-        dest="time_limit",
-        default=300,
-        help="Time limit in seconds for generating instances",
-    )
-
-    parser.add_argument(
-        "-colors",
-        action="store",
-        dest="colors",
-        default=2,
-        help="Number of different colors to be used",
-    )
-
-    parser.add_argument(
-        "-l",
-        action="store",
-        dest="lines",
-        default=1,
-        help="Number of lines in puzzles to be generated",
-    )
-
-    parser.add_argument(
-        "-c",
-        action="store",
-        dest="columns",
+        "-w",
+        "--width",
+        type=int,
         default=4,
-        help="Number of columns in puzzles to be generated",
-    )
-
-    parser.add_argument(
-        "-p",
-        action="store",
-        dest="bullet_probability",
-        default=0.6,
-        help="Probability of placing a bullet in an empty cell",
+        help="width of puzzles to be generated",
     )
 
     parser.add_argument(
         "-n",
-        action="store",
-        dest="number_puzzles",
+        "--num-problems",
+        type=int,
         default=1000,
-        help="Number of puzzles to be generated",
+        help="number of training puzzles to be generated",
     )
 
-    parameters = parser.parse_args()
-
-    if not os.path.exists(parameters.puzzle_folder):
-        os.makedirs(parameters.puzzle_folder)
-
-    ncpus = int(os.environ.get("SLURM_CPUS_PER_TASK", default=2))
-
-    color_bullets = [i for i in range(1, int(parameters.colors) + 1)]
-
-    generator = PuzzleGenerator()
-    generator.generate_puzzles_with_random_paths(
-        (int(parameters.lines), int(parameters.columns)),
-        float(parameters.bullet_probability),
-        color_bullets,
-        int(parameters.time_limit),
-        parameters.puzzle_folder,
-        int(parameters.number_puzzles),
-        ncpus,
+    parser.add_argument(
+        "-s",
+        "--seed",
+        type=int,
+        default=42,
+        help="random seed",
     )
+
+    parser.add_argument(
+        "-c",
+        "--num-colors",
+        type=int,
+        default=4,
+        help="number of colors to use",
+    )
+
+    parser.add_argument(
+        "-p",
+        "--bullet-prob",
+        dest="bullet_prob",
+        default=0.6,
+        help="probability of placing a bullet in each empty cell",
+    )
+
+    args = parser.parse_args()
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    # to.manual_seed(args.seed)
+
+    colors = range(1, args.colors + 1)
+    goals = [(0, i) for i in range(args.width + 1)] + [
+        (i, 0) for i in range(args.width + 1)
+    ]
+    dummy_problems = [
+        Witness(
+            f"Size: {args.width} {args.width}\nInit: 0 0\nGoal: {g[0]} {g[1]}\nColors: |"
+        )
+        for g in goals
+    ]
+
+    problems = set()
+
+    with tqdm.tqdm(total=args.num_problems) as pbar:
+        while len(problems) < args.num_problems:
+            for wit in dummy_problems:
+                # generate a path from start to goal
+                state = wit.reset()
+                while True:
+                    actions = wit.actions_unpruned(state)
+                    action = random.choice(actions)
+                    state = wit.result(state, action)
+                    if state.is_head_at_goal():
+                        break
+                # commpute the regions separated by the path
+                regions = connected_components(state)
+
+
+def connected_components(state):
+    """
+    Compute the connected components of the grid, i.e. the regions separated by the path
+    """
+    visited = np.zeros((state.num_rows, state.num_cols))
+    cell_states = [
+        (i, j) for i, j in product(range(state.num_rows), range(state.num_cols))
+    ]
+    while len(cell_states) != 0:
+        root = cell_states.pop()
+        # If root of new BFS search was already visited, then go to the next state
+        if visited[root] == 1:
+            continue
+        current_color = Color(state.cells[root])
+
+        frontier = deque()
+        frontier.append(root)
+        visited[root] = 1
+        while len(frontier) != 0:
+            cell = frontier.popleft()
+
+            def reachable_neighbors(cell):
+                """
+                Successor function use in the Breadth-first search (BFS) performed to validate a solution.
+                An adjacent cell c' is amongst the successors of cell c if there is no segment (v_seg or h_seg)
+                separating cells c and c'.
+
+                This method is meant to be called only from within GameState
+                """
+                neighbors = []
+                row, col = cell
+                # move up
+                if row + 1 < state.num_rows and state.h_segs[row + 1, col] == 0:
+                    neighbors.append((row + 1, col))
+                # move down
+                if row > 0 and state.h_segs[row, col] == 0:
+                    neighbors.append((row - 1, col))
+                # move right
+                if col + 1 < state.num_cols and state.v_segs[row, col + 1] == 0:
+                    neighbors.append((row, col + 1))
+                # move left
+                if col > 0 and state.v_segs[row, col] == 0:
+                    neighbors.append((row, col - 1))
+                return neighbors
+
+            neighbors = reachable_neighbors(state, cell)
+            for neighbor in neighbors:
+                # If neighbor is a duplicate, then continue with the next child
+                if visited[neighbor] == 1:
+                    continue
+                # If neighbor's color isn't neutral (zero) and it is different from current_color, then state isn't a soution
+                if (
+                    current_color != Color.NEUTRAL
+                    and Color(state.cells[neighbor]) != Color.NEUTRAL
+                    and Color(state.cells[neighbor]) != current_color
+                ):
+                    return False
+                # If current_color is neutral (zero) and neighbor's color isn't, then attribute c's color to current_color
+                if current_color == Color.NEUTRAL:
+                    current_color = Color(state.cells[neighbor])
+                # Add c to BFS's open list
+                frontier.append(neighbor)
+                # mark state c as visited
+                visited[neighbor] = 1
 
 
 if __name__ == "__main__":

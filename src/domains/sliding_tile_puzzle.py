@@ -98,6 +98,7 @@ class SlidingTilePuzzle(Domain):
         self.forward = True
 
     def reset(self):
+        self.visited = {}
         return self.initial_state
 
     def update(self, node: SearchNode):
