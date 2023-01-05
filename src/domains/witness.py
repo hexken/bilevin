@@ -395,6 +395,9 @@ class Witness(Domain):
         self.cells = np.zeros((self.num_rows, self.num_cols), dtype=np.int32)
         values = puzzle[3].replace("Colors: |", "").split("|")
         for t in values:
+            # todo make sure this didn't break regular problem parsing
+            if not t:
+                break
             numbers = t.split(" ")
             self.cells[int(numbers[0]), int(numbers[1])] = int(numbers[2])
 
