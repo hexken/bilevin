@@ -2,13 +2,13 @@ import argparse
 from collections import deque
 from itertools import product
 from pathlib import Path
+from copy import copy
 import random
 
 import numpy as np
-import tqdm
+from tqdm import tqdm
 
-from domains.witness import Witness, WitnessState
-from enums import Color
+from domains.witness import Witness
 
 
 def main():
@@ -63,60 +63,95 @@ def main():
 
     args = parser.parse_args()
 
+    args.output_path.parent.mkdir(parents=True, exist_ok=True)
+
     random.seed(args.seed)
     np.random.seed(args.seed)
-    # to.manual_seed(args.seed)
 
-    colors = range(1, args.num_colors + 1)
+    colors_prefix = "Colors: |"
 
     goals = (
         [(0, i) for i in range(args.width + 1)]
         + [(i, 0) for i in range(args.width + 1)]
-        + [(args.width + 1, i) for i in range(args.width + 1)]
-        + [(i, args.width + 1) for i in range(args.width + 1)]
+        + [(args.width, i) for i in range(args.width + 1)]
+        + [(i, args.width) for i in range(args.width + 1)]
     )
     goals.remove((0, 0))
 
-    dummy_problems = [
-        Witness(
-            [
-                [f"Size: {args.width} {args.width}"],
-                [f"Init: 0 0"],
-                [f"Goal: {g[0]} {g[1]}"],
-                [f"Colors: |"],
-            ]
-        )
+    partial_specs = [
+        [
+            f"Size: {args.width} {args.width}",
+            f"Init: 0 0",
+            f"Goal: {g[0]} {g[1]}",
+            colors_prefix,
+        ]
         for g in goals
     ]
 
-    problems = set()
+    problem_specs = set()
 
-    with tqdm.tqdm(total=args.num_problems) as pbar:
-        while len(problems) < args.num_problems:
-            for wit in dummy_problems:
-                # generate a path from start to goal
-                state = wit.reset()
-                while True:
-                    actions = wit.actions_unpruned(state)
-                    action = random.choice(actions)
-                    state = wit.result(state, action)
-                    if state.is_head_at_goal():
-                        break
-                # commpute the regions separated by the path
-                regions = connected_components(state)
+    with tqdm(total=args.num_problems) as pbar:
+        while len(problem_specs) < args.num_problems:
+            head_at_goal = False
+            partial_spec = random.choice(partial_specs)
+            wit = Witness(partial_spec)
+            # generate a path from start to goal
+            state = wit.reset()
+            while actions := wit.actions_unpruned(state):
+                action = random.choice(actions)
+                state = wit.result(state, action)
+                if state.is_head_at_goal():
+                    head_at_goal = True
+                    break
 
+            if not head_at_goal:
+                continue
+
+            # commpute the regions separated by the path
+            regions = connected_components(state)
+
+            min_num_regions = 2
+            if args.width == 3:
                 min_num_regions = 2
-                if args.width == 3:
-                    min_num_regions = 2
-                if args.width >= 4:
-                    min_num_regions = 4
-                if args.width >= 10:
-                    min_num_regions = 5
+            if args.width >= 4:
+                min_num_regions = 4
+            if args.width >= 10:
+                min_num_regions = 5
 
-                if len(regions) < min_num_regions:
-                    continue
+            # todo should we allow regions to have the same color?
+            if len(regions) < min_num_regions or len(regions) > args.num_colors:
+                continue
 
-                # fill each region with a color
+            # fill each region with a color
+            colors = random.sample(range(1, args.num_colors + 1), len(regions))
+            color_str = colors_prefix
+            for i, region in enumerate(regions):
+                color = random.choice(colors)
+                region_arr = np.array(sorted(region))
+                region_mask = np.random.rand(len(region_arr)) < args.bullet_prob
+                region_arr = region_arr[region_mask]
+                if len(region_arr):
+                    color_str += "|".join(
+                        f"{row} {col} {color}" for row, col in region_arr
+                    )
+                    if i < len(regions) - 1:
+                        color_str += "|"
+                    colors.remove(color)
+
+            # todo should we consider all problems with the same path as duplicates? Might lead to
+            # poorer generalization
+            partial_spec = copy(partial_spec)
+            partial_spec[-1] = color_str
+            formatted_spec = "%s\n" % "\n".join(partial_spec)
+            if formatted_spec in problem_specs:
+                continue
+            else:
+                problem_specs.add(formatted_spec)
+                pbar.update()
+
+    with args.output_path.open("w") as f:
+        for spec in problem_specs:
+            f.write(f"{spec}\n")
 
 
 def connected_components(wit_state):
