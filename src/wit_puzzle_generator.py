@@ -107,7 +107,6 @@ def main():
             if not head_at_goal:
                 continue
 
-            # commpute the regions separated by the path
             regions = connected_components(state)
 
             min_num_regions = 2
@@ -126,17 +125,20 @@ def main():
             colors = random.sample(range(1, args.num_colors + 1), len(regions))
             color_str = colors_prefix
             for i, region in enumerate(regions):
-                color = random.choice(colors)
                 region_arr = np.array(sorted(region))
                 region_mask = np.random.rand(len(region_arr)) < args.bullet_prob
                 region_arr = region_arr[region_mask]
                 if len(region_arr):
                     color_str += "|".join(
-                        f"{row} {col} {color}" for row, col in region_arr
+                        f"{row} {col} {colors[-1]}" for row, col in region_arr
                     )
                     if i < len(regions) - 1:
                         color_str += "|"
-                    colors.remove(color)
+                    colors.pop()
+
+            # Only add if at least two colors were used
+            if len(colors) >= len(regions) - 1:
+                continue
 
             # todo should we consider all problems with the same path as duplicates? Might lead to
             # poorer generalization
@@ -176,13 +178,6 @@ def connected_components(wit_state):
             cell_state = frontier.popleft()
 
             def reachable_neighbors(cell):
-                """
-                Successor function use in the Breadth-first search (BFS) performed to validate a solution.
-                An adjacent cell c' is amongst the successors of cell c if there is no segment (v_seg or h_seg)
-                separating cells c and c'.
-
-                This method is meant to be called only from within GameState
-                """
                 neighbors = []
                 row, col = cell
                 # move up
@@ -201,7 +196,6 @@ def connected_components(wit_state):
 
             neighbors = reachable_neighbors(cell_state)
             for neighbor in neighbors:
-                # If neighbor is a duplicate, then continue with the next child
                 if visited[neighbor] == 1:
                     continue
                 this_region.append(neighbor)

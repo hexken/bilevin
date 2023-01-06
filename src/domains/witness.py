@@ -395,7 +395,6 @@ class Witness(Domain):
         self.cells = np.zeros((self.num_rows, self.num_cols), dtype=np.int32)
         values = puzzle[3].replace("Colors: |", "").split("|")
         for t in values:
-            # todo make sure this didn't break regular problem parsing
             if not t:
                 break
             numbers = t.split(" ")
@@ -616,11 +615,10 @@ class Witness(Domain):
 
                 def reachable_neighbors(self, cell):
                     """
-                    Successor function use in the Breadth-first search (BFS) performed to validate a solution.
+                     Breadth-first search (BFS) performed to validate a solution.
                     An adjacent cell c' is amongst the successors of cell c if there is no segment (v_seg or h_seg)
                     separating cells c and c'.
 
-                    This method is meant to be called only from within GameState
                     """
                     neighbors = []
                     row, col = cell
@@ -640,22 +638,17 @@ class Witness(Domain):
 
                 neighbors = reachable_neighbors(self, cell)
                 for neighbor in neighbors:
-                    # If neighbor is a duplicate, then continue with the next child
                     if visited[neighbor] == 1:
                         continue
-                    # If neighbor's color isn't neutral (zero) and it is different from current_color, then state isn't a soution
                     if (
                         current_color != Color.NEUTRAL
                         and Color(state.cells[neighbor]) != Color.NEUTRAL
                         and Color(state.cells[neighbor]) != current_color
                     ):
                         return False
-                    # If current_color is neutral (zero) and neighbor's color isn't, then attribute c's color to current_color
                     if current_color == Color.NEUTRAL:
                         current_color = Color(state.cells[neighbor])
-                    # Add c to BFS's open list
                     frontier.append(neighbor)
-                    # mark state c as visited
                     visited[neighbor] = 1
         return True
 
