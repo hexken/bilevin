@@ -31,14 +31,14 @@ class Levin(Agent):
         problem_name,
         model,
         budget,
-        learn=False,
+        train=False,
         end_time=None,
     ):
         """ """
         device = next(model.parameters()).device
 
         state = problem.reset()
-        state_t = state.as_tensor(device).unsqueeze(0)
+        state_t = problem.state_tensor(state, device).unsqueeze(0)
 
         action_logits = model(state_t)
 
@@ -92,13 +92,14 @@ class Levin(Agent):
 
                 if problem.is_goal(new_state):
                     solution_len = new_node.g_cost
-                    traj = Trajectory(new_node, num_expanded, device)
-                    if learn:
+                    traj = Trajectory(problem, new_node, num_expanded, device)
+                    if train:
                         traj = (traj,)
                     return solution_len, num_expanded, num_generated, traj
 
                 children_to_be_evaluated.append(new_node)
-                state_t_of_children_to_be_evaluated.append(new_state.as_tensor(device))
+                state_t = problem.state_tensor(new_state, device)
+                state_t_of_children_to_be_evaluated.append(state_t)
 
             batch_states = to.stack(state_t_of_children_to_be_evaluated)
             action_logits = model(batch_states)

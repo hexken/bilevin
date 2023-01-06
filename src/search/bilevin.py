@@ -26,7 +26,7 @@ class BiLevin(Agent):
         problem_name,
         model,
         budget,
-        learn=False,
+        train=False,
         end_time=None,
     ):
         """ """
@@ -35,10 +35,10 @@ class BiLevin(Agent):
         b_problem = problem.backward_problem()
 
         f_state = problem.reset()
-        f_state_t = f_state.as_tensor(device).unsqueeze(0)
+        f_state_t = f_problem.state_tensor(f_state, device).unsqueeze(0)
 
         b_state = b_problem.reset()
-        b_state_t = b_state.as_tensor(device).unsqueeze(0)
+        b_state_t = f_problem.state_tensor(b_state, device).unsqueeze(0)
 
         forward_model, backward_model = model
 
@@ -132,12 +132,16 @@ class BiLevin(Agent):
                         new_node, other_problem, num_expanded
                     )
 
-                    if trajs:
-                        assert len(trajs[0]) == len(trajs[1])
-                        return len(trajs[0]), num_expanded, num_generated, trajs
+                    if trajs:  # solution found
+                        solution_len = len(trajs[0])
+                        assert solution_len == len(trajs[1])
+                        if not train:
+                            trajs = trajs[0]
+                        return solution_len, num_expanded, num_generated, trajs
 
                 children_to_be_evaluated.append(new_node)
-                state_t_of_children_to_be_evaluated.append(new_state.as_tensor(device))
+                state_t = _problem.state_tensor(new_state, device)
+                state_t_of_children_to_be_evaluated.append(state_t)
 
             batch_states = to.stack(state_t_of_children_to_be_evaluated)
             action_logits = _model(batch_states)

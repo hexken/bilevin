@@ -38,6 +38,7 @@ class BidirectionalSearchNode(SearchNode):
 class Trajectory:
     def __init__(
         self,
+        problem,
         final_node: SearchNode,
         num_expanded: int,
         device: to.device = to.device("cpu"),
@@ -48,19 +49,17 @@ class Trajectory:
         """
         self.device = device
         self.num_expanded = num_expanded
-        # if hasattr(final_node, "log_prob"):
-        #     self.solution_prob = exp(final_node.log_prob)  # type:ignore
 
         action = final_node.parent_action
         node = final_node.parent
-        # self.goal = final_node.state.as_tensor(device)
         states = []
         actions = []
         cost_to_gos = []
         cost = 1
 
         while node:
-            states.append(node.state.as_tensor(device))
+            state_t = problem.state_tensor(node.state, device)
+            states.append(state_t)
             actions.append(action)
             cost_to_gos.append(cost)
             action = node.parent_action

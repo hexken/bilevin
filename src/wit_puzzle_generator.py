@@ -100,14 +100,14 @@ def main():
             while actions := wit.actions_unpruned(state):
                 action = random.choice(actions)
                 state = wit.result(state, action)
-                if state.is_head_at_goal():
+                if wit.is_head_at_goal(state):
                     head_at_goal = True
                     break
 
             if not head_at_goal:
                 continue
 
-            regions = connected_components(state)
+            regions = connected_components(wit, state)
 
             min_num_regions = 2
             if args.width == 3:
@@ -156,13 +156,13 @@ def main():
             f.write(f"{spec}\n")
 
 
-def connected_components(wit_state):
+def connected_components(wit, wit_state):
     """
     Compute the connected components of the grid, i.e. the regions separated by the path
     """
-    visited = np.zeros((wit_state.num_rows, wit_state.num_cols))
+    visited = np.zeros((wit.num_rows, wit.num_cols))
     cell_states = [
-        (i, j) for i, j in product(range(wit_state.num_rows), range(wit_state.num_cols))
+        (i, j) for i, j in product(range(wit.num_rows), range(wit.num_cols))
     ]
     regions = []
     while len(cell_states) != 0:
@@ -181,13 +181,13 @@ def connected_components(wit_state):
                 neighbors = []
                 row, col = cell
                 # move up
-                if row + 1 < wit_state.num_rows and wit_state.h_segs[row + 1, col] == 0:
+                if row + 1 < wit.num_rows and wit_state.h_segs[row + 1, col] == 0:
                     neighbors.append((row + 1, col))
                 # move down
                 if row > 0 and wit_state.h_segs[row, col] == 0:
                     neighbors.append((row - 1, col))
                 # move right
-                if col + 1 < wit_state.num_cols and wit_state.v_segs[row, col + 1] == 0:
+                if col + 1 < wit.num_cols and wit_state.v_segs[row, col + 1] == 0:
                     neighbors.append((row, col + 1))
                 # move left
                 if col > 0 and wit_state.v_segs[row, col] == 0:

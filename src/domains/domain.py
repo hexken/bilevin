@@ -8,9 +8,6 @@ from search.utils import SearchNode, Trajectory
 
 
 class State(ABC):
-    @abstractmethod
-    def as_tensor(self):
-        pass
 
     @abstractmethod
     def __repr__(self):
@@ -38,6 +35,10 @@ class Domain(ABC):
 
     @abstractmethod
     def reset(self, state: State) -> bool:
+        pass
+
+    @abstractmethod
+    def state_tensor(self):
         pass
 
     @abstractmethod

@@ -138,7 +138,7 @@ def train(
                     problem_id,
                     model,
                     current_budget,
-                    learn=True,
+                    train=True,
                 )
 
                 local_batch_results[i, 0] = problem_id

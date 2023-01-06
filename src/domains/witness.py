@@ -1,7 +1,7 @@
 from collections import deque
 from copy import deepcopy
-from itertools import product
 from typing import Optional, Type
+from itertools import product
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,343 +16,48 @@ from search.utils import SearchNode
 class WitnessState(State):
     """
     A Witness State.
-
-    Parameters
-    ----------
-    start_row : int
-        The starting row of the snake, where row refers to the horizontal grid lines with with 0
-        corresponding to the bottom grid line.
-    start_col : int
-        The starting column of the snake, where column refers to the vertical grid lines with with 0
-        corresponding to the leftmost grid line.
-    goal_row : int
-        The goal row of the snake, where row refers to the horizontal grid lines with with 0
-        corresponding to the bottom grid line.
-    goal_col : int
-        The goal column of the snake, where column refers to the vertical grid lines with with 0
-        corresponding to the leftmost grid line.
-    cells : np.ndarray
-        Stores the color of each cell in the grid. The first dimension of the array corresponds to
-        the rows, second dimension columns. NOTE that cell row/col refer to the cells, not the grid
-        intersections as in the start/goal attrs.
-
-    other row attrs refer to the cell row/cols.
+    Note that start/head/goal row/col's refer to the grid, not cell locations
     """
 
     def __init__(
         self,
         start_row: int,
         start_col: int,
-        goal_row: int,
-        goal_col: int,
         cells: np.ndarray,
-        num_rows: int,
-        num_cols: int,
-        max_rows: int,
-        max_cols: int,
     ):
         self.start_col = start_col
         self.start_row = start_row
         self.head_col = start_col
         self.head_row = start_row
 
-        self.goal_row = goal_row
-        self.goal_col = goal_col
-
-        self.num_rows = num_rows
-        self.num_cols = num_cols
         self.cells = cells
 
-        self.max_rows = max_rows
-        self.max_cols = max_cols
+        self.grid = np.zeros((Witness.num_rows + 1, Witness.num_cols + 1))
+        self.grid[self.head_row, self.head_col] = 1
 
-        self.dots = np.zeros((num_rows + 1, num_cols + 1))
-        self.dots[self.head_row, self.head_col] = 1
-
-        self.v_segs = np.zeros((num_rows, num_cols + 1))
-        self.h_segs = np.zeros((num_rows + 1, num_cols))
-
-    def is_head_at_goal(self):
-        return self.head_row == self.goal_row and self.head_col == self.goal_col
-
-    def as_tensor(self, device=to.device("cpu")):
-        """
-        Generates an image representation for the puzzle. Currently the method supports 4 colors and includes
-        the following channels (1st dimension of image): one channel for each color; one channel with 1's
-        where is "open" in the grid (this allows learning systems to work with a fixed image size defined
-        by max_lines and max_columns); one channel for the current path (cells occupied by the snake);
-        one channel for the tip of the snake; one channel for the exit of the puzzle; one channel for the
-        entrance of the snake. In total there are 9 different channels.
-
-        Each channel is a matrix with zeros and ones. The image returned is a 3-dimensional numpy array.
-        """
-
-        number_of_colors = 4
-        channels = 9
-
-        # defining the 3-dimnesional array that will be filled with the puzzle's information
-        image = to.zeros(channels, 2 * self.max_rows, 2 * self.max_cols)
-        arr = np.asarray(image)
-
-        # create one channel for each color i
-        for i in range(number_of_colors):
-            for j in range(self.num_rows):
-                for k in range(self.num_cols):
-                    if self.cells[j, k] == i:
-                        arr[i, 2 * j + 1, 2 * k + 1] = 1
-        channel_number = number_of_colors
-
-        # the number_of_colors-th channel specifies the open spaces in the grid
-        for j in range(2 * self.num_rows + 1):
-            for k in range(2 * self.num_cols + 1):
-                arr[channel_number, j, k] = 1
-
-        # channel for the current path
-        # vsegs
-        channel_number += 1
-        for i in range(self.num_rows):
-            for j in range(self.num_cols + 1):
-                if self.v_segs[i, j] == 1:
-                    arr[channel_number, 2 * i, 2 * j] = 1
-                    arr[channel_number, 2 * i + 1, 2 * j] = 1
-                    arr[channel_number, 2 * i + 2, 2 * j] = 1
-
-        # hsegs
-        for i in range(self.num_rows + 1):
-            for j in range(self.num_cols):
-                if self.h_segs[i, j] == 1:
-                    arr[channel_number, 2 * i, 2 * j] = 1
-                    arr[channel_number, 2 * i, 2 * j + 1] = 1
-                    arr[channel_number, 2 * i, 2 * j + 2] = 1
-
-        # channel with the tip of the snake
-        channel_number += 1
-        arr[channel_number, 2 * self.head_row, 2 * self.head_col] = 1
-
-        # channel for the exit of the puzzle
-        channel_number += 1
-        arr[channel_number, 2 * self.goal_row, 2 * self.goal_col] = 1
-
-        # channel for the entrance of the puzzle
-        channel_number += 1
-        arr[channel_number, 2 * self.head_row, 2 * self.head_col] = 1
-
-        image = image.to(device)
-        return image
-
-    def as_tensor2(self, device=to.device("cpu")):
-        """
-        Generates an image representation for the puzzle. Currently the method supports 4 colors and includes
-        the following channels (1st dimension of image): one channel for each color; one channel with 1's
-        where is "open" in the grid (this allows learning systems to work with a fixed image size defined
-        by max_lines and max_columns); one channel for the current path (cells occupied by the snake);
-        one channel for the tip of the snake; one channel for the exit of the puzzle; one channel for the
-        entrance of the snake. In total there are 9 different channels.
-
-        Each channel is a matrix with zeros and ones. The image returned is a 3-dimensional numpy array.
-        """
-
-        num_colors = 4
-        channels = 9
-
-        # defining the 3-dimnesional array that will be filled with the puzzle's information
-        image = to.zeros(channels, 2 * self.max_rows, 2 * self.max_cols)
-        arr = np.asarray(image)
-
-        # create one channel for each color i
-        for i, j, k in product(
-            range(num_colors), range(self.num_rows), range(self.num_cols)
-        ):
-            if self.cells[j, k] == i:
-                arr[i, 2 * j + 1, 2 * k + 1] = 1
-        channel_number = num_colors
-
-        # the number_of_colors-th channel specifies the open spaces in the grid
-        for j, k in product(range(2 * self.num_rows + 1), range(2 * self.num_cols + 1)):
-            arr[channel_number, j, k] = 1
-
-        # channel for the current path
-        # vsegs
-        channel_number += 1
-        for i, j in product(range(self.num_rows), range(self.num_cols + 1)):
-            if self.v_segs[i, j] == 1:
-                arr[channel_number, 2 * i, 2 * j] = 1
-                arr[channel_number, 2 * i + 1, 2 * j] = 1
-                arr[channel_number, 2 * i + 2, 2 * j] = 1
-        # hsegs
-        for i, j in product(range(self.num_rows + 1), range(self.num_cols)):
-            if self.h_segs[i, j] == 1:
-                arr[channel_number, 2 * i, 2 * j] = 1
-                arr[channel_number, 2 * i, 2 * j + 1] = 1
-                arr[channel_number, 2 * i, 2 * j + 2] = 1
-
-        # channel with the tip of the snake
-        channel_number += 1
-        arr[channel_number, 2 * self.head_row, 2 * self.head_col] = 1
-
-        # channel for the exit of the puzzle
-        channel_number += 1
-        arr[channel_number, 2 * self.goal_row, 2 * self.goal_col] = 1
-
-        # channel for the entrance of the puzzle
-        channel_number += 1
-        arr[channel_number, 2 * self.head_row, 2 * self.head_col] = 1
-
-        image = image.to(device)
-        return image
+        self.v_segs = np.zeros((Witness.num_rows, Witness.num_cols + 1))
+        self.h_segs = np.zeros((Witness.num_rows + 1, Witness.num_cols))
 
     def __repr__(self):
         state_str = "Cells: \n"
         state_str += "\n".join(
             "\t".join("%d" % x for x in y) for y in reversed(self.cells)
         )
-        state_str += "\nDots: \n"
+        state_str += "\ngrid: \n"
         state_str += "\n".join(
-            "\t".join("%d" % x for x in y) for y in reversed(self.dots)
+            "\t".join("%d" % x for x in y) for y in reversed(self.grid)
         )
         return state_str
 
     def __hash__(self):
-        # todo I removed the cells check in hash and eq, since they should all be the same for a
-        # given problem. Double check
         return (self.v_segs.tobytes(), self.h_segs.tobytes()).__hash__()
 
     def __eq__(self, other):
         return (
             np.array_equal(self.v_segs, other.v_segs)
             and np.array_equal(self.h_segs, other.h_segs)
-            and np.array_equal(self.dots, other.dots)
+            and np.array_equal(self.grid, other.grid)
         )
-
-    def plot(self, filename=None):
-        """
-        This method plots the state. Several features in this method are hard-coded and might
-        need adjustment as one changes the size of the puzzle. For example, the size of the figure is set to be fixed
-        to [5, 5] (see below).
-        """
-        fig, ax = plt.subplots(figsize=(5, 5))
-        # fig.patch.set_facecolor((1, 1, 1))
-
-        # draw vertical lines of the grid
-        for y in range(self.dots.shape[1]):
-            ax.plot([y, y], [0, self.cells.shape[0]], str(Color.BLACK))
-        # draw horizontal lines of the grid
-        for x in range(self.dots.shape[0]):
-            ax.plot([0, self.cells.shape[1]], [x, x], str(Color.BLACK))
-
-        # scale the axis area to fill the whole figure
-        ax.set_position([0, 0, 1, 1])
-
-        ax.set_axis_off()
-
-        ax.set_xlim(-1, np.max(self.dots.shape))
-        ax.set_ylim(-1, np.max(self.dots.shape))
-
-        # Draw the vertical segments of the path
-        for i in range(self.v_segs.shape[0]):
-            for j in range(self.v_segs.shape[1]):
-                if self.v_segs[i, j] == 1:
-                    ax.plot([j, j], [i, i + 1], str(Color.RED), linewidth=5)
-
-        # Draw the horizontal segments of the path
-        for i in range(self.h_segs.shape[0]):
-            for j in range(self.h_segs.shape[1]):
-                if self.h_segs[i, j] == 1:
-                    ax.plot([j, j + 1], [i, i], str(Color.RED), linewidth=5)
-
-        # Draw the separable bullets according to the values in self.cells and Color enum type
-        offset = 0.5
-        color_strings = Color.str_values()[1:]
-        for i in range(self.cells.shape[0]):
-            for j in range(self.cells.shape[1]):
-                if self.cells[i, j] != 0:
-                    ax.plot(
-                        j + offset,
-                        i + offset,
-                        "o",
-                        markersize=15,
-                        markeredgecolor=(0, 0, 0),
-                        markerfacecolor=color_strings[int(self.cells[i, j] - 1)],
-                        markeredgewidth=2,
-                    )
-
-        # Draw the intersection of lines: red for an intersection that belongs to a path and black otherwise
-        for i in range(self.dots.shape[0]):
-            for j in range(self.dots.shape[1]):
-                if self.dots[i, j] != 0:
-                    ax.plot(
-                        j,
-                        i,
-                        "o",
-                        markersize=10,
-                        markeredgecolor=(0, 0, 0),
-                        markerfacecolor=str(Color.RED),
-                        markeredgewidth=0,
-                    )
-                else:
-                    ax.plot(
-                        j,
-                        i,
-                        "o",
-                        markersize=10,
-                        markeredgecolor=(0, 0, 0),
-                        markerfacecolor=str(Color.BLACK),
-                        markeredgewidth=0,
-                    )
-
-        # Draw the entrance of the puzzle in red as it is always on the state's path
-        ax.plot(
-            self.start_col - 0.15,
-            self.start_row,
-            ">",
-            markersize=10,
-            markeredgecolor=(0, 0, 0),
-            markerfacecolor=str(Color.RED),
-            markeredgewidth=0,
-        )
-
-        column_exit_offset = 0
-        row_exit_offset = 0
-
-        if self.goal_col == self.num_cols:
-            column_exit_offset = 0.15
-            exit_symbol = ">"
-        elif self.goal_col == 0:
-            column_exit_offset = -0.15
-            exit_symbol = "<"
-        elif self.goal_row == self.num_rows:
-            row_exit_offset = 0.15
-            exit_symbol = "^"
-        else:
-            row_exit_offset = -0.15
-            exit_symbol = "v"
-        # Draw the exit of the puzzle: red if it is on a path, black otherwise
-        if self.dots[self.goal_row, self.goal_col] == 0:
-            ax.plot(
-                self.goal_col + column_exit_offset,
-                self.goal_row + row_exit_offset,
-                exit_symbol,
-                markersize=10,
-                markeredgecolor=(0, 0, 0),
-                markerfacecolor=str(Color.BLACK),
-                markeredgewidth=0,
-            )
-        else:
-            ax.plot(
-                self.goal_col + column_exit_offset,
-                self.goal_row + row_exit_offset,
-                exit_symbol,
-                markersize=10,
-                markeredgecolor=(0, 0, 0),
-                markerfacecolor=str(Color.RED),
-                markeredgewidth=0,
-            )
-
-        if filename:
-            plt.savefig(filename)
-            plt.close()
-        else:
-            plt.show()
 
 
 class Witness(Domain):
@@ -362,9 +67,11 @@ class Witness(Domain):
 
     def __init__(
         self,
-        puzzle,
-        max_rows=11,
-        max_cols=11,
+        puzzle: list[str],
+        max_rows: int = 11,
+        max_cols: int = 11,
+        num_colors: int = 4,  # todo these should be part of a problem spec, which should use JSON
+        max_num_colors: int = 7,
     ):
         """
         Initializes  a witness executor specific to a problem, and creates the initial state.
@@ -376,13 +83,19 @@ class Witness(Domain):
             Colors, as
             specified in the witness puzzle dataset, or the generator script.
         """
-        assert max_rows == max_cols
+        assert max_rows == max_cols  # todo extend to work with non-square grids?
+        assert max_num_colors <= 7  # todo extend to work with more colors?
+        assert num_colors <= max_num_colors
+
         self.max_rows = max_rows
         self.max_cols = max_cols
 
+        self.num_colors = num_colors
+        self.max_num_colors = max_num_colors
+
         values = puzzle[0].replace("Size: ", "").split(" ")
-        self.num_rows = int(values[0])
-        self.num_cols = int(values[1])
+        Witness.num_rows = int(values[0])
+        Witness.num_cols = int(values[1])
 
         values = puzzle[1].replace("Init: ", "").split(" ")
         self.start_row = int(values[0])
@@ -392,7 +105,7 @@ class Witness(Domain):
         self.goal_row = int(values[0])
         self.goal_col = int(values[1])
 
-        self.cells = np.zeros((self.num_rows, self.num_cols), dtype=np.int32)
+        self.cells = np.zeros((Witness.num_rows, Witness.num_cols), dtype=np.int32)
         values = puzzle[3].replace("Colors: |", "").split("|")
         for t in values:
             if not t:
@@ -403,13 +116,7 @@ class Witness(Domain):
         self.initial_state = WitnessState(
             self.start_row,
             self.start_col,
-            self.goal_row,
-            self.goal_col,
             self.cells,
-            self.num_rows,
-            self.num_cols,
-            self.max_rows,
-            self.max_cols,
         )
 
         self.heads = {}
@@ -433,12 +140,77 @@ class Witness(Domain):
 
     @property
     def in_channels(self):
-        return 9
+        """
+        The max num of colors any problem in a particular problem set may have.
+        """
+        return self.max_num_colors + 5
 
     @property
     def state_size(self):
         """side length"""
         return self.max_rows * 2
+
+    def state_tensor(self, state: WitnessState, device=to.device("cpu")):
+        """
+        Generates an image representation for the puzzle. one channel for each color; one channel with 1's
+        where is "open" in the grid (this allows learning systems to work with a fixed image size defined
+        by max_lines and max_columns); one channel for the current path (cells occupied by the snake);
+        one channel for the tip of the snake; one channel for the exit of the puzzle; one channel for the
+        entrance of the snake. In total there are 9 different channels.
+
+        Each channel is a matrix with zeros and ones. The image returned is a 3-dimensional numpy array.
+        """
+
+        # defining the 3-dimnesional array that will be filled with the puzzle's information
+        image = to.zeros(self.in_channels, 2 * self.max_rows, 2 * self.max_cols)
+        arr = np.asarray(image)
+
+        # create one channel for each color i
+        for i in range(self.num_colors):
+            for j in range(Witness.num_rows):
+                for k in range(Witness.num_cols):
+                    if state.cells[j, k] == i:
+                        arr[i, 2 * j + 1, 2 * k + 1] = 1
+
+        channel_number = self.max_num_colors
+
+        # the self.num_colors-th channel specifies the open spaces in the grid
+        for j in range(2 * Witness.num_rows + 1):
+            for k in range(2 * Witness.num_cols + 1):
+                arr[channel_number, j, k] = 1
+
+        # channel for the current path
+        # vsegs
+        channel_number += 1
+        for i in range(Witness.num_rows):
+            for j in range(Witness.num_cols + 1):
+                if state.v_segs[i, j] == 1:
+                    arr[channel_number, 2 * i, 2 * j] = 1
+                    arr[channel_number, 2 * i + 1, 2 * j] = 1
+                    arr[channel_number, 2 * i + 2, 2 * j] = 1
+
+        # hsegs
+        for i in range(Witness.num_rows + 1):
+            for j in range(Witness.num_cols):
+                if state.h_segs[i, j] == 1:
+                    arr[channel_number, 2 * i, 2 * j] = 1
+                    arr[channel_number, 2 * i, 2 * j + 1] = 1
+                    arr[channel_number, 2 * i, 2 * j + 2] = 1
+
+        # channel with the tip of the snake
+        channel_number += 1
+        arr[channel_number, 2 * state.head_row, 2 * state.head_col] = 1
+
+        # channel for the exit of the puzzle
+        channel_number += 1
+        arr[channel_number, 2 * self.goal_row, 2 * self.goal_col] = 1
+
+        # channel for the entrance of the puzzle
+        channel_number += 1
+        arr[channel_number, 2 * state.head_row, 2 * state.head_col] = 1
+
+        image = image.to(device)
+        return image
 
     def reverse_action(self, action: FourDir):
         if action == FourDir.UP:
@@ -468,14 +240,12 @@ class Witness(Domain):
         3 - Left
         """
         actions = []
-        #         if self.has_tip_reached_goal():
-        #             return actions
         # moving up
         if (
             parent_action != FourDir.DOWN
-            and state.head_row + 1 < state.dots.shape[0]
+            and state.head_row + 1 < state.grid.shape[0]
             and state.v_segs[state.head_row, state.head_col] == 0
-            and state.dots[state.head_row + 1, state.head_col] == 0
+            and state.grid[state.head_row + 1, state.head_col] == 0
         ):
             actions.append(FourDir.UP)
         # moving down
@@ -483,15 +253,15 @@ class Witness(Domain):
             parent_action != FourDir.UP
             and state.head_row >= 1
             and state.v_segs[state.head_row - 1, state.head_col] == 0
-            and state.dots[state.head_row - 1, state.head_col] == 0
+            and state.grid[state.head_row - 1, state.head_col] == 0
         ):
             actions.append(FourDir.DOWN)
         # moving right
         if (
             parent_action != FourDir.LEFT
-            and state.head_col + 1 < state.dots.shape[1]
+            and state.head_col + 1 < state.grid.shape[1]
             and state.h_segs[state.head_row, state.head_col] == 0
-            and state.dots[state.head_row, state.head_col + 1] == 0
+            and state.grid[state.head_row, state.head_col + 1] == 0
         ):
             actions.append(FourDir.RIGHT)
         # moving left
@@ -499,7 +269,7 @@ class Witness(Domain):
             parent_action != FourDir.RIGHT
             and state.head_col >= 1
             and state.h_segs[state.head_row, state.head_col - 1] == 0
-            and state.dots[state.head_row, state.head_col - 1] == 0
+            and state.grid[state.head_row, state.head_col - 1] == 0
         ):
             actions.append(FourDir.LEFT)
 
@@ -521,34 +291,32 @@ class Witness(Domain):
         3 - Left
         """
         actions = []
-        #         if self.has_tip_reached_goal():
-        #             return actions
         # moving up
         if (
-            state.head_row + 1 < state.dots.shape[0]
+            state.head_row + 1 < state.grid.shape[0]
             and state.v_segs[state.head_row, state.head_col] == 0
-            and state.dots[state.head_row + 1, state.head_col] == 0
+            and state.grid[state.head_row + 1, state.head_col] == 0
         ):
             actions.append(FourDir.UP)
         # moving down
         if (
             state.head_row - 1 >= 0
             and state.v_segs[state.head_row - 1, state.head_col] == 0
-            and state.dots[state.head_row - 1, state.head_col] == 0
+            and state.grid[state.head_row - 1, state.head_col] == 0
         ):
             actions.append(FourDir.DOWN)
         # moving right
         if (
-            state.head_col + 1 < state.dots.shape[1]
+            state.head_col + 1 < state.grid.shape[1]
             and state.h_segs[state.head_row, state.head_col] == 0
-            and state.dots[state.head_row, state.head_col + 1] == 0
+            and state.grid[state.head_row, state.head_col + 1] == 0
         ):
             actions.append(FourDir.RIGHT)
         # moving left
         if (
             state.head_col - 1 >= 0
             and state.h_segs[state.head_row, state.head_col - 1] == 0
-            and state.dots[state.head_row, state.head_col - 1] == 0
+            and state.grid[state.head_row, state.head_col - 1] == 0
         ):
             actions.append(FourDir.LEFT)
 
@@ -557,32 +325,35 @@ class Witness(Domain):
     def result(self, state: WitnessState, action: FourDir):
         """
         Applies a given action to the state. It modifies the segments visited by the snake (v_seg and h_seg),
-        the intersections (dots), and the tip of the snake.
+        the intersections (grid), and the tip of the snake.
         """
         new_state = deepcopy(state)
 
         # moving up
         if action == FourDir.UP:
             new_state.v_segs[new_state.head_row, new_state.head_col] = 1
-            new_state.dots[new_state.head_row + 1, new_state.head_col] = 1
+            new_state.grid[new_state.head_row + 1, new_state.head_col] = 1
             new_state.head_row += 1
         # moving down
         if action == FourDir.DOWN:
             new_state.v_segs[new_state.head_row - 1, new_state.head_col] = 1
-            new_state.dots[new_state.head_row - 1, new_state.head_col] = 1
+            new_state.grid[new_state.head_row - 1, new_state.head_col] = 1
             new_state.head_row -= 1
         # moving right
         if action == FourDir.RIGHT:
             new_state.h_segs[new_state.head_row, new_state.head_col] = 1
-            new_state.dots[new_state.head_row, new_state.head_col + 1] = 1
+            new_state.grid[new_state.head_row, new_state.head_col + 1] = 1
             new_state.head_col += 1
         # moving left
         if action == FourDir.LEFT:
             new_state.h_segs[new_state.head_row, new_state.head_col - 1] = 1
-            new_state.dots[new_state.head_row, new_state.head_col - 1] = 1
+            new_state.grid[new_state.head_row, new_state.head_col - 1] = 1
             new_state.head_col -= 1
 
         return new_state
+
+    def is_head_at_goal(self, state: WitnessState):
+        return self.goal_row == state.head_row and self.goal_col == state.head_col
 
     def is_goal(self, state: WitnessState):
         """
@@ -593,12 +364,13 @@ class Witness(Domain):
         The BFS uses the cells (line and column) as states and verifies whether cells with a bullet of a given color
         can only reach (and be reached) by cells with bullets of the same color (or of the neutral color, denoted as zero in this implementation)
         """
-        if not state.is_head_at_goal():
+        if not self.is_head_at_goal(state):
             return False
 
-        visited = np.zeros((self.num_rows, self.num_cols))
-        # todo populate with only non-neutral colored cells?
-        cells = [(i, j) for i, j in product(range(self.num_rows), range(self.num_cols))]
+        visited = np.zeros((Witness.num_rows, Witness.num_cols))
+        cells = [
+            (i, j) for i in range(Witness.num_rows) for j in range(Witness.num_cols)
+        ]
 
         while len(cells) != 0:
             root = cells.pop()
@@ -623,13 +395,13 @@ class Witness(Domain):
                     neighbors = []
                     row, col = cell
                     # move up
-                    if row + 1 < self.num_rows and state.h_segs[row + 1, col] == 0:
+                    if row + 1 < Witness.num_rows and state.h_segs[row + 1, col] == 0:
                         neighbors.append((row + 1, col))
                     # move down
                     if row > 0 and state.h_segs[row, col] == 0:
                         neighbors.append((row - 1, col))
                     # move right
-                    if col + 1 < self.num_cols and state.v_segs[row, col + 1] == 0:
+                    if col + 1 < Witness.num_cols and state.v_segs[row, col + 1] == 0:
                         neighbors.append((row, col + 1))
                     # move left
                     if col > 0 and state.v_segs[row, col] == 0:
@@ -669,7 +441,7 @@ class Witness(Domain):
         parent_dir2_action = dir2_common.parent_action
         while parent_dir2_node:
             new_state = deepcopy(dir1_node.state)
-            new_state.dots[
+            new_state.grid[
                 parent_dir2_node.state.head_row, parent_dir2_node.state.head_col
             ] = 1
 
@@ -698,7 +470,7 @@ class Witness(Domain):
             parent_dir2_action = parent_dir2_node.parent_action
             parent_dir2_node = parent_dir2_node.parent
 
-        return Trajectory(dir1_node, num_expanded, device=device)
+        return Trajectory(self, dir1_node, num_expanded, device=device)
 
     def try_make_solution(
         self, node, other_problem, num_expanded, device: to.device = to.device("cpu")
@@ -718,8 +490,8 @@ class Witness(Domain):
             merged_state = deepcopy(state)
             other_state = other_node.state
 
-            merged_state.dots[head_dot] = 0
-            merged_state.dots += other_state.dots
+            merged_state.grid[head_dot] = 0
+            merged_state.grid += other_state.grid
 
             merged_state.v_segs += other_state.v_segs
             merged_state.h_segs += other_state.h_segs
@@ -748,34 +520,164 @@ class Witness(Domain):
     def backward_problem(self):
         """
         Should only be called on a fresh domain (no calls to update). Reverses a witness problem by
-        reversing the head and goal (and updating dots to be consistent with this change).
+        reversing the head and goal (and updating grid to be consistent with this change).
         """
-        domain = deepcopy(self)
+        b_problem = deepcopy(self)
 
-        domain.goal_row = self.start_row
-        domain.goal_col = self.start_col
+        b_problem.goal_row = self.start_row
+        b_problem.goal_col = self.start_col
 
-        domain.start_row = self.goal_row
-        domain.start_col = self.goal_col
+        b_problem.start_row = self.goal_row
+        b_problem.start_col = self.goal_col
 
-        domain.initial_state.dots[self.start_row, self.start_col] = 0
-        domain.initial_state.dots[self.goal_row, self.goal_col] = 1
+        b_problem.initial_state.grid[self.start_row, self.start_col] = 0
+        b_problem.initial_state.grid[self.goal_row, self.goal_col] = 1
 
-        domain.initial_state.start_row = self.goal_row
-        domain.initial_state.start_col = self.goal_col
+        b_problem.initial_state.start_row = self.goal_row
+        b_problem.initial_state.start_col = self.goal_col
 
-        domain.initial_state.head_row = self.goal_row
-        domain.initial_state.head_col = self.goal_col
+        b_problem.initial_state.head_row = self.goal_row
+        b_problem.initial_state.head_col = self.goal_col
 
-        domain.initial_state.goal_row = self.start_row
-        domain.initial_state.goal_col = self.start_col
+        b_problem.goal_row = self.start_row
+        b_problem.goal_col = self.start_col
 
-        domain.forward = False
+        b_problem.forward = False
 
-        return domain
+        return b_problem
 
     def __repr__(self):
         return self.initial_state.__repr__()
 
-    def plot(self, filename=None):
-        self.initial_state.plot(filename)
+    def plot(self, state=None, filename=None):
+        """
+        This method plots the state. Several features in this method are hard-coded and might
+        need adjustment as one changes the size of the puzzle. For example, the size of the figure is set to be fixed
+        to [5, 5] (see below).
+        """
+        if state == None:
+            state = self.initial_state
+
+        fig, ax = plt.subplots(figsize=(5, 5))
+        # fig.patch.set_facecolor((1, 1, 1))
+
+        # draw vertical lines of the grid
+        for y in range(state.grid.shape[1]):
+            ax.plot([y, y], [0, state.cells.shape[0]], str(Color.BLACK))
+        # draw horizontal lines of the grid
+        for x in range(state.grid.shape[0]):
+            ax.plot([0, state.cells.shape[1]], [x, x], str(Color.BLACK))
+
+        # scale the axis area to fill the whole figure
+        ax.set_position([0, 0, 1, 1])
+
+        ax.set_axis_off()
+
+        ax.set_xlim(-1, np.max(state.grid.shape))
+        ax.set_ylim(-1, np.max(state.grid.shape))
+
+        # Draw the vertical segments of the path
+        for i in range(state.v_segs.shape[0]):
+            for j in range(state.v_segs.shape[1]):
+                if state.v_segs[i, j] == 1:
+                    ax.plot([j, j], [i, i + 1], str(Color.RED), linewidth=5)
+
+        # Draw the horizontal segments of the path
+        for i in range(state.h_segs.shape[0]):
+            for j in range(state.h_segs.shape[1]):
+                if state.h_segs[i, j] == 1:
+                    ax.plot([j, j + 1], [i, i], str(Color.RED), linewidth=5)
+
+        # Draw the separable bullets according to the values in state.cells and Color enum type
+        offset = 0.5
+        color_strings = Color.str_values()[1:]
+        for i in range(state.cells.shape[0]):
+            for j in range(state.cells.shape[1]):
+                if state.cells[i, j] != 0:
+                    ax.plot(
+                        j + offset,
+                        i + offset,
+                        "o",
+                        markersize=15,
+                        markeredgecolor=(0, 0, 0),
+                        markerfacecolor=color_strings[int(state.cells[i, j] - 1)],
+                        markeredgewidth=2,
+                    )
+
+        # Draw the intersection of lines: red for an intersection that belongs to a path and black otherwise
+        for i in range(state.grid.shape[0]):
+            for j in range(state.grid.shape[1]):
+                if state.grid[i, j] != 0:
+                    ax.plot(
+                        j,
+                        i,
+                        "o",
+                        markersize=10,
+                        markeredgecolor=(0, 0, 0),
+                        markerfacecolor=str(Color.RED),
+                        markeredgewidth=0,
+                    )
+                else:
+                    ax.plot(
+                        j,
+                        i,
+                        "o",
+                        markersize=10,
+                        markeredgecolor=(0, 0, 0),
+                        markerfacecolor=str(Color.BLACK),
+                        markeredgewidth=0,
+                    )
+
+        # Draw the entrance of the puzzle in red as it is always on the state's path
+        ax.plot(
+            state.start_col - 0.15,
+            state.start_row,
+            ">",
+            markersize=10,
+            markeredgecolor=(0, 0, 0),
+            markerfacecolor=str(Color.RED),
+            markeredgewidth=0,
+        )
+
+        column_exit_offset = 0
+        row_exit_offset = 0
+
+        if self.goal_col == Witness.num_cols:
+            column_exit_offset = 0.15
+            exit_symbol = ">"
+        elif self.goal_col == 0:
+            column_exit_offset = -0.15
+            exit_symbol = "<"
+        elif self.goal_row == Witness.num_rows:
+            row_exit_offset = 0.15
+            exit_symbol = "^"
+        else:
+            row_exit_offset = -0.15
+            exit_symbol = "v"
+        # Draw the exit of the puzzle: red if it is on a path, black otherwise
+        if state.grid[self.goal_row, self.goal_col] == 0:
+            ax.plot(
+                self.goal_col + column_exit_offset,
+                self.goal_row + row_exit_offset,
+                exit_symbol,
+                markersize=10,
+                markeredgecolor=(0, 0, 0),
+                markerfacecolor=str(Color.BLACK),
+                markeredgewidth=0,
+            )
+        else:
+            ax.plot(
+                self.goal_col + column_exit_offset,
+                self.goal_row + row_exit_offset,
+                exit_symbol,
+                markersize=10,
+                markeredgecolor=(0, 0, 0),
+                markerfacecolor=str(Color.RED),
+                markeredgewidth=0,
+            )
+
+        if filename:
+            plt.savefig(filename)
+            plt.close()
+        else:
+            plt.show()
