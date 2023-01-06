@@ -1,7 +1,6 @@
 from collections import deque
 from copy import deepcopy
 from typing import Optional, Type
-from itertools import product
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -68,13 +67,10 @@ class Witness(Domain):
     def __init__(
         self,
         puzzle: list[str],
-        max_rows: int = 11,
-        max_cols: int = 11,
-        num_colors: int = 4,  # todo these should be part of a problem spec, which should use JSON
-        max_num_colors: int = 7,
     ):
         """
         Initializes  a witness executor specific to a problem, and creates the initial state.
+        Note we hardcode max number of colors to 7 and max width to 10 cells (square problems only)
 
         Parameters
         ----------
@@ -83,15 +79,8 @@ class Witness(Domain):
             Colors, as
             specified in the witness puzzle dataset, or the generator script.
         """
-        assert max_rows == max_cols  # todo extend to work with non-square grids?
-        assert max_num_colors <= 7  # todo extend to work with more colors?
-        assert num_colors <= max_num_colors
-
-        self.max_rows = max_rows
-        self.max_cols = max_cols
-
-        self.num_colors = num_colors
-        self.max_num_colors = max_num_colors
+        self.max_num_colors = 4
+        self.max_width = 10  # max number of cells in a row or col
 
         values = puzzle[0].replace("Size: ", "").split(" ")
         Witness.num_rows = int(values[0])
@@ -106,12 +95,18 @@ class Witness(Domain):
         self.goal_col = int(values[1])
 
         self.cells = np.zeros((Witness.num_rows, Witness.num_cols), dtype=np.int32)
-        values = puzzle[3].replace("Colors: |", "").split("|")
-        for t in values:
-            if not t:
-                break
-            numbers = t.split(" ")
-            self.cells[int(numbers[0]), int(numbers[1])] = int(numbers[2])
+
+        self.num_colors = 0
+        if len(puzzle) == 5:  # colors are specified
+            values = puzzle[3].replace("Num Colors: ", "").split(" ")
+            self.num_colors = int(values[0])
+
+            values = puzzle[4].replace("Colors: |", "").split("|")
+            for t in values:
+                if not t:
+                    break
+                numbers = t.split(" ")
+                self.cells[int(numbers[0]), int(numbers[1])] = int(numbers[2])
 
         self.initial_state = WitnessState(
             self.start_row,
@@ -146,9 +141,9 @@ class Witness(Domain):
         return self.max_num_colors + 5
 
     @property
-    def state_size(self):
-        """side length"""
-        return self.max_rows * 2
+    def state_width(self):
+        # todo minimize the state_tensor represenation, seems unnecessarily large
+        return 2 * (self.max_width + 1)
 
     def state_tensor(self, state: WitnessState, device=to.device("cpu")):
         """
@@ -162,7 +157,7 @@ class Witness(Domain):
         """
 
         # defining the 3-dimnesional array that will be filled with the puzzle's information
-        image = to.zeros(self.in_channels, 2 * self.max_rows, 2 * self.max_cols)
+        image = to.zeros(self.in_channels, self.state_width, self.state_width)
         arr = np.asarray(image)
 
         # create one channel for each color i

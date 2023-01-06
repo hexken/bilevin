@@ -8,7 +8,6 @@ from search.utils import SearchNode, Trajectory
 
 
 class State(ABC):
-
     @abstractmethod
     def __repr__(self):
         pass
@@ -24,9 +23,18 @@ class State(ABC):
 
 class Domain(ABC):
     @property
-    @classmethod
     @abstractmethod
-    def num_actions(cls):
+    def num_actions(self):
+        pass
+
+    @property
+    @abstractmethod
+    def in_channels(self):
+        pass
+
+    @property
+    @abstractmethod
+    def state_width(self):
         pass
 
     @abstractmethod
@@ -62,13 +70,3 @@ class Domain(ABC):
         self, state: State, other_problem: Domain, num_expanded: int, device: to.device
     ) -> Optional[tuple[Trajectory, Trajectory]]:
         pass
-
-
-class Problem:
-    def __init__(
-        self,
-        name: str,
-        domain: Domain,
-    ):
-        self.name = name
-        self.domain = domain

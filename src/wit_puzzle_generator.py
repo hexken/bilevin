@@ -68,8 +68,6 @@ def main():
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    colors_prefix = "Colors: |"
-
     goals = (
         [(0, i) for i in range(args.width + 1)]
         + [(i, 0) for i in range(args.width + 1)]
@@ -83,10 +81,11 @@ def main():
             f"Size: {args.width} {args.width}",
             f"Init: 0 0",
             f"Goal: {g[0]} {g[1]}",
-            colors_prefix,
         ]
         for g in goals
     ]
+
+    colors_prefix = "Colors: |"
 
     problem_specs = set()
 
@@ -114,7 +113,7 @@ def main():
                 min_num_regions = 2
             if args.width >= 4:
                 min_num_regions = 4
-            if args.width >= 10:
+            if args.width == 10:
                 min_num_regions = 5
 
             # todo should we allow regions to have the same color?
@@ -137,13 +136,15 @@ def main():
                     colors.pop()
 
             # Only add if at least two colors were used
-            if len(colors) >= len(regions) - 1:
+            num_colors_used = len(regions) - len(colors)
+            if num_colors_used < 2:
                 continue
 
             # todo should we consider all problems with the same path as duplicates? Might lead to
             # poorer generalization
             partial_spec = copy(partial_spec)
-            partial_spec[-1] = color_str
+            partial_spec.append(f"Num Colors: {num_colors_used}")
+            partial_spec.append(color_str)
             formatted_spec = "%s\n" % "\n".join(partial_spec)
             if formatted_spec in problem_specs:
                 continue
@@ -161,9 +162,7 @@ def connected_components(wit, wit_state):
     Compute the connected components of the grid, i.e. the regions separated by the path
     """
     visited = np.zeros((wit.num_rows, wit.num_cols))
-    cell_states = [
-        (i, j) for i, j in product(range(wit.num_rows), range(wit.num_cols))
-    ]
+    cell_states = [(i, j) for i, j in product(range(wit.num_rows), range(wit.num_cols))]
     regions = []
     while len(cell_states) != 0:
         root = cell_states.pop()

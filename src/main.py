@@ -75,8 +75,8 @@ def parse_args():
         help="number of gradient steps to be performed in each iteration of the Bootstrap system",
     )
     parser.add_argument(
-        "--shuffle_trajectory",
-        action="store_false",
+        "--shuffle-trajectory",
+        action="store_true",
         help="shuffle trajectory states",
     )
     parser.add_argument(
@@ -236,7 +236,7 @@ if __name__ == "__main__":
                 [
                     Witness(puzzle=line_list)
                     for lines in file.read_text().split("\n\n")
-                    if len(line_list := lines.splitlines()) == 4
+                    if len(line_list := lines.splitlines()) == 5
                 ]
             )
 
@@ -258,7 +258,7 @@ if __name__ == "__main__":
 
     num_actions = problems[0][1].num_actions
     in_channels = problems[0][1].in_channels
-    initial_size = problems[0][1].state_size
+    initial_size = problems[0][1].state_width
 
     if world_size > 1:
         backend = "nccl" if args.cuda and to.cuda.is_available() else "gloo"
@@ -282,8 +282,10 @@ if __name__ == "__main__":
             )
 
         print(f"Logging with tensorboard\n  to runs/{run_name}")
+
         print(
-            f"Loaded {len(problems_gathered)} total problems\n  {problems_per_process} into each of {world_size} processes"
+            f"Parsed {len(problems_gathered)} problems\n"
+            f"  Loading {problems_per_process * world_size}, {problems_per_process} into each of {world_size} processes"
         )
         writer = SummaryWriter(f"runs/{run_name}")
         arg_string = "|param|value|\n|-|-|\n%s" % (
