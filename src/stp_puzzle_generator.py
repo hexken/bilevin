@@ -65,22 +65,23 @@ def main():
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    tiles = np.arange(args.width**2)
-    goal = SlidingTilePuzzle(tiles)
+    tiles = np.arange(args.width**2).reshape(args.width, args.width)
+    stp_goal = SlidingTilePuzzle(tiles)
 
     # generating training instances
     with tqdm.tqdm(total=args.num_problems) as pbar:
         while len(problems) < args.num_problems:
-            state = copy.deepcopy(goal)
+            state = stp_goal.reset()
 
             steps = random.randint(args.min_steps, args.max_steps)
             for _ in range(steps):
-                actions = state.successors()
+                actions = stp_goal.actions_unpruned(state)
                 random_index = random.randint(0, len(actions) - 1)
                 random_action = actions[random_index]
-                state.apply_action(random_action)
-            state = copy.deepcopy(state)
-            if state in problems:
+                state = stp_goal.result(state, random_action)
+
+            state_t = stp_goal.state_tensor(state)
+            if state_t in problems:
                 continue
             else:
                 problems.add(state)
@@ -88,23 +89,7 @@ def main():
 
     with args.output_path.open("w") as f:
         for problem in problems:
-            f.write(f"{problem.one_line()}\n")
-
-    # generating test instances
-    # j = 0
-    # while len(test_instances) < ntest:
-    #     tiles = [i for i in range(0, width * width)]
-    #     np.random.shuffle(tiles)
-
-    #     state = SlidingTilePuzzle(tiles)
-    #     if (
-    #         state.is_valid()
-    #         and state not in test_instances
-    #         and state not in train_instances
-    #     ):
-    #         state.save_state(join(parameters.file_test, "puzzle_" + str(j + 1)))
-    #         test_instances.add(copy.deepcopy(state))
-    #         j += 1
+            f.write(f"{problem.oneline()}\n")
 
 
 if __name__ == "__main__":

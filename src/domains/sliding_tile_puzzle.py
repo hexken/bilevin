@@ -18,33 +18,14 @@ class SlidingTilePuzzleState(State):
         blank_pos: tuple[int, int],
         width: int,
         num_tiles: int,
-        forward: bool = True,
     ):
         self.tiles = tiles
         self.blank_pos = blank_pos
         self.width = width
         self.num_tiles = num_tiles
-        self.forward = forward
-
-    def as_tensor(
-        self, device=to.device("cpu")
-    ) -> to.Tensor | tuple[to.Tensor, to.Tensor]:
-        arr = to.zeros((self.num_tiles, self.width, self.width), device=device)
-        arr[
-            self.tiles.reshape(-1),
-            SlidingTilePuzzle._row_indices,
-            SlidingTilePuzzle._col_indices,
-        ] = 1
-
-        if self.forward:
-            return arr
-        else:
-            return to.stack(
-                (arr, SlidingTilePuzzle._forward_initial_state_t)  # type:ignore
-            )
 
     def __repr__(self):
-        return self.one_line()
+        return self.oneline()
 
     def __hash__(self):
         return self.tiles.tobytes().__hash__()
@@ -52,8 +33,8 @@ class SlidingTilePuzzleState(State):
     def __eq__(self, other):
         return np.array_equal(self.tiles, other.tiles)
 
-    def one_line(self) -> str:
-        return " ".join(str(t) for t in self.tiles)
+    def oneline(self) -> str:
+        return " ".join(str(t) for t in self.tiles.flatten())
 
     def print(self):
         for i in range(len(self.tiles)):
@@ -63,39 +44,47 @@ class SlidingTilePuzzleState(State):
 
 
 class SlidingTilePuzzle(Domain):
-    def __init__(self, tiles: str):
-        tiles_l = tiles.replace("\n", "").split(" ")
-        self.num_tiles = len(tiles_l)
-        self.width = int(math.sqrt(self.num_tiles))
+    def __init__(self, tiles: str | np.ndarray):
+        if type(tiles) == str:
+            tiles_l = tiles.replace("\n", "").split(" ")
+            self.num_tiles = len(tiles_l)
+            self.width = int(math.sqrt(self.num_tiles))
 
-        _tiles = np.arange(self.width)
+            _tiles = np.arange(self.width)
 
-        SlidingTilePuzzle._row_indices = np.repeat(_tiles, self.width)
-        SlidingTilePuzzle._col_indices = np.tile(_tiles, self.width)
+            tiles_arr = np.zeros((self.width, self.width), dtype=np.int32)
 
-        tiles_arr = np.zeros((self.width, self.width), dtype=np.int32)
+            for i, tile in enumerate(tiles_l):
+                row = i // self.width
+                col = i % self.width
+                val = int(tile)
+                tiles_arr[row, col] = val
 
-        for i, tile in enumerate(tiles_l):
-            row = i // self.width
-            col = i % self.width
-            val = int(tile)
-            tiles_arr[row, col] = val
+                if val == 0:
+                    blank_pos = (row, col)
+        elif type(tiles) == np.ndarray:
+            self.width = len(tiles)
+            _tiles = np.arange(self.width)
+            self.num_tiles = self.width**2
+            tiles_arr = tiles
+            blank_pos = np.where(tiles_arr == 0)
+            blank_pos = blank_pos[0].item(), blank_pos[1].item()
+        else:
+            raise ValueError("Invalid tiles spec")
 
-            if val == 0:
-                blank_pos = (row, col)
-
+        self._row_indices = np.repeat(_tiles, self.width)
+        self._col_indices = np.tile(_tiles, self.width)
         self.initial_state = SlidingTilePuzzleState(
             tiles_arr, blank_pos, self.width, self.num_tiles  # type:ignore
         )
-
-        SlidingTilePuzzle._forward_initial_state_t = self.initial_state.as_tensor()
+        self.forward = True
+        self.initial_state_t = self.state_tensor(self.initial_state)
 
         self.goal = np.arange(self.num_tiles, dtype=np.int32).reshape(
             self.width, self.width
         )
 
         self.visited = {}
-        self.forward = True
 
     def reset(self):
         self.visited = {}
@@ -105,7 +94,7 @@ class SlidingTilePuzzle(Domain):
         self.visited[node.state.__hash__()] = node
 
     @property
-    def state_size(self):
+    def state_width(self):
         return self.width
 
     @property
@@ -115,6 +104,23 @@ class SlidingTilePuzzle(Domain):
     @property
     def in_channels(self):
         return self.num_tiles
+
+    def state_tensor(
+        self, state, device=to.device("cpu")
+    ) -> to.Tensor | tuple[to.Tensor, to.Tensor]:
+        arr = to.zeros((self.num_tiles, self.width, self.width), device=device)
+        arr[
+            state.tiles.reshape(-1),
+            self._row_indices,
+            self._col_indices,
+        ] = 1
+
+        if self.forward:
+            return arr
+        else:
+            return to.stack(
+                (arr, self.initial_state_t)  # type:ignore
+            )
 
     def reverse_action(self, action: FourDir):
         if action == FourDir.UP:
@@ -134,7 +140,10 @@ class SlidingTilePuzzle(Domain):
         problem.goal = problem.initial_state.tiles
 
         problem.initial_state = SlidingTilePuzzleState(
-            forward_goal, (0, 0), problem.width, problem.num_tiles, forward=False
+            forward_goal,
+            (0, 0),
+            problem.width,
+            problem.num_tiles,
         )
 
         return problem
@@ -167,8 +176,6 @@ class SlidingTilePuzzle(Domain):
         blank_col = state.blank_pos[1]
 
         new_state = deepcopy(state)
-        if not self.forward:
-            new_state.forward = False
 
         if action == FourDir.UP:
             new_state.tiles[blank_pos], new_state.tiles[blank_row - 1, blank_col] = (
@@ -216,16 +223,10 @@ class SlidingTilePuzzle(Domain):
         merge(dir1_common, dir2_common).
         """
         dir1_node = dir1_common
-        if dir1_node.state.forward:
-            forward = True
-        else:
-            forward = False
-
         parent_dir2_node = dir2_common.parent
         parent_dir2_action = dir2_common.parent_action
         while parent_dir2_node:
             new_state = deepcopy(parent_dir2_node.state)
-            new_state.forward = forward
 
             new_dir1_node = node_type(
                 state=new_state,
@@ -237,7 +238,7 @@ class SlidingTilePuzzle(Domain):
             parent_dir2_action = parent_dir2_node.parent_action
             parent_dir2_node = parent_dir2_node.parent
 
-        return Trajectory(dir1_node, num_expanded, device=device)
+        return Trajectory(self, dir1_node, num_expanded, device=device)
 
     def try_make_solution(
         self,
