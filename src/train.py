@@ -164,8 +164,23 @@ def train(
             # todo for solved, log avg solution length , num_expanded, and num_generated
             batch_df["Time"] = batch_df["Time"].astype(float, copy=False) / 1000
             batch_df.sort_values("NumExpanded", inplace=True)
+            solved_df = batch_df[batch_df["SolutionLength"] > 0]
 
-            batch_solved_ids = batch_df[batch_df.SolutionLength > 0].Problem.values
+            # avg_solution_length = solved_df["SolutionLength"].mean()
+            # avg_num_expanded = solved_df["NumExpanded"].mean()
+            # avg_num_generated = solved_df["NumGenerated"].mean()
+
+            # if rank == 0:
+            #     print(
+            #         f"Avg solution length: {avg_solution_length}\nAvg num expanded: {avg_num_expanded}\nAvg num generated: {avg_num_generated}"
+            #     )
+            #     writer.add_scalar(
+            #         "AvgSolutionLength", avg_solution_length, total_batches
+            #     )
+            #     writer.add_scalar("AvgNumExpanded", avg_num_expanded, total_batches)
+            #     writer.add_scalar("AvgNumGenerated", avg_num_generated, total_batches)
+
+            batch_solved_ids = solved_df.Problem.values
             for problem_id in batch_solved_ids:
                 if problem_id not in solved_problems:
                     num_new_problems_solved_this_epoch += 1
@@ -174,7 +189,9 @@ def train(
             num_problems_solved_this_batch = len(batch_solved_ids)
             num_problems_solved_this_epoch += num_problems_solved_this_batch
             if rank == 0:
-                print(tabulate(batch_df, headers="keys", tablefmt="psql"))
+                print(
+                    tabulate(batch_df, headers="keys", tablefmt="psql", showindex=False)
+                )
                 print(f"Solved {num_problems_solved_this_batch}/{batch_size}\n")
 
             def fit_model(

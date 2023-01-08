@@ -80,7 +80,7 @@ class Witness(Domain):
             specified in the witness puzzle dataset, or the generator script.
         """
         self.max_num_colors = 4
-        self.max_width = 10  # max number of cells in a row or col
+        self.max_width = 5  # max number of cells in a row or col
 
         values = puzzle[0].replace("Size: ", "").split(" ")
         Witness.num_rows = int(values[0])

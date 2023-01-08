@@ -256,7 +256,7 @@ if __name__ == "__main__":
                 start=proc * problems_per_process,
             )
         }
-        problems.append(problems_local)result = {SlidingTilePuzzle} <domains.sliding_tile_puzzle.SlidingTilePuzzle object at 0x7fb5cf43f820>
+        problems.append(problems_local)
 
     num_actions = problems[0][1].num_actions
     in_channels = problems[0][1].in_channels

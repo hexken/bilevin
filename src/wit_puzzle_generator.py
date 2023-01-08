@@ -56,7 +56,7 @@ def main():
     parser.add_argument(
         "-p",
         "--bullet-prob",
-        dest="bullet_prob",
+        type=float,
         default=0.6,
         help="probability of placing a bullet in each empty cell",
     )
