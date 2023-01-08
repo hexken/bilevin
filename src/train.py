@@ -161,6 +161,7 @@ def train(
             batch_df = pd.DataFrame(
                 batch_results_t.cpu().numpy(), columns=search_result_header
             )
+            # todo for solved, log avg solution length , num_expanded, and num_generated
             batch_df["Time"] = batch_df["Time"].astype(float, copy=False) / 1000
             batch_df.sort_values("NumExpanded", inplace=True)
 
@@ -239,7 +240,7 @@ def train(
                                     # fmt:on
 
                 if rank == 0 and num_batch_partials > 0:
-                    if track_params and total_batches % 5 == 0:
+                    if track_params and total_batches % 10 == 0:
                         for (
                             param_name,
                             param,
@@ -273,8 +274,6 @@ def train(
                 to.save(forward_model, forward_model_path)  # type:ignore
                 if bidirectional:
                     to.save(backward_model, backward_model_path)  # type:ignore
-
-            if rank == 0 and total_batches % 5 == 0:
                 batch_avg = num_problems_solved_this_batch / batch_size
                 # fmt: off
                 writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, total_batches)

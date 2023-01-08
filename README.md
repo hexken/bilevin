@@ -1,10 +1,10 @@
 # TODO
 
-- Reimpl sokoban/sokoban problem generator.
+- Update STP/STP gen to match new API
+- Update sokoban/sokoban problem generator to match new API
 - Impl other bidir search algos?
 - Make sure last batch data is logged (since we currently only log data from every 5th batch).
 - Unify problems specs with a standard notation, for example JSON.
-- fix problems parsed/loaded logging
 
 # Notes
 - I compute the loss over a whole batch (by creating a MergedTrajectory) and do an update (repeated grad_steps times).

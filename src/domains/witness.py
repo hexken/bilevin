@@ -142,8 +142,7 @@ class Witness(Domain):
 
     @property
     def state_width(self):
-        # todo minimize the state_tensor represenation, seems unnecessarily large
-        return 2 * (self.max_width + 1)
+        return self.max_width + 1
 
     def state_tensor(self, state: WitnessState, device=to.device("cpu")):
         """
@@ -161,48 +160,45 @@ class Witness(Domain):
         arr = np.asarray(image)
 
         # create one channel for each color i
-        for i in range(self.num_colors):
-            for j in range(Witness.num_rows):
-                for k in range(Witness.num_cols):
-                    if state.cells[j, k] == i:
-                        arr[i, 2 * j + 1, 2 * k + 1] = 1
+        # for i in range(self.num_colors):
+        #     for j in range(Witness.num_rows):
+        #         for k in range(Witness.num_cols):
+        #             if state.cells[j, k] == i:
+        #                 arr[i, j, k] = 1
+
+        for i in range(self.num_rows):
+            for j in range(Witness.num_cols):
+                color = state.cells[i, j]
+                if color != 0:
+                    arr[color, i, j] = 1
 
         channel_number = self.max_num_colors
 
-        # the self.num_colors-th channel specifies the open spaces in the grid
-        for j in range(2 * Witness.num_rows + 1):
-            for k in range(2 * Witness.num_cols + 1):
-                arr[channel_number, j, k] = 1
-
         # channel for the current path
         # vsegs
-        channel_number += 1
         for i in range(Witness.num_rows):
             for j in range(Witness.num_cols + 1):
                 if state.v_segs[i, j] == 1:
-                    arr[channel_number, 2 * i, 2 * j] = 1
-                    arr[channel_number, 2 * i + 1, 2 * j] = 1
-                    arr[channel_number, 2 * i + 2, 2 * j] = 1
+                    arr[channel_number, i, j] = 1
 
+        channel_number += 1
         # hsegs
         for i in range(Witness.num_rows + 1):
             for j in range(Witness.num_cols):
                 if state.h_segs[i, j] == 1:
-                    arr[channel_number, 2 * i, 2 * j] = 1
-                    arr[channel_number, 2 * i, 2 * j + 1] = 1
-                    arr[channel_number, 2 * i, 2 * j + 2] = 1
+                    arr[channel_number, i, j] = 1
 
         # channel with the tip of the snake
         channel_number += 1
-        arr[channel_number, 2 * state.head_row, 2 * state.head_col] = 1
+        arr[channel_number, state.head_row, state.head_col] = 1
 
         # channel for the exit of the puzzle
         channel_number += 1
-        arr[channel_number, 2 * self.goal_row, 2 * self.goal_col] = 1
+        arr[channel_number, self.goal_row, self.goal_col] = 1
 
         # channel for the entrance of the puzzle
         channel_number += 1
-        arr[channel_number, 2 * state.head_row, 2 * state.head_col] = 1
+        arr[channel_number, state.head_row, state.head_col] = 1
 
         image = image.to(device)
         return image

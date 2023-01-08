@@ -1,6 +1,5 @@
 import argparse
 import numpy as np
-import copy
 from pathlib import Path
 import random
 import tqdm
