@@ -90,14 +90,17 @@ class Levin(Agent):
                 )
                 num_generated += 1
 
-                if problem.is_goal(new_state):
-                    solution_len = new_node.g_cost
-                    traj = Trajectory(problem, new_node, num_expanded, device)
-                    if train:
-                        traj = (traj,)
-                    return solution_len, num_expanded, num_generated, traj
+                if new_node not in reached:
+                    if problem.is_goal(new_state):
+                        solution_len = new_node.g_cost
+                        traj = Trajectory(problem, new_node, num_expanded, device)
+                        if train:
+                            traj = (traj,)
+                        return solution_len, num_expanded, num_generated, traj
 
-                children_to_be_evaluated.append(new_node)
+                    reached[new_node] = new_node
+                    children_to_be_evaluated.append(new_node)
+
                 state_t = problem.state_tensor(new_state, device)
                 state_t_of_children_to_be_evaluated.append(state_t)
 
@@ -109,10 +112,7 @@ class Levin(Agent):
                 lc = levin_cost(child)
                 child.log_action_probs = log_action_probs[i]
                 child.levin_cost = lc
-
-                if child not in reached:
-                    heapq.heappush(frontier, child)
-                    reached[child] = child
+                heapq.heappush(frontier, child)
 
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []

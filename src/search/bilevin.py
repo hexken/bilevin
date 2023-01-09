@@ -121,9 +121,6 @@ class BiLevin(Agent):
                 num_generated += 1
 
                 if new_node not in _reached:
-                    _reached[new_node] = new_node
-                    _problem.update(new_node)
-
                     trajs = _problem.try_make_solution(
                         new_node, other_problem, num_expanded
                     )
@@ -135,7 +132,10 @@ class BiLevin(Agent):
                             trajs = trajs[0]
                         return solution_len, num_expanded, num_generated, trajs
 
-                children_to_be_evaluated.append(new_node)
+                    _reached[new_node] = new_node
+                    _problem.update(new_node)
+                    children_to_be_evaluated.append(new_node)
+
                 state_t = _problem.state_tensor(new_state, device)
                 state_t_of_children_to_be_evaluated.append(state_t)
 
