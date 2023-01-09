@@ -157,13 +157,6 @@ class Witness(Domain):
         image = to.zeros(self.in_channels, self.state_width, self.state_width)
         arr = np.asarray(image)
 
-        # create one channel for each color i
-        # for i in range(self.num_colors):
-        #     for j in range(Witness.num_rows):
-        #         for k in range(Witness.num_cols):
-        #             if state.cells[j, k] == i:
-        #                 arr[i, j, k] = 1
-
         for i in range(self.num_rows):
             for j in range(Witness.num_cols):
                 color = state.cells[i, j]
@@ -172,7 +165,7 @@ class Witness(Domain):
 
         channel_number = self.max_num_colors
 
-        # channel for the current path
+        # channels for the current path
         # vsegs
         for i in range(Witness.num_rows):
             for j in range(Witness.num_cols + 1):

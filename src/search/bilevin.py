@@ -38,7 +38,7 @@ class BiLevin(Agent):
         f_state_t = f_problem.state_tensor(f_state, device).unsqueeze(0)
 
         b_state = b_problem.reset()
-        b_state_t = f_problem.state_tensor(b_state, device).unsqueeze(0)
+        b_state_t = b_problem.state_tensor(b_state, device).unsqueeze(0)
 
         forward_model, backward_model = model
 
@@ -89,20 +89,16 @@ class BiLevin(Agent):
                 return (False, num_expanded, num_generated, None)
 
             if b_frontier[0] < f_frontier[0]:
-                direction = TwoDir.BACKWARD
                 _problem = b_problem
                 _model = backward_model
                 _frontier = b_frontier
                 _reached = b_reached
-                other_reached = f_reached
                 other_problem = f_problem
             else:
-                direction = TwoDir.FORWARD
                 _problem = f_problem
                 _model = forward_model
                 _frontier = f_frontier
                 _reached = f_reached
-                other_reached = b_reached
                 other_problem = b_problem
 
             node = heapq.heappop(_frontier)
