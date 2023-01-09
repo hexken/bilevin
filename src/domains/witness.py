@@ -20,14 +20,12 @@ class WitnessState(State):
 
     def __init__(
         self,
-        start_row: int,
-        start_col: int,
+        head_init_row,
+        head_init_col,
         cells: np.ndarray,
     ):
-        self.start_col = start_col
-        self.start_row = start_row
-        self.head_col = start_col
-        self.head_row = start_row
+        self.head_row = head_init_row
+        self.head_col = head_init_col
 
         self.cells = cells
 
@@ -198,7 +196,7 @@ class Witness(Domain):
 
         # channel for the entrance of the puzzle
         channel_number += 1
-        arr[channel_number, state.head_row, state.head_col] = 1
+        arr[channel_number, self.start_row, self.start_col] = 1
 
         image = image.to(device)
         return image
@@ -487,8 +485,8 @@ class Witness(Domain):
             merged_state.v_segs += other_state.v_segs
             merged_state.h_segs += other_state.h_segs
 
-            merged_state.head_row = other_state.start_row
-            merged_state.head_col = other_state.start_col
+            merged_state.head_row = other_problem.start_row
+            merged_state.head_col = other_problem.start_col
 
             if self.is_goal(merged_state):
                 if self.forward:
@@ -523,9 +521,6 @@ class Witness(Domain):
 
         b_problem.initial_state.grid[self.start_row, self.start_col] = 0
         b_problem.initial_state.grid[self.goal_row, self.goal_col] = 1
-
-        b_problem.initial_state.start_row = self.goal_row
-        b_problem.initial_state.start_col = self.goal_col
 
         b_problem.initial_state.head_row = self.goal_row
         b_problem.initial_state.head_col = self.goal_col
@@ -621,8 +616,8 @@ class Witness(Domain):
 
         # Draw the entrance of the puzzle in red as it is always on the state's path
         ax.plot(
-            state.start_col - 0.15,
-            state.start_row,
+            self.start_col - 0.15,
+            self.start_row,
             ">",
             markersize=10,
             markeredgecolor=(0, 0, 0),
