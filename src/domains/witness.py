@@ -12,6 +12,10 @@ from search.utils import Trajectory
 from search.utils import SearchNode
 
 
+# class WitnessDatasetLoader():
+#     def load_dataset:
+
+
 class WitnessState(State):
     """
     A Witness State.
@@ -20,31 +24,19 @@ class WitnessState(State):
 
     def __init__(
         self,
+        width: int,
         head_init_row,
         head_init_col,
-        cells: np.ndarray,
     ):
         self.head_row = head_init_row
         self.head_col = head_init_col
+        self.width = width  # width of cells
 
-        self.cells = cells
-
-        self.grid = np.zeros((Witness.num_rows + 1, Witness.num_cols + 1))
+        self.grid = np.zeros((self.width + 1, self.width + 1))
         self.grid[self.head_row, self.head_col] = 1
 
-        self.v_segs = np.zeros((Witness.num_rows, Witness.num_cols + 1))
-        self.h_segs = np.zeros((Witness.num_rows + 1, Witness.num_cols))
-
-    def __repr__(self):
-        state_str = "Cells: \n"
-        state_str += "\n".join(
-            "\t".join("%d" % x for x in y) for y in reversed(self.cells)
-        )
-        state_str += "\ngrid: \n"
-        state_str += "\n".join(
-            "\t".join("%d" % x for x in y) for y in reversed(self.grid)
-        )
-        return state_str
+        self.v_segs = np.zeros((self.width, self.width + 1))
+        self.h_segs = np.zeros((self.width + 1, self.width))
 
     def __hash__(self):
         return (self.v_segs.tobytes(), self.h_segs.tobytes()).__hash__()
@@ -64,7 +56,11 @@ class Witness(Domain):
 
     def __init__(
         self,
-        puzzle: list[str],
+        width: int,
+        max_num_colors: int,
+        init: list[int],
+        goal: list[int],
+        colored_cells: list[str] = [],
     ):
         """
         Initializes  a witness executor specific to a problem, and creates the initial state.
@@ -77,39 +73,25 @@ class Witness(Domain):
             Colors, as
             specified in the witness puzzle dataset, or the generator script.
         """
-        self.max_num_colors = 4
-        self.max_width = 5  # max number of cells in a row or col
+        self.max_num_colors = max_num_colors
+        self.width = width
 
-        values = puzzle[0].replace("Size: ", "").split(" ")
-        Witness.num_rows = int(values[0])
-        Witness.num_cols = int(values[1])
+        self.start_row = init[0]
+        self.start_col = init[1]
 
-        values = puzzle[1].replace("Init: ", "").split(" ")
-        self.start_row = int(values[0])
-        self.start_col = int(values[1])
+        self.goal_row = goal[0]
+        self.goal_col = goal[1]
 
-        values = puzzle[2].replace("Goal: ", "").split(" ")
-        self.goal_row = int(values[0])
-        self.goal_col = int(values[1])
-
-        self.cells = np.zeros((Witness.num_rows, Witness.num_cols), dtype=np.int32)
+        self.cells = np.zeros((self.width, self.width), dtype=np.int32)
 
         self.num_colors = 0
-        if len(puzzle) == 5:  # colors are specified
-            values = puzzle[3].replace("Num Colors: ", "").split(" ")
-            self.num_colors = int(values[0])
-
-            values = puzzle[4].replace("Colors: |", "").split("|")
-            for t in values:
-                if not t:
-                    break
-                numbers = t.split(" ")
-                self.cells[int(numbers[0]), int(numbers[1])] = int(numbers[2])
+        for cell in colored_cells:
+            self.cells[int(cell[0]), int(cell[1])] = int(cell[2])
 
         self.initial_state = WitnessState(
+            self.width,
             self.start_row,
             self.start_col,
-            self.cells,
         )
 
         self.heads = {}
@@ -140,7 +122,7 @@ class Witness(Domain):
 
     @property
     def state_width(self):
-        return self.max_width + 1
+        return self.width + 1
 
     def state_tensor(self, state: WitnessState, device=to.device("cpu")):
         """
@@ -157,9 +139,9 @@ class Witness(Domain):
         image = to.zeros(self.in_channels, self.state_width, self.state_width)
         arr = np.asarray(image)
 
-        for i in range(self.num_rows):
-            for j in range(Witness.num_cols):
-                color = state.cells[i, j]
+        for i in range(self.width):
+            for j in range(self.width):
+                color = self.cells[i, j]
                 if color != 0:
                     arr[color, i, j] = 1
 
@@ -167,15 +149,15 @@ class Witness(Domain):
 
         # channels for the current path
         # vsegs
-        for i in range(Witness.num_rows):
-            for j in range(Witness.num_cols + 1):
+        for i in range(self.width):
+            for j in range(self.width + 1):
                 if state.v_segs[i, j] == 1:
                     arr[channel_number, i, j] = 1
 
         channel_number += 1
         # hsegs
-        for i in range(Witness.num_rows + 1):
-            for j in range(Witness.num_cols):
+        for i in range(self.width + 1):
+            for j in range(self.width):
                 if state.h_segs[i, j] == 1:
                     arr[channel_number, i, j] = 1
 
@@ -275,7 +257,7 @@ class Witness(Domain):
         actions = []
         # moving up
         if (
-            state.head_row + 1 < state.grid.shape[0]
+            state.head_row + 1 < self.width + 1
             and state.v_segs[state.head_row, state.head_col] == 0
             and state.grid[state.head_row + 1, state.head_col] == 0
         ):
@@ -289,7 +271,7 @@ class Witness(Domain):
             actions.append(FourDir.DOWN)
         # moving right
         if (
-            state.head_col + 1 < state.grid.shape[1]
+            state.head_col + 1 < self.width + 1
             and state.h_segs[state.head_row, state.head_col] == 0
             and state.grid[state.head_row, state.head_col + 1] == 0
         ):
@@ -349,17 +331,15 @@ class Witness(Domain):
         if not self.is_head_at_goal(state):
             return False
 
-        visited = np.zeros((Witness.num_rows, Witness.num_cols))
-        cells = [
-            (i, j) for i in range(Witness.num_rows) for j in range(Witness.num_cols)
-        ]
+        visited = np.zeros((self.width, self.width))
+        cells = [(i, j) for i in range(self.width) for j in range(self.width)]
 
         while len(cells) != 0:
             root = cells.pop()
             # If root of new BFS search was already visited, then go to the next state
             if visited[root] == 1:
                 continue
-            current_color = Color(state.cells[root])
+            current_color = Color(self.cells[root])
 
             frontier = deque()
             frontier.append(root)
@@ -377,13 +357,13 @@ class Witness(Domain):
                     neighbors = []
                     row, col = cell
                     # move up
-                    if row + 1 < Witness.num_rows and state.h_segs[row + 1, col] == 0:
+                    if row + 1 < self.width and state.h_segs[row + 1, col] == 0:
                         neighbors.append((row + 1, col))
                     # move down
                     if row > 0 and state.h_segs[row, col] == 0:
                         neighbors.append((row - 1, col))
                     # move right
-                    if col + 1 < Witness.num_cols and state.v_segs[row, col + 1] == 0:
+                    if col + 1 < self.width and state.v_segs[row, col + 1] == 0:
                         neighbors.append((row, col + 1))
                     # move left
                     if col > 0 and state.v_segs[row, col] == 0:
@@ -396,12 +376,12 @@ class Witness(Domain):
                         continue
                     if (
                         current_color != Color.NEUTRAL
-                        and Color(state.cells[neighbor]) != Color.NEUTRAL
-                        and Color(state.cells[neighbor]) != current_color
+                        and Color(self.cells[neighbor]) != Color.NEUTRAL
+                        and Color(self.cells[neighbor]) != current_color
                     ):
                         return False
                     if current_color == Color.NEUTRAL:
-                        current_color = Color(state.cells[neighbor])
+                        current_color = Color(self.cells[neighbor])
                     frontier.append(neighbor)
                     visited[neighbor] = 1
         return True
@@ -542,10 +522,10 @@ class Witness(Domain):
 
         # draw vertical lines of the grid
         for y in range(state.grid.shape[1]):
-            ax.plot([y, y], [0, state.cells.shape[0]], str(Color.BLACK))
+            ax.plot([y, y], [0, self.width], str(Color.BLACK))
         # draw horizontal lines of the grid
         for x in range(state.grid.shape[0]):
-            ax.plot([0, state.cells.shape[1]], [x, x], str(Color.BLACK))
+            ax.plot([0, self.width], [x, x], str(Color.BLACK))
 
         # scale the axis area to fill the whole figure
         ax.set_position([0, 0, 1, 1])
@@ -567,19 +547,19 @@ class Witness(Domain):
                 if state.h_segs[i, j] == 1:
                     ax.plot([j, j + 1], [i, i], str(Color.RED), linewidth=5)
 
-        # Draw the separable bullets according to the values in state.cells and Color enum type
+        # Draw the separable bullets according to the values in self.cells and Color enum type
         offset = 0.5
         color_strings = Color.str_values()[1:]
-        for i in range(state.cells.shape[0]):
-            for j in range(state.cells.shape[1]):
-                if state.cells[i, j] != 0:
+        for i in range(self.width):
+            for j in range(self.width):
+                if self.cells[i, j] != 0:
                     ax.plot(
                         j + offset,
                         i + offset,
                         "o",
                         markersize=15,
                         markeredgecolor=(0, 0, 0),
-                        markerfacecolor=color_strings[int(state.cells[i, j] - 1)],
+                        markerfacecolor=color_strings[int(self.cells[i, j] - 1)],
                         markeredgewidth=2,
                     )
 
@@ -621,13 +601,13 @@ class Witness(Domain):
         column_exit_offset = 0
         row_exit_offset = 0
 
-        if self.goal_col == Witness.num_cols:
+        if self.goal_col == self.width:
             column_exit_offset = 0.15
             exit_symbol = ">"
         elif self.goal_col == 0:
             column_exit_offset = -0.15
             exit_symbol = "<"
-        elif self.goal_row == Witness.num_rows:
+        elif self.goal_row == self.width:
             row_exit_offset = 0.15
             exit_symbol = "^"
         else:

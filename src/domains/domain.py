@@ -8,9 +8,9 @@ from search.utils import SearchNode, Trajectory
 
 
 class State(ABC):
-    @abstractmethod
-    def __repr__(self):
-        pass
+    # @abstractmethod
+    # def __repr__(self):
+    #     pass
 
     @abstractmethod
     def __eq__(self):

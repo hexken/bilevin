@@ -1,4 +1,5 @@
 import argparse
+import json
 from collections import deque
 from itertools import product
 from pathlib import Path
@@ -47,7 +48,7 @@ def main():
 
     parser.add_argument(
         "-c",
-        "--num-colors",
+        "--max-num-colors",
         type=int,
         default=4,
         help="number of colors to use",
@@ -63,6 +64,8 @@ def main():
 
     args = parser.parse_args()
 
+    assert args.max_num_colors >= 2, "Number of colors must be at least 2"
+
     args.output_path.parent.mkdir(parents=True, exist_ok=True)
 
     random.seed(args.seed)
@@ -76,24 +79,27 @@ def main():
     )
     goals.remove((0, 0))
 
-    partial_specs = [
-        [
-            f"Size: {args.width} {args.width}",
-            f"Init: 0 0",
-            f"Goal: {g[0]} {g[1]}",
-        ]
-        for g in goals
-    ]
-
-    colors_prefix = "Colors: |"
-
     problem_specs = set()
 
+    dataset = {
+        "domain": "witness",
+        "width": args.width,
+        "max_num_colors": args.max_num_colors,
+        "problems": [],
+    }
+
+    problem_id = 0
     with tqdm(total=args.num_problems) as pbar:
         while len(problem_specs) < args.num_problems:
             head_at_goal = False
-            partial_spec = random.choice(partial_specs)
-            wit = Witness(partial_spec)
+            goal = random.choice(goals)
+            problem = {
+                "init": (0, 0),  # todo allow other initial pos?
+                "goal": goal,
+            }
+            wit = Witness(
+                width=args.width, max_num_colors=args.max_num_colors, **problem
+            )
             # generate a path from start to goal
             state = wit.reset()
             while actions := wit.actions_unpruned(state):
@@ -117,52 +123,48 @@ def main():
                 min_num_regions = 5
 
             # todo should we allow regions to have the same color?
-            if len(regions) < min_num_regions or len(regions) > args.num_colors:
+            if len(regions) < min_num_regions or len(regions) > args.max_num_colors:
                 continue
 
             # fill each region with a color
-            colors = random.sample(range(1, args.num_colors + 1), len(regions))
-            color_str = colors_prefix
-            for i, region in enumerate(regions):
+            colors = random.sample(range(1, args.max_num_colors + 1), len(regions))
+            colored_cells = []
+            for region in regions:
                 region_arr = np.array(sorted(region))
                 region_mask = np.random.rand(len(region_arr)) < args.bullet_prob
                 region_arr = region_arr[region_mask]
                 if len(region_arr):
-                    color_str += "|".join(
-                        f"{row} {col} {colors[-1]}" for row, col in region_arr
+                    colored_cells.extend(
+                        [f"{row} {col} {colors[-1]}" for row, col in region_arr]
                     )
-                    if i < len(regions) - 1:
-                        color_str += "|"
                     colors.pop()
 
             # Only add if at least two colors were used
-            num_colors_used = len(regions) - len(colors)
-            if num_colors_used < 2:
+            max_num_colors_used = len(regions) - len(colors)
+            if max_num_colors_used < 2:
                 continue
 
-            # todo should we consider all problems with the same path as duplicates? Might lead to
-            # poorer generalization
-            partial_spec = copy(partial_spec)
-            partial_spec.append(f"Num Colors: {num_colors_used}")
-            partial_spec.append(color_str)
-            formatted_spec = "%s\n" % "\n".join(partial_spec)
-            if formatted_spec in problem_specs:
+            problem["colored_cells"] = colored_cells
+            problem_str = str(problem)
+            if problem_str in problem_specs:
                 continue
             else:
-                problem_specs.add(formatted_spec)
+                problem_specs.add(problem_str)
+                problem["id"] = problem_id
+                problem_id += 1
+                dataset["problems"].append(problem)
                 pbar.update()
 
     with args.output_path.open("w") as f:
-        for spec in problem_specs:
-            f.write(f"{spec}\n")
+        json.dump(dataset, f, indent=2)
 
 
 def connected_components(wit, wit_state):
     """
     Compute the connected components of the grid, i.e. the regions separated by the path
     """
-    visited = np.zeros((wit.num_rows, wit.num_cols))
-    cell_states = [(i, j) for i, j in product(range(wit.num_rows), range(wit.num_cols))]
+    visited = np.zeros((wit.width, wit.width))
+    cell_states = [(i, j) for i, j in product(range(wit.width), range(wit.width))]
     regions = []
     while len(cell_states) != 0:
         root = cell_states.pop()
@@ -180,13 +182,13 @@ def connected_components(wit, wit_state):
                 neighbors = []
                 row, col = cell
                 # move up
-                if row + 1 < wit.num_rows and wit_state.h_segs[row + 1, col] == 0:
+                if row + 1 < wit.width and wit_state.h_segs[row + 1, col] == 0:
                     neighbors.append((row + 1, col))
                 # move down
                 if row > 0 and wit_state.h_segs[row, col] == 0:
                     neighbors.append((row - 1, col))
                 # move right
-                if col + 1 < wit.num_cols and wit_state.v_segs[row, col + 1] == 0:
+                if col + 1 < wit.width and wit_state.v_segs[row, col + 1] == 0:
                     neighbors.append((row, col + 1))
                 # move left
                 if col > 0 and wit_state.v_segs[row, col] == 0:
