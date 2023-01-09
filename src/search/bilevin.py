@@ -23,7 +23,6 @@ class BiLevin(Agent):
     def search(
         self,
         problem,
-        problem_name,
         model,
         budget,
         train=False,
@@ -152,5 +151,5 @@ class BiLevin(Agent):
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []
 
-        print("Emptied frontiers for problem: ", problem_name)
+        print("Emptied frontiers for problem")
         return False, num_expanded, num_generated, None

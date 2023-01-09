@@ -12,8 +12,26 @@ from search.utils import Trajectory
 from search.utils import SearchNode
 
 
-# class WitnessDatasetLoader():
-#     def load_dataset:
+def load_problemset(problemset: dict):
+    width = problemset["width"]
+    max_num_colors = problemset["max_num_colors"]
+    problems = []
+    for p_dict in problemset["problems"]:
+        problem = Witness(
+            width=width,
+            max_num_colors=max_num_colors,
+            init=p_dict["init"],
+            goal=p_dict["goal"],
+            colored_cells=p_dict["colored_cells"],
+        )
+        problems.append((p_dict["id"], problem))
+
+    num_actions = problems[0][1].num_actions
+    in_channels = problems[0][1].in_channels
+    state_t_width = problems[0][1].state_width
+    double_backward = False
+
+    return problems, num_actions, in_channels, state_t_width, double_backward
 
 
 class WitnessState(State):
@@ -86,7 +104,8 @@ class Witness(Domain):
 
         self.num_colors = 0
         for cell in colored_cells:
-            self.cells[int(cell[0]), int(cell[1])] = int(cell[2])
+            values = [int(x) for x in cell.split()]
+            self.cells[values[0], values[1]] = values[2]
 
         self.initial_state = WitnessState(
             self.width,

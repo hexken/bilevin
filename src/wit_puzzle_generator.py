@@ -1,9 +1,8 @@
 import argparse
-import json
 from collections import deque
 from itertools import product
+import json
 from pathlib import Path
-from copy import copy
 import random
 
 import numpy as np
@@ -82,7 +81,8 @@ def main():
     problem_specs = set()
 
     dataset = {
-        "domain": "witness",
+        "domain_module": "witness",
+        "domain_name": "Witness",
         "width": args.width,
         "max_num_colors": args.max_num_colors,
         "problems": [],

@@ -28,7 +28,6 @@ class Levin(Agent):
     def search(
         self,
         problem,
-        problem_name,
         model,
         budget,
         train=False,
@@ -68,7 +67,7 @@ class Levin(Agent):
                 or end_time
                 and time.time() > end_time
             ):
-                return (False, num_expanded, num_generated, None)
+                return False, num_expanded, num_generated, None
 
             node = heapq.heappop(frontier)
             num_expanded += 1
@@ -117,7 +116,7 @@ class Levin(Agent):
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []
 
-        print("Emptied frontier during problem: ", problem_name)
+        # todo log empty frontier?
         return False, num_expanded, num_generated, None
 
 

@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 from pathlib import Path
 import random
@@ -11,7 +12,7 @@ import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 import wandb
 
-from domains import SlidingTilePuzzle, Witness
+import domains
 from models import ConvNetDouble, ConvNetSingle
 import models.loss_functions as loss_fns
 from search import BiLevin, Levin
@@ -23,18 +24,10 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "-d",
-        "--domain",
-        type=str,
-        default="SlidingTilePuzzle",
-        choices=["SlidingTilePuzzle", "Witness"],
-        help="problem domain",
-    )
-    parser.add_argument(
         "-p",
-        "--problems-path",
+        "--problemset-path",
         type=lambda p: Path(p).absolute(),
-        help="path of directory with problem instances",
+        help="path of file with problem instances",
     )
     parser.add_argument(
         "-m",
@@ -212,59 +205,35 @@ if __name__ == "__main__":
             "batch-size-bootstrap must be a multiple of world-size (nnodes * nproc_per_node)"
         )
     start_time = time.time()
-    exp_name = f"_{args.exp_name}" if args.exp_name else ""
-    run_name = (
-        f"{args.domain}_{args.agent}_{args.seed}_{int(start_time)}{args.exp_name}"
-    )
+
+    problemset_dict = json.load(args.problemset_path.open("r"))
+
+    domain_module = getattr(domains, problemset_dict["domain_module"])
+    (all_problems, num_actions, in_channels, state_t_width, double_backward,) = getattr(
+        domain_module, "load_problemset"
+    )(problemset_dict)
+
+    problems_per_process = 0
+
+    assert len(all_problems) > 0, "No problems were loaded"
+
+    for p in all_problems:
+        assert not p[1].is_goal(p[1].initial_state)
 
     problems = []
-    double_backward = False
-    problems_gathered = []
-    problems_per_process = 0
-    problem_files = sorted(args.problems_path.iterdir())
-
-    if args.domain == "SlidingTilePuzzle":
-        for file in problem_files:
-            problems_gathered.extend(
-                [SlidingTilePuzzle(line) for line in file.read_text().splitlines()]
-            )
-        double_backward = True
-    elif args.domain == "Witness":
-        all_lines = []
-        for file in problem_files:
-            problems_gathered.extend(
-                [
-                    Witness(puzzle=line_list)
-                    for lines in file.read_text().split("\n\n")
-                    if len(line_list := lines.splitlines()) == 5
-                ]
-            )
-
-    assert len(problems_gathered) > 0, "No problems were loaded"
-
-    for p in problems_gathered:
-        assert not p.is_goal(p.initial_state)
-
-    problems_per_process = len(problems_gathered) // world_size
+    problems_per_process = len(all_problems) // world_size
     for proc in range(world_size):
-        problems_local = {
-            i + 1: p
-            for i, p in enumerate(
-                problems_gathered[
-                    proc * problems_per_process : (proc + 1) * problems_per_process
-                ],
-                start=proc * problems_per_process,
-            )
-        }
+        problems_local = all_problems[
+            proc * problems_per_process : (proc + 1) * problems_per_process
+        ]
         problems.append(problems_local)
-
-    num_actions = problems[0][1].num_actions
-    in_channels = problems[0][1].in_channels
-    initial_size = problems[0][1].state_width
 
     if world_size > 1:
         backend = "nccl" if args.cuda and to.cuda.is_available() else "gloo"
         dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
+
+    exp_name = f"_{args.exp_name}" if args.exp_name else ""
+    run_name = f"{problemset_dict['domain_name']}_{args.agent}_{args.seed}_{int(start_time)}{args.exp_name}"
 
     if rank == 0:
         print(time.ctime(start_time))
@@ -286,7 +255,7 @@ if __name__ == "__main__":
         print(f"Logging with tensorboard\n  to runs/{run_name}")
 
         print(
-            f"Parsed {len(problems_gathered)} problems\n"
+            f"Parsed {len(all_problems)} problems\n"
             f"  Loading {problems_per_process * world_size}, {problems_per_process} into each of {world_size} processes"
         )
         writer = SummaryWriter(f"runs/{run_name}")
@@ -338,20 +307,20 @@ if __name__ == "__main__":
     assert agent is not None
 
     if args.agent == "Levin":
-        model = ConvNetSingle(in_channels, initial_size, (2, 2), 32, num_actions).to(
+        model = ConvNetSingle(in_channels, state_t_width, (2, 2), 32, num_actions).to(
             device
         )
     elif args.agent == "BiLevin":
         forward_model = ConvNetSingle(
-            in_channels, initial_size, (2, 2), 32, num_actions
+            in_channels, state_t_width, (2, 2), 32, num_actions
         ).to(device)
         if double_backward:
             backward_model = ConvNetDouble(
-                in_channels, initial_size, (2, 2), 32, num_actions
+                in_channels, state_t_width, (2, 2), 32, num_actions
             ).to(device)
         else:
             backward_model = ConvNetSingle(
-                in_channels, initial_size, (2, 2), 32, num_actions
+                in_channels, state_t_width, (2, 2), 32, num_actions
             ).to(device)
         model = forward_model, backward_model
     else:
@@ -416,12 +385,6 @@ if __name__ == "__main__":
 
     elif args.mode == "test":
         raise NotImplementedError
-        # test(
-        #     problems,
-        #     agent,
-        #     model,
-        #     args.time_limit,
-        # )
 
     if rank == 0:
         print(f"Total time: {time.time() - start_time}")

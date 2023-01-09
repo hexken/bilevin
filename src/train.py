@@ -5,6 +5,7 @@ from typing import Type, Callable, Union
 
 import numpy as np
 import pandas as pd
+from domains.domain import Domain
 from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
@@ -135,7 +136,6 @@ def train(
                 start_time = time.time()
                 (solution_length, num_expanded, num_generated, traj,) = agent.search(
                     problem,
-                    problem_id,
                     model,
                     current_budget,
                     train=True,
@@ -321,9 +321,11 @@ def train(
 
 
 class ProblemsBatchLoader:
-    def __init__(self, problems: dict, batch_size: int, shuffle: bool = True):
-        self.problems = np.array(tuple(problems.values()))
-        self.keys = np.array(tuple(problems.keys()))
+    def __init__(
+        self, problems: list[tuple[int, Domain]], batch_size: int, shuffle: bool = True
+    ):
+        self.ids = np.array(tuple(p[0] for p in problems))
+        self.problems = np.array(tuple(p[1] for p in problems))
         self._len = len(problems)
         self._num_problems_served = 0
         self._batch_size = batch_size
@@ -349,10 +351,10 @@ class ProblemsBatchLoader:
             self._num_problems_served : self._num_problems_served + self._batch_size
         ]
         self._num_problems_served += self._batch_size
-        return self.problems[next_indices], self.keys[next_indices]
+        return self.problems[next_indices], self.ids[next_indices]
 
     def __getitem__(self, idx):
-        return self.problems[idx], self.keys[idx]
+        return self.problems[idx], self.ids[idx]
 
 
 def sync_grads(model: to.nn.Module, world_size: int):
