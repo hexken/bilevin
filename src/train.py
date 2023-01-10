@@ -22,7 +22,7 @@ def train(
     loss_fn: Callable,
     optimizer_cons: Type[to.optim.Optimizer],
     optimizer_params: dict,
-    problems: dict[int, object],
+    problems: list[tuple[int, Domain]],
     writer: SummaryWriter,
     world_size: int = 1,
     initial_budget: int = 7000,
@@ -41,7 +41,7 @@ def train(
     num_problems = len(problems) * world_size
 
     search_result_header = [
-        "Problem",
+        "ProblemId",
         "SolutionLength",
         "NumExpanded",
         "NumGenerated",
@@ -118,7 +118,7 @@ def train(
                 problems_loader, total=math.ceil(num_problems / batch_size)
             )
 
-        for batch_problems, batch_ids in problems_loader:
+        for batch_problems in problems_loader:
             total_batches += 1
 
             if rank == 0:
@@ -132,7 +132,7 @@ def train(
                 backward_model.eval()  # type:ignore
 
             num_problems_solved_this_batch = 0
-            for i, (problem, problem_id) in enumerate(zip(batch_problems, batch_ids)):
+            for i, problem in enumerate(batch_problems):
                 start_time = time.time()
                 (solution_length, num_expanded, num_generated, traj,) = agent.search(
                     problem,
@@ -141,7 +141,7 @@ def train(
                     train=True,
                 )
 
-                local_batch_results[i, 0] = problem_id
+                local_batch_results[i, 0] = problem[0]
                 local_batch_results[i, 1] = solution_length
                 local_batch_results[i, 2] = num_expanded
                 local_batch_results[i, 3] = num_generated
@@ -180,7 +180,7 @@ def train(
             #     writer.add_scalar("AvgNumExpanded", avg_num_expanded, total_batches)
             #     writer.add_scalar("AvgNumGenerated", avg_num_generated, total_batches)
 
-            batch_solved_ids = solved_df.Problem.values
+            batch_solved_ids = solved_df["ProblemId"].values
             for problem_id in batch_solved_ids:
                 if problem_id not in solved_problems:
                     num_new_problems_solved_this_epoch += 1
@@ -324,8 +324,7 @@ class ProblemsBatchLoader:
     def __init__(
         self, problems: list[tuple[int, Domain]], batch_size: int, shuffle: bool = True
     ):
-        self.ids = np.array(tuple(p[0] for p in problems))
-        self.problems = np.array(tuple(p[1] for p in problems))
+        self.problems = np.array(problems)
         self._len = len(problems)
         self._num_problems_served = 0
         self._batch_size = batch_size
@@ -351,10 +350,10 @@ class ProblemsBatchLoader:
             self._num_problems_served : self._num_problems_served + self._batch_size
         ]
         self._num_problems_served += self._batch_size
-        return self.problems[next_indices], self.ids[next_indices]
+        return self.problems[next_indices]
 
     def __getitem__(self, idx):
-        return self.problems[idx], self.ids[idx]
+        return self.problems[idx]
 
 
 def sync_grads(model: to.nn.Module, world_size: int):

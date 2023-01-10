@@ -1,5 +1,7 @@
+from __future__ import annotations
 import heapq
 import time
+from typing import TYPE_CHECKING
 
 import torch as to
 
@@ -7,6 +9,9 @@ from enums import TwoDir
 from models.utils import mixture_uniform
 from search.agent import Agent
 from search.levin import LevinNode, levin_cost
+
+if TYPE_CHECKING:
+    from domains.domain import Domain
 
 
 class BiLevin(Agent):
@@ -22,7 +27,7 @@ class BiLevin(Agent):
 
     def search(
         self,
-        problem,
+        problem: tuple[int, Domain],
         model,
         budget,
         train=False,
@@ -30,10 +35,11 @@ class BiLevin(Agent):
     ):
         """ """
         device = next(model[0].parameters()).device
-        f_problem = problem
-        b_problem = problem.backward_problem()
+        id, domain = problem
+        f_problem = domain
+        b_problem = domain.backward_problem()
 
-        f_state = problem.reset()
+        f_state = domain.reset()
         f_state_t = f_problem.state_tensor(f_state, device).unsqueeze(0)
 
         b_state = b_problem.reset()
@@ -151,5 +157,5 @@ class BiLevin(Agent):
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []
 
-        print("Emptied frontiers for problem")
+        print(f"Emptied frontiers for problem {id}")
         return False, num_expanded, num_generated, None

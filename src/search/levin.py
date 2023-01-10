@@ -11,7 +11,7 @@ from search.agent import Agent
 from search.utils import SearchNode, Trajectory
 
 if TYPE_CHECKING:
-    from domains.domain import State
+    from domains.domain import State, Domain
 
 
 class Levin(Agent):
@@ -27,7 +27,7 @@ class Levin(Agent):
 
     def search(
         self,
-        problem,
+        problem: tuple[int, Domain],
         model,
         budget,
         train=False,
@@ -36,8 +36,9 @@ class Levin(Agent):
         """ """
         device = next(model.parameters()).device
 
-        state = problem.reset()
-        state_t = problem.state_tensor(state, device).unsqueeze(0)
+        id, domain = problem
+        state = domain.reset()
+        state_t = domain.state_tensor(state, device).unsqueeze(0)
 
         action_logits = model(state_t)
 
@@ -72,12 +73,12 @@ class Levin(Agent):
             node = heapq.heappop(frontier)
             num_expanded += 1
 
-            actions = problem.actions(node.parent_action, node.state)
+            actions = domain.actions(node.parent_action, node.state)
             if not actions:
                 continue
 
             for a in actions:
-                new_state = problem.result(node.state, a)
+                new_state = domain.result(node.state, a)
 
                 new_node = LevinNode(
                     new_state,
@@ -90,9 +91,9 @@ class Levin(Agent):
                 num_generated += 1
 
                 if new_node not in reached:
-                    if problem.is_goal(new_state):
+                    if domain.is_goal(new_state):
                         solution_len = new_node.g_cost
-                        traj = Trajectory(problem, new_node, num_expanded, device)
+                        traj = Trajectory(domain, new_node, num_expanded, device)
                         if train:
                             traj = (traj,)
                         return solution_len, num_expanded, num_generated, traj
@@ -100,7 +101,7 @@ class Levin(Agent):
                     reached[new_node] = new_node
                     children_to_be_evaluated.append(new_node)
 
-                state_t = problem.state_tensor(new_state, device)
+                state_t = domain.state_tensor(new_state, device)
                 state_t_of_children_to_be_evaluated.append(state_t)
 
             batch_states = to.stack(state_t_of_children_to_be_evaluated)
@@ -116,7 +117,7 @@ class Levin(Agent):
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []
 
-        # todo log empty frontier?
+        print(f"Emptied frontiers for problem {id}")
         return False, num_expanded, num_generated, None
 
 

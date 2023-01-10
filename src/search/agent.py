@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from domains.domain import Domain
 
 
 class Agent(ABC):
@@ -9,5 +10,5 @@ class Agent(ABC):
         pass
 
     @abstractmethod
-    def search(self, problem):
+    def search(self, problem: tuple[int, Domain]):
         pass

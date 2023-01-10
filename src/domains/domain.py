@@ -1,10 +1,11 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import torch as to
 
-from search.utils import SearchNode, Trajectory
+if TYPE_CHECKING:
+    from search.utils import SearchNode, Trajectory
 
 
 class State(ABC):
@@ -13,11 +14,11 @@ class State(ABC):
     #     pass
 
     @abstractmethod
-    def __eq__(self):
+    def __eq__(self) -> bool:
         pass
 
     @abstractmethod
-    def __hash__(self):
+    def __hash__(self) -> int:
         pass
 
 
@@ -42,11 +43,17 @@ class Domain(ABC):
         pass
 
     @abstractmethod
-    def reset(self, state: State) -> bool:
+    def reset(self) -> State:
         pass
 
     @abstractmethod
-    def state_tensor(self):
+    def backward_problem(self) -> Domain:
+        pass
+
+    @abstractmethod
+    def state_tensor(
+        self, state: State, device: to.device = to.device("cpu")
+    ) -> to.Tensor:
         pass
 
     @abstractmethod
@@ -54,15 +61,15 @@ class Domain(ABC):
         pass
 
     @abstractmethod
-    def actions(self, state: State):
+    def actions(self, action, state: State) -> list:
         pass
 
     @abstractmethod
-    def actions_unpruned(self, state: State):
+    def actions_unpruned(self, state: State) -> list:
         pass
 
     @abstractmethod
-    def result(self, action, state: State):
+    def result(self, state: State, action) -> State:
         pass
 
     @abstractmethod

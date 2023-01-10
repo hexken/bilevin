@@ -256,7 +256,7 @@ if __name__ == "__main__":
 
         print(
             f"Parsed {len(all_problems)} problems\n"
-            f"  Loading {problems_per_process * world_size}, {problems_per_process} into each of {world_size} processes"
+            f"  Loaded {problems_per_process * world_size}, {problems_per_process} into each of {world_size} processes"
         )
         writer = SummaryWriter(f"runs/{run_name}")
         arg_string = "|param|value|\n|-|-|\n%s" % (

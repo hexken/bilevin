@@ -8,8 +8,7 @@ import torch as to
 
 from domains.domain import Domain, State
 from enums import Color, FourDir
-from search.utils import Trajectory
-from search.utils import SearchNode
+from search.utils import SearchNode, Trajectory
 
 
 def load_problemset(problemset: dict):
@@ -60,6 +59,7 @@ class WitnessState(State):
         return (self.v_segs.tobytes(), self.h_segs.tobytes()).__hash__()
 
     def __eq__(self, other):
+        raise NotImplementedError
         return (
             np.array_equal(self.v_segs, other.v_segs)
             and np.array_equal(self.h_segs, other.h_segs)
