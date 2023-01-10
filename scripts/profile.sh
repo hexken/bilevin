@@ -1,22 +1,17 @@
 #!/bin/bash
-#
-export OMP_NUM_THREADS=1
 
-torchrun \
-    --standalone \
-    --nnodes=1 \
-    --nproc_per_node=4 \
-    --master_addr=$(hostname)\
-    --master_port=34567 \
+scalene \
     src/main.py \
     --mode train \
-    --agent Levin \
+    --agent BiLevin \
     --loss levin_loss_sum \
     --model-path trained_models/ \
-    --problemset-path problems/witness/4x4_4/1000.json \
+    --domain Witness \
+    --problems-path problems/witness/4x4_4_1000/ \
     --initial-budget 2000 \
     --grad-steps 10 \
     --batch-size-bootstrap 4 \
     --seed 1 \
     --track-params \
     --wandb-mode disabled
+

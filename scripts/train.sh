@@ -7,10 +7,10 @@ python src/main.py \
     --agent Levin \
     --loss levin_loss_avg \
     --model-path trained_models/ \
-    --domain Witness \
-    --problems-path problems/witness/puzzles_4x4_50k_train/ \
+    --problems-path problems/witness/6x6_5/ \
     --initial-budget 2000 \
     --grad-steps 10 \
     --batch-size-bootstrap 1 \
     --seed 1 \
+    --track-params \
     --wandb disabled

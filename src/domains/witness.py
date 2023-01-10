@@ -11,32 +11,11 @@ from enums import Color, FourDir
 from search.utils import SearchNode, Trajectory
 
 
-def load_problemset(problemset: dict):
-    width = problemset["width"]
-    max_num_colors = problemset["max_num_colors"]
-    problems = []
-    for p_dict in problemset["problems"]:
-        problem = Witness(
-            width=width,
-            max_num_colors=max_num_colors,
-            init=p_dict["init"],
-            goal=p_dict["goal"],
-            colored_cells=p_dict["colored_cells"],
-        )
-        problems.append((p_dict["id"], problem))
-
-    num_actions = problems[0][1].num_actions
-    in_channels = problems[0][1].in_channels
-    state_t_width = problems[0][1].state_width
-    double_backward = False
-
-    return problems, num_actions, in_channels, state_t_width, double_backward
-
-
 class WitnessState(State):
     """
     A Witness State.
     Note that start/head/goal row/col's refer to the grid, not cell locations
+    Note that head_row and head_col are only consistent with grids/segs upon initialization if they're 0
     """
 
     def __init__(
@@ -310,7 +289,11 @@ class Witness(Domain):
         Applies a given action to the state. It modifies the segments visited by the snake (v_seg and h_seg),
         the intersections (grid), and the tip of the snake.
         """
-        new_state = deepcopy(state)
+        # faster than deepcopy or np.ndarray.copy()
+        new_state = WitnessState(self.width, state.head_row, state.head_col)
+        new_state.grid = np.array(state.grid)
+        new_state.v_segs = np.array(state.v_segs)
+        new_state.h_segs = np.array(state.h_segs)
 
         # moving up
         if action == FourDir.UP:
@@ -418,24 +401,30 @@ class Witness(Domain):
         merge(dir1_common, dir2_common).
         """
         dir1_node = dir1_common
-        parent_dir2_node = dir2_common.parent
-        parent_dir2_action = dir2_common.parent_action
-        while parent_dir2_node:
-            new_state = deepcopy(dir1_node.state)
+        dir2_parent_node = dir2_common.parent
+        dir2_parent_action = dir2_common.parent_action
+        while dir2_parent_node:
+            dir1_state = dir1_node.state
+            new_state = WitnessState(
+                self.width, dir1_state.head_row, dir1_state.head_col
+            )
+            new_state.v_segs = np.array(dir1_state.v_segs)
+            new_state.h_segs = np.array(dir1_state.h_segs)
+            new_state.grid = np.array(dir1_state.grid)
             new_state.grid[
-                parent_dir2_node.state.head_row, parent_dir2_node.state.head_col
+                dir2_parent_node.state.head_row, dir2_parent_node.state.head_col
             ] = 1
 
-            if parent_dir2_action == FourDir.UP:
+            if dir2_parent_action == FourDir.UP:
                 new_state.v_segs[new_state.head_row - 1, new_state.head_col] = 1
                 new_state.head_row -= 1
-            elif parent_dir2_action == FourDir.DOWN:
+            elif dir2_parent_action == FourDir.DOWN:
                 new_state.v_segs[new_state.head_row, new_state.head_col] = 1
                 new_state.head_row += 1
-            elif parent_dir2_action == FourDir.RIGHT:
+            elif dir2_parent_action == FourDir.RIGHT:
                 new_state.h_segs[new_state.head_row, new_state.head_col - 1] = 1
                 new_state.head_col -= 1
-            elif parent_dir2_action == FourDir.LEFT:
+            elif dir2_parent_action == FourDir.LEFT:
                 new_state.h_segs[new_state.head_row, new_state.head_col] = 1
                 new_state.head_col += 1
             else:
@@ -444,12 +433,12 @@ class Witness(Domain):
             new_dir1_node = node_type(
                 state=new_state,
                 parent=dir1_node,
-                parent_action=self.reverse_action(parent_dir2_action),
+                parent_action=self.reverse_action(dir2_parent_action),
                 g_cost=dir1_node.g_cost + 1,
             )
             dir1_node = new_dir1_node
-            parent_dir2_action = parent_dir2_node.parent_action
-            parent_dir2_node = parent_dir2_node.parent
+            dir2_parent_action = dir2_parent_node.parent_action
+            dir2_parent_node = dir2_parent_node.parent
 
         return Trajectory(self, dir1_node, num_expanded, device=device)
 
@@ -468,17 +457,15 @@ class Witness(Domain):
         if head_dot not in other_problem.heads:
             return None
         for other_node in other_problem.heads[head_dot]:
-            merged_state = deepcopy(state)
             other_state = other_node.state
 
-            merged_state.grid[head_dot] = 0
-            merged_state.grid += other_state.grid
-
-            merged_state.v_segs += other_state.v_segs
-            merged_state.h_segs += other_state.h_segs
-
-            merged_state.head_row = other_problem.start_row
-            merged_state.head_col = other_problem.start_col
+            merged_state = WitnessState(
+                self.width, other_problem.start_row, other_problem.start_col
+            )
+            merged_state.grid = state.grid + other_state.grid
+            merged_state.grid[head_dot] = 1
+            merged_state.v_segs = state.v_segs + other_state.v_segs
+            merged_state.h_segs = state.h_segs + other_state.h_segs
 
             if self.is_goal(merged_state):
                 if self.forward:
@@ -659,3 +646,25 @@ class Witness(Domain):
             plt.close()
         else:
             plt.show()
+
+
+def load_problemset(problemset: dict):
+    width = problemset["width"]
+    max_num_colors = problemset["max_num_colors"]
+    problems = []
+    for p_dict in problemset["problems"]:
+        problem = Witness(
+            width=width,
+            max_num_colors=max_num_colors,
+            init=p_dict["init"],
+            goal=p_dict["goal"],
+            colored_cells=p_dict["colored_cells"],
+        )
+        problems.append((p_dict["id"], problem))
+
+    num_actions = problems[0][1].num_actions
+    in_channels = problems[0][1].in_channels
+    state_t_width = problems[0][1].state_width
+    double_backward = False
+
+    return problems, num_actions, in_channels, state_t_width, double_backward
