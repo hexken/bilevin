@@ -10,13 +10,13 @@ torchrun \
     --master_port=34567 \
     src/main.py \
     --mode train \
-    --agent Levin \
+    --agent BiLevin \
     --loss levin_loss_sum \
     --model-path trained_models/ \
-    --problemset-path problems/witness/4x4_4/1000.json \
+    --problemset-path problems/witness/4x4_4/12.json \
     --initial-budget 2000 \
     --grad-steps 10 \
     --batch-size-bootstrap 4 \
     --seed 1 \
     --track-params \
-    --wandb-mode disabled
+    --wandb-mode online

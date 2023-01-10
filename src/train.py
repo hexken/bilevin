@@ -47,6 +47,17 @@ def train(
         "NumGenerated",
         "Time",
     ]
+
+    dummy_data = np.column_stack(
+        (
+            range(num_problems),
+            np.zeros((num_problems, len(search_result_header) - 1), dtype=np.int32),
+        )
+    )
+    results_df = pd.DataFrame(dummy_data, columns=search_result_header)
+    results_df["Time"] = results_df["Time"].astype(float, copy=False)
+    results_df.set_index("ProblemId", inplace=True)
+
     opt_result_header = f"OptStep   Loss    Acc"
 
     bidirectional = agent.bidirectional
@@ -158,29 +169,20 @@ def train(
             else:
                 batch_results_t = local_batch_results
 
-            batch_df = pd.DataFrame(
-                batch_results_t.cpu().numpy(), columns=search_result_header
+            batch_results_arr = batch_results_t.cpu().numpy()
+
+            batch_ids = batch_results_arr[:, 0]
+            results_df.loc[batch_ids, search_result_header[1:-1]] = batch_results_arr[
+                :, 1:-1
+            ]
+            results_df.loc[batch_ids, "Time"] = (
+                batch_results_arr[:, -1].astype(float) / 1000
             )
-            # todo for solved, log avg solution length , num_expanded, and num_generated
-            batch_df["Time"] = batch_df["Time"].astype(float, copy=False) / 1000
-            batch_df.sort_values("NumExpanded", inplace=True)
-            solved_df = batch_df[batch_df["SolutionLength"] > 0]
 
-            # avg_solution_length = solved_df["SolutionLength"].mean()
-            # avg_num_expanded = solved_df["NumExpanded"].mean()
-            # avg_num_generated = solved_df["NumGenerated"].mean()
+            batch_results_df = results_df.loc[batch_ids]
+            batch_results_df.sort_values("NumExpanded", inplace=True)
 
-            # if rank == 0:
-            #     print(
-            #         f"Avg solution length: {avg_solution_length}\nAvg num expanded: {avg_num_expanded}\nAvg num generated: {avg_num_generated}"
-            #     )
-            #     writer.add_scalar(
-            #         "AvgSolutionLength", avg_solution_length, total_batches
-            #     )
-            #     writer.add_scalar("AvgNumExpanded", avg_num_expanded, total_batches)
-            #     writer.add_scalar("AvgNumGenerated", avg_num_generated, total_batches)
-
-            batch_solved_ids = solved_df["ProblemId"].values
+            batch_solved_ids = batch_ids[batch_results_arr[:, 1] > 0]
             for problem_id in batch_solved_ids:
                 if problem_id not in solved_problems:
                     num_new_problems_solved_this_epoch += 1
@@ -190,7 +192,11 @@ def train(
             num_problems_solved_this_epoch += num_problems_solved_this_batch
             if rank == 0:
                 print(
-                    tabulate(batch_df, headers="keys", tablefmt="psql", showindex=False)
+                    tabulate(
+                        batch_results_df,
+                        headers="keys",
+                        tablefmt="psql",
+                    )
                 )
                 print(f"Solved {num_problems_solved_this_batch}/{batch_size}\n")
 
@@ -288,9 +294,10 @@ def train(
                 )
 
             if rank == 0:
-                to.save(forward_model, forward_model_path)  # type:ignore
-                if bidirectional:
-                    to.save(backward_model, backward_model_path)  # type:ignore
+                if total_batches % 10 == 0 or len(solved_problems) == num_problems:
+                    to.save(forward_model, forward_model_path)  # type:ignore
+                    if bidirectional:
+                        to.save(backward_model, backward_model_path)  # type:ignore
                 batch_avg = num_problems_solved_this_batch / batch_size
                 # fmt: off
                 writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, total_batches)
@@ -314,6 +321,7 @@ def train(
             writer.add_scalar("budget_vs_epoch", current_budget, epoch)
             writer.add_scalar(f"budget_{current_budget}/solved_vs_epoch", epoch_solved, epoch)
             writer.add_scalar("cum_unique_solved_vs_epoch", len(solved_problems), epoch)
+            writer.add_text(f"epoch{epoch}_results", results_df.to_markdown(), epoch)
             # fmt: on
 
         if num_new_problems_solved_this_epoch == 0:
