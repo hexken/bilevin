@@ -123,17 +123,6 @@ def parse_args():
         default="1.0",
         help="weight to be used with WA*.",
     )
-    # parser.add_argument(
-    #     "--use-default-heuristic",
-    #     action="store_true",
-    #     help="use the default heuristic",
-    # )
-    # parser.add_argument(
-    #     "--use-learned-heuristic",
-    #     action="store_true",
-    #     default=False,
-    #     help="use the learned heuristic",
-    # )
     parser.add_argument(
         "--mode",
         type=str,
@@ -154,17 +143,6 @@ def parse_args():
         "--torch-deterministic",
         action="store_true",
         help="set `torch.backends.cudnn.deterministic=False` and `torch.use_deterministic_agents(True)`",
-    )
-    parser.add_argument(
-        "--cuda",
-        action="store_true",
-        help="enable cuda",
-    )
-    parser.add_argument(
-        "--device-ids",
-        nargs="+",
-        default=[],
-        help="the device ids that subprocess workers will use",
     )
     parser.add_argument(
         "--track-params",
@@ -229,8 +207,7 @@ if __name__ == "__main__":
         problems.append(problems_local)
 
     if world_size > 1:
-        backend = "nccl" if args.cuda and to.cuda.is_available() else "gloo"
-        dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
+        dist.init_process_group(backend="gloo", rank=rank, world_size=world_size)
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
     run_name = f"{problemset_dict['domain_name']}_{args.agent}_{args.seed}_{int(start_time)}{args.exp_name}"
@@ -285,16 +262,6 @@ if __name__ == "__main__":
         to.backends.cudnn.benchmark = False  # type:ignore
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
-    device: to.device = to.device("cpu")
-    if args.cuda and not to.cuda.is_available():
-        raise ValueError("cuda is not available")
-    elif args.cuda and len(args.device_ids) < world_size:
-        raise ValueError(
-            "you must specify the same number of device ids as `--nproc_per_node`"
-        )
-    elif args.cuda and len(args.device_ids) >= world_size:
-        device = to.device(f"cuda:{local_rank}")
-
     agent: Optional[Agent] = None
     if args.agent == "Levin":
         agent = Levin(
@@ -307,21 +274,19 @@ if __name__ == "__main__":
     assert agent is not None
 
     if args.agent == "Levin":
-        model = ConvNetSingle(in_channels, state_t_width, (2, 2), 32, num_actions).to(
-            device
-        )
+        model = ConvNetSingle(in_channels, state_t_width, (2, 2), 32, num_actions)
     elif args.agent == "BiLevin":
         forward_model = ConvNetSingle(
             in_channels, state_t_width, (2, 2), 32, num_actions
-        ).to(device)
+        )
         if double_backward:
             backward_model = ConvNetDouble(
                 in_channels, state_t_width, (2, 2), 32, num_actions
-            ).to(device)
+            )
         else:
             backward_model = ConvNetSingle(
                 in_channels, state_t_width, (2, 2), 32, num_actions
-            ).to(device)
+            )
         model = forward_model, backward_model
     else:
         raise ValueError("Search agent not recognized")
@@ -355,8 +320,13 @@ if __name__ == "__main__":
             if rank == 0:
                 print(f"Saving model\n  to {backward_model_path}")
 
+    # if agent.bidirectional:
+    #     model = to.jit.script(model[0]), to.jit.script(model[1])
+    # else:
+    #     model = to.jit.script(model)
+
     if rank == 0:
-        print(f"World size: {world_size}, rank {rank} using device: {device}")
+        print(f"World size: {world_size}, rank {rank}")
 
     if args.mode == "train":
         loss_fn = getattr(loss_fns, args.loss_fn)

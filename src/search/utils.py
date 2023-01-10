@@ -41,13 +41,11 @@ class Trajectory:
         problem,
         final_node: SearchNode,
         num_expanded: int,
-        device: to.device = to.device("cpu"),
     ):
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
-        self.device = device
         self.num_expanded = num_expanded
 
         action = final_node.parent_action
@@ -58,7 +56,7 @@ class Trajectory:
         cost = 1
 
         while node:
-            state_t = problem.state_tensor(node.state, device)
+            state_t = problem.state_tensor(node.state)
             states.append(state_t)
             actions.append(action)
             cost_to_gos.append(cost)
@@ -67,14 +65,8 @@ class Trajectory:
             cost += 1
 
         self.states = to.stack(states[::-1])
-        self.actions = to.tensor(actions[::-1], device=device)
-        self.cost_to_gos = to.tensor(cost_to_gos[::-1], device=device)
-
-    def to(self, device):
-        self.states = self.states.to(device)
-        self.actions = self.actions.to(device)
-        self.cost_to_gos = self.cost_to_gos.to(device)
-        self.device = device
+        self.actions = to.tensor(actions[::-1])
+        self.cost_to_gos = to.tensor(cost_to_gos[::-1])
 
     def __len__(self):
         return len(self.states)
@@ -84,14 +76,13 @@ class MergedTrajectory:
     def __init__(self, trajs: list, shuffle: bool = False):
         if trajs:
             self.states = to.cat(tuple(t.states for t in trajs))
-            device = self.states.device
             self.actions = to.cat(tuple(t.actions for t in trajs))
-            indices = to.arange(len(trajs), device=device)
+            indices = to.arange(len(trajs))
             self.indices = to.repeat_interleave(
-                indices, to.tensor(tuple(len(t) for t in trajs), device=device)
+                indices, to.tensor(tuple(len(t) for t in trajs))
             )
             self.nums_expanded = to.tensor(
-                tuple(t.num_expanded for t in trajs), dtype=to.float32, device=device
+                tuple(t.num_expanded for t in trajs), dtype=to.float32
             )
             self.num_trajs = len(self.nums_expanded)
             self.num_states = len(self.states)
@@ -105,8 +96,7 @@ class MergedTrajectory:
         raise NotImplementedError
 
     def shuffle(self):
-        device = self.states.device
-        perm = to.randperm(self.num_states, device=device)
+        perm = to.randperm(self.num_states)
         self.states = self.states[perm]
         self.actions = self.actions[perm]
         self.indices = self.indices[perm]

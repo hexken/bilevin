@@ -34,16 +34,15 @@ class BiLevin(Agent):
         end_time=None,
     ):
         """ """
-        device = next(model[0].parameters()).device
         id, domain = problem
         f_problem = domain
         b_problem = domain.backward_problem()
 
         f_state = domain.reset()
-        f_state_t = f_problem.state_tensor(f_state, device).unsqueeze(0)
+        f_state_t = f_problem.state_tensor(f_state).unsqueeze(0)
 
         b_state = b_problem.reset()
-        b_state_t = b_problem.state_tensor(b_state, device).unsqueeze(0)
+        b_state_t = b_problem.state_tensor(b_state).unsqueeze(0)
 
         forward_model, backward_model = model
 
@@ -141,7 +140,7 @@ class BiLevin(Agent):
                     _problem.update(new_node)
                     children_to_be_evaluated.append(new_node)
 
-                state_t = _problem.state_tensor(new_state, device)
+                state_t = _problem.state_tensor(new_state)
                 state_t_of_children_to_be_evaluated.append(state_t)
 
             batch_states = to.stack(state_t_of_children_to_be_evaluated)

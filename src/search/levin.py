@@ -34,11 +34,10 @@ class Levin(Agent):
         end_time=None,
     ):
         """ """
-        device = next(model.parameters()).device
 
         id, domain = problem
         state = domain.reset()
-        state_t = domain.state_tensor(state, device).unsqueeze(0)
+        state_t = domain.state_tensor(state).unsqueeze(0)
 
         action_logits = model(state_t)
 
@@ -93,7 +92,7 @@ class Levin(Agent):
                 if new_node not in reached:
                     if domain.is_goal(new_state):
                         solution_len = new_node.g_cost
-                        traj = Trajectory(domain, new_node, num_expanded, device)
+                        traj = Trajectory(domain, new_node, num_expanded)
                         if train:
                             traj = (traj,)
                         return solution_len, num_expanded, num_generated, traj
@@ -101,7 +100,7 @@ class Levin(Agent):
                     reached[new_node] = new_node
                     children_to_be_evaluated.append(new_node)
 
-                state_t = domain.state_tensor(new_state, device)
+                state_t = domain.state_tensor(new_state)
                 state_t_of_children_to_be_evaluated.append(state_t)
 
             batch_states = to.stack(state_t_of_children_to_be_evaluated)

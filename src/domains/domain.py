@@ -51,9 +51,7 @@ class Domain(ABC):
         pass
 
     @abstractmethod
-    def state_tensor(
-        self, state: State, device: to.device = to.device("cpu")
-    ) -> to.Tensor:
+    def state_tensor(self, state: State) -> to.Tensor:
         pass
 
     @abstractmethod
@@ -74,6 +72,6 @@ class Domain(ABC):
 
     @abstractmethod
     def try_make_solution(
-        self, state: State, other_problem: Domain, num_expanded: int, device: to.device
+        self, state: State, other_problem: Domain, num_expanded: int
     ) -> Optional[tuple[Trajectory, Trajectory]]:
         pass

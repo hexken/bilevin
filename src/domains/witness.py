@@ -122,7 +122,7 @@ class Witness(Domain):
     def state_width(self):
         return self.width + 1
 
-    def state_tensor(self, state: WitnessState, device=to.device("cpu")):
+    def state_tensor(self, state: WitnessState):
         """
         Generates an image representation for the puzzle. one channel for each color; one channel with 1's
         where is "open" in the grid (this allows learning systems to work with a fixed image size defined
@@ -171,7 +171,6 @@ class Witness(Domain):
         channel_number += 1
         arr[channel_number, self.start_row, self.start_col] = 1
 
-        image = image.to(device)
         return image
 
     def reverse_action(self, action: FourDir):
@@ -394,7 +393,6 @@ class Witness(Domain):
         dir2_common: SearchNode,
         node_type: Type[SearchNode],
         num_expanded: int,
-        device=to.device("cpu"),
     ):
         """
         Returns a new trajectory going from dir1_start to dir2_start, passing through
@@ -440,10 +438,10 @@ class Witness(Domain):
             dir2_parent_action = dir2_parent_node.parent_action
             dir2_parent_node = dir2_parent_node.parent
 
-        return Trajectory(self, dir1_node, num_expanded, device=device)
+        return Trajectory(self, dir1_node, num_expanded)
 
     def try_make_solution(
-        self, node, other_problem, num_expanded, device: to.device = to.device("cpu")
+        self, node, other_problem, num_expanded
     ) -> Optional[tuple[Trajectory, Trajectory]]:
         """
         Tries to create a solution from the current node and the nodes visited by the other search
@@ -476,10 +474,10 @@ class Witness(Domain):
                     b_common_node = node
 
                 f_traj = self.get_merged_trajectory(
-                    f_common_node, b_common_node, type(node), num_expanded, device
+                    f_common_node, b_common_node, type(node), num_expanded
                 )
                 b_traj = self.get_merged_trajectory(
-                    b_common_node, f_common_node, type(node), num_expanded, device
+                    b_common_node, f_common_node, type(node), num_expanded
                 )
                 return (f_traj, b_traj)
 

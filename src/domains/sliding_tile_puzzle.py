@@ -106,9 +106,10 @@ class SlidingTilePuzzle(Domain):
         return self.num_tiles
 
     def state_tensor(
-        self, state, device=to.device("cpu")
+        self,
+        state: SlidingTilePuzzleState,
     ) -> to.Tensor | tuple[to.Tensor, to.Tensor]:
-        arr = to.zeros((self.num_tiles, self.width, self.width), device=device)
+        arr = to.zeros((self.num_tiles, self.width, self.width))
         arr[
             state.tiles.reshape(-1),
             self._row_indices,
@@ -216,7 +217,6 @@ class SlidingTilePuzzle(Domain):
         dir2_common: SearchNode,
         node_type: Type[SearchNode],
         num_expanded: int,
-        device: to.device = to.device("cpu"),
     ):
         """
         Returns a new trajectory going from dir1_start to dir2_start, passing through
@@ -238,14 +238,13 @@ class SlidingTilePuzzle(Domain):
             parent_dir2_action = parent_dir2_node.parent_action
             parent_dir2_node = parent_dir2_node.parent
 
-        return Trajectory(self, dir1_node, num_expanded, device=device)
+        return Trajectory(self, dir1_node, num_expanded)
 
     def try_make_solution(
         self,
         node: SearchNode,
         other_problem: SlidingTilePuzzle,
         num_expanded: int,
-        device: to.device = to.device("cpu"),
     ) -> Optional[tuple[Trajectory, Trajectory]]:
         """
         Returns a trajectory if state is a solution to this problem, None otherwise.
@@ -261,10 +260,10 @@ class SlidingTilePuzzle(Domain):
                 b_common_node = node
 
             f_traj = self.get_merged_trajectory(
-                f_common_node, b_common_node, type(node), num_expanded, device
+                f_common_node, b_common_node, type(node), num_expanded
             )
             b_traj = self.get_merged_trajectory(
-                b_common_node, f_common_node, type(node), num_expanded, device
+                b_common_node, f_common_node, type(node), num_expanded
             )
 
             return (f_traj, b_traj)

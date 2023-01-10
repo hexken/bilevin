@@ -90,18 +90,15 @@ def train(
     for param in forward_model.parameters():
         param.grad = to.zeros_like(param)
 
-    device = next(forward_model.parameters()).device
-
     local_batch_size = batch_size // world_size
     problems_loader = ProblemsBatchLoader(
         problems, batch_size=local_batch_size, shuffle=True
     )
 
-    local_opt_results = to.zeros(5, dtype=to.float32, device=device)
-    local_batch_results = to.zeros(local_batch_size, 5, dtype=to.int32, device=device)
+    local_opt_results = to.zeros(5, dtype=to.float32)
+    local_batch_results = to.zeros(local_batch_size, 5, dtype=to.int32)
     batch_results = [
-        to.zeros((local_batch_size, 5), dtype=to.int32, device=device)
-        for _ in range(world_size)
+        to.zeros((local_batch_size, 5), dtype=to.int32) for _ in range(world_size)
     ]
 
     total_batches = 0
