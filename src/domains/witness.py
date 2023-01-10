@@ -1,3 +1,4 @@
+from __future__ import annotations
 from collections import deque
 from copy import deepcopy
 from typing import Optional, Type
@@ -34,10 +35,10 @@ class WitnessState(State):
         self.v_segs = np.zeros((self.width, self.width + 1))
         self.h_segs = np.zeros((self.width + 1, self.width))
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return (self.v_segs.tobytes(), self.h_segs.tobytes()).__hash__()
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         raise NotImplementedError
         return (
             np.array_equal(self.v_segs, other.v_segs)
@@ -96,7 +97,7 @@ class Witness(Domain):
 
         self.forward = True
 
-    def reset(self):
+    def reset(self) -> WitnessState:
         self.heads = {}
         return self.initial_state
 
@@ -108,21 +109,21 @@ class Witness(Domain):
             self.heads[head] = [node]
 
     @property
-    def num_actions(cls):
+    def num_actions(cls) -> int:
         return 4
 
     @property
-    def in_channels(self):
+    def in_channels(self) -> int:
         """
         The max num of colors any problem in a particular problem set may have.
         """
         return self.max_num_colors + 5
 
     @property
-    def state_width(self):
+    def state_width(self) -> int:
         return self.width + 1
 
-    def state_tensor(self, state: WitnessState):
+    def state_tensor(self, state: WitnessState) -> to.Tensor:
         """
         Generates an image representation for the puzzle. one channel for each color; one channel with 1's
         where is "open" in the grid (this allows learning systems to work with a fixed image size defined
@@ -173,7 +174,7 @@ class Witness(Domain):
 
         return image
 
-    def reverse_action(self, action: FourDir):
+    def reverse_action(self, action: FourDir) -> FourDir:
         if action == FourDir.UP:
             return FourDir.DOWN
         elif action == FourDir.DOWN:
@@ -183,7 +184,7 @@ class Witness(Domain):
         elif action == FourDir.RIGHT:
             return FourDir.LEFT
 
-    def actions(self, parent_action: FourDir, state: WitnessState):
+    def actions(self, parent_action: FourDir, state: WitnessState) -> list[FourDir]:
         """
         Successor function used by planners trying to solve the puzzle. The method returns
         a list with legal actions for the state. The valid actions for the domain are {U, D, L, R}.
@@ -236,7 +237,7 @@ class Witness(Domain):
 
         return actions
 
-    def actions_unpruned(self, state: WitnessState):
+    def actions_unpruned(self, state: WitnessState) -> list[FourDir]:
         """
         Successor function used by planners trying to solve the puzzle. The method returns
         a list with legal actions for the state. The valid actions for the domain are {U, D, L, R}.
@@ -283,7 +284,7 @@ class Witness(Domain):
 
         return actions
 
-    def result(self, state: WitnessState, action: FourDir):
+    def result(self, state: WitnessState, action: FourDir) -> WitnessState:
         """
         Applies a given action to the state. It modifies the segments visited by the snake (v_seg and h_seg),
         the intersections (grid), and the tip of the snake.
@@ -317,10 +318,10 @@ class Witness(Domain):
 
         return new_state
 
-    def is_head_at_goal(self, state: WitnessState):
+    def is_head_at_goal(self, state: WitnessState) -> bool:
         return self.goal_row == state.head_row and self.goal_col == state.head_col
 
-    def is_goal(self, state: WitnessState):
+    def is_goal(self, state: WitnessState) -> bool:
         """
         Verifies whether the state's path represents a valid solution. This is performed by verifying the following
         (1) the tip of the snake is at the goal position
@@ -348,7 +349,7 @@ class Witness(Domain):
             while len(frontier) != 0:
                 cell = frontier.popleft()
 
-                def reachable_neighbors(self, cell):
+                def reachable_neighbors(self, cell) -> list[tuple[int, int]]:
                     """
                      Breadth-first search (BFS) performed to validate a solution.
                     An adjacent cell c' is amongst the successors of cell c if there is no segment (v_seg or h_seg)
@@ -393,7 +394,7 @@ class Witness(Domain):
         dir2_common: SearchNode,
         node_type: Type[SearchNode],
         num_expanded: int,
-    ):
+    ) -> Trajectory:
         """
         Returns a new trajectory going from dir1_start to dir2_start, passing through
         merge(dir1_common, dir2_common).
@@ -483,7 +484,7 @@ class Witness(Domain):
 
         return None
 
-    def backward_problem(self):
+    def backward_problem(self) -> Witness:
         """
         Should only be called on a fresh domain (no calls to update). Reverses a witness problem by
         reversing the head and goal (and updating grid to be consistent with this change).
@@ -509,7 +510,7 @@ class Witness(Domain):
 
         return b_problem
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.initial_state.__repr__()
 
     def plot(self, state=None, filename=None):
