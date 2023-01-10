@@ -210,7 +210,8 @@ if __name__ == "__main__":
         dist.init_process_group(backend="gloo", rank=rank, world_size=world_size)
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
-    run_name = f"{problemset_dict['domain_name']}_{args.agent}_{args.seed}_{int(start_time)}{args.exp_name}"
+    problemset_params = args.problemset_path.parent.stem
+    run_name = f"{problemset_dict['domain_name']}_{problemset_params}_{args.agent}_{args.seed}_{int(start_time)}{args.exp_name}"
 
     if rank == 0:
         print(time.ctime(start_time))

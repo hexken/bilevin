@@ -13,10 +13,10 @@ torchrun \
     --agent BiLevin \
     --loss levin_loss_sum \
     --model-path trained_models/ \
-    --problemset-path problems/witness/4x4_4/12.json \
+    --problemset-path problems/witness/4w4c/1000.json \
     --initial-budget 2000 \
     --grad-steps 10 \
     --batch-size-bootstrap 4 \
     --seed 1 \
     --track-params \
-    --wandb-mode online
+    --wandb-mode disabled

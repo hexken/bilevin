@@ -31,7 +31,8 @@ class SlidingTilePuzzleState(State):
         return self.tiles.tobytes().__hash__()
 
     def __eq__(self, other):
-        return np.array_equal(self.tiles, other.tiles)
+        assert NotImplementedError
+        # return np.array_equal(self.tiles, other.tiles)
 
     def oneline(self) -> str:
         return " ".join(str(t) for t in self.tiles.flatten())
