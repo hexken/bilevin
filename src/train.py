@@ -263,7 +263,9 @@ def train(
                                     # fmt:on
 
                 if rank == 0 and num_batch_partials > 0:
-                    if track_params and total_batches % 10 == 0:
+                    if track_params and (
+                        total_batches % 100 == 0 or len(solved_problems) == num_problems
+                    ):
                         for (
                             param_name,
                             param,
@@ -294,7 +296,7 @@ def train(
                 )
 
             if rank == 0:
-                if total_batches % 10 == 0 or len(solved_problems) == num_problems:
+                if total_batches % 100 == 0 or len(solved_problems) == num_problems:
                     to.save(forward_model, forward_model_path)  # type:ignore
                     if bidirectional:
                         to.save(backward_model, backward_model_path)  # type:ignore
