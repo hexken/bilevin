@@ -1,8 +1,11 @@
 import argparse
-import numpy as np
+import json
 from pathlib import Path
 import random
+
+import numpy as np
 import tqdm
+
 from domains import SlidingTilePuzzle
 
 
@@ -59,36 +62,39 @@ def main():
 
     args.output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    problemset = {"width": args.width, "problems": []}
     problems = set()
 
     random.seed(args.seed)
     np.random.seed(args.seed)
 
     tiles = np.arange(args.width**2).reshape(args.width, args.width)
-    stp_goal = SlidingTilePuzzle(tiles)
+    stp = SlidingTilePuzzle(tiles)
 
     # generating training instances
     with tqdm.tqdm(total=args.num_problems) as pbar:
+        problem_id = 0
         while len(problems) < args.num_problems:
-            state = stp_goal.reset()
+            state = stp.reset()
 
             steps = random.randint(args.min_steps, args.max_steps)
             for _ in range(steps):
-                actions = stp_goal.actions_unpruned(state)
+                actions = stp.actions_unpruned(state)
                 random_index = random.randint(0, len(actions) - 1)
                 random_action = actions[random_index]
-                state = stp_goal.result(state, random_action)
+                state = stp.result(state, random_action)
 
-            state_t = stp_goal.state_tensor(state)
-            if state_t in problems:
+            if state in problems:
                 continue
             else:
                 problems.add(state)
+                problem = {"tiles": state.tiles.tolist(), "id": problem_id}
+                problemset["problems"].append(problem)
+                problem_id += 1
                 pbar.update(1)
 
     with args.output_path.open("w") as f:
-        for problem in problems:
-            f.write(f"{problem.oneline()}\n")
+        json.dump(problemset, f, indent=2)
 
 
 if __name__ == "__main__":
