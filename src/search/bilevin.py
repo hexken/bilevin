@@ -93,12 +93,14 @@ class BiLevin(Agent):
                 return (False, num_expanded, num_generated, None)
 
             if b_frontier[0] < f_frontier[0]:
+                direction = TwoDir.BACKWARD
                 _problem = b_problem
                 _model = backward_model
                 _frontier = b_frontier
                 _reached = b_reached
                 other_problem = f_problem
             else:
+                direction = TwoDir.FORWARD
                 _problem = f_problem
                 _model = forward_model
                 _frontier = f_frontier

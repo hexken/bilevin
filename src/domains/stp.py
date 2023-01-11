@@ -22,8 +22,8 @@ class SlidingTilePuzzleState(State):
         self.blank_col = blank_col
 
     def __repr__(self) -> str:
-        width = self.tiles.shape[0]
-        return f" {np.array2string( self.tiles.flatten(), separator=' ' , max_line_width=width * 2)[1:-1]}"
+        mlw = self.tiles.shape[0] ** 2
+        return f" {np.array2string(self.tiles, separator=' ' , max_line_width=mlw)[1:-1]}"
 
     def __str__(self) -> str:
         return self.__repr__()
@@ -226,19 +226,23 @@ class SlidingTilePuzzle(Domain):
         Returns a trajectory if state is a solution to this problem, None otherwise.
         """
         hsh = node.state.__hash__()
-        if hsh in other_problem.visited:
+        if hsh in other_problem.visited:  # solution found
             other_node = other_problem.visited[hsh]
             if self.forward:
                 f_common_node = node
                 b_common_node = other_node
+                f_problem = self
+                b_problem = other_problem
             else:
                 f_common_node = other_node
                 b_common_node = node
+                f_problem = other_problem
+                b_problem = self
 
-            f_traj = self.get_merged_trajectory(
+            f_traj = f_problem.get_merged_trajectory(
                 f_common_node, b_common_node, type(node), num_expanded
             )
-            b_traj = self.get_merged_trajectory(
+            b_traj = b_problem.get_merged_trajectory(
                 b_common_node, f_common_node, type(node), num_expanded
             )
 
