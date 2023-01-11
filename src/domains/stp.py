@@ -10,25 +10,6 @@ from enums import FourDir
 from search.utils import SearchNode, Trajectory
 
 
-def load_problemset(problemset: dict):
-    width = problemset["width"]
-    problems = []
-    goal_tiles = np.arange(width**2).reshape(width, width)
-    for p_dict in problemset["problems"]:
-        init_tiles = np.array(p_dict["init_tiles"])
-        problem = SlidingTilePuzzle(
-            init_tiles=init_tiles, goal_tiles=np.array(goal_tiles)
-        )
-        problems.append((p_dict["id"], problem))
-
-    num_actions = problems[0][1].num_actions
-    in_channels = problems[0][1].in_channels
-    state_t_width = problems[0][1].state_width
-    double_backward = False
-
-    return problems, num_actions, in_channels, state_t_width, double_backward
-
-
 class SlidingTilePuzzleState(State):
     def __init__(
         self,
@@ -51,16 +32,19 @@ class SlidingTilePuzzleState(State):
         return self.tiles.tobytes().__hash__()
 
     def __eq__(self, other) -> bool:
-        raise NotImplementedError
         return np.array_equal(self.tiles, other.tiles)
 
 
 class SlidingTilePuzzle(Domain):
-    def __init__(self, init_tiles: np.ndarray, goal_tiles: np.ndarray):
-        self.forward = True
-
+    def __init__(self, init_tiles: np.ndarray, goal_tiles: np.ndarray, forward=True):
         self.width = init_tiles.shape[0]
         self.num_tiles = self.width**2
+
+        self.forward = forward
+
+        width_indices = np.arange(self.width)
+        self._row_indices = np.repeat(width_indices, self.width)
+        self._col_indices = np.tile(width_indices, self.width)
 
         blank_pos = np.where(init_tiles == 0)
         self.blank_row = blank_pos[0].item()
@@ -69,11 +53,11 @@ class SlidingTilePuzzle(Domain):
         self.initial_state = SlidingTilePuzzleState(
             init_tiles, self.blank_row, self.blank_col
         )
+
         self.initial_state_t = self.state_tensor(self.initial_state)
 
-        width_indices = np.arange(self.width)
-        self._row_indices = np.repeat(width_indices, self.width)
-        self._col_indices = np.tile(width_indices, self.width)
+        if not self.forward:
+            self.state_tensor = self.backward_state_tensor
 
         self.goal_tiles = goal_tiles
 
@@ -101,7 +85,7 @@ class SlidingTilePuzzle(Domain):
     def state_tensor(
         self,
         state: SlidingTilePuzzleState,
-    ) -> to.Tensor | tuple[to.Tensor, to.Tensor]:
+    ) -> to.Tensor:
         arr = to.zeros((self.num_tiles, self.width, self.width))
         arr[
             state.tiles.reshape(-1),
@@ -109,14 +93,22 @@ class SlidingTilePuzzle(Domain):
             self._col_indices,
         ] = 1
 
-        if self.forward:
-            return arr
-        else:
-            return to.stack(
-                (arr, self.initial_state_t)  # type:ignore
-            )
+        return arr
 
-    def reverse_action(self, action: FourDir):
+    def backward_state_tensor(
+        self,
+        state: SlidingTilePuzzleState,
+    ) -> to.Tensor:
+        arr = to.zeros((self.num_tiles, self.width, self.width))
+        arr[
+            state.tiles.reshape(-1),
+            self._row_indices,
+            self._col_indices,
+        ] = 1
+
+        return to.stack((arr, self.initial_state_t))
+
+    def reverse_action(self, action: FourDir) -> FourDir:
         if action == FourDir.UP:
             return FourDir.DOWN
         elif action == FourDir.DOWN:
@@ -128,17 +120,9 @@ class SlidingTilePuzzle(Domain):
 
     def backward_problem(self) -> SlidingTilePuzzle:
         assert self.forward
-        problem = deepcopy(self)
-        problem.forward = False
-        forward_goal = problem.goal
-        problem.goal = problem.initial_state.tiles
-
-        problem.initial_state = SlidingTilePuzzleState(
-            forward_goal,
-            0,
-            0,
-            problem.width,
-        )
+        init_tiles = self.goal_tiles
+        goal_tiles = self.initial_state.tiles
+        problem = SlidingTilePuzzle(init_tiles, goal_tiles, False)
 
         return problem
 
@@ -149,19 +133,17 @@ class SlidingTilePuzzle(Domain):
 
     def actions_unpruned(self, state: SlidingTilePuzzleState):
         actions = []
-        blank_row = state.blank_pos[0]
-        blank_col = state.blank_pos[1]
 
-        if blank_col != state.width - 1:
+        if state.blank_col != self.width - 1:
             actions.append(FourDir.RIGHT)
 
-        if blank_row != 0:
+        if state.blank_row != 0:
             actions.append(FourDir.UP)
 
-        if blank_col != 0:
+        if state.blank_col != 0:
             actions.append(FourDir.LEFT)
 
-        if blank_row != state.width - 1:
+        if state.blank_row != self.width - 1:
             actions.append(FourDir.DOWN)
 
         return actions
@@ -169,44 +151,43 @@ class SlidingTilePuzzle(Domain):
     def result(
         self, state: SlidingTilePuzzleState, action: FourDir
     ) -> SlidingTilePuzzleState:
-        blank_pos = state.blank_pos
-        blank_row = state.blank_pos[0]
-        blank_col = state.blank_pos[1]
-
-        new_state = deepcopy(state)
+        tiles = np.array(state.tiles)
+        blank_row = state.blank_row
+        blank_col = state.blank_col
 
         if action == FourDir.UP:
-            new_state.tiles[blank_pos], new_state.tiles[blank_row - 1, blank_col] = (
-                new_state.tiles[blank_row - 1, blank_col],
-                new_state.tiles[blank_pos],
+            tiles[blank_row, blank_col], tiles[blank_row - 1, blank_col] = (
+                tiles[blank_row - 1, blank_col],
+                tiles[blank_row, blank_col],
             )
-            new_state.blank_pos = (blank_row - 1, blank_col)
+            blank_row -= 1
 
         elif action == FourDir.DOWN:
-            new_state.tiles[blank_pos], new_state.tiles[blank_row + 1, blank_col] = (
-                new_state.tiles[blank_row + 1, blank_col],
-                new_state.tiles[blank_pos],
+            tiles[blank_row, blank_col], tiles[blank_row + 1, blank_col] = (
+                tiles[blank_row + 1, blank_col],
+                tiles[blank_row, blank_col],
             )
-            new_state.blank_pos = (blank_row + 1, blank_col)
+            blank_row += 1
 
         elif action == FourDir.RIGHT:
-            new_state.tiles[blank_pos], new_state.tiles[blank_row, blank_col + 1] = (
-                new_state.tiles[blank_row, blank_col + 1],
-                new_state.tiles[blank_pos],
+            tiles[blank_row, blank_col], tiles[blank_row, blank_col + 1] = (
+                tiles[blank_row, blank_col + 1],
+                tiles[blank_row, blank_col],
             )
-            new_state.blank_pos = (blank_row, blank_col + 1)
+            blank_col += 1
 
         elif action == FourDir.LEFT:
-            new_state.tiles[blank_pos], new_state.tiles[blank_row, blank_col - 1] = (
-                new_state.tiles[blank_row, blank_col - 1],
-                new_state.tiles[blank_pos],
+            tiles[blank_row, blank_col], tiles[blank_row, blank_col - 1] = (
+                tiles[blank_row, blank_col - 1],
+                tiles[blank_row, blank_col],
             )
-            new_state.blank_pos = (blank_row, blank_col - 1)
+            blank_col -= 1
 
+        new_state = SlidingTilePuzzleState(tiles, blank_row, blank_col)
         return new_state
 
-    def is_goal(self, state: SlidingTilePuzzleState):
-        return np.array_equal(state.tiles, self.goal)
+    def is_goal(self, state: SlidingTilePuzzleState) -> bool:
+        return np.array_equal(state.tiles, self.goal_tiles)
 
     def get_merged_trajectory(
         self,
@@ -223,10 +204,8 @@ class SlidingTilePuzzle(Domain):
         parent_dir2_node = dir2_common.parent
         parent_dir2_action = dir2_common.parent_action
         while parent_dir2_node:
-            new_state = deepcopy(parent_dir2_node.state)
-
             new_dir1_node = node_type(
-                state=new_state,
+                state=parent_dir2_node.state,
                 parent=dir1_node,
                 parent_action=self.reverse_action(parent_dir2_action),
                 g_cost=dir1_node.g_cost + 1,
@@ -266,3 +245,20 @@ class SlidingTilePuzzle(Domain):
             return (f_traj, b_traj)
         else:
             return None
+
+
+def load_problemset(problemset: dict):
+    width = problemset["width"]
+    problems = []
+    goal_tiles = np.arange(width**2).reshape(width, width)
+    for p_dict in problemset["problems"]:
+        init_tiles = np.array(p_dict["tiles"])
+        problem = SlidingTilePuzzle(init_tiles=init_tiles, goal_tiles=goal_tiles)
+        problems.append((p_dict["id"], problem))
+
+    num_actions = problems[0][1].num_actions
+    in_channels = problems[0][1].in_channels
+    state_t_width = problems[0][1].state_width
+    double_backward = True
+
+    return problems, num_actions, in_channels, state_t_width, double_backward

@@ -62,14 +62,19 @@ def main():
 
     args.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    problemset = {"width": args.width, "problems": []}
+    problemset = {
+        "domain_module": "stp",
+        "domain_name": "SlidingTilePuzzle",
+        "width": args.width,
+        "problems": [],
+    }
     problems = set()
 
     random.seed(args.seed)
     np.random.seed(args.seed)
 
     tiles = np.arange(args.width**2).reshape(args.width, args.width)
-    stp = SlidingTilePuzzle(tiles)
+    stp = SlidingTilePuzzle(tiles, tiles)
 
     # generating training instances
     with tqdm.tqdm(total=args.num_problems) as pbar:
@@ -84,7 +89,7 @@ def main():
                 random_action = actions[random_index]
                 state = stp.result(state, random_action)
 
-            if state in problems:
+            if state in problems or stp.is_goal(state):
                 continue
             else:
                 problems.add(state)
