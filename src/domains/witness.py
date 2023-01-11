@@ -36,15 +36,14 @@ class WitnessState(State):
         self.h_segs = np.zeros((self.width + 1, self.width))
 
     def __hash__(self) -> int:
-        return (self.v_segs.tobytes(), self.h_segs.tobytes()).__hash__()
+        """
+        Note that these hash and eq implementations imply the states are generated
+        from the same problem
+        """
+        return self.grid.tobytes().__hash__()
 
     def __eq__(self, other) -> bool:
-        raise NotImplementedError
-        return (
-            np.array_equal(self.v_segs, other.v_segs)
-            and np.array_equal(self.h_segs, other.h_segs)
-            and np.array_equal(self.grid, other.grid)
-        )
+        return np.array_equal(self.grid, other.grid)
 
 
 class Witness(Domain):
@@ -290,6 +289,7 @@ class Witness(Domain):
         the intersections (grid), and the tip of the snake.
         """
         # faster than deepcopy or np.ndarray.copy()
+        # todo make structs State constructor params
         new_state = WitnessState(self.width, state.head_row, state.head_col)
         new_state.grid = np.array(state.grid)
         new_state.v_segs = np.array(state.v_segs)
