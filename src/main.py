@@ -88,14 +88,14 @@ def parse_args():
     parser.add_argument(
         "--initial-budget",
         type=int,
-        default=1024,
+        default=2**10,
         help="initial budget (nodes expanded) allowed to the bootstrap procedure, or just a budget\
          allowed a non-bootstrap search",
     )
     parser.add_argument(
         "--final-budget",
         type=int,
-        default=2000000,
+        default=2**16,
         help="terminate when budget grows at least this large",
     )
     parser.add_argument(
@@ -115,13 +115,6 @@ def parse_args():
         type=float,
         default="0.0",
         help="mixture weight with a uniform policy",
-    )
-    parser.add_argument(
-        "-w",
-        "--weight-astar",
-        type=float,
-        default="1.0",
-        help="weight to be used with WA*.",
     )
     parser.add_argument(
         "--mode",
@@ -178,10 +171,17 @@ if __name__ == "__main__":
     world_size = int(os.getenv("WORLD_SIZE", 1))
     rank = int(os.getenv("RANK", 0))
     args = parse_args()
+
+    if args.batch_size_bootstrap < world_size:
+        raise ValueError(
+            f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be >= world_size {world_size} (nnodes * nproc_per_node)"
+        )
     if args.batch_size_bootstrap % world_size != 0:
         raise ValueError(
-            "batch-size-bootstrap must be a multiple of world-size (nnodes * nproc_per_node)"
+            f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be a multiple of world_size {world_size} (nnodes * nproc_per_node)"
         )
+    local_batch_size = args.batch_size_bootstrap // world_size
+
     start_time = time.time()
 
     problemset_dict = json.load(args.problemset_path.open("r"))
@@ -191,15 +191,18 @@ if __name__ == "__main__":
         domain_module, "load_problemset"
     )(problemset_dict)
 
-    problems_per_process = 0
-
-    assert len(all_problems) > 0, "No problems were loaded"
+    if len(all_problems) < world_size:
+        raise Exception(
+            f"Number of problems '{len(all_problems)}' must be greater than world size '{world_size}'"
+        )
 
     for p in all_problems:
-        assert not p[1].is_goal(p[1].initial_state)
+        if p[1].is_goal(p[1].initial_state):
+            raise Exception(f"Problem '{p[0]}' initial state is a goal state")
+
+    problems_per_process = len(all_problems) // world_size
 
     problems = []
-    problems_per_process = len(all_problems) // world_size
     for proc in range(world_size):
         problems_local = all_problems[
             proc * problems_per_process : (proc + 1) * problems_per_process
@@ -210,7 +213,9 @@ if __name__ == "__main__":
         dist.init_process_group(backend="gloo", rank=rank, world_size=world_size)
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
-    problemset_params = args.problemset_path.parent.stem
+    problemset_params = (
+        f"{args.problemset_path.parent.stem}-{args.problemset_path.stem}"
+    )
     run_name = f"{problemset_dict['domain_name']}_{problemset_params}_{args.agent}_{args.seed}_{int(start_time)}{args.exp_name}"
 
     if rank == 0:
@@ -230,11 +235,11 @@ if __name__ == "__main__":
                 f"Logging with Weights and Biases\n  to {args.wandb_entity}/{args.wandb_project}/{run_name}"
             )
 
-        print(f"Logging with tensorboard\n  to runs/{run_name}")
+        print(f"Logging with tensorboard\n  to runs/{run_name}\n")
 
         print(
             f"Parsed {len(all_problems)} problems\n"
-            f"  Loaded {problems_per_process * world_size}, {problems_per_process} into each of {world_size} processes"
+            f"  Loading {problems_per_process * world_size}, {problems_per_process} into each of {world_size} processes\n"
         )
         writer = SummaryWriter(f"runs/{run_name}")
         arg_string = "|param|value|\n|-|-|\n%s" % (
@@ -245,11 +250,13 @@ if __name__ == "__main__":
             arg = arg.replace("|", ": ", 1)
             arg = arg.replace("|", "", 1)
             print(arg)
+        print()
 
         writer.add_text(
             "hyperparameters",
             arg_string,
         )
+
     else:
         writer = SummaryWriter()
         writer.close()
@@ -345,12 +352,12 @@ if __name__ == "__main__":
             optimizer_cons,
             optimizer_params,
             problems[rank],
+            local_batch_size,
             writer,
             world_size,
             initial_budget=args.initial_budget,
             grad_steps=args.grad_steps,
             shuffle_trajectory=args.shuffle_trajectory,
-            batch_size=args.batch_size_bootstrap,
             track_params=args.track_params,
         )
 

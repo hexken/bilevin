@@ -67,7 +67,7 @@ class Levin(Agent):
                 or end_time
                 and time.time() > end_time
             ):
-                return False, num_expanded, num_generated, None
+                return 0, num_expanded, num_generated, None
 
             node = heapq.heappop(frontier)
             num_expanded += 1
@@ -117,7 +117,7 @@ class Levin(Agent):
             state_t_of_children_to_be_evaluated = []
 
         print(f"Emptied frontiers for problem {id}")
-        return False, num_expanded, num_generated, None
+        return 0, num_expanded, num_generated, None
 
 
 class LevinNode(SearchNode):
