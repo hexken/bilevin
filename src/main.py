@@ -245,7 +245,7 @@ if __name__ == "__main__":
         print(f"Logging with tensorboard\n  to runs/{run_name}\n")
 
         print(f"Parsed {num_problems_parsed} problems")
-        if len(problemsets[0]) == len(problemsets[1]):
+        if world_size > 1 and len(problemsets[0]) == len(problemsets[1]):
             print(
                 f"  Loading {problems_per_process * world_size}, {problems_per_process} into each of {world_size} processes\n"
             )
