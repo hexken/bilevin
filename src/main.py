@@ -138,6 +138,11 @@ def parse_args():
         help="set `torch.backends.cudnn.deterministic=False` and `torch.use_deterministic_agents(True)`",
     )
     parser.add_argument(
+        "--update-levin-costs",
+        action="store_true",
+        help="update levin costs when cheaper path found",
+    )
+    parser.add_argument(
         "--track-params",
         action="store_true",
         default=False,
@@ -368,6 +373,7 @@ if __name__ == "__main__":
             local_batch_size,
             writer,
             world_size,
+            args.update_levin_costs,
             initial_budget=args.initial_budget,
             grad_steps=args.grad_steps,
             shuffle_trajectory=args.shuffle_trajectory,

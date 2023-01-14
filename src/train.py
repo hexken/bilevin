@@ -26,6 +26,7 @@ def train(
     local_batch_size: int,
     writer: SummaryWriter,
     world_size: int,
+    update_levin_costs: bool,
     initial_budget: int,
     grad_steps: int = 10,
     shuffle_trajectory=False,
@@ -163,6 +164,7 @@ def train(
                     problem,
                     model,
                     current_budget,
+                    update_levin_costs,
                     train=True,
                 )
                 end_time = time.time()

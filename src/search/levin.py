@@ -1,5 +1,6 @@
 from __future__ import annotations
 import heapq
+from copy import deepcopy
 import math
 import time
 from typing import Optional, TYPE_CHECKING
@@ -30,6 +31,7 @@ class Levin(Agent):
         problem: tuple[int, Domain],
         model,
         budget,
+        update_levin_costs=False,
         train=False,
         end_time=None,
     ):
@@ -88,6 +90,16 @@ class Levin(Agent):
                     num_expanded_when_generated=num_expanded,
                 )
                 num_generated += 1
+
+                if update_levin_costs:
+                    if new_node in reached:
+                        g_cost = new_node.g_cost
+                        if new_node.g_cost < g_cost:
+                            # new_node must have lower probability than the node in reached
+                            # -> levin_cost decreases
+                            new_node.g_cost = g_cost
+                            new_node.levin_cost = levin_cost(new_node)
+                            heapq.heappush(frontier, new_node)
 
                 if new_node not in reached:
                     if domain.is_goal(new_state):
