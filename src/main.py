@@ -187,27 +187,34 @@ if __name__ == "__main__":
     problemset_dict = json.load(args.problemset_path.open("r"))
 
     domain_module = getattr(domains, problemset_dict["domain_module"])
-    (all_problems, num_actions, in_channels, state_t_width, double_backward,) = getattr(
-        domain_module, "load_problemset"
-    )(problemset_dict)
+    (
+        parsed_problems,
+        num_actions,
+        in_channels,
+        state_t_width,
+        double_backward,
+    ) = getattr(domain_module, "load_problemset")(problemset_dict)
 
-    if len(all_problems) < world_size:
+    num_problems_parsed = len(parsed_problems)
+    if num_problems_parsed < world_size:
         raise Exception(
-            f"Number of problems '{len(all_problems)}' must be greater than world size '{world_size}'"
+            f"Number of problems '{num_problems_parsed}' must be greater than world size '{world_size}'"
         )
 
-    for p in all_problems:
+    for p in parsed_problems:
         if p[1].is_goal(p[1].initial_state):
             raise Exception(f"Problem '{p[0]}' initial state is a goal state")
 
-    problems_per_process = len(all_problems) // world_size
-
-    problems = []
+    problems_per_process = num_problems_parsed // world_size
+    problemsets = []
     for proc in range(world_size):
-        problems_local = all_problems[
+        problems_local = parsed_problems[
             proc * problems_per_process : (proc + 1) * problems_per_process
         ]
-        problems.append(problems_local)
+        problemsets.append(problems_local)
+
+    if args.mode == "test":
+        problemsets[0].extend(parsed_problems[problems_per_process * world_size :])
 
     if world_size > 1:
         dist.init_process_group(backend="gloo", rank=rank, world_size=world_size)
@@ -216,7 +223,7 @@ if __name__ == "__main__":
     problemset_params = (
         f"{args.problemset_path.parent.stem}-{args.problemset_path.stem}"
     )
-    run_name = f"{problemset_dict['domain_name']}_{problemset_params}_{args.agent}_{args.seed}_{int(start_time)}{args.exp_name}"
+    run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-{args.initial_budget}_{args.seed}_{int(start_time)}{args.exp_name}"
 
     if rank == 0:
         print(time.ctime(start_time))
@@ -237,10 +244,16 @@ if __name__ == "__main__":
 
         print(f"Logging with tensorboard\n  to runs/{run_name}\n")
 
-        print(
-            f"Parsed {len(all_problems)} problems\n"
-            f"  Loading {problems_per_process * world_size}, {problems_per_process} into each of {world_size} processes\n"
-        )
+        print(f"Parsed {num_problems_parsed} problems")
+        if len(problemsets[0]) == len(problemsets[1]):
+            print(
+                f"  Loading {problems_per_process * world_size}, {problems_per_process} into each of {world_size} processes\n"
+            )
+        else:
+            print(
+                f"  Loading {num_problems_parsed}, {len(problemsets[0])} into rank 0 process, {problems_per_process} into each of {world_size - 1} remaining processes\n"
+            )
+
         writer = SummaryWriter(f"runs/{run_name}")
         arg_string = "|param|value|\n|-|-|\n%s" % (
             "\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])
@@ -351,7 +364,7 @@ if __name__ == "__main__":
             loss_fn,
             optimizer_cons,
             optimizer_params,
-            problems[rank],
+            problemsets[rank],
             local_batch_size,
             writer,
             world_size,

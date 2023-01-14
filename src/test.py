@@ -12,24 +12,16 @@ import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
 
-from search import MergedTrajectory
-
 
 def train(
     agent,
     model: Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]],
     model_path: Path,
-    loss_fn: Callable,
-    optimizer_cons: Type[to.optim.Optimizer],
-    optimizer_params: dict,
     problems: list[tuple[int, Domain]],
     local_batch_size: int,
     writer: SummaryWriter,
     world_size: int,
     initial_budget: int,
-    grad_steps: int = 10,
-    shuffle_trajectory=False,
-    track_params: bool = False,
 ):
     current_budget = initial_budget
 
@@ -44,9 +36,6 @@ def train(
         world_num_problems / (local_batch_size * world_size)
     )
 
-    # try to log at most 10k histograms per param, assuming an upper bound of 100 epochs
-    if track_params:
-        param_log_interval = max(1, int(world_batches_per_epoch / 100))
 
     search_result_header = [
         "ProblemId",
@@ -62,7 +51,7 @@ def train(
             np.zeros(
                 (world_num_problems, len(search_result_header) - 1), dtype=np.int32
             ),
-        )
+       )
     )
     world_results_df = pd.DataFrame(dummy_data, columns=search_result_header)
     del dummy_data
@@ -76,36 +65,10 @@ def train(
         assert isinstance(model, tuple)
         forward_model, backward_model = model
 
-        forward_optimizer = optimizer_cons(
-            forward_model.parameters(), **optimizer_params
-        )
-        forward_model_path = model_path
-
-        backward_optimizer = optimizer_cons(
-            backward_model.parameters(), **optimizer_params
-        )
-        backward_model_path = Path(
-            str(model_path).replace("_forward.pt", "_backward.pt")
-        )
-
-        for param in backward_model.parameters():
-            param.grad = to.zeros_like(param)
-    else:
-        assert isinstance(model, to.nn.Module)
-        forward_model = model
-        forward_model_path = model_path
-        forward_optimizer = optimizer_cons(
-            forward_model.parameters(), **optimizer_params
-        )
-
-    for param in forward_model.parameters():
-        param.grad = to.zeros_like(param)
-
     problems_loader = ProblemsBatchLoader(
         problems, batch_size=local_batch_size, shuffle=True
     )
 
-    local_batch_opt_results = to.zeros(3, dtype=to.float32)
     local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int32)
     world_batch_results = [
         to.zeros((local_batch_size, 5), dtype=to.int32) for _ in range(world_size)
@@ -293,8 +256,8 @@ def train(
                                 print(f"{opt_step:7}  {loss:5.3f}  {acc:5.3f}")
                                 if step_within_opt_pass == 0:
                                     # fmt: off
-                                    writer.add_scalar( f"loss_vs_opt_pass/{name}", loss, opt_passes,)
-                                    writer.add_scalar( f"acc_vs_opt_pass/{name}", acc, opt_passes,)
+                                    writer.add_scalar( f"loss_vs_opt_step/{name}", loss, opt_passes,)
+                                    writer.add_scalar( f"acc_vs_opt_step/{name}", acc, opt_passes,)
                                     # fmt:on
 
                 if rank == 0 and num_procs_found_solution > 0:
