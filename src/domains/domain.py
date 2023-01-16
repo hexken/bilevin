@@ -72,6 +72,6 @@ class Domain(ABC):
 
     @abstractmethod
     def try_make_solution(
-        self, state: State, other_problem: Domain, num_expanded: int
+        self, node: SearchNode, other_problem: Domain, num_expanded: int
     ) -> Optional[tuple[Trajectory, Trajectory]]:
         pass

@@ -93,12 +93,12 @@ class Levin(Agent):
 
                 if update_levin_costs:
                     if new_node in reached:
-                        g_cost = new_node.g_cost
-                        if new_node.g_cost < g_cost:
+                        old_node = reached[new_node]
+                        if new_node.g_cost < old_node.g_cost:
                             # new_node must have lower probability than the node in reached
                             # -> levin_cost decreases
-                            new_node.g_cost = g_cost
-                            new_node.levin_cost = levin_cost(new_node)
+                            old_node.g_cost = new_node.g_cost
+                            old_node.levin_cost = levin_cost(new_node)
                             heapq.heappush(frontier, new_node)
 
                 if new_node not in reached:
