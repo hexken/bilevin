@@ -3,12 +3,14 @@ import json
 import old_witness as old_wit
 import src.domains.witness as new_wit
 import src.domains as domains
+import numpy as np
+import random
 
 
 def test_compare_with_old():
 
     old_specs_path = Path("problems/witness/original_50k_train.txt")
-    new_specs_path = Path("problems/witness/4w4w/50000-original.json")
+    new_specs_path = Path("problems/witness/4w4c/50000-original.json")
 
     old_problems = {}
     # load old problems
@@ -39,9 +41,45 @@ def test_compare_with_old():
 
     assert len(new_problems) == len(old_problems)
 
-    for i in range( len(new_problems)):
+    for i in range(len(new_problems)):
         old_prob = old_problems[i]
         new_prob = new_problems[i]
 
-        assert new_prob[0] == old_prob[0] # same id
+        assert new_prob[0] == int(old_prob[0].split("_")[1])
 
+        old_state = old_prob[1]
+
+        new_wit_domain = new_prob[1]
+        new_state = new_wit_domain.reset()
+
+        def state_equals(old, new):
+            assert np.array_equal(old._dots, new.grid)
+            assert np.array_equal(old._v_seg, new.v_segs)
+            assert np.array_equal(old._h_seg, new.h_segs)
+            return True
+
+        n = random.randint(2000, 5000)
+        for i in range(n):
+            assert state_equals(old_state, new_state)
+            assert old_state.has_tip_reached_goal() == new_wit_domain.is_head_at_goal(
+                new_state
+            )
+            assert old_state.is_solution() == new_wit_domain.is_goal(new_state)
+
+            old_actions = old_state.successors()
+            new_actions = new_wit_domain.actions_unpruned(new_state)
+            assert len(old_actions) == len(new_actions)
+            for a in new_actions:
+                assert a in old_actions
+            for a in old_actions:
+                assert a in new_actions
+
+            if old_actions:
+                action = random.choice(old_actions)
+                old_state.apply_action(action)
+                new_state = new_wit_domain.result(new_state, action)
+            else:
+                print("checked")
+
+if __name__ == "__main__":
+    test_compare_with_old()
