@@ -36,12 +36,15 @@ def main():
         "problems": [],
     }
 
-    for old_spec in problem_specs_old:
+    for i, old_spec in enumerate(problem_specs_old):
         new_spec = {}
 
+        init = old_spec[1].replace("Init: ", "").split(" ")
+        goal = old_spec[2].replace("Goal: ", "").split(" ")
         new_spec = {
-            "init": old_spec[1].replace("Init: ", "").split(" "),
-            "goal": old_spec[2].replace("Goal: ", "").split(" "),
+            "init": [int(init[0]), int(init[1])],
+            "goal": [int(goal[0]), int(goal[1])],
+            "id": i,
         }
         colored_cells = []
         values = old_spec[3].replace("Colors: |", "").split("|")
