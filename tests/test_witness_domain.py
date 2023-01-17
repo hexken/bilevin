@@ -41,6 +41,21 @@ def test_compare_with_old():
 
     assert len(new_problems) == len(old_problems)
 
+    def state_equal(old, new):
+        assert np.array_equal(old._dots, new[1].grid)
+        assert np.array_equal(old._v_seg, new[1].v_segs)
+        assert np.array_equal(old._h_seg, new[1].h_segs)
+        assert np.array_equal(old._cells, new[0].cells)
+        return True
+
+    def actions_equal(old, new):
+        assert len(old_actions) == len(new_actions)
+        for a in new_actions:
+            assert a in old_actions
+        for a in old_actions:
+            assert a in new_actions
+        return True
+
     for i in range(len(new_problems)):
         old_prob = old_problems[i]
         new_prob = new_problems[i]
@@ -52,34 +67,34 @@ def test_compare_with_old():
         new_wit_domain = new_prob[1]
         new_state = new_wit_domain.reset()
 
-        def state_equals(old, new):
-            assert np.array_equal(old._dots, new.grid)
-            assert np.array_equal(old._v_seg, new.v_segs)
-            assert np.array_equal(old._h_seg, new.h_segs)
-            return True
-
         n = random.randint(2000, 5000)
+        end = False
         for i in range(n):
-            assert state_equals(old_state, new_state)
+            assert state_equal(old_state, (new_wit_domain, new_state))
             assert old_state.has_tip_reached_goal() == new_wit_domain.is_head_at_goal(
                 new_state
             )
-            assert old_state.is_solution() == new_wit_domain.is_goal(new_state)
+            is_sol = old_state.is_solution()
+            assert is_sol == new_wit_domain.is_goal(new_state)
 
             old_actions = old_state.successors()
             new_actions = new_wit_domain.actions_unpruned(new_state)
-            assert len(old_actions) == len(new_actions)
-            for a in new_actions:
-                assert a in old_actions
-            for a in old_actions:
-                assert a in new_actions
+            actions_equal(old_actions, new_actions)
 
-            if old_actions:
-                action = random.choice(old_actions)
-                old_state.apply_action(action)
-                new_state = new_wit_domain.result(new_state, action)
-            else:
-                print("checked")
+            if is_sol:
+                print(f"solution found for problem {new_prob[0]}")
+                end = True
+            if not old_actions:
+                print(f"no actions problem {new_prob[0]}")
+                end = True
+            if end:
+                print(f"checked {i} state/action pairs")
+                break
+
+            action = random.choice(old_actions)
+            old_state.apply_action(action)
+            new_state = new_wit_domain.result(new_state, action)
+
 
 if __name__ == "__main__":
     test_compare_with_old()
