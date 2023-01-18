@@ -218,8 +218,9 @@ if __name__ == "__main__":
         ]
         problemsets.append(problems_local)
 
-    if args.mode == "test":
-        problemsets[0].extend(parsed_problems[problems_per_process * world_size :])
+    num_remaining_problems = num_problems_parsed - (problems_per_process * world_size)
+    for i in range(num_remaining_problems):
+        problemsets[i].append(parsed_problems[num_remaining_problems + i])
 
     if world_size > 1:
         dist.init_process_group(backend="gloo", rank=rank, world_size=world_size)
@@ -250,13 +251,14 @@ if __name__ == "__main__":
         print(f"Logging with tensorboard\n  to runs/{run_name}\n")
 
         print(f"Parsed {num_problems_parsed} problems")
-        if world_size > 1 and len(problemsets[0]) == len(problemsets[1]):
+        if len(problemsets[0]) == len(problemsets[-1]):
             print(
-                f"  Loading {problems_per_process * world_size}, {problems_per_process} into each of {world_size} processes\n"
+                f"  Loading {problems_per_process} into each of {world_size} processes\n"
             )
         else:
             print(
-                f"  Loading {num_problems_parsed}, {len(problemsets[0])} into rank 0 process, {problems_per_process} into each of {world_size - 1} remaining processes\n"
+                f"  Loading {len(problemsets[0])} into ranks 0-{num_remaining_problems - 1},\n"
+                f"          {problems_per_process} into ranks {num_remaining_problems}-{world_size - 1}\n"
             )
 
         writer = SummaryWriter(f"runs/{run_name}")
