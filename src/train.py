@@ -362,9 +362,9 @@ def train(
                     batches_seen % 100 == 0
                     or len(solved_problems) == world_num_problems
                 ):
-                    to.save(forward_model, forward_model_path)  # type:ignore
+                    to.save(forward_model.state_dict(), forward_model_path)
                     if bidirectional:
-                        to.save(backward_model, backward_model_path)  # type:ignore
+                        to.save(backward_model.state_dict(), backward_model_path)
                 batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                 # fmt: off
                 writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, batches_seen)
