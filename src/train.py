@@ -51,8 +51,9 @@ def train(
         world_num_problems = len(problems)
         rank = 0
 
-    world_batch_size = local_batch_size * world_size
-    world_batches_per_epoch = math.ceil(world_num_problems / world_batch_size)
+    world_batches_per_epoch = math.ceil(
+        world_num_problems / (local_batch_size * world_size)
+    )
 
     # try to log at most 10k histograms per param, assuming an upper bound of 100 epochs
     if track_params:
@@ -222,6 +223,7 @@ def train(
 
             num_problems_solved_this_batch = len(batch_solved_ids)
             num_problems_solved_this_epoch += num_problems_solved_this_batch
+            num_problems_this_batch = len(world_batch_results_arr)
 
             if rank == 0:
                 print(
@@ -231,7 +233,9 @@ def train(
                         tablefmt="psql",
                     )
                 )
-                print(f"Solved {num_problems_solved_this_batch}/{world_batch_size}\n")
+                print(
+                    f"Solved {num_problems_solved_this_batch}/{num_problems_this_batch}\n"
+                )
 
             def fit_model(
                 model: to.nn.Module,
@@ -361,7 +365,7 @@ def train(
                     to.save(forward_model, forward_model_path)  # type:ignore
                     if bidirectional:
                         to.save(backward_model, backward_model_path)  # type:ignore
-                batch_avg = num_problems_solved_this_batch / world_batch_size
+                batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                 # fmt: off
                 writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, batches_seen)
                 # writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), total_batches)
