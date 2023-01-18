@@ -33,17 +33,26 @@ def train(
     track_params: bool = False,
 ):
     current_budget = initial_budget
+    dummy_last = False
 
     if world_size > 1:
         rank = dist.get_rank()
+
+        sh_t = to.zeros(1, dtype=to.int32) + len(problems)
+        dist.all_reduce(sh_t, dist.ReduceOp.SUM)
+        world_num_problems = int(sh_t[0].item())
+
+        n_batches = math.ceil(len(problems) / local_batch_size)
+        sh_t[0] = n_batches
+        dist.all_reduce(sh_t, dist.ReduceOp.MAX)
+        if n_batches < sh_t[0]:
+            dummy_last = True
     else:
+        world_num_problems = len(problems)
         rank = 0
 
-    world_num_problems = len(problems) * world_size
     world_batch_size = local_batch_size * world_size
-    world_batches_per_epoch = math.ceil(
-        world_num_problems / (local_batch_size * world_size)
-    )
+    world_batches_per_epoch = math.ceil(world_num_problems / world_batch_size)
 
     # try to log at most 10k histograms per param, assuming an upper bound of 100 epochs
     if track_params:
@@ -103,11 +112,10 @@ def train(
         param.grad = to.zeros_like(param)
 
     problems_loader = ProblemsBatchLoader(
-        problems, batch_size=local_batch_size, shuffle=True
+        problems, batch_size=local_batch_size, shuffle=True, dummy_last=dummy_last
     )
 
     local_batch_opt_results = to.zeros(3, dtype=to.float32)
-    local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int32)
     world_batch_results = [
         to.zeros((local_batch_size, 5), dtype=to.int32) for _ in range(world_size)
     ]
@@ -158,6 +166,7 @@ def train(
                 backward_model.eval()  # type:ignore
 
             num_problems_solved_this_batch = 0
+            local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int32)
             for i, problem in enumerate(local_batch_problems):
                 start_time = time.time()
                 (solution_length, num_expanded, num_generated, traj,) = agent.search(
@@ -187,6 +196,10 @@ def train(
                 world_batch_results_t = local_batch_search_results
 
             world_batch_results_arr = world_batch_results_t.numpy()
+            # hacky way to filter out results from partial batches
+            world_batch_results_arr = world_batch_results_arr[
+                world_batch_results_arr[:, 2] > 0
+            ]
 
             world_batch_ids = world_batch_results_arr[:, 0]
             world_results_df.loc[
@@ -398,7 +411,11 @@ def train(
 
 class ProblemsBatchLoader:
     def __init__(
-        self, problems: list[tuple[int, Domain]], batch_size: int, shuffle: bool = True
+        self,
+        problems: list[tuple[int, Domain]],
+        batch_size: int,
+        shuffle: bool = True,
+        dummy_last: bool = False,
     ):
         self.problems = np.array(problems)
         self.batch_size = batch_size
@@ -406,10 +423,14 @@ class ProblemsBatchLoader:
         self._num_problems_served = 0
         self._shuffle = shuffle
 
+        self.dummy_last = dummy_last
+        self._dummy_served = False
+
     def __len__(self):
         return self._len
 
     def __iter__(self):
+        self._dummy_served = False
         if self._shuffle:
             self._indices = np.random.permutation(self._len)
         else:
@@ -421,6 +442,10 @@ class ProblemsBatchLoader:
 
     def __next__(self):
         if self._num_problems_served >= self._len:
+            if self.dummy_last and not self._dummy_served:
+                self._dummy_served = True
+                return []
+
             raise StopIteration
         next_indices = self._indices[
             self._num_problems_served : self._num_problems_served + self.batch_size
@@ -437,14 +462,13 @@ def sync_grads(model: to.nn.Module, world_size: int):
     # todo scale gradients properly since not all processes contribute equally
     all_grads_list = []
     for param in model.parameters():
-        assert param.grad is not None
         all_grads_list.append(param.grad.view(-1))
     all_grads = to.cat(all_grads_list)
     dist.all_reduce(all_grads, op=dist.ReduceOp.SUM)
     offset = 0
     for param in model.parameters():
-        assert param.grad is not None
+        numel = param.numel()
         param.grad.data.copy_(
-            all_grads[offset : offset + param.numel()].view_as(param.grad.data)
+            all_grads[offset : offset + numel].view_as(param.grad.data)
         )
-        offset += param.numel()
+        offset += numel

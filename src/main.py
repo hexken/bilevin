@@ -219,8 +219,8 @@ if __name__ == "__main__":
         problemsets.append(problems_local)
 
     num_remaining_problems = num_problems_parsed - (problems_per_process * world_size)
-    for i in range(num_remaining_problems):
-        problemsets[i].append(parsed_problems[num_remaining_problems + i])
+    for i, problem in enumerate(parsed_problems[-num_remaining_problems:]):
+        problemsets[i].append(problem)
 
     if world_size > 1:
         dist.init_process_group(backend="gloo", rank=rank, world_size=world_size)
