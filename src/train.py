@@ -388,7 +388,8 @@ def train(
                 writer.add_scalar(f"loss_vs_epoch/backward", epoch_b_loss, epoch)
                 writer.add_scalar(f"acc_vs_epoch/backward", epoch_b_acc, epoch)
 
-            writer.add_text(f"epoch{epoch}_results", world_results_df.to_markdown(), epoch)
+            # writer.add_text(f"epoch{epoch}_results", world_results_df.to_markdown(), epoch)
+            world_results_df.to_csv(f"{writer.log_dir}/epoch_{epoch}.csv")
             # fmt: on
 
         if num_new_problems_solved_this_epoch == 0:
