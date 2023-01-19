@@ -7,7 +7,7 @@ import torch as to
 
 from enums import TwoDir
 from search.agent import Agent
-from search.levin import LevinNode, levin_cost
+from search.levin import LevinNode, levin_cost, PriorityQueue
 
 if TYPE_CHECKING:
     from domains.domain import Domain
@@ -70,12 +70,12 @@ class BiLevin(Agent):
             num_expanded_when_generated=0,
         )
 
-        f_frontier = []
-        b_frontier = []
+        f_frontier = PriorityQueue()
+        b_frontier = PriorityQueue()
         f_reached = {}
         b_reached = {}
-        heapq.heappush(f_frontier, f_start_node)
-        heapq.heappush(b_frontier, b_start_node)
+        f_frontier.enqueue(f_start_node)
+        b_frontier.enqueue(b_start_node)
         f_reached[f_start_node] = f_start_node
         b_reached[b_start_node] = b_start_node
 
@@ -95,7 +95,7 @@ class BiLevin(Agent):
             ):
                 return (False, num_expanded, num_generated, None)
 
-            if b_frontier[0] < f_frontier[0]:
+            if len(b_frontier) > 0 and b_frontier.top() < f_frontier.top():
                 direction = TwoDir.BACKWARD
                 _problem = b_problem
                 _model = backward_model
@@ -110,7 +110,7 @@ class BiLevin(Agent):
                 _reached = f_reached
                 other_problem = b_problem
 
-            node = heapq.heappop(_frontier)
+            node = _frontier.dequeue()
             num_expanded += 1
             actions = _problem.actions(node.parent_action, node.state)
             if not actions:
@@ -166,7 +166,7 @@ class BiLevin(Agent):
                 lc = levin_cost(child)
                 child.log_action_probs = log_action_probs[i]
                 child.levin_cost = lc
-                heapq.heappush(_frontier, child)
+                _frontier.enqueue(child)
 
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []
