@@ -30,7 +30,6 @@ def train(
     initial_budget: int,
     grad_steps: int = 10,
     shuffle_trajectory=False,
-    track_params: bool = False,
 ):
     current_budget = initial_budget
     dummy_last = False
@@ -56,8 +55,7 @@ def train(
     )
 
     # try to log at most 10k histograms per param, assuming an upper bound of 100 epochs
-    if track_params:
-        param_log_interval = max(1, int(world_batches_per_epoch / 100))
+    param_log_interval = max(1, int(world_batches_per_epoch / 200))
 
     search_result_header = [
         "ProblemId",
@@ -99,8 +97,6 @@ def train(
             str(model_path).replace("_forward.pt", "_backward.pt")
         )
 
-        for param in backward_model.parameters():
-            param.grad = to.zeros_like(param)
     else:
         assert isinstance(model, to.nn.Module)
         forward_model = model
@@ -109,8 +105,10 @@ def train(
             forward_model.parameters(), **optimizer_params
         )
 
-    for param in forward_model.parameters():
-        param.grad = to.zeros_like(param)
+    if rank == 0:
+        log_params(writer, forward_model, "forward", 0)
+        if bidirectional:
+            log_params(writer, backward_model, "backward", 0)
 
     problems_loader = ProblemsBatchLoader(
         problems, batch_size=local_batch_size, shuffle=True, dummy_last=dummy_last
@@ -261,7 +259,7 @@ def train(
                         loss.backward()
 
                     if world_size > 1:
-                        sync_grads(model, world_size)
+                        sync_grads(model)
 
                     # todo grad clipping? for now inspect norms
                     if trajs and rank == 0:
@@ -317,20 +315,6 @@ def train(
                                     # fmt:on
 
                 if rank == 0 and num_procs_found_solution > 0:
-                    if track_params and (
-                        batches_seen % param_log_interval == 0
-                        or len(solved_problems) == world_num_problems
-                    ):
-                        for (
-                            param_name,
-                            param,
-                        ) in forward_model.named_parameters():
-                            writer.add_histogram(
-                                f"param_vs_opt_pass/{name}/{param_name}",
-                                param.data,
-                                opt_passes,
-                                bins=512,
-                            )
                     print("")
                 return opt_step, loss, acc
 
@@ -359,12 +343,15 @@ def train(
 
             if rank == 0:
                 if (
-                    batches_seen % 100 == 0
+                    batches_seen % param_log_interval == 0
                     or len(solved_problems) == world_num_problems
                 ):
                     to.save(forward_model.state_dict(), forward_model_path)
+                    log_params(writer, forward_model, "forward", batches_seen)
                     if bidirectional:
                         to.save(backward_model.state_dict(), backward_model_path)
+                        log_params(writer, backward_model, "backward", batches_seen)
+
                 batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                 # fmt: off
                 writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, batches_seen)
@@ -461,7 +448,20 @@ class ProblemsBatchLoader:
         return self.problems[idx]
 
 
-def sync_grads(model: to.nn.Module, world_size: int):
+def log_params(writer, model, name, batches_seen):
+    for (
+        param_name,
+        param,
+    ) in model.named_parameters():
+        writer.add_histogram(
+            f"param_vs_batch/{name}/{param_name}",
+            param.data,
+            batches_seen,
+            bins=512,
+        )
+
+
+def sync_grads(model: to.nn.Module):
     # assumes grads are not None
     # todo scale gradients properly since not all processes contribute equally
     all_grads_list = []

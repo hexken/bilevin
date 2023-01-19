@@ -142,12 +142,12 @@ def parse_args():
         action="store_true",
         help="update levin costs when cheaper path found",
     )
-    parser.add_argument(
-        "--track-params",
-        action="store_true",
-        default=False,
-        help="track basic metrics with tensorboard",
-    )
+    # parser.add_argument(
+    #     "--track-params",
+    #     action="store_true",
+    #     default=False,
+    #     help="track basic metrics with tensorboard",
+    # )
     parser.add_argument(
         "--wandb-mode",
         type=str,
@@ -335,6 +335,16 @@ if __name__ == "__main__":
             if rank == 0:
                 print(f"Loaded model\n  from  {str(args.model_path)}")
     else:
+        if world_size > 1:
+            if agent.bidirectional:
+                for param in forward_model.parameters():
+                    dist.broadcast(param.data, 0)
+                for param in backward_model.parameters():
+                    dist.broadcast(param.data, 0)
+            else:
+                for param in model.parameters():
+                    dist.broadcast(param.data, 0)
+
         if args.model_path.suffix:
             args.model_path.parent.mkdir(parents=True, exist_ok=True)
         else:
@@ -380,7 +390,6 @@ if __name__ == "__main__":
             initial_budget=args.initial_budget,
             grad_steps=args.grad_steps,
             shuffle_trajectory=args.shuffle_trajectory,
-            track_params=args.track_params,
         )
 
     elif args.mode == "test":
