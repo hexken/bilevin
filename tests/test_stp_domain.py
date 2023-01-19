@@ -1,18 +1,18 @@
 from pathlib import Path
 import json
-import old_witness as old_wit
+import old_stp as old_stp
 import torch as to
-import src.domains.witness as new_wit
+from enums import FourDir
+import src.domains.stp as new_stp
 from src.models import ConvNetSingle
-import src.domains as domains
 import numpy as np
 import random
 
 
 def test_compare_with_old():
 
-    old_specs_path = Path("problems/witness/original_50k_train.txt")
-    new_specs_path = Path("problems/witness/4w4c/50000-original.json")
+    old_specs_path = Path("problems/stp/5w/50000-original.txt")
+    new_specs_path = Path("problems/stp/5w/50000-original.json")
     model_path = None
     # model_path = Path(
     #     "trained_models/Witness_4w4c-50000-original_Levin_1_1673639173_forward.pt"
@@ -21,16 +21,10 @@ def test_compare_with_old():
     # load old problems
     old_problems = []
     with old_specs_path.open("r") as file:
-        puzzle = file.readlines()
-        i = 0
-        while i < len(puzzle):
-            k = i
-            while k < len(puzzle) and puzzle[k] != "\n":
-                k += 1
-            s = old_wit.WitnessState()
-            s.read_state_from_string(puzzle[i:k])
-            old_problems.append(s)
-            i = k + 1
+        problems = file.readlines()
+        for i in range(len(problems)):
+            puzzle = old_stp.SlidingTilePuzzle(problems[i])
+            old_problems.append(puzzle)
 
     new_problemset_dict = json.load(new_specs_path.open("r"))
     (
@@ -39,15 +33,14 @@ def test_compare_with_old():
         in_channels,
         state_t_width,
         double_backward,
-    ) = new_wit.load_problemset(new_problemset_dict)
+    ) = new_stp.load_problemset(new_problemset_dict)
 
     assert len(new_problems) == len(old_problems)
 
     def state_equal(old, new):
-        assert np.array_equal(old._dots, new[1].grid)
-        assert np.array_equal(old._v_seg, new[1].v_segs)
-        assert np.array_equal(old._h_seg, new[1].h_segs)
-        assert np.array_equal(old._cells, new[0].cells)
+        old_tiles = np.array(old._tiles)
+        new_tiles = new[1].tiles.flatten()
+        assert np.array_equal(old_tiles, new_tiles)
         return True
 
     def actions_equal(old, new):
@@ -61,29 +54,21 @@ def test_compare_with_old():
     # model = ConvNetSingle(25, 5, (2, 2), 32, 4)
     # model.load_state_dict(to.load(model_path))
 
-    for i in range(len(new_problems)):
-        old_prob = old_problems[i]
-        new_prob = new_problems[i]
-
-        assert new_prob[0] == old_prob[0]
-
-        old_state = old_prob[1]
-
-        new_wit_domain = new_prob[1]
-        new_state = new_wit_domain.reset()
+    for old_prob, new_prob in zip(old_problems, new_problems):
+        old_state = old_prob
+        new_stp_domain = new_prob[1]
+        new_state = new_stp_domain.reset()
 
         n = random.randint(2000, 5000)
         end = False
         for i in range(n):
-            assert state_equal(old_state, (new_wit_domain, new_state))
-            assert old_state.has_tip_reached_goal() == new_wit_domain.is_head_at_goal(
-                new_state
-            )
+            assert state_equal(old_state, (new_stp_domain, new_state))
             is_sol = old_state.is_solution()
-            assert is_sol == new_wit_domain.is_goal(new_state)
+            assert is_sol == new_stp_domain.is_goal(new_state)
 
             old_actions = old_state.successors()
-            new_actions = new_wit_domain.actions_unpruned(new_state)
+            old_actions = [FourDir(a) for a in old_actions]
+            new_actions = new_stp_domain.actions_unpruned(new_state)
             actions_equal(old_actions, new_actions)
 
             if is_sol:
@@ -98,7 +83,7 @@ def test_compare_with_old():
 
             action = random.choice(old_actions)
             old_state.apply_action(action)
-            new_state = new_wit_domain.result(new_state, action)
+            new_state = new_stp_domain.result(new_state, action)
 
 
 if __name__ == "__main__":
