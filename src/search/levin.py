@@ -7,7 +7,6 @@ from typing import Optional, TYPE_CHECKING
 
 import torch as to
 
-from models.utils import mixture_uniform
 from search.agent import Agent
 from search.utils import SearchNode, Trajectory
 
@@ -42,19 +41,21 @@ class Levin(Agent):
         state_t = domain.state_tensor(state).unsqueeze(0)
 
         action_logits = model(state_t)
+        log_action_probs = to.log_softmax(action_logits[0], dim=-1)
 
         node = LevinNode(
             state,
             g_cost=0,
             log_prob=1.0,
             levin_cost=1,
-            log_action_probs=mixture_uniform(action_logits[0], self.weight_uniform),
+            log_action_probs=log_action_probs,
             num_expanded_when_generated=0,
         )
 
-        frontier = []
+        frontier = PriorityQueue()
         reached = {}
-        heapq.heappush(frontier, node)
+        # heapq.heappush(frontier, node)
+        frontier.enqueue(node)
         reached[node] = node
 
         children_to_be_evaluated = []
@@ -71,7 +72,8 @@ class Levin(Agent):
             ):
                 return 0, num_expanded, num_generated, None
 
-            node = heapq.heappop(frontier)
+            node = frontier.dequeue()
+            # node = heapq.heappop(frontier)
             num_expanded += 1
 
             actions = domain.actions(node.parent_action, node.state)
@@ -89,17 +91,15 @@ class Levin(Agent):
                     node.log_prob + node.log_action_probs[a].item(),
                     num_expanded_when_generated=num_expanded,
                 )
+                new_node.levin_cost = levin_cost(new_node)
+
                 num_generated += 1
 
-                if update_levin_costs:
-                    if new_node in reached:
-                        old_node = reached[new_node]
-                        if new_node.g_cost < old_node.g_cost:
-                            # new_node must have lower probability than the node in reached
-                            # -> levin_cost decreases
-                            old_node.g_cost = new_node.g_cost
-                            old_node.levin_cost = levin_cost(new_node)
-                            heapq.heappush(frontier, new_node)
+                # if new_node in reached:
+                #     if new_node in frontier:
+                #         frontier.enqueue(new_node)
+                #     else:
+                #         pass
 
                 if new_node not in reached:
                     if domain.is_goal(new_state):
@@ -117,19 +117,65 @@ class Levin(Agent):
 
             batch_states = to.stack(state_t_of_children_to_be_evaluated)
             action_logits = model(batch_states)
-            log_action_probs = mixture_uniform(action_logits, self.weight_uniform)
+            log_action_probs = to.log_softmax(action_logits, dim=-1)
 
             for i, child in enumerate(children_to_be_evaluated):
                 lc = levin_cost(child)
                 child.log_action_probs = log_action_probs[i]
                 child.levin_cost = lc
-                heapq.heappush(frontier, child)
+                frontier.enqueue(child)
+                # heapq.heappush(frontier, child)
 
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []
 
         print(f"Emptied frontiers for problem {id}")
         return 0, num_expanded, num_generated, None
+
+
+class PQEntry:
+    def __init__(self, node):
+        self.node = node
+        self.removed = False
+
+    def __lt__(self, other):
+        return self.node < other.node
+
+
+class PriorityQueue:
+    def __init__(self) -> None:
+        self.pq = []
+        self.entry_finder = {}
+
+    def top(self):
+        for entry in self.pq:
+            if not entry.removed:
+                return entry.node
+
+    def enqueue(self, node):
+        if node in self.entry_finder:
+            self.remove(node)
+        entry = PQEntry(node)
+        heapq.heappush(self.pq, entry)
+        self.entry_finder[node] = entry
+
+    def dequeue(self):
+        while self.pq:
+            entry = heapq.heappop(self.pq)
+            if not entry.removed:
+                del self.entry_finder[entry.node]
+                return entry.node
+        raise KeyError("pop from an empty priority queue")
+
+    def remove(self, node):
+        entry = self.entry_finder.pop(node)
+        entry.removed = True
+
+    def __contains__(self, node):
+        return node in self.entry_finder
+
+    def __len__(self):
+        return len(self.entry_finder)
 
 
 class LevinNode(SearchNode):

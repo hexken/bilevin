@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 import torch as to
 
 from enums import TwoDir
-from models.utils import mixture_uniform
 from search.agent import Agent
 from search.levin import LevinNode, levin_cost
 
@@ -50,12 +49,15 @@ class BiLevin(Agent):
         f_action_logits = forward_model(f_state_t)
         b_action_logits = backward_model(b_state_t)
 
+        f_log_action_probs = to.log_softmax(f_action_logits[0], dim=-1)
+        b_log_action_probs = to.log_softmax(b_action_logits[0], dim=-1)
+
         f_start_node = LevinNode(
             f_state,
             g_cost=0,
             log_prob=1.0,
             levin_cost=1,
-            log_action_probs=mixture_uniform(f_action_logits[0], self.weight_uniform),
+            log_action_probs=f_log_action_probs,
             num_expanded_when_generated=0,
         )
 
@@ -64,7 +66,7 @@ class BiLevin(Agent):
             g_cost=0,
             log_prob=1.0,
             levin_cost=1,
-            log_action_probs=mixture_uniform(b_action_logits[0], self.weight_uniform),
+            log_action_probs=b_log_action_probs,
             num_expanded_when_generated=0,
         )
 
@@ -127,15 +129,15 @@ class BiLevin(Agent):
                 )
                 num_generated += 1
 
-                if update_levin_costs:
-                    if new_node in _reached:
-                        g_cost = new_node.g_cost
-                        if new_node.g_cost < g_cost:
-                            # new_node must have lower probability than the node in reached
-                            # -> levin_cost decreases
-                            new_node.g_cost = g_cost
-                            new_node.levin_cost = levin_cost(new_node)
-                            heapq.heappush(_frontier, new_node)
+                # if update_levin_costs:
+                #     if new_node in _reached:
+                #         g_cost = new_node.g_cost
+                #         if new_node.g_cost < g_cost:
+                #             # new_node must have lower probability than the node in reached
+                #             # -> levin_cost decreases
+                #             new_node.g_cost = g_cost
+                #             new_node.levin_cost = levin_cost(new_node)
+                #             heapq.heappush(_frontier, new_node)
 
                 if new_node not in _reached:
                     trajs = _problem.try_make_solution(
@@ -158,7 +160,7 @@ class BiLevin(Agent):
 
             batch_states = to.stack(state_t_of_children_to_be_evaluated)
             action_logits = _model(batch_states)
-            log_action_probs = mixture_uniform(action_logits, self.weight_uniform)
+            log_action_probs = to.log_softmax(action_logits, dim=-1)
 
             for i, child in enumerate(children_to_be_evaluated):
                 lc = levin_cost(child)

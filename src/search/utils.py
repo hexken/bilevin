@@ -30,11 +30,6 @@ class SearchNode:
         return self.state.__hash__()
 
 
-class BidirectionalSearchNode(SearchNode):
-    def __init__(self, state, parent, action, g_cost):
-        super().__init__(state, parent, action, g_cost)
-
-
 class Trajectory:
     def __init__(
         self,
