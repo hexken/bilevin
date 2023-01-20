@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=14:00:00
+#SBATCH --time=12:00:00
 #SBATCH --exclusive
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/%j.txt
 #SBATCH --account=rrg-lelis
@@ -32,9 +32,8 @@ torchrun \
     --loss levin_loss_sum \
     --model-path trained_models/ \
     --problemset-path $2 \
-    --initial-budget 4000 \
+    --initial-budget 10000 \
     --grad-steps 10 \
     --batch-size-bootstrap 32 \
     --seed $3 \
-    --track-params \
     --wandb-mode offline

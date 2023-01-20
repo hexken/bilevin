@@ -1,14 +1,5 @@
 #!/bin/bash
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=40
-#SBATCH --mem=186G
-#SBATCH --time=0:5:00
-#SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/%j.txt
-#SBATCH --account=rrg-lelis
-
-source $HOME/bilevin-env/bin/activate
-cd /scratch/tjhia/bilevin
+#
 export OMP_NUM_THREADS=1
 
 torchrun \
@@ -19,12 +10,14 @@ torchrun \
     --master_port=34567 \
     src/main.py \
     --mode train \
-    --agent $1 \
+    --agent BiLevin \
     --loss levin_loss_sum \
     --model-path trained_models/ \
-    --problemset-path $2 \
+    --domain Witness \
+    --problems-path problems/witness/puzzles_4x4_50k_train/ \
     --initial-budget 2000 \
     --grad-steps 10 \
     --batch-size-bootstrap 32 \
-    --seed $3 \
-    --wandb-mode offline
+    --seed 1 \
+    --track-params \
+    --wandb-mode disabled
