@@ -224,7 +224,7 @@ if __name__ == "__main__":
     problemset_params = (
         f"{args.problemset_path.parent.stem}-{args.problemset_path.stem}"
     )
-    run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-{args.initial_budget}_{args.seed}_{int(start_time)}{args.exp_name}"
+    run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-{args.initial_budget}{args.exp_name}_{args.seed}_{int(start_time)}"
 
     if rank == 0:
         print(time.ctime(start_time))
