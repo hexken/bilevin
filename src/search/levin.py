@@ -108,9 +108,7 @@ class Levin(Agent):
                 elif update_levin_costs:
                     old_node = reached[new_node]
                     if new_node.g_cost < old_node.g_cost:
-                        old_node.g_cost = new_node.g_cost
-                        old_node.parent = new_node.parent
-                        old_node.parent_action = new_node.parent_action
+                        swap_node_contents(new_node, old_node)
                         if old_node in frontier:
                             frontier.remove(old_node)
                             frontier.enqueue(old_node)
@@ -128,6 +126,14 @@ class Levin(Agent):
 
         print(f"Emptied frontiers for problem {id}")
         return 0, num_expanded, num_generated, None
+
+
+def swap_node_contents(src: LevinNode, dst: LevinNode):
+    dst.g_cost = src.g_cost
+    dst.parent = src.parent
+    dst.parent_action = src.parent_action
+    dst.log_prob = src.log_prob
+    dst.levin_cost = levin_cost(dst)
 
 
 class PQEntry:
@@ -148,7 +154,7 @@ class PriorityQueue:
         for entry in self.pq:
             if not entry.removed:
                 return entry.node
-        raise KeyError("pop from an empty priority queue")
+        return None
 
     def enqueue(self, node):
         if node in self.entry_finder:

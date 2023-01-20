@@ -6,7 +6,7 @@ import torch as to
 
 from enums import TwoDir
 from search.agent import Agent
-from search.levin import LevinNode, PriorityQueue, levin_cost
+from search.levin import LevinNode, PriorityQueue, levin_cost, swap_node_contents
 
 if TYPE_CHECKING:
     from domains.domain import Domain
@@ -92,20 +92,23 @@ class BiLevin(Agent):
             ):
                 return (False, num_expanded, num_generated, None)
 
-            if len(b_frontier) > 0 and b_frontier.top() < f_frontier.top():
-                direction = TwoDir.BACKWARD
-                _problem = b_problem
-                _model = backward_model
-                _frontier = b_frontier
-                _reached = b_reached
-                other_problem = f_problem
-            else:
+            b = b_frontier.top()
+            f = f_frontier.top()
+
+            if (b and f and f < b) or not b:
                 direction = TwoDir.FORWARD
                 _problem = f_problem
                 _model = forward_model
                 _frontier = f_frontier
                 _reached = f_reached
                 other_problem = b_problem
+            else:
+                direction = TwoDir.BACKWARD
+                _problem = b_problem
+                _model = backward_model
+                _frontier = b_frontier
+                _reached = b_reached
+                other_problem = f_problem
 
             node = _frontier.dequeue()
             num_expanded += 1
@@ -150,9 +153,7 @@ class BiLevin(Agent):
                     old_node = _reached[new_node]
                     if new_node.g_cost < old_node.g_cost:
                         # print("updating")
-                        old_node.g_cost = new_node.g_cost
-                        old_node.parent = new_node.parent
-                        old_node.parent_action = new_node.parent_action
+                        swap_node_contents(new_node, old_node)
                         if old_node in _frontier:
                             # print("updating frontier")
                             _frontier.remove(old_node)
