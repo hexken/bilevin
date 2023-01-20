@@ -362,7 +362,7 @@ def train(
                 batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                 # fmt: off
                 writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, batches_seen)
-                # writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), total_batches)
+                writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
                 # fmt: on
 
         if rank == 0:

@@ -93,12 +93,6 @@ def parse_args():
          allowed a non-bootstrap search",
     )
     parser.add_argument(
-        "--final-budget",
-        type=int,
-        default=2**16,
-        help="terminate when budget grows at least this large",
-    )
-    parser.add_argument(
         "--time-limit-overall",
         type=int,
         default="6000",
