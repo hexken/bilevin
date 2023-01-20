@@ -1,5 +1,4 @@
 from __future__ import annotations
-import heapq
 import time
 from typing import TYPE_CHECKING
 
@@ -7,7 +6,7 @@ import torch as to
 
 from enums import TwoDir
 from search.agent import Agent
-from search.levin import LevinNode, levin_cost, PriorityQueue
+from search.levin import LevinNode, PriorityQueue, levin_cost
 
 if TYPE_CHECKING:
     from domains.domain import Domain
@@ -58,7 +57,6 @@ class BiLevin(Agent):
             log_prob=1.0,
             levin_cost=1,
             log_action_probs=f_log_action_probs,
-            num_expanded_when_generated=0,
         )
 
         b_start_node = LevinNode(
@@ -67,7 +65,6 @@ class BiLevin(Agent):
             log_prob=1.0,
             levin_cost=1,
             log_action_probs=b_log_action_probs,
-            num_expanded_when_generated=0,
         )
 
         f_frontier = PriorityQueue()
@@ -125,19 +122,9 @@ class BiLevin(Agent):
                     a,
                     node.g_cost + 1,
                     node.log_prob + node.log_action_probs[a].item(),
-                    num_expanded_when_generated=num_expanded,
                 )
+                new_node.levin_cost = levin_cost(new_node)
                 num_generated += 1
-
-                # if update_levin_costs:
-                #     if new_node in _reached:
-                #         g_cost = new_node.g_cost
-                #         if new_node.g_cost < g_cost:
-                #             # new_node must have lower probability than the node in reached
-                #             # -> levin_cost decreases
-                #             new_node.g_cost = g_cost
-                #             new_node.levin_cost = levin_cost(new_node)
-                #             heapq.heappush(_frontier, new_node)
 
                 if new_node not in _reached:
                     trajs = _problem.try_make_solution(
@@ -152,24 +139,35 @@ class BiLevin(Agent):
                         return solution_len, num_expanded, num_generated, trajs
 
                     _reached[new_node] = new_node
+                    _frontier.enqueue(new_node)
                     _problem.update(new_node)
+
                     children_to_be_evaluated.append(new_node)
+                    state_t = _problem.state_tensor(new_state)
+                    state_t_of_children_to_be_evaluated.append(state_t)
 
-                state_t = _problem.state_tensor(new_state)
-                state_t_of_children_to_be_evaluated.append(state_t)
+                elif update_levin_costs:
+                    old_node = _reached[new_node]
+                    if new_node.g_cost < old_node.g_cost:
+                        # print("updating")
+                        old_node.g_cost = new_node.g_cost
+                        old_node.parent = new_node.parent
+                        old_node.parent_action = new_node.parent_action
+                        if old_node in _frontier:
+                            # print("updating frontier")
+                            _frontier.remove(old_node)
+                            _frontier.enqueue(old_node)
 
-            batch_states = to.stack(state_t_of_children_to_be_evaluated)
-            action_logits = _model(batch_states)
-            log_action_probs = to.log_softmax(action_logits, dim=-1)
+            if children_to_be_evaluated:
+                batch_states = to.stack(state_t_of_children_to_be_evaluated)
+                action_logits = _model(batch_states)
+                log_action_probs = to.log_softmax(action_logits, dim=-1)
 
-            for i, child in enumerate(children_to_be_evaluated):
-                lc = levin_cost(child)
-                child.log_action_probs = log_action_probs[i]
-                child.levin_cost = lc
-                _frontier.enqueue(child)
+                for i, child in enumerate(children_to_be_evaluated):
+                    child.log_action_probs = log_action_probs[i]
 
-            children_to_be_evaluated = []
-            state_t_of_children_to_be_evaluated = []
+                children_to_be_evaluated = []
+                state_t_of_children_to_be_evaluated = []
 
         print(f"Emptied frontiers for problem {id}")
         return False, num_expanded, num_generated, None

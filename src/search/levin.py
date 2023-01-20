@@ -1,6 +1,5 @@
 from __future__ import annotations
 import heapq
-from copy import deepcopy
 import math
 import time
 from typing import Optional, TYPE_CHECKING
@@ -49,12 +48,10 @@ class Levin(Agent):
             log_prob=1.0,
             levin_cost=1,
             log_action_probs=log_action_probs,
-            num_expanded_when_generated=0,
         )
 
         frontier = PriorityQueue()
         reached = {}
-        # heapq.heappush(frontier, node)
         frontier.enqueue(node)
         reached[node] = node
 
@@ -73,7 +70,6 @@ class Levin(Agent):
                 return 0, num_expanded, num_generated, None
 
             node = frontier.dequeue()
-            # node = heapq.heappop(frontier)
             num_expanded += 1
 
             actions = domain.actions(node.parent_action, node.state)
@@ -89,17 +85,10 @@ class Levin(Agent):
                     a,
                     node.g_cost + 1,
                     node.log_prob + node.log_action_probs[a].item(),
-                    num_expanded_when_generated=num_expanded,
                 )
                 new_node.levin_cost = levin_cost(new_node)
 
                 num_generated += 1
-
-                # if new_node in reached:
-                #     if new_node in frontier:
-                #         frontier.enqueue(new_node)
-                #     else:
-                #         pass
 
                 if new_node not in reached:
                     if domain.is_goal(new_state):
@@ -110,24 +99,32 @@ class Levin(Agent):
                         return solution_len, num_expanded, num_generated, traj
 
                     reached[new_node] = new_node
+                    frontier.enqueue(new_node)
+
                     children_to_be_evaluated.append(new_node)
+                    state_t = domain.state_tensor(new_state)
+                    state_t_of_children_to_be_evaluated.append(state_t)
 
-                state_t = domain.state_tensor(new_state)
-                state_t_of_children_to_be_evaluated.append(state_t)
+                elif update_levin_costs:
+                    old_node = reached[new_node]
+                    if new_node.g_cost < old_node.g_cost:
+                        old_node.g_cost = new_node.g_cost
+                        old_node.parent = new_node.parent
+                        old_node.parent_action = new_node.parent_action
+                        if old_node in frontier:
+                            frontier.remove(old_node)
+                            frontier.enqueue(old_node)
 
-            batch_states = to.stack(state_t_of_children_to_be_evaluated)
-            action_logits = model(batch_states)
-            log_action_probs = to.log_softmax(action_logits, dim=-1)
+            if children_to_be_evaluated:
+                batch_states = to.stack(state_t_of_children_to_be_evaluated)
+                action_logits = model(batch_states)
+                log_action_probs = to.log_softmax(action_logits, dim=-1)
 
-            for i, child in enumerate(children_to_be_evaluated):
-                lc = levin_cost(child)
-                child.log_action_probs = log_action_probs[i]
-                child.levin_cost = lc
-                frontier.enqueue(child)
-                # heapq.heappush(frontier, child)
+                for i, child in enumerate(children_to_be_evaluated):
+                    child.log_action_probs = log_action_probs[i]
 
-            children_to_be_evaluated = []
-            state_t_of_children_to_be_evaluated = []
+                children_to_be_evaluated = []
+                state_t_of_children_to_be_evaluated = []
 
         print(f"Emptied frontiers for problem {id}")
         return 0, num_expanded, num_generated, None
@@ -151,7 +148,7 @@ class PriorityQueue:
         for entry in self.pq:
             if not entry.removed:
                 return entry.node
-        return None
+        raise KeyError("pop from an empty priority queue")
 
     def enqueue(self, node):
         if node in self.entry_finder:
@@ -189,7 +186,6 @@ class LevinNode(SearchNode):
         log_prob: Optional[float] = None,
         levin_cost: Optional[float] = None,
         log_action_probs: Optional[to.Tensor] = None,
-        num_expanded_when_generated: Optional[int] = None,
     ):
         super().__init__(state, parent, parent_action, g_cost)
         self.log_prob = log_prob
