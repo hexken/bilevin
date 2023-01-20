@@ -97,6 +97,9 @@ def train(
             str(model_path).replace("_forward.pt", "_backward.pt")
         )
 
+        for param in backward_model.parameters():
+            if not param.grad:
+                param.grad = to.zeros_like(param)
     else:
         assert isinstance(model, to.nn.Module)
         forward_model = model
@@ -104,6 +107,10 @@ def train(
         forward_optimizer = optimizer_cons(
             forward_model.parameters(), **optimizer_params
         )
+
+    for param in forward_model.parameters():
+        if not param.grad:
+            param.grad = to.zeros_like(param)
 
     if rank == 0:
         log_params(writer, forward_model, "forward", 0)
