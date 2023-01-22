@@ -12,11 +12,11 @@ torchrun \
     --mode train \
     --agent BiLevin \
     --loss levin_loss_sum \
-    --model-path trained_models/ \
-    --problemset-path problems/witness/4w4c/1000.json \
+    --problemset-path problems/stp/3w/50000.json \
     --initial-budget 2000 \
     --grad-steps 10 \
     --batch-size-bootstrap 4 \
     --seed 1 \
-    --track-params \
-    --wandb-mode disabled
+    --wandb-mode disabled \
+    # --exp-name "_ULC" \
+    # --update-levin-costs \
