@@ -33,8 +33,8 @@ def parse_args():
         "-m",
         "--model-path",
         type=lambda p: Path(p).absolute(),
-        default=Path(__file__).parent / "trained_models",
-        help="path of file to load or directory to save model",
+        default=None,
+        help="path of directory to load previously saved model(s) from",
     )
     parser.add_argument(
         "-l",
@@ -314,21 +314,8 @@ if __name__ == "__main__":
     else:
         raise ValueError("Search agent not recognized")
 
-    if args.model_path.is_file():
-        if agent.bidirectional:
-            forward_model.load_state_dict(to.load(args.model_path))  # type:ignore
-            backward_model_path = Path(
-                str(args.model_path).replace("_forward.pt", "_backward.pt")
-            )
-            backward_model.load_state_dict(backward_model_path)  # type:ignore
-            if rank == 0:
-                print(f"Loaded model\n  from  {str(args.model_path)}")
-                print(f"Loaded model\n  from {str(backward_model_path)}")
-        else:
-            model.load_state_dict(to.load(args.model_path))  # type:ignore
-            if rank == 0:
-                print(f"Loaded model\n  from  {str(args.model_path)}")
-    else:
+    if args.model_path is None:
+        # just use the random initialization from rank 0
         if world_size > 1:
             if agent.bidirectional:
                 for param in forward_model.parameters():
@@ -338,20 +325,25 @@ if __name__ == "__main__":
             else:
                 for param in model.parameters():
                     dist.broadcast(param.data, 0)
-
-        if args.model_path.suffix:
-            args.model_path.parent.mkdir(parents=True, exist_ok=True)
-        else:
-            args.model_path.mkdir(parents=True, exist_ok=True)
-        args.model_path = Path(args.model_path) / f"{run_name}_forward.pt"
-        if rank == 0:
-            print(f"Saving model\n  to {str(args.model_path)}")
+    elif args.model_path.is_dir():
+        forward_model_path = args.model_path / "forward.pt"
+        forward_model.load_state_dict(to.load(forward_model_path))  # type:ignore
         if agent.bidirectional:
             backward_model_path = Path(
-                str(args.model_path).replace("_forward.pt", "_backward.pt")
+                str(forward_model_path).replace("forward.pt", "backward.pt")
             )
-            if rank == 0:
-                print(f"Saving model\n  to {backward_model_path}")
+            backward_model.load_state_dict(backward_model_path)  # type:ignore
+
+        if rank == 0:
+            print(f"Loaded model(s)\n  from  {str(args.model_path)}")
+    else:
+        print("model-path argument must be a directory if given")
+
+    save_model_path = Path(__file__).parent.parent / f"runs/{run_name}"
+    save_model_path.mkdir(parents=True, exist_ok=True)
+
+    if rank == 0:
+        print(f"Saving model(s)\n  to {str(save_model_path)}")
 
     # if agent.bidirectional:
     #     model = to.jit.script(model[0]), to.jit.script(model[1])
@@ -372,7 +364,7 @@ if __name__ == "__main__":
         train(
             agent,
             model,
-            args.model_path,
+            save_model_path,
             loss_fn,
             optimizer_cons,
             optimizer_params,

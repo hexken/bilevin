@@ -18,7 +18,7 @@ from search import MergedTrajectory
 def train(
     agent,
     model: Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]],
-    model_path: Path,
+    model_save_path: Path,
     loss_fn: Callable,
     optimizer_cons: Type[to.optim.Optimizer],
     optimizer_params: dict,
@@ -83,39 +83,30 @@ def train(
     bidirectional = agent.bidirectional
     if bidirectional:
         assert isinstance(model, tuple)
-        forward_model, backward_model = model
+        f_model, b_model = model
+        f_model_save_path = model_save_path / "forward.pt"
+        b_model_save_path = model_save_path / "backward.pt"
 
-        forward_optimizer = optimizer_cons(
-            forward_model.parameters(), **optimizer_params
-        )
-        forward_model_path = model_path
+        forward_optimizer = optimizer_cons(f_model.parameters(), **optimizer_params)
+        backward_optimizer = optimizer_cons(b_model.parameters(), **optimizer_params)
 
-        backward_optimizer = optimizer_cons(
-            backward_model.parameters(), **optimizer_params
-        )
-        backward_model_path = Path(
-            str(model_path).replace("_forward.pt", "_backward.pt")
-        )
-
-        for param in backward_model.parameters():
+        for param in b_model.parameters():
             if not param.grad:
                 param.grad = to.zeros_like(param)
     else:
         assert isinstance(model, to.nn.Module)
-        forward_model = model
-        forward_model_path = model_path
-        forward_optimizer = optimizer_cons(
-            forward_model.parameters(), **optimizer_params
-        )
+        f_model = model
+        f_model_save_path = model_save_path / "forward.pt"
+        forward_optimizer = optimizer_cons(f_model.parameters(), **optimizer_params)
 
-    for param in forward_model.parameters():
+    for param in f_model.parameters():
         if not param.grad:
             param.grad = to.zeros_like(param)
 
     if rank == 0:
-        log_params(writer, forward_model, "forward", 0)
+        log_params(writer, f_model, "forward", 0)
         if bidirectional:
-            log_params(writer, backward_model, "backward", 0)
+            log_params(writer, b_model, "backward", 0)
 
     problems_loader = ProblemsBatchLoader(
         problems, batch_size=local_batch_size, shuffle=True, dummy_last=dummy_last
@@ -166,10 +157,10 @@ def train(
             to.set_grad_enabled(False)
 
             forward_trajs = []
-            forward_model.eval()
+            f_model.eval()
             backward_trajs = []
             if bidirectional:
-                backward_model.eval()  # type:ignore
+                b_model.eval()  # type:ignore
 
             num_problems_solved_this_batch = 0
             local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int32)
@@ -328,7 +319,7 @@ def train(
             idx = (batches_seen % world_batches_per_epoch) - 1
 
             forward_opt_steps, f_loss, f_acc = fit_model(
-                forward_model,
+                f_model,
                 forward_optimizer,
                 forward_trajs,
                 forward_opt_steps,
@@ -339,7 +330,7 @@ def train(
 
             if bidirectional:
                 backward_opt_steps, b_loss, b_acc = fit_model(
-                    backward_model,  # type:ignore
+                    b_model,  # type:ignore
                     backward_optimizer,  # type:ignore
                     backward_trajs,  # type:ignore
                     backward_opt_steps,  # type:ignore
@@ -353,11 +344,11 @@ def train(
                     batches_seen % param_log_interval == 0
                     or len(solved_problems) == world_num_problems
                 ):
-                    to.save(forward_model.state_dict(), forward_model_path)
-                    log_params(writer, forward_model, "forward", batches_seen)
+                    to.save(f_model.state_dict(), f_model_save_path)
+                    log_params(writer, f_model, "forward", batches_seen)
                     if bidirectional:
-                        to.save(backward_model.state_dict(), backward_model_path)
-                        log_params(writer, backward_model, "backward", batches_seen)
+                        to.save(b_model.state_dict(), b_model_save_path)
+                        log_params(writer, b_model, "backward", batches_seen)
 
                 batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                 # fmt: off
