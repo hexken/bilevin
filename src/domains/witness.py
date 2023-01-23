@@ -86,6 +86,12 @@ class Witness(Domain):
             values = [int(x) for x in cell.split()]
             self.cells[values[0], values[1]] = values[2]
 
+        self._colored_idxs = [
+            (i, j)
+            for i in range(self.width)
+            for j in range(self.width)
+            if self.cells[i, j] != 0
+        ]
         self.initial_state = WitnessState(
             self.width,
             self.start_row,
@@ -334,19 +340,17 @@ class Witness(Domain):
         if not self.is_head_at_goal(state):
             return False
 
-        visited = np.zeros((self.width, self.width))
-        cells = [(i, j) for i in range(self.width) for j in range(self.width)]
+        visited = set()
 
-        while len(cells) != 0:
-            root = cells.pop()
+        for root in self._colored_idxs:
             # If root of new BFS search was already visited, then go to the next state
-            if visited[root] == 1:
+            if root in visited:
                 continue
             current_color = self.cells[root]
 
             frontier = deque()
             frontier.append(root)
-            visited[root] = 1
+            visited.add(root)
             while len(frontier) != 0:
                 cell = frontier.popleft()
 
@@ -375,7 +379,7 @@ class Witness(Domain):
 
                 neighbors = reachable_neighbors(self, cell)
                 for neighbor in neighbors:
-                    if visited[neighbor] == 1:
+                    if neighbor in visited:
                         continue
                     if (
                         current_color != 0
@@ -386,7 +390,7 @@ class Witness(Domain):
                     if current_color == 0:
                         current_color = self.cells[neighbor]
                     frontier.append(neighbor)
-                    visited[neighbor] = 1
+                    visited.add(neighbor)
         return True
 
     def get_merged_trajectory(
