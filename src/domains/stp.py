@@ -1,11 +1,10 @@
 from __future__ import annotations
-from copy import deepcopy
 from typing import Optional, Type
 
 import numpy as np
 import torch as to
 
-from domains.domain import Domain, State
+from domains.domain import Domain, State, Problem
 from enums import FourDir
 from search.utils import SearchNode, Trajectory
 
@@ -23,7 +22,9 @@ class SlidingTilePuzzleState(State):
 
     def __repr__(self) -> str:
         mlw = self.tiles.shape[0] ** 2
-        return f" {np.array2string(self.tiles, separator=' ' , max_line_width=mlw)[1:-1]}"
+        return (
+            f" {np.array2string(self.tiles, separator=' ' , max_line_width=mlw)[1:-1]}"
+        )
 
     def __str__(self) -> str:
         return self.__repr__()
@@ -86,27 +87,27 @@ class SlidingTilePuzzle(Domain):
         self,
         state: SlidingTilePuzzleState,
     ) -> to.Tensor:
-        arr = to.zeros((self.num_tiles, self.width, self.width))
+        arr = np.zeros((self.num_tiles, self.width, self.width), dtype=np.float32)
+        indices = state.tiles.reshape(-1)
         arr[
-            state.tiles.reshape(-1),
+            indices,
             self._row_indices,
             self._col_indices,
         ] = 1
 
-        return arr
+        return to.from_numpy(arr)
 
     def backward_state_tensor(
         self,
         state: SlidingTilePuzzleState,
     ) -> to.Tensor:
-        arr = to.zeros((self.num_tiles, self.width, self.width))
+        arr = np.zeros((self.num_tiles, self.width, self.width), dtype=np.float32)
         arr[
             state.tiles.reshape(-1),
             self._row_indices,
             self._col_indices,
         ] = 1
-
-        return to.stack((arr, self.initial_state_t))
+        return to.stack((to.from_numpy(arr), self.initial_state_t))
 
     def reverse_action(self, action: FourDir) -> FourDir:
         if action == FourDir.UP:
@@ -257,8 +258,11 @@ def load_problemset(problemset: dict):
     goal_tiles = np.arange(width**2).reshape(width, width)
     for p_dict in problemset["problems"]:
         init_tiles = np.array(p_dict["tiles"])
-        problem = SlidingTilePuzzle(init_tiles=init_tiles, goal_tiles=goal_tiles)
-        problems.append((p_dict["id"], problem))
+        problem = Problem(
+            id=p_dict["id"],
+            domain=SlidingTilePuzzle(init_tiles=init_tiles, goal_tiles=goal_tiles),
+        )
+        problems.append(problem)
 
     num_actions = problems[0][1].num_actions
     in_channels = problems[0][1].in_channels

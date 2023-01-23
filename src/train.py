@@ -1,18 +1,22 @@
 import math
 from pathlib import Path
 import time
-from typing import Type, Callable, Union
+from typing import Callable, Type, Union
 
+# from memory_profiler import profile
 import numpy as np
 import pandas as pd
-from domains.domain import Domain
+# from pympler import asizeof, muppy, summary, tracker
 from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
 
+from domains.domain import Domain, Problem
 from search import MergedTrajectory
+
+# h = hpy()
 
 
 def train(
@@ -22,7 +26,7 @@ def train(
     loss_fn: Callable,
     optimizer_cons: Type[to.optim.Optimizer],
     optimizer_params: dict,
-    problems: list[tuple[int, Domain]],
+    problems: list[Problem],
     local_batch_size: int,
     writer: SummaryWriter,
     world_size: int,
@@ -174,6 +178,8 @@ def train(
                     train=True,
                 )
                 end_time = time.time()
+                if bidirectional:
+                    problem.domain.reset()
 
                 local_batch_search_results[i, 0] = problem[0]
                 local_batch_search_results[i, 1] = solution_length
@@ -355,6 +361,12 @@ def train(
                 writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, batches_seen)
                 writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
                 # fmt: on
+            # objs = muppy.get_objects()
+            # summ = summary.summarize(objs)
+            # summary.print_(summ)
+            # tr = tracker.SummaryTracker()
+            # tr.print_diff()
+            # print(h.heap())
 
         if rank == 0:
             epoch_solved = num_problems_solved_this_epoch / world_num_problems
@@ -401,12 +413,13 @@ def train(
 class ProblemsBatchLoader:
     def __init__(
         self,
-        problems: list[tuple[int, Domain]],
+        problems: list[Problem],
         batch_size: int,
         shuffle: bool = True,
         dummy_last: bool = False,
     ):
-        self.problems = np.array(problems)
+        self.problems = np.empty(len(problems), dtype=object)
+        self.problems[:] = problems
         self.batch_size = batch_size
         self._len = len(problems)
         self._num_problems_served = 0

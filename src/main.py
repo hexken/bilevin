@@ -201,8 +201,8 @@ if __name__ == "__main__":
         )
 
     for p in parsed_problems:
-        if p[1].is_goal(p[1].initial_state):
-            raise Exception(f"Problem '{p[0]}' initial state is a goal state")
+        if p.domain.is_goal(p.domain.initial_state):
+            raise Exception(f"Problem '{p.id}' initial state is a goal state")
 
     problems_per_process = num_problems_parsed // world_size
     problemsets = []

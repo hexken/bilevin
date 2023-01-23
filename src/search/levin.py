@@ -5,12 +5,13 @@ import time
 from typing import Optional, TYPE_CHECKING
 
 import torch as to
+from torch.nn.functional import log_softmax
 
 from search.agent import Agent
 from search.utils import SearchNode, Trajectory
 
 if TYPE_CHECKING:
-    from domains.domain import State, Domain
+    from domains.domain import State, Domain, Problem
 
 
 class Levin(Agent):
@@ -26,7 +27,7 @@ class Levin(Agent):
 
     def search(
         self,
-        problem: tuple[int, Domain],
+        problem: Problem,
         model,
         budget,
         update_levin_costs=False,
@@ -40,7 +41,7 @@ class Levin(Agent):
         state_t = domain.state_tensor(state).unsqueeze(0)
 
         action_logits = model(state_t)
-        log_action_probs = to.log_softmax(action_logits[0], dim=-1)
+        log_action_probs = log_softmax(action_logits[0], dim=-1)
 
         node = LevinNode(
             state,
@@ -116,7 +117,7 @@ class Levin(Agent):
             if children_to_be_evaluated:
                 batch_states = to.stack(state_t_of_children_to_be_evaluated)
                 action_logits = model(batch_states)
-                log_action_probs = to.log_softmax(action_logits, dim=-1)
+                log_action_probs = log_softmax(action_logits, dim=-1)
 
                 for i, child in enumerate(children_to_be_evaluated):
                     child.log_action_probs = log_action_probs[i]

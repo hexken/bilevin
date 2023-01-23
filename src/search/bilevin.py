@@ -3,13 +3,14 @@ import time
 from typing import TYPE_CHECKING
 
 import torch as to
+from torch.nn.functional import log_softmax
 
 from enums import TwoDir
 from search.agent import Agent
 from search.levin import LevinNode, PriorityQueue, levin_cost, swap_node_contents
 
 if TYPE_CHECKING:
-    from domains.domain import Domain
+    from domains.domain import Domain, Problem
 
 
 class BiLevin(Agent):
@@ -25,7 +26,7 @@ class BiLevin(Agent):
 
     def search(
         self,
-        problem: tuple[int, Domain],
+        problem: Problem,
         model,
         budget,
         update_levin_costs=False,
@@ -33,11 +34,10 @@ class BiLevin(Agent):
         end_time=None,
     ):
         """ """
-        id, domain = problem
-        f_problem = domain
-        b_problem = domain.backward_problem()
+        id, f_problem = problem
+        b_problem = f_problem.backward_problem()
 
-        f_state = domain.reset()
+        f_state = f_problem.reset()
         f_state_t = f_problem.state_tensor(f_state).unsqueeze(0)
 
         b_state = b_problem.reset()
@@ -48,8 +48,8 @@ class BiLevin(Agent):
         f_action_logits = forward_model(f_state_t)
         b_action_logits = backward_model(b_state_t)
 
-        f_log_action_probs = to.log_softmax(f_action_logits[0], dim=-1)
-        b_log_action_probs = to.log_softmax(b_action_logits[0], dim=-1)
+        f_log_action_probs = log_softmax(f_action_logits[0], dim=-1)
+        b_log_action_probs = log_softmax(b_action_logits[0], dim=-1)
 
         f_start_node = LevinNode(
             f_state,
@@ -162,7 +162,7 @@ class BiLevin(Agent):
             if children_to_be_evaluated:
                 batch_states = to.stack(state_t_of_children_to_be_evaluated)
                 action_logits = _model(batch_states)
-                log_action_probs = to.log_softmax(action_logits, dim=-1)
+                log_action_probs = log_softmax(action_logits, dim=-1)
 
                 for i, child in enumerate(children_to_be_evaluated):
                     child.log_action_probs = log_action_probs[i]

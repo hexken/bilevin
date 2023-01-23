@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch as to
 
-from domains.domain import Domain, State
+from domains.domain import Domain, State, Problem
 from enums import Color, FourDir
 from search.utils import SearchNode, Trajectory
 
@@ -134,8 +134,7 @@ class Witness(Domain):
         """
 
         # defining the 3-dimnesional array that will be filled with the puzzle's information
-        image = to.zeros(self.in_channels, self.state_width, self.state_width)
-        arr = np.asarray(image)
+        arr = np.zeros((self.in_channels, self.state_width, self.state_width))
 
         for i in range(self.width):
             for j in range(self.width):
@@ -171,7 +170,7 @@ class Witness(Domain):
         channel_number += 1
         arr[channel_number, self.start_row, self.start_col] = 1
 
-        return image
+        return to.from_numpy(arr)
 
     def reverse_action(self, action: FourDir) -> FourDir:
         if action == FourDir.UP:
@@ -442,7 +441,7 @@ class Witness(Domain):
         return Trajectory(self, dir1_node, num_expanded)
 
     def try_make_solution(
-        self, node, other_problem, num_expanded
+        self, node: SearchNode, other_problem: Witness, num_expanded: int
     ) -> Optional[tuple[Trajectory, Trajectory]]:
         """
         Tries to create a solution from the current node and the nodes visited by the other search
@@ -519,7 +518,7 @@ class Witness(Domain):
         need adjustment as one changes the size of the puzzle. For example, the size of the figure is set to be fixed
         to [5, 5] (see below).
         """
-        if state == None:
+        if not state:
             state = self.initial_state
 
         fig, ax = plt.subplots(figsize=(5, 5))
@@ -652,14 +651,17 @@ def load_problemset(problemset: dict):
     max_num_colors = problemset["max_num_colors"]
     problems = []
     for p_dict in problemset["problems"]:
-        problem = Witness(
-            width=width,
-            max_num_colors=max_num_colors,
-            init=p_dict["init"],
-            goal=p_dict["goal"],
-            colored_cells=p_dict["colored_cells"],
+        problem = Problem(
+            id=p_dict["id"],
+            domain=Witness(
+                width=width,
+                max_num_colors=max_num_colors,
+                init=p_dict["init"],
+                goal=p_dict["goal"],
+                colored_cells=p_dict["colored_cells"],
+            ),
         )
-        problems.append((p_dict["id"], problem))
+        problems.append(problem)
 
     num_actions = problems[0][1].num_actions
     in_channels = problems[0][1].in_channels

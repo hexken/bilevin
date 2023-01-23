@@ -1,11 +1,15 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional
+from collections import namedtuple
+from typing import Optional, TYPE_CHECKING
 
 import torch as to
 
 if TYPE_CHECKING:
     from search.utils import SearchNode, Trajectory
+
+
+Problem = namedtuple("Problem", "id domain")
 
 
 class State(ABC):
