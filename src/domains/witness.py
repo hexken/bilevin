@@ -134,7 +134,9 @@ class Witness(Domain):
         """
 
         # defining the 3-dimnesional array that will be filled with the puzzle's information
-        arr = np.zeros((self.in_channels, self.state_width, self.state_width))
+        arr = np.zeros(
+            (self.in_channels, self.state_width, self.state_width), dtype=np.float32
+        )
 
         for i in range(self.width):
             for j in range(self.width):
@@ -340,7 +342,7 @@ class Witness(Domain):
             # If root of new BFS search was already visited, then go to the next state
             if visited[root] == 1:
                 continue
-            current_color = Color(self.cells[root])
+            current_color = self.cells[root]
 
             frontier = deque()
             frontier.append(root)
@@ -376,13 +378,13 @@ class Witness(Domain):
                     if visited[neighbor] == 1:
                         continue
                     if (
-                        current_color != Color.NEUTRAL
-                        and Color(self.cells[neighbor]) != Color.NEUTRAL
-                        and Color(self.cells[neighbor]) != current_color
+                        current_color != 0
+                        and self.cells[neighbor] != 0
+                        and self.cells[neighbor] != current_color
                     ):
                         return False
-                    if current_color == Color.NEUTRAL:
-                        current_color = Color(self.cells[neighbor])
+                    if current_color == 0:
+                        current_color = self.cells[neighbor]
                     frontier.append(neighbor)
                     visited[neighbor] = 1
         return True

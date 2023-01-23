@@ -1,4 +1,6 @@
+from __future__ import annotations
 from enum import Enum, IntEnum
+
 from aenum import Enum as AEnum
 
 
@@ -31,23 +33,5 @@ class Color(AEnum):
         return self.string
 
     @classmethod
-    def _missing_value_(cls, value):
-        for member in cls:
-            if member.string == value:
-                return member.value
-
-    @classmethod
-    def int_values(cls):
-        return [member.value for member in cls]
-
-    @classmethod
     def str_values(cls):
         return [member.string for member in cls]
-
-    def __eq__(self, other):
-        if isinstance(other, Color):
-            return self.value == other.value
-        elif isinstance(other, int):
-            return self.value == other
-        elif isinstance(other, str):
-            return self.string == other
