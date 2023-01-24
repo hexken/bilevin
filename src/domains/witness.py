@@ -382,13 +382,10 @@ class Witness(Domain):
                     if neighbor in visited:
                         continue
                     if (
-                        current_color != 0
-                        and self.cells[neighbor] != 0
+                        self.cells[neighbor] != 0
                         and self.cells[neighbor] != current_color
                     ):
                         return False
-                    if current_color == 0:
-                        current_color = self.cells[neighbor]
                     frontier.append(neighbor)
                     visited.add(neighbor)
         return True
