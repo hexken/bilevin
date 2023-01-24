@@ -21,10 +21,9 @@ torchrun \
     --mode train \
     --agent $1 \
     --loss levin_loss_sum \
-    --model-path trained_models/ \
     --problemset-path $2 \
-    --initial-budget 2000 \
+    --initial-budget $3 \
     --grad-steps 10 \
     --batch-size-bootstrap 32 \
-    --seed $3 \
+    --seed $4 \
     --wandb-mode offline
