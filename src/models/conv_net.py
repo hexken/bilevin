@@ -69,15 +69,15 @@ class ConvNetDouble(nn.Module):
         self.convblock2 = ConvBlock(
             in_channels, state_t_width, kernel_size, num_filters, num_actions
         )
-        self.linear1 = nn.Linear(num_filters * 2 * self.convblock1.reduced_size, 128)
+        self.linear1 = nn.Linear(num_filters * 2 * self.convblock1.reduced_size, 256)
         to.nn.init.kaiming_uniform_(
             self.linear1.weight, mode="fan_in", nonlinearity="relu"
         )
-        self.linear2 = nn.Linear(128, 128)
-        to.nn.init.kaiming_uniform_(
-            self.linear2.weight, mode="fan_in", nonlinearity="relu"
-        )
-        self.linear3 = nn.Linear(128, num_actions)
+        # self.linear2 = nn.Linear(192, 128)
+        # to.nn.init.kaiming_uniform_(
+        #     self.linear2.weight, mode="fan_in", nonlinearity="relu"
+        # )
+        self.linear3 = nn.Linear(256, num_actions)
         to.nn.init.xavier_uniform_(self.linear3.weight)
 
     def forward(self, x):
@@ -90,7 +90,7 @@ class ConvNetDouble(nn.Module):
 
         x = to.cat((x1, x2), dim=-1)
         x = F.relu(self.linear1(x))
-        x = F.relu(self.linear2(x))
+        # x = F.relu(self.linear2(x))
         logits = self.linear3(x)
 
         return logits
