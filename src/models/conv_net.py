@@ -79,13 +79,13 @@ class ConvNetDouble(nn.Module):
             in_channels, state_t_width, kernel_size, num_filters, num_actions
         )
 
-        self.linear1 = nn.Linear(num_filters * 2 * self.convblock1.reduced_size, 256)
+        self.linear1 = nn.Linear(num_filters * 2 * self.convblock1.reduced_size, 192)
         to.nn.init.kaiming_uniform_(
             self.linear1.weight, mode="fan_in", nonlinearity="relu"
         )
-        self.bn1 = nn.BatchNorm1d(256)
+        self.bn1 = nn.BatchNorm1d(192)
 
-        self.linear2 = nn.Linear(256, 128)
+        self.linear2 = nn.Linear(192, 128)
         to.nn.init.kaiming_uniform_(
             self.linear2.weight, mode="fan_in", nonlinearity="relu"
         )

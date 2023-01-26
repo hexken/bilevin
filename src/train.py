@@ -6,6 +6,7 @@ from typing import Callable, Type, Union
 # from memory_profiler import profile
 import numpy as np
 import pandas as pd
+
 # from pympler import asizeof, muppy, summary, tracker
 from tabulate import tabulate
 import torch as to
@@ -129,6 +130,9 @@ def train(
     forward_opt_steps = 0
     backward_opt_steps = 0
 
+    forward_trajs = {"one_state": []}
+    backward_trajs = {"one_state": []}
+
     world_epoch_f_loss = np.zeros(world_batches_per_epoch)
     world_epoch_f_acc = np.zeros(world_batches_per_epoch)
     world_epoch_b_loss = np.zeros(world_batches_per_epoch)
@@ -161,9 +165,9 @@ def train(
 
             to.set_grad_enabled(False)
 
-            forward_trajs = []
+            forward_trajs["current"] = []
             f_model.eval()
-            backward_trajs = []
+            backward_trajs["current"] = []
             if bidirectional:
                 b_model.eval()  # type:ignore
 
@@ -182,6 +186,7 @@ def train(
                 if bidirectional:
                     problem.domain.reset()
 
+                # todo handle single state trajectories, they break batchnorm layers
                 local_batch_search_results[i, 0] = problem[0]
                 local_batch_search_results[i, 1] = solution_length
                 local_batch_search_results[i, 2] = num_expanded
@@ -189,9 +194,9 @@ def train(
                 local_batch_search_results[i, 4] = int((end_time - start_time) * 1000)
 
                 if traj:
-                    forward_trajs.append(traj[0])
+                    forward_trajs["current"].append(traj[0])
                     if bidirectional:
-                        backward_trajs.append(traj[1])
+                        backward_trajs["current"].append(traj[1])
 
             if world_size > 1:
                 dist.all_gather(world_batch_results, local_batch_search_results)
@@ -243,11 +248,17 @@ def train(
             def fit_model(
                 model: to.nn.Module,
                 optimizer: to.optim.Optimizer,
-                trajs: list,
+                trajs_dict: dict,
                 opt_step: int,
                 name: str,
             ):
-                if rank == 0 and trajs:
+                trajs = trajs_dict["current"]
+                if len(trajs_dict["one_state"]) == 1:
+                    trajs.append(trajs_dict["one_state"].pop())
+                if len(trajs) == 1 and len(trajs[0]) == 1:
+                    trajs_dict["one_state"].append(trajs.pop())
+
+                if rank == 0:
                     print(f"{name}:")
                     print(opt_result_header)
 
