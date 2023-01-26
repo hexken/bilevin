@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 import json
+import tqdm
 
 
 def main():
@@ -36,7 +37,7 @@ def main():
         "problems": [],
     }
 
-    for i, old_spec in enumerate(problem_specs_old):
+    for i, old_spec in tqdm.tqdm(enumerate(problem_specs_old)):
         new_spec = {}
 
         init = old_spec[1].replace("Init: ", "").split(" ")
