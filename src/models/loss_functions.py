@@ -30,6 +30,6 @@ def levin_loss_sum(trajs: MergedTrajectory, model):
 def cross_entropy_loss(trajs: MergedTrajectory, model):
     logits = model(trajs.states)
     loss = F.cross_entropy(logits, trajs.actions)
-    avg_action_nll = loss
+    avg_action_nll = loss.detach()
 
     return loss, avg_action_nll, logits

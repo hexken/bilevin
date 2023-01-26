@@ -39,7 +39,7 @@ def main():
         "-m",
         "--min-steps",
         type=int,
-        default=10,
+        default=50,
         help="min number of steps performed backwards from the goal",
     )
 

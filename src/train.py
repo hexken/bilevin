@@ -153,6 +153,7 @@ def train(
             problems_loader = tqdm.tqdm(problems_loader, total=world_batches_per_epoch)
 
         for local_batch_problems in problems_loader:
+            cum_unique_solved_before_batch = len(solved_problems)
             batches_seen += 1
 
             if rank == 0:
@@ -247,6 +248,7 @@ def train(
                 name: str,
             ):
                 if rank == 0 and trajs:
+                    print(f"{name}:")
                     print(opt_result_header)
 
                 merged_traj = MergedTrajectory(trajs, shuffle_trajectory)

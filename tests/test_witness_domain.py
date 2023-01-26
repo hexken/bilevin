@@ -14,9 +14,9 @@ def test_compare_with_old():
     old_specs_path = Path("problems/witness/original_50k_train.txt")
     new_specs_path = Path("problems/witness/4w4c/50000-original.json")
     model_path = None
-    # model_path = Path(
-    #     "trained_models/Witness_4w4c-50000-original_Levin_1_1673639173_forward.pt"
-    # )
+    model_path = Path(
+        "trained_models/Witness-4w4c-50000-original_Levin-2000_1_1674083307_forward.pt/"
+    )
 
     # load old problems
     old_problems = []
@@ -58,23 +58,20 @@ def test_compare_with_old():
             assert a in new_actions
         return True
 
-    # model = ConvNetSingle(25, 5, (2, 2), 32, 4)
-    # model.load_state_dict(to.load(model_path))
+    model = ConvNetSingle(9, 5, (2, 2), 32, 4)
+    model.load_state_dict(to.load(model_path))
 
-    for i in range(len(new_problems)):
-        old_prob = old_problems[i]
-        new_prob = new_problems[i]
+    correct_actions = [0, 2, 2, 2, 1, 2, 0, 0, 3, 3, 3, 3, 0, 0, 2, 2, 2, 2]
+    for id, new_wit_domain in new_problems:
 
-        assert new_prob[0] == old_prob[0]
-
-        old_state = old_prob[1]
-
-        new_wit_domain = new_prob[1]
+        old_state = old_problems[id]
         new_state = new_wit_domain.reset()
 
         n = random.randint(2000, 5000)
         end = False
         for i in range(n):
+            if i == len(correct_actions) - 1:
+                k=232
             assert state_equal(old_state, (new_wit_domain, new_state))
             assert old_state.has_tip_reached_goal() == new_wit_domain.is_head_at_goal(
                 new_state
@@ -87,15 +84,16 @@ def test_compare_with_old():
             actions_equal(old_actions, new_actions)
 
             if is_sol:
-                print(f"solution found for problem {new_prob[0]}")
+                print(f">>>solution found for problem {id}")
                 end = True
-            if not old_actions:
-                print(f"no actions problem {new_prob[0]}")
+            elif not old_actions:
+                print(f"ran out of actions problem {id}")
                 end = True
             if end:
                 print(f"checked {i} state/action pairs")
                 break
 
+            # action = correct_actions[i]
             action = random.choice(old_actions)
             old_state.apply_action(action)
             new_state = new_wit_domain.result(new_state, action)
