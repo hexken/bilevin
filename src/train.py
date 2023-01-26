@@ -3,11 +3,8 @@ from pathlib import Path
 import time
 from typing import Callable, Type, Union
 
-# from memory_profiler import profile
 import numpy as np
 import pandas as pd
-
-# from pympler import asizeof, muppy, summary, tracker
 from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
@@ -95,18 +92,18 @@ def train(
         forward_optimizer = optimizer_cons(f_model.parameters(), **optimizer_params)
         backward_optimizer = optimizer_cons(b_model.parameters(), **optimizer_params)
 
-        for param in b_model.parameters():
-            if not param.grad:
-                param.grad = to.zeros_like(param)
+        # for param in b_model.parameters():
+        #     if not param.grad:
+        #         param.grad = to.zeros_like(param)
     else:
         assert isinstance(model, to.nn.Module)
         f_model = model
         f_model_save_path = model_save_path / "forward.pt"
         forward_optimizer = optimizer_cons(f_model.parameters(), **optimizer_params)
 
-    for param in f_model.parameters():
-        if not param.grad:
-            param.grad = to.zeros_like(param)
+    # for param in f_model.parameters():
+    #     if not param.grad:
+    #         param.grad = to.zeros_like(param)
 
     if rank == 0:
         log_params(writer, f_model, "forward", 0)
@@ -279,26 +276,24 @@ def train(
                         sync_grads(model)
 
                     # todo grad clipping? for now inspect norms
-                    if trajs and rank == 0:
-                        total_norm = 0
-                        for p in model.parameters():
-                            param_norm = p.grad.detach().data.norm(2)
-                            total_norm += param_norm.item() ** 2
-                        total_norm = total_norm**0.5
-                        # print(total_norm)
-                        writer.add_scalar(
-                            f"total_grad_norm/{name}", total_norm, opt_step
-                        )
+                    # if trajs and rank == 0:
+                    #     total_norm = 0
+                    #     for p in model.parameters():
+                    #         param_norm = p.grad.detach().data.norm(2)
+                    #         total_norm += param_norm.item() ** 2
+                    #     total_norm = total_norm**0.5
+                    #     # print(total_norm)
+                    #     writer.add_scalar(
+                    #         f"total_grad_norm/{name}", total_norm, opt_step
+                    #     )
 
                     optimizer.step()
 
                     if trajs:
-                        avg_action_nll = avg_action_nll.item()
-                        with to.no_grad():
-                            acc = (
-                                (logits.argmax(dim=1) == merged_traj.actions).sum()
-                                / len(logits)
-                            ).item()
+                        acc = (
+                            (logits.argmax(dim=1) == merged_traj.actions).sum()
+                            / len(logits)
+                        ).item()
 
                         local_batch_opt_results[0] = avg_action_nll
                         local_batch_opt_results[1] = acc
