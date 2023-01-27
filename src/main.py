@@ -105,12 +105,6 @@ def parse_args():
         help="time limit in seconds for solving each problem",
     )
     parser.add_argument(
-        "--weight-uniform",
-        type=float,
-        default="0.0",
-        help="mixture weight with a uniform policy",
-    )
-    parser.add_argument(
         "--mode",
         type=str,
         choices=["train", "test"],
@@ -287,13 +281,9 @@ if __name__ == "__main__":
 
     agent: Optional[Agent] = None
     if args.agent == "Levin":
-        agent = Levin(
-            args.weight_uniform,
-        )
+        agent = Levin()
     elif args.agent == "BiLevin":
-        agent = BiLevin(
-            args.weight_uniform,
-        )
+        agent = BiLevin()
     assert agent is not None
 
     if args.agent == "Levin":
