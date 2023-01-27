@@ -1,21 +1,25 @@
-from pathlib import Path
+import copy
 import json
-import old_witness as old_wit
+from pathlib import Path
+import random
+import time
+
+import numpy as np
 import torch as to
+
+import old_witness as old_wit
+from src.domains.domain import Problem
 import src.domains.witness as new_wit
 from src.models import ConvNetSingle
-import src.domains as domains
-import numpy as np
-import random
+from src.search import Levin
 
 
 def test_compare_with_old():
 
     old_specs_path = Path("problems/witness/original_50k_train.txt")
     new_specs_path = Path("problems/witness/4w4c/50000-original.json")
-    model_path = None
     model_path = Path(
-        "trained_models/Witness-4w4c-50000-original_Levin-2000_1_1674083307_forward.pt/"
+        "wit_4w4c_tb/Witness-4w4c-50000-original_Levin-2000_1_1674625065/forward.pt"
     )
 
     # load old problems
@@ -60,18 +64,18 @@ def test_compare_with_old():
 
     model = ConvNetSingle(9, 5, (2, 2), 32, 4)
     model.load_state_dict(to.load(model_path))
+    agent = Levin()
 
-    correct_actions = [0, 2, 2, 2, 1, 2, 0, 0, 3, 3, 3, 3, 0, 0, 2, 2, 2, 2]
     for id, new_wit_domain in new_problems:
 
+        print("random:")
         old_state = old_problems[id]
+        old_initial_state = copy.deepcopy(old_state)
         new_state = new_wit_domain.reset()
 
         n = random.randint(2000, 5000)
         end = False
         for i in range(n):
-            if i == len(correct_actions) - 1:
-                k=232
             assert state_equal(old_state, (new_wit_domain, new_state))
             assert old_state.has_tip_reached_goal() == new_wit_domain.is_head_at_goal(
                 new_state
@@ -93,10 +97,63 @@ def test_compare_with_old():
                 print(f"checked {i} state/action pairs")
                 break
 
-            # action = correct_actions[i]
             action = random.choice(old_actions)
             old_state.apply_action(action)
             new_state = new_wit_domain.result(new_state, action)
+
+        start_time = time.time()
+        (solution_length, num_expanded, num_generated, traj,) = agent.search(
+            Problem(id=id, domain=new_wit_domain),
+            model,
+            2000,
+            False,
+            train=False,
+        )
+        end_time = time.time()
+        print("model:")
+        print(end_time - start_time)
+
+        if traj is None:
+            continue
+
+        old_state = old_initial_state
+        new_state = new_wit_domain.reset()
+        assert state_equal(old_state, (new_wit_domain, new_state))
+        assert old_state.has_tip_reached_goal() == new_wit_domain.is_head_at_goal(
+            new_state
+        )
+        is_sol = old_state.is_solution()
+        assert is_sol == new_wit_domain.is_goal(new_state)
+
+        old_actions = old_state.successors()
+        new_actions = new_wit_domain.actions_unpruned(new_state)
+        actions_equal(old_actions, new_actions)
+
+        end = False
+        for i, action in enumerate(traj.actions, start=1):
+            assert action in old_state.successors()
+            old_state.apply_action(action)
+            new_state = new_wit_domain.result(new_state, action)
+            assert state_equal(old_state, (new_wit_domain, new_state))
+
+            is_sol = old_state.is_solution()
+            assert is_sol == new_wit_domain.is_goal(new_state)
+
+            old_actions = old_state.successors()
+            new_actions = new_wit_domain.actions_unpruned(new_state)
+            actions_equal(old_actions, new_actions)
+
+            if is_sol:
+                print(f">>>solution found for problem {id}")
+                end = True
+            elif not old_actions:
+                print(f"ran out of actions problem {id}")
+                end = True
+            if end:
+                print(f"checked {i} state/action pairs")
+                if is_sol != (solution_length > 0):
+                    raise ValueError("This shouldn't be happening")
+                break
 
 
 if __name__ == "__main__":
