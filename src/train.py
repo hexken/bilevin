@@ -14,8 +14,6 @@ import tqdm
 from domains.domain import Domain, Problem
 from search import MergedTrajectory
 
-# h = hpy()
-
 
 def train(
     agent,
@@ -92,18 +90,18 @@ def train(
         forward_optimizer = optimizer_cons(f_model.parameters(), **optimizer_params)
         backward_optimizer = optimizer_cons(b_model.parameters(), **optimizer_params)
 
-        # for param in b_model.parameters():
-        #     if not param.grad:
-        #         param.grad = to.zeros_like(param)
+        for param in b_model.parameters():
+            if not param.grad:
+                param.grad = to.zeros_like(param)
     else:
         assert isinstance(model, to.nn.Module)
         f_model = model
         f_model_save_path = model_save_path / "forward.pt"
         forward_optimizer = optimizer_cons(f_model.parameters(), **optimizer_params)
 
-    # for param in f_model.parameters():
-    #     if not param.grad:
-    #         param.grad = to.zeros_like(param)
+    for param in f_model.parameters():
+        if not param.grad:
+            param.grad = to.zeros_like(param)
 
     if rank == 0:
         log_params(writer, f_model, "forward", 0)
