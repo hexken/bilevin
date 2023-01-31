@@ -7,8 +7,10 @@ import time
 from typing import Optional
 
 import numpy as np
+from test import test
 import torch as to
 import torch.distributed as dist
+from torch.multiprocessing import Queue
 from torch.utils.tensorboard.writer import SummaryWriter
 import wandb
 
@@ -18,7 +20,6 @@ import models.loss_functions as loss_fns
 from search import BiLevin, Levin
 from search.agent import Agent
 from train import train
-from test import test
 
 
 def parse_args():
@@ -166,6 +167,8 @@ if __name__ == "__main__":
     rank = int(os.getenv("RANK", 0))
     args = parse_args()
 
+    is_distributed = world_size > 1
+
     if args.batch_size_bootstrap < world_size:
         raise ValueError(
             f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be >= world_size {world_size} (nnodes * nproc_per_node)"
@@ -212,7 +215,10 @@ if __name__ == "__main__":
         for i, problem in enumerate(parsed_problems[-num_remaining_problems:]):
             problemsets[i].append(problem)
 
-    if world_size > 1:
+    if args.mode == "test":
+        queue = Queue()
+
+    if is_distributed:
         dist.init_process_group(backend="gloo", rank=rank, world_size=world_size)
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
@@ -312,7 +318,7 @@ if __name__ == "__main__":
 
     if args.model_path is None:
         # just use the random initialization from rank 0
-        if world_size > 1:
+        if is_distributed:
             if agent.bidirectional:
                 for param in forward_model.parameters():
                     dist.broadcast(param.data, 0)
@@ -386,11 +392,12 @@ if __name__ == "__main__":
             agent,
             model,
             problemsets[rank],
-            local_batch_size,
+            args.batch_size_bootstrap,
             writer,
             world_size,
             False,
             args.initial_budget,
+            results_queue=queue,
         )
 
     if rank == 0:
