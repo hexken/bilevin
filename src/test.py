@@ -1,5 +1,4 @@
 import math
-from pathlib import Path
 import time
 from typing import Callable, Type, Union
 
@@ -8,15 +7,14 @@ import pandas as pd
 from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
-from torch.multiprocessing import Queue
 from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
 
-from domains.domain import Domain, Problem
-from search import MergedTrajectory
+from domains.domain import Problem
+from train import ProblemsBatchLoader
 
 
-def train(
+def test(
     agent,
     model: Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]],
     problems: list[Problem],
@@ -70,10 +68,8 @@ def train(
     world_results_df["Time"] = world_results_df["Time"].astype(float, copy=False)
     world_results_df.set_index("ProblemId", inplace=True)
 
-    opt_result_header = f"OptStep   Loss    Acc"
-
-    bidirectional = agent.bidirectional
-    if bidirectional:
+    is_bidirectional = agent.bidirectional
+    if is_bidirectional:
         assert isinstance(model, tuple)
         f_model, b_model = model
 
@@ -91,7 +87,6 @@ def train(
     problems_loader = ProblemsBatchLoader(
         problems, batch_size=local_batch_size, shuffle=False, dummy_last=dummy_last
     )
-
     world_batch_results = [
         to.zeros((local_batch_size, 5), dtype=to.int32) for _ in range(world_size)
     ]
@@ -100,11 +95,6 @@ def train(
     epoch = 0
 
     solved_problems = set()
-
-    world_epoch_f_loss = np.zeros(world_batches_per_epoch)
-    world_epoch_f_acc = np.zeros(world_batches_per_epoch)
-    world_epoch_b_loss = np.zeros(world_batches_per_epoch)
-    world_epoch_b_acc = np.zeros(world_batches_per_epoch)
 
     while len(solved_problems) < world_num_problems:
         epoch += 1
@@ -127,15 +117,9 @@ def train(
         for local_batch_problems in problems_loader:
             batches_seen += 1
 
-            if rank == 0:
-                print(f"\n\nBatch {batches_seen}")
-
             to.set_grad_enabled(False)
-
-            forward_trajs["current"] = []
             f_model.eval()
-            backward_trajs["current"] = []
-            if bidirectional:
+            if is_bidirectional:
                 b_model.eval()  # type:ignore
 
             num_problems_solved_this_batch = 0
@@ -147,10 +131,10 @@ def train(
                     model,
                     current_budget,
                     update_levin_costs,
-                    train=True,
+                    train=False,
                 )
                 end_time = time.time()
-                if bidirectional:
+                if is_bidirectional:
                     problem.domain.reset()
 
                 # todo handle single state trajectories, they break batchnorm layers
@@ -160,19 +144,14 @@ def train(
                 local_batch_search_results[i, 3] = num_generated
                 local_batch_search_results[i, 4] = int((end_time - start_time) * 1000)
 
-                if traj:
-                    forward_trajs["current"].append(traj[0])
-                    if bidirectional:
-                        backward_trajs["current"].append(traj[1])
-
             if world_size > 1:
                 dist.all_gather(world_batch_results, local_batch_search_results)
                 world_batch_results_t = to.cat(world_batch_results, dim=0)
             else:
                 world_batch_results_t = local_batch_search_results
 
-            world_batch_results_arr = world_batch_results_t.numpy()
             # hacky way to filter out results from partial batches
+            world_batch_results_arr = world_batch_results_t.numpy()
             world_batch_results_arr = world_batch_results_arr[
                 world_batch_results_arr[:, 2] > 0
             ]
@@ -211,160 +190,19 @@ def train(
                 print(
                     f"Solved {num_problems_solved_this_batch}/{num_problems_this_batch}\n"
                 )
-
-            def fit_model(
-                model: to.nn.Module,
-                optimizer: to.optim.Optimizer,
-                trajs_dict: dict,
-                opt_step: int,
-                name: str,
-            ):
-                trajs = trajs_dict["current"]
-                if len(trajs_dict["one_state"]) == 1:
-                    trajs.append(trajs_dict["one_state"].pop())
-                if len(trajs) == 1 and len(trajs[0]) == 1:
-                    trajs_dict["one_state"].append(trajs.pop())
-
-                if rank == 0:
-                    print(f"{name}:")
-                    print(opt_result_header)
-
-                merged_traj = MergedTrajectory(trajs, shuffle_trajectory)
-                to.set_grad_enabled(True)
-                model.train()
-
-                num_procs_found_solution = 0
-                loss = -1
-                acc = -1
-                for _ in range(grad_steps):
-                    optimizer.zero_grad()
-                    if trajs:
-                        loss, avg_action_nll, logits = loss_fn(merged_traj, model)
-                        loss.backward()
-
-                    if world_size > 1:
-                        sync_grads(model)
-
-                    # todo grad clipping? for now inspect norms
-                    # if trajs and rank == 0:
-                    #     total_norm = 0
-                    #     for p in model.parameters():
-                    #         param_norm = p.grad.detach().data.norm(2)
-                    #         total_norm += param_norm.item() ** 2
-                    #     total_norm = total_norm**0.5
-                    #     # print(total_norm)
-                    #     writer.add_scalar(
-                    #         f"total_grad_norm/{name}", total_norm, opt_step
-                    #     )
-
-                    optimizer.step()
-
-                    if trajs:
-                        acc = (
-                            (logits.argmax(dim=1) == merged_traj.actions).sum()
-                            / len(logits)
-                        ).item()
-
-                        local_batch_opt_results[0] = avg_action_nll
-                        local_batch_opt_results[1] = acc
-                        local_batch_opt_results[2] = 1
-                    else:
-                        local_batch_opt_results[:] = 0
-
-                    if world_size > 1:
-                        dist.all_reduce(local_batch_opt_results, op=dist.ReduceOp.SUM)
-
-                    num_procs_found_solution = local_batch_opt_results[2].item()
-                    if num_procs_found_solution > 0:
-                        opt_step += 1
-                        if rank == 0:
-                            opt_passes = opt_step // grad_steps
-                            step_within_opt_pass = opt_step % grad_steps
-                            if step_within_opt_pass == 1 or step_within_opt_pass == 0:
-                                loss = (
-                                    local_batch_opt_results[0].item()
-                                    / num_procs_found_solution
-                                )
-                                acc = (
-                                    local_batch_opt_results[1].item()
-                                    / num_procs_found_solution
-                                )
-                                print(f"{opt_step:7}  {loss:5.3f}  {acc:5.3f}")
-                                if step_within_opt_pass == 0:
-                                    # fmt: off
-                                    writer.add_scalar( f"loss_vs_opt_pass/{name}", loss, opt_passes,)
-                                    writer.add_scalar( f"acc_vs_opt_pass/{name}", acc, opt_passes,)
-                                    # fmt:on
-
-                if rank == 0 and num_procs_found_solution > 0:
-                    print("")
-                return opt_step, loss, acc
-
-            idx = (batches_seen % world_batches_per_epoch) - 1
-
-            forward_opt_steps, f_loss, f_acc = fit_model(
-                f_model,
-                forward_optimizer,
-                forward_trajs,
-                forward_opt_steps,
-                name="forward",
-            )
-            world_epoch_f_loss[idx] = f_loss
-            world_epoch_f_acc[idx] = f_acc
-
-            if bidirectional:
-                backward_opt_steps, b_loss, b_acc = fit_model(
-                    b_model,  # type:ignore
-                    backward_optimizer,  # type:ignore
-                    backward_trajs,  # type:ignore
-                    backward_opt_steps,  # type:ignore
-                    name="backward",
+                writer.add_scalar(
+                    f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen
                 )
-                world_epoch_b_loss[idx] = b_loss
-                world_epoch_b_acc[idx] = b_acc
-
-            if rank == 0:
-                if (
-                    batches_seen % param_log_interval == 0
-                    or len(solved_problems) == world_num_problems
-                ):
-                    to.save(f_model.state_dict(), f_model_save_path)
-                    log_params(writer, f_model, "forward", batches_seen)
-                    if bidirectional:
-                        to.save(b_model.state_dict(), b_model_save_path)
-                        log_params(writer, b_model, "backward", batches_seen)
-
-                batch_avg = num_problems_solved_this_batch / num_problems_this_batch
-                # fmt: off
-                writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, batches_seen)
-                writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
-                # fmt: on
-            # objs = muppy.get_objects()
-            # summ = summary.summarize(objs)
-            # summary.print_(summ)
-            # tr = tracker.SummaryTracker()
-            # tr.print_diff()
-            # print(h.heap())
 
         if rank == 0:
             epoch_solved = num_problems_solved_this_epoch / world_num_problems
-            epoch_f_loss = world_epoch_f_loss.mean(where=(world_epoch_f_loss >= 0))
-            epoch_f_acc = world_epoch_f_acc.mean(where=(world_epoch_f_acc >= 0))
-            if bidirectional:
-                epoch_b_loss = world_epoch_b_loss.mean(where=(world_epoch_b_loss >= 0))
-                epoch_b_acc = world_epoch_b_acc.mean(where=(world_epoch_b_acc >= 0))
             print(
                 "============================================================================"
             )
             print(
                 f"Completed epoch {epoch}, solved {num_problems_solved_this_epoch}/{world_num_problems} problems with budget {current_budget}\n"
                 f"Solved {num_new_problems_solved_this_epoch} new problems, {world_num_problems - len(solved_problems)} remaining\n"
-                f"Average forward epoch loss: {epoch_f_loss}, acc: {epoch_f_acc}"
             )
-            if bidirectional:
-                print(
-                    f"Average backward epoch loss: {epoch_b_loss}, acc: {epoch_b_acc}"
-                )
             print(
                 "============================================================================\n"
             )
@@ -374,94 +212,7 @@ def train(
             writer.add_scalar(f"budget_{current_budget}/solved_vs_epoch", epoch_solved, epoch)
             writer.add_scalar("cum_unique_solved_vs_epoch", len(solved_problems), epoch)
 
-            writer.add_scalar(f"loss_vs_epoch/forward", epoch_f_loss, epoch)
-            writer.add_scalar(f"acc_vs_epoch/forward", epoch_f_acc, epoch)
-            if bidirectional:
-                writer.add_scalar(f"loss_vs_epoch/backward", epoch_b_loss, epoch)
-                writer.add_scalar(f"acc_vs_epoch/backward", epoch_b_acc, epoch)
-
-            # writer.add_text(f"epoch{epoch}_results", world_results_df.to_markdown(), epoch)
             world_results_df.to_csv(f"{writer.log_dir}/epoch_{epoch}.csv")
             # fmt: on
 
-        if num_new_problems_solved_this_epoch == 0:
-            current_budget *= 2
-
-
-class ProblemsBatchLoader:
-    def __init__(
-        self,
-        problems: list[Problem],
-        batch_size: int,
-        shuffle: bool = True,
-        dummy_last: bool = False,
-    ):
-        self.problems = np.empty(len(problems), dtype=object)
-        self.problems[:] = problems
-        self.batch_size = batch_size
-        self._len = len(problems)
-        self._num_problems_served = 0
-        self._shuffle = shuffle
-
-        self.dummy_last = dummy_last
-        self._dummy_served = False
-
-    def __len__(self):
-        return self._len
-
-    def __iter__(self):
-        self._dummy_served = False
-        if self._shuffle:
-            self._indices = np.random.permutation(self._len)
-        else:
-            self._indices = np.arange(self._len)
-
-        self._num_problems_served = 0
-
-        return self
-
-    def __next__(self):
-        if self._num_problems_served >= self._len:
-            if self.dummy_last and not self._dummy_served:
-                self._dummy_served = True
-                return []
-
-            raise StopIteration
-        next_indices = self._indices[
-            self._num_problems_served : self._num_problems_served + self.batch_size
-        ]
-        self._num_problems_served += len(next_indices)
-        return self.problems[next_indices]
-
-    def __getitem__(self, idx):
-        return self.problems[idx]
-
-
-def log_params(writer, model, name, batches_seen):
-    for (
-        param_name,
-        param,
-    ) in model.named_parameters():
-        writer.add_histogram(
-            f"param_vs_batch/{name}/{param_name}",
-            param.data,
-            batches_seen,
-            bins=512,
-        )
-
-
-def sync_grads(model: to.nn.Module):
-    # assumes grads are not None
-    # todo scale gradients properly since not all processes contribute equally
-    all_grads_list = []
-    for param in model.parameters():
-        all_grads_list.append(param.grad.view(-1))
-    all_grads = to.cat(all_grads_list)
-    dist.all_reduce(all_grads, op=dist.ReduceOp.SUM)
-    offset = 0
-    for param in model.parameters():
-        numel = param.numel()
-        param.grad.data.copy_(
-            all_grads[offset : offset + numel].view_as(param.grad.data)
-        )
-        offset += numel
+        current_budget *= 2

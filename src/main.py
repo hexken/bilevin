@@ -18,6 +18,7 @@ import models.loss_functions as loss_fns
 from search import BiLevin, Levin
 from search.agent import Agent
 from train import train
+from test import test
 
 
 def parse_args():
@@ -219,6 +220,8 @@ if __name__ == "__main__":
         f"{args.problemset_path.parent.stem}-{args.problemset_path.stem}"
     )
     run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-{args.initial_budget}{args.exp_name}_{args.seed}_{int(start_time)}"
+    if args.mode == "test":
+        run_name = f"test_{run_name}"
 
     if rank == 0:
         print(time.ctime(start_time))
@@ -287,7 +290,10 @@ if __name__ == "__main__":
     assert agent is not None
 
     if args.agent == "Levin":
-        model = ConvNetSingle(in_channels, state_t_width, (2, 2), 32, num_actions)
+        forward_model = ConvNetSingle(
+            in_channels, state_t_width, (2, 2), 32, num_actions
+        )
+        model = forward_model
     elif args.agent == "BiLevin":
         forward_model = ConvNetSingle(
             in_channels, state_t_width, (2, 2), 32, num_actions
@@ -329,11 +335,18 @@ if __name__ == "__main__":
     else:
         print("model-path argument must be a directory if given")
 
-    save_model_path = Path(__file__).parent.parent / f"runs/{run_name}"
-    save_model_path.mkdir(parents=True, exist_ok=True)
+    model_save_path = Path(__file__).parent.parent / f"runs/{run_name}"
+    model_save_path.mkdir(parents=True, exist_ok=True)
 
     if rank == 0:
-        print(f"Saving model(s)\n  to {str(save_model_path)}")
+        if args.mode == "train":
+            print(f"Saving model(s)\n  to {str(model_save_path)}")
+        elif args.mode == "test":
+            to.save(forward_model.state_dict(), model_save_path / "forward.pt")
+            if agent.bidirectional:
+                to.save(backward_model.state_dict(), model_save_path / "backward.pt")
+
+            print(f"Copied model(s) to use\n  to {str(model_save_path)}")
 
     # if agent.bidirectional:
     #     model = to.jit.script(model[0]), to.jit.script(model[1])
@@ -354,7 +367,7 @@ if __name__ == "__main__":
         train(
             agent,
             model,
-            save_model_path,
+            model_save_path,
             loss_fn,
             optimizer_cons,
             optimizer_params,
@@ -369,7 +382,16 @@ if __name__ == "__main__":
         )
 
     elif args.mode == "test":
-        raise NotImplementedError
+        test(
+            agent,
+            model,
+            problemsets[rank],
+            local_batch_size,
+            writer,
+            world_size,
+            False,
+            args.initial_budget,
+        )
 
     if rank == 0:
         print(f"Total time: {time.time() - start_time}")
