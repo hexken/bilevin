@@ -1,41 +1,53 @@
 import math
 from pathlib import Path
 import time
-from typing import Type, Callable, Union
+from typing import Callable, Type, Union
 
 import numpy as np
 import pandas as pd
-from domains.domain import Domain
 from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
+from torch.multiprocessing import Queue
 from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
+
+from domains.domain import Domain, Problem
+from search import MergedTrajectory
 
 
 def train(
     agent,
     model: Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]],
-    model_path: Path,
-    problems: list[tuple[int, Domain]],
+    problems: list[Problem],
     local_batch_size: int,
     writer: SummaryWriter,
     world_size: int,
+    update_levin_costs: bool,
     initial_budget: int,
 ):
     current_budget = initial_budget
+    dummy_last = False
 
     if world_size > 1:
         rank = dist.get_rank()
+
+        sh_t = to.zeros(1, dtype=to.int32) + len(problems)
+        dist.all_reduce(sh_t, dist.ReduceOp.SUM)
+        world_num_problems = int(sh_t[0].item())
+
+        n_batches = math.ceil(len(problems) / local_batch_size)
+        sh_t[0] = n_batches
+        dist.all_reduce(sh_t, dist.ReduceOp.MAX)
+        if n_batches < sh_t[0]:
+            dummy_last = True
     else:
+        world_num_problems = len(problems)
         rank = 0
 
-    world_num_problems = len(problems) * world_size
-    world_batch_size = local_batch_size * world_size
     world_batches_per_epoch = math.ceil(
         world_num_problems / (local_batch_size * world_size)
     )
-
 
     search_result_header = [
         "ProblemId",
@@ -51,7 +63,7 @@ def train(
             np.zeros(
                 (world_num_problems, len(search_result_header) - 1), dtype=np.int32
             ),
-       )
+        )
     )
     world_results_df = pd.DataFrame(dummy_data, columns=search_result_header)
     del dummy_data
@@ -63,13 +75,23 @@ def train(
     bidirectional = agent.bidirectional
     if bidirectional:
         assert isinstance(model, tuple)
-        forward_model, backward_model = model
+        f_model, b_model = model
+
+        for param in b_model.parameters():
+            if not param.grad:
+                param.grad = to.zeros_like(param)
+    else:
+        assert isinstance(model, to.nn.Module)
+        f_model = model
+
+    for param in f_model.parameters():
+        if not param.grad:
+            param.grad = to.zeros_like(param)
 
     problems_loader = ProblemsBatchLoader(
-        problems, batch_size=local_batch_size, shuffle=True
+        problems, batch_size=local_batch_size, shuffle=False, dummy_last=dummy_last
     )
 
-    local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int32)
     world_batch_results = [
         to.zeros((local_batch_size, 5), dtype=to.int32) for _ in range(world_size)
     ]
@@ -78,9 +100,6 @@ def train(
     epoch = 0
 
     solved_problems = set()
-
-    forward_opt_steps = 0
-    backward_opt_steps = 0
 
     world_epoch_f_loss = np.zeros(world_batches_per_epoch)
     world_epoch_f_acc = np.zeros(world_batches_per_epoch)
@@ -113,23 +132,28 @@ def train(
 
             to.set_grad_enabled(False)
 
-            forward_trajs = []
-            forward_model.eval()
-            backward_trajs = []
+            forward_trajs["current"] = []
+            f_model.eval()
+            backward_trajs["current"] = []
             if bidirectional:
-                backward_model.eval()  # type:ignore
+                b_model.eval()  # type:ignore
 
             num_problems_solved_this_batch = 0
+            local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int32)
             for i, problem in enumerate(local_batch_problems):
                 start_time = time.time()
                 (solution_length, num_expanded, num_generated, traj,) = agent.search(
                     problem,
                     model,
                     current_budget,
+                    update_levin_costs,
                     train=True,
                 )
                 end_time = time.time()
+                if bidirectional:
+                    problem.domain.reset()
 
+                # todo handle single state trajectories, they break batchnorm layers
                 local_batch_search_results[i, 0] = problem[0]
                 local_batch_search_results[i, 1] = solution_length
                 local_batch_search_results[i, 2] = num_expanded
@@ -137,9 +161,9 @@ def train(
                 local_batch_search_results[i, 4] = int((end_time - start_time) * 1000)
 
                 if traj:
-                    forward_trajs.append(traj[0])
+                    forward_trajs["current"].append(traj[0])
                     if bidirectional:
-                        backward_trajs.append(traj[1])
+                        backward_trajs["current"].append(traj[1])
 
             if world_size > 1:
                 dist.all_gather(world_batch_results, local_batch_search_results)
@@ -148,6 +172,10 @@ def train(
                 world_batch_results_t = local_batch_search_results
 
             world_batch_results_arr = world_batch_results_t.numpy()
+            # hacky way to filter out results from partial batches
+            world_batch_results_arr = world_batch_results_arr[
+                world_batch_results_arr[:, 2] > 0
+            ]
 
             world_batch_ids = world_batch_results_arr[:, 0]
             world_results_df.loc[
@@ -170,6 +198,7 @@ def train(
 
             num_problems_solved_this_batch = len(batch_solved_ids)
             num_problems_solved_this_epoch += num_problems_solved_this_batch
+            num_problems_this_batch = len(world_batch_results_arr)
 
             if rank == 0:
                 print(
@@ -179,16 +208,25 @@ def train(
                         tablefmt="psql",
                     )
                 )
-                print(f"Solved {num_problems_solved_this_batch}/{world_batch_size}\n")
+                print(
+                    f"Solved {num_problems_solved_this_batch}/{num_problems_this_batch}\n"
+                )
 
             def fit_model(
                 model: to.nn.Module,
                 optimizer: to.optim.Optimizer,
-                trajs: list,
+                trajs_dict: dict,
                 opt_step: int,
                 name: str,
             ):
-                if rank == 0 and trajs:
+                trajs = trajs_dict["current"]
+                if len(trajs_dict["one_state"]) == 1:
+                    trajs.append(trajs_dict["one_state"].pop())
+                if len(trajs) == 1 and len(trajs[0]) == 1:
+                    trajs_dict["one_state"].append(trajs.pop())
+
+                if rank == 0:
+                    print(f"{name}:")
                     print(opt_result_header)
 
                 merged_traj = MergedTrajectory(trajs, shuffle_trajectory)
@@ -205,29 +243,27 @@ def train(
                         loss.backward()
 
                     if world_size > 1:
-                        sync_grads(model, world_size)
+                        sync_grads(model)
 
                     # todo grad clipping? for now inspect norms
-                    if trajs and rank == 0:
-                        total_norm = 0
-                        for p in model.parameters():
-                            param_norm = p.grad.detach().data.norm(2)
-                            total_norm += param_norm.item() ** 2
-                        total_norm = total_norm**0.5
-                        # print(total_norm)
-                        writer.add_scalar(
-                            f"total_grad_norm/{name}", total_norm, opt_step
-                        )
+                    # if trajs and rank == 0:
+                    #     total_norm = 0
+                    #     for p in model.parameters():
+                    #         param_norm = p.grad.detach().data.norm(2)
+                    #         total_norm += param_norm.item() ** 2
+                    #     total_norm = total_norm**0.5
+                    #     # print(total_norm)
+                    #     writer.add_scalar(
+                    #         f"total_grad_norm/{name}", total_norm, opt_step
+                    #     )
 
                     optimizer.step()
 
                     if trajs:
-                        avg_action_nll = avg_action_nll.item()
-                        with to.no_grad():
-                            acc = (
-                                (logits.argmax(dim=1) == merged_traj.actions).sum()
-                                / len(logits)
-                            ).item()
+                        acc = (
+                            (logits.argmax(dim=1) == merged_traj.actions).sum()
+                            / len(logits)
+                        ).item()
 
                         local_batch_opt_results[0] = avg_action_nll
                         local_batch_opt_results[1] = acc
@@ -256,32 +292,18 @@ def train(
                                 print(f"{opt_step:7}  {loss:5.3f}  {acc:5.3f}")
                                 if step_within_opt_pass == 0:
                                     # fmt: off
-                                    writer.add_scalar( f"loss_vs_opt_step/{name}", loss, opt_passes,)
-                                    writer.add_scalar( f"acc_vs_opt_step/{name}", acc, opt_passes,)
+                                    writer.add_scalar( f"loss_vs_opt_pass/{name}", loss, opt_passes,)
+                                    writer.add_scalar( f"acc_vs_opt_pass/{name}", acc, opt_passes,)
                                     # fmt:on
 
                 if rank == 0 and num_procs_found_solution > 0:
-                    if track_params and (
-                        batches_seen % param_log_interval == 0
-                        or len(solved_problems) == world_num_problems
-                    ):
-                        for (
-                            param_name,
-                            param,
-                        ) in forward_model.named_parameters():
-                            writer.add_histogram(
-                                f"param_vs_opt_pass/{name}/{param_name}",
-                                param.data,
-                                opt_passes,
-                                bins=512,
-                            )
                     print("")
                 return opt_step, loss, acc
 
             idx = (batches_seen % world_batches_per_epoch) - 1
 
             forward_opt_steps, f_loss, f_acc = fit_model(
-                forward_model,
+                f_model,
                 forward_optimizer,
                 forward_trajs,
                 forward_opt_steps,
@@ -292,7 +314,7 @@ def train(
 
             if bidirectional:
                 backward_opt_steps, b_loss, b_acc = fit_model(
-                    backward_model,  # type:ignore
+                    b_model,  # type:ignore
                     backward_optimizer,  # type:ignore
                     backward_trajs,  # type:ignore
                     backward_opt_steps,  # type:ignore
@@ -303,17 +325,26 @@ def train(
 
             if rank == 0:
                 if (
-                    batches_seen % 100 == 0
+                    batches_seen % param_log_interval == 0
                     or len(solved_problems) == world_num_problems
                 ):
-                    to.save(forward_model, forward_model_path)  # type:ignore
+                    to.save(f_model.state_dict(), f_model_save_path)
+                    log_params(writer, f_model, "forward", batches_seen)
                     if bidirectional:
-                        to.save(backward_model, backward_model_path)  # type:ignore
-                batch_avg = num_problems_solved_this_batch / world_batch_size
+                        to.save(b_model.state_dict(), b_model_save_path)
+                        log_params(writer, b_model, "backward", batches_seen)
+
+                batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                 # fmt: off
                 writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, batches_seen)
-                # writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), total_batches)
+                writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
                 # fmt: on
+            # objs = muppy.get_objects()
+            # summ = summary.summarize(objs)
+            # summary.print_(summ)
+            # tr = tracker.SummaryTracker()
+            # tr.print_diff()
+            # print(h.heap())
 
         if rank == 0:
             epoch_solved = num_problems_solved_this_epoch / world_num_problems
@@ -349,7 +380,8 @@ def train(
                 writer.add_scalar(f"loss_vs_epoch/backward", epoch_b_loss, epoch)
                 writer.add_scalar(f"acc_vs_epoch/backward", epoch_b_acc, epoch)
 
-            writer.add_text(f"epoch{epoch}_results", world_results_df.to_markdown(), epoch)
+            # writer.add_text(f"epoch{epoch}_results", world_results_df.to_markdown(), epoch)
+            world_results_df.to_csv(f"{writer.log_dir}/epoch_{epoch}.csv")
             # fmt: on
 
         if num_new_problems_solved_this_epoch == 0:
@@ -358,18 +390,27 @@ def train(
 
 class ProblemsBatchLoader:
     def __init__(
-        self, problems: list[tuple[int, Domain]], batch_size: int, shuffle: bool = True
+        self,
+        problems: list[Problem],
+        batch_size: int,
+        shuffle: bool = True,
+        dummy_last: bool = False,
     ):
-        self.problems = np.array(problems)
+        self.problems = np.empty(len(problems), dtype=object)
+        self.problems[:] = problems
         self.batch_size = batch_size
         self._len = len(problems)
         self._num_problems_served = 0
         self._shuffle = shuffle
 
+        self.dummy_last = dummy_last
+        self._dummy_served = False
+
     def __len__(self):
         return self._len
 
     def __iter__(self):
+        self._dummy_served = False
         if self._shuffle:
             self._indices = np.random.permutation(self._len)
         else:
@@ -381,6 +422,10 @@ class ProblemsBatchLoader:
 
     def __next__(self):
         if self._num_problems_served >= self._len:
+            if self.dummy_last and not self._dummy_served:
+                self._dummy_served = True
+                return []
+
             raise StopIteration
         next_indices = self._indices[
             self._num_problems_served : self._num_problems_served + self.batch_size
@@ -392,19 +437,31 @@ class ProblemsBatchLoader:
         return self.problems[idx]
 
 
-def sync_grads(model: to.nn.Module, world_size: int):
+def log_params(writer, model, name, batches_seen):
+    for (
+        param_name,
+        param,
+    ) in model.named_parameters():
+        writer.add_histogram(
+            f"param_vs_batch/{name}/{param_name}",
+            param.data,
+            batches_seen,
+            bins=512,
+        )
+
+
+def sync_grads(model: to.nn.Module):
     # assumes grads are not None
     # todo scale gradients properly since not all processes contribute equally
     all_grads_list = []
     for param in model.parameters():
-        assert param.grad is not None
         all_grads_list.append(param.grad.view(-1))
     all_grads = to.cat(all_grads_list)
     dist.all_reduce(all_grads, op=dist.ReduceOp.SUM)
     offset = 0
     for param in model.parameters():
-        assert param.grad is not None
+        numel = param.numel()
         param.grad.data.copy_(
-            all_grads[offset : offset + param.numel()].view_as(param.grad.data)
+            all_grads[offset : offset + numel].view_as(param.grad.data)
         )
-        offset += param.numel()
+        offset += numel
