@@ -86,6 +86,61 @@ def test(
     world_solved_problems = set()
     local_solved_problems = set()
 
+    def try_sync_results():
+        pbs = min(print_batch_size, world_num_problems - len(world_solved_problems))
+        qsize = results_queue.qsize()
+        if qsize < pbs:
+            return 0
+
+        world_batch_results = [results_queue.get() for _ in range(pbs)]
+        world_batch_results_arr = np.vstack(world_batch_results)
+        world_batch_df = pd.DataFrame(
+            {
+                h: v
+                for h, v in zip(
+                    search_result_header[0:-3], world_batch_results_arr.T[:-3]
+                )
+            }
+        )
+        world_batch_df["StartTime"] = (
+            world_batch_results_arr[:, -3].astype(float) / 1000
+        )
+        world_batch_df["EndTime"] = world_batch_results_arr[:, -2].astype(float) / 1000
+        world_batch_df["Time"] = world_batch_results_arr[:, -1].astype(float) / 1000
+        world_batch_df.set_index("ProblemId", inplace=True)
+        world_batch_df.sort_values("NumExpanded", inplace=True)
+
+        print(
+            tabulate(
+                world_batch_df,
+                headers="keys",
+                tablefmt="psql",
+            )
+        )
+
+        batch_solved_df = world_batch_df[world_batch_df["SolutionLength"] > 0]
+        for problem_id in batch_solved_df.index:
+            assert problem_id not in world_solved_problems
+            world_solved_problems.add(problem_id)
+
+        print(f"Solved {len(batch_solved_df)}/{len(world_batch_results)}\n")
+
+        pbar.update(len(batch_solved_df))
+        writer.add_scalar(
+            f"cum_unique_solved_vs_time",
+            len(world_solved_problems),
+            time.time(),
+        )
+        writer.add_scalar(
+            f"cum_unique_solved_vs_expanded",
+            len(world_solved_problems),
+            total_num_expanded,
+        )
+
+        world_results_df.loc[batch_solved_df.index, :] = batch_solved_df
+
+        return world_batch_df["NumExpanded"].sum()
+
     if rank == 0:
         pbar = tqdm.tqdm(total=world_num_problems)
 
@@ -100,7 +155,7 @@ def test(
             break
 
         for problem in local_remaining_problems:
-            search_result = np.zeros(8, dtype=np.int32)
+            search_result = np.zeros(8, dtype=np.int64)
             start_time = time.time()
             (solution_length, num_expanded, num_generated, traj,) = agent.search(
                 problem,
@@ -131,70 +186,15 @@ def test(
                 local_solved_problems.add(problem_id)
 
             results_queue.put(search_result)
+            if rank == 0:
+                total_num_expanded += try_sync_results()
 
-            pbs = min(print_batch_size, world_num_problems - len(world_solved_problems))
-            qsize = results_queue.qsize()
-            if rank == 0 and qsize >= pbs:
-                world_batch_results = []
-                i = 0
-                while i < pbs:
-                    world_batch_results.append(results_queue.get())
-                    # results_queue.task_done()
-                    i += 1
-
-                world_batch_results_arr = np.vstack(world_batch_results)
-
-                world_batch_ids = world_batch_results_arr[:, 0]
-                world_results_df.loc[
-                    world_batch_ids, search_result_header[1:-3]
-                ] = world_batch_results_arr[
-                    :, 1:-3
-                ]  # ProblemId is already index, Time is set in following lines
-                world_results_df.loc[world_batch_ids, "StartTime"] = (
-                    world_batch_results_arr[:, -3].astype(float) / 1000
-                )
-                world_results_df.loc[world_batch_ids, "EndTime"] = (
-                    world_batch_results_arr[:, -2].astype(float) / 1000
-                )
-                world_results_df.loc[world_batch_ids, "Time"] = (
-                    world_batch_results_arr[:, -1].astype(float) / 1000
-                )
-
-                world_batch_results_df = world_results_df.loc[world_batch_ids]
-                world_batch_results_df.sort_values("NumExpanded", inplace=True)
-
-                batch_solved_ids = world_batch_ids[world_batch_results_arr[:, 1] > 0]
-                for problem_id in batch_solved_ids:
-                    assert problem_id not in world_solved_problems
-                    world_solved_problems.add(problem_id)
-                    total_num_expanded += world_batch_results_df.loc[
-                        problem_id, "NumExpanded"
-                    ]
-
-                print(
-                    tabulate(
-                        world_batch_results_df,
-                        headers="keys",
-                        tablefmt="psql",
-                    )
-                )
-                print(f"Solved {len(batch_solved_ids)}/{len(world_batch_results)}\n")
-
-                pbar.update(len(batch_solved_ids))
-                writer.add_scalar(
-                    f"cum_unique_solved_vs_time",
-                    len(world_solved_problems),
-                    time.time(),
-                )
-                writer.add_scalar(
-                    f"cum_unique_solved_vs_expanded",
-                    len(world_solved_problems),
-                    total_num_expanded,
-                )
-
+        if rank == 0:
+            total_num_expanded += try_sync_results()
         # epoch end
         current_budget *= 2
 
     # test end
+    print(f"Rank {rank} finished")
     if rank == 0:
         world_results_df.to_csv(f"{writer.log_dir}/results.csv")
