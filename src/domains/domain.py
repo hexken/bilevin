@@ -51,7 +51,7 @@ class Domain(ABC):
         pass
 
     @abstractmethod
-    def backward_problem(self) -> Domain:
+    def backward_domain(self) -> Domain:
         pass
 
     @abstractmethod

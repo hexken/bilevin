@@ -119,13 +119,13 @@ class SlidingTilePuzzle(Domain):
         elif action == FourDir.RIGHT:
             return FourDir.LEFT
 
-    def backward_problem(self) -> SlidingTilePuzzle:
+    def backward_domain(self) -> SlidingTilePuzzle:
         assert self.forward
         init_tiles = self.goal_tiles
         goal_tiles = self.initial_state.tiles
-        problem = SlidingTilePuzzle(init_tiles, goal_tiles, False)
+        domain = SlidingTilePuzzle(init_tiles, goal_tiles, False)
 
-        return problem
+        return domain
 
     def actions(
         self, parent_action: FourDir, state: SlidingTilePuzzleState
@@ -220,30 +220,30 @@ class SlidingTilePuzzle(Domain):
     def try_make_solution(
         self,
         node: SearchNode,
-        other_problem: SlidingTilePuzzle,
+        other_domain: SlidingTilePuzzle,
         num_expanded: int,
     ) -> Optional[tuple[Trajectory, Trajectory]]:
         """
         Returns a trajectory if state is a solution to this problem, None otherwise.
         """
         hsh = node.state.__hash__()
-        if hsh in other_problem.visited:  # solution found
-            other_node = other_problem.visited[hsh]
+        if hsh in other_domain.visited:  # solution found
+            other_node = other_domain.visited[hsh]
             if self.forward:
                 f_common_node = node
                 b_common_node = other_node
-                f_problem = self
-                b_problem = other_problem
+                f_domain = self
+                b_domain = other_domain
             else:
                 f_common_node = other_node
                 b_common_node = node
-                f_problem = other_problem
-                b_problem = self
+                f_domain = other_domain
+                b_domain = self
 
-            f_traj = f_problem.get_merged_trajectory(
+            f_traj = f_domain.get_merged_trajectory(
                 f_common_node, b_common_node, type(node), num_expanded
             )
-            b_traj = b_problem.get_merged_trajectory(
+            b_traj = b_domain.get_merged_trajectory(
                 b_common_node, f_common_node, type(node), num_expanded
             )
 

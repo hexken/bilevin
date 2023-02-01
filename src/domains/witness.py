@@ -308,21 +308,29 @@ class Witness(Domain):
 
         # moving up
         if action == FourDir.UP:
+            assert new_state.v_segs[new_state.head_row, new_state.head_col] == 0
+            assert new_state.grid[new_state.head_row + 1, new_state.head_col] == 0
             new_state.v_segs[new_state.head_row, new_state.head_col] = 1
             new_state.grid[new_state.head_row + 1, new_state.head_col] = 1
             new_state.head_row += 1
         # moving down
         if action == FourDir.DOWN:
+            assert new_state.v_segs[new_state.head_row - 1, new_state.head_col] == 0
+            assert new_state.grid[new_state.head_row - 1, new_state.head_col] == 0
             new_state.v_segs[new_state.head_row - 1, new_state.head_col] = 1
             new_state.grid[new_state.head_row - 1, new_state.head_col] = 1
             new_state.head_row -= 1
         # moving right
         if action == FourDir.RIGHT:
+            assert new_state.h_segs[new_state.head_row, new_state.head_col] == 0
+            assert new_state.grid[new_state.head_row, new_state.head_col + 1] == 0
             new_state.h_segs[new_state.head_row, new_state.head_col] = 1
             new_state.grid[new_state.head_row, new_state.head_col + 1] = 1
             new_state.head_col += 1
         # moving left
         if action == FourDir.LEFT:
+            assert new_state.h_segs[new_state.head_row, new_state.head_col - 1] == 0
+            assert new_state.grid[new_state.head_row, new_state.head_col - 1] == 0
             new_state.h_segs[new_state.head_row, new_state.head_col - 1] = 1
             new_state.grid[new_state.head_row, new_state.head_col - 1] = 1
             new_state.head_col -= 1
@@ -448,7 +456,7 @@ class Witness(Domain):
         return Trajectory(self, dir1_node, num_expanded)
 
     def try_make_solution(
-        self, node: SearchNode, other_problem: Witness, num_expanded: int
+        self, node: SearchNode, other_domain: Witness, num_expanded: int
     ) -> Optional[tuple[Trajectory, Trajectory]]:
         """
         Tries to create a solution from the current node and the nodes visited by the other search
@@ -459,15 +467,15 @@ class Witness(Domain):
         """
         state = node.state
         head_dot = (state.head_row, state.head_col)
-        if head_dot not in other_problem.heads:
+        if head_dot not in other_domain.heads:
             return None
-        for other_node in other_problem.heads[head_dot]:
+        for other_node in other_domain.heads[head_dot]:
             other_state = other_node.state
 
             merged_state = WitnessState(
                 self.width,
-                other_problem.start_row,
-                other_problem.start_col,
+                other_domain.start_row,
+                other_domain.start_col,
                 init_structs=False,
             )
 
@@ -498,31 +506,31 @@ class Witness(Domain):
 
         return None
 
-    def backward_problem(self) -> Witness:
+    def backward_domain(self) -> Witness:
         """
         Should only be called on a fresh domain (no calls to update). Reverses a witness problem by
         reversing the head and goal (and updating grid to be consistent with this change).
         """
-        b_problem = deepcopy(self)
+        b_domain = deepcopy(self)
 
-        b_problem.goal_row = self.start_row
-        b_problem.goal_col = self.start_col
+        b_domain.goal_row = self.start_row
+        b_domain.goal_col = self.start_col
 
-        b_problem.start_row = self.goal_row
-        b_problem.start_col = self.goal_col
+        b_domain.start_row = self.goal_row
+        b_domain.start_col = self.goal_col
 
-        b_problem.initial_state.grid[self.start_row, self.start_col] = 0
-        b_problem.initial_state.grid[self.goal_row, self.goal_col] = 1
+        b_domain.initial_state.grid[self.start_row, self.start_col] = 0
+        b_domain.initial_state.grid[self.goal_row, self.goal_col] = 1
 
-        b_problem.initial_state.head_row = self.goal_row
-        b_problem.initial_state.head_col = self.goal_col
+        b_domain.initial_state.head_row = self.goal_row
+        b_domain.initial_state.head_col = self.goal_col
 
-        b_problem.goal_row = self.start_row
-        b_problem.goal_col = self.start_col
+        b_domain.goal_row = self.start_row
+        b_domain.goal_col = self.start_col
 
-        b_problem.forward = False
+        b_domain.forward = False
 
-        return b_problem
+        return b_domain
 
     def __repr__(self) -> str:
         return self.initial_state.__repr__()
