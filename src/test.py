@@ -108,11 +108,12 @@ def test(
             }
         )
         world_batch_df["StartTime"] = (
-            world_batch_results_arr[:, -3].astype(float) / 1000
-        ) - test_start_time
+            (world_batch_results_arr[:, -3].astype(float) / 1000) - test_start_time
+        ).round(3)
         world_batch_df["EndTime"] = (
-            world_batch_results_arr[:, -2].astype(float) / 1000
-        ) - test_start_time
+            (world_batch_results_arr[:, -2].astype(float).round(3) / 1000)
+            - test_start_time
+        ).round(3)
         world_batch_df["Time"] = world_batch_results_arr[:, -1].astype(float) / 1000
         world_batch_df.set_index("ProblemId", inplace=True)
         world_batch_df.sort_values("NumExpanded", inplace=True)
