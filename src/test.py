@@ -24,6 +24,7 @@ def test(
     initial_budget: int,
     results_queue: Queue,
 ):
+    test_start_time = time.time()
     current_budget = initial_budget
 
     is_distributed = world_size > 1
@@ -87,6 +88,10 @@ def test(
     local_solved_problems = set()
 
     def try_sync_results():
+        """
+        Try to sync results from the queue.
+        Only rank 0 should call this function.
+        """
         pbs = min(print_batch_size, world_num_problems - len(world_solved_problems))
         qsize = results_queue.qsize()
         if qsize < pbs:
@@ -104,8 +109,10 @@ def test(
         )
         world_batch_df["StartTime"] = (
             world_batch_results_arr[:, -3].astype(float) / 1000
-        )
-        world_batch_df["EndTime"] = world_batch_results_arr[:, -2].astype(float) / 1000
+        ) - test_start_time
+        world_batch_df["EndTime"] = (
+            world_batch_results_arr[:, -2].astype(float) / 1000
+        ) - test_start_time
         world_batch_df["Time"] = world_batch_results_arr[:, -1].astype(float) / 1000
         world_batch_df.set_index("ProblemId", inplace=True)
         world_batch_df.sort_values("NumExpanded", inplace=True)
@@ -154,6 +161,7 @@ def test(
         elif rank != 0 and len(local_remaining_problems) == 0:
             break
 
+        sync_toggle = False
         for problem in local_remaining_problems:
             search_result = np.zeros(8, dtype=np.int64)
             start_time = time.time()
@@ -187,7 +195,13 @@ def test(
 
             results_queue.put(search_result)
             if rank == 0:
-                total_num_expanded += try_sync_results()
+                if sync_toggle:
+                    num_expanded = try_sync_results()
+                    if num_generated > 0:
+                        sync_toggle = False
+                        total_num_expanded += num_expanded
+                else:
+                    sync_toggle = True
 
         if rank == 0:
             total_num_expanded += try_sync_results()

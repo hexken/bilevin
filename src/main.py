@@ -331,10 +331,8 @@ if __name__ == "__main__":
         forward_model_path = args.model_path / "forward.pt"
         forward_model.load_state_dict(to.load(forward_model_path))  # type:ignore
         if agent.bidirectional:
-            backward_model_path = Path(
-                str(forward_model_path).replace("forward.pt", "backward.pt")
-            )
-            backward_model.load_state_dict(backward_model_path)  # type:ignore
+            backward_model_path = args.model_path / "backward.pt"  # type:ignore
+            backward_model.load_state_dict(to.load(backward_model_path))  # type:ignore
 
         if rank == 0:
             print(f"Loaded model(s)\n  from  {str(args.model_path)}")
