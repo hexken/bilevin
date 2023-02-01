@@ -463,8 +463,12 @@ class Witness(Domain):
             merged_state = WitnessState(
                 self.width, other_problem.start_row, other_problem.start_col
             )
+
             merged_state.grid = state.grid + other_state.grid
             merged_state.grid[head_dot] = 1
+            if np.any(merged_state.grid > 1.5):
+                return None
+
             merged_state.v_segs = state.v_segs + other_state.v_segs
             merged_state.h_segs = state.h_segs + other_state.h_segs
 
