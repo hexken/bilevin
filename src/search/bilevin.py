@@ -34,14 +34,14 @@ class BiLevin(Agent):
         end_time=None,
     ):
         """ """
-        id, f_problem = problem
-        b_problem = f_problem.backward_problem()
+        problem_id, f_domain = problem
+        b_domain = f_domain.backward_problem()
 
-        f_state = f_problem.reset()
-        f_state_t = f_problem.state_tensor(f_state).unsqueeze(0)
+        f_state = f_domain.reset()
+        f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
 
-        b_state = b_problem.reset()
-        b_state_t = b_problem.state_tensor(b_state).unsqueeze(0)
+        b_state = b_domain.reset()
+        b_state_t = b_domain.state_tensor(b_state).unsqueeze(0)
 
         forward_model, backward_model = model
 
@@ -76,8 +76,8 @@ class BiLevin(Agent):
         f_reached[f_start_node] = f_start_node
         b_reached[b_start_node] = b_start_node
 
-        f_problem.update(f_start_node)
-        b_problem.update(b_start_node)
+        f_domain.update(f_start_node)
+        b_domain.update(b_start_node)
 
         children_to_be_evaluated = []
         state_t_of_children_to_be_evaluated = []
@@ -97,27 +97,27 @@ class BiLevin(Agent):
 
             if (b and f and f < b) or not b:
                 direction = TwoDir.FORWARD
-                _problem = f_problem
+                _domain = f_domain
                 _model = forward_model
                 _frontier = f_frontier
                 _reached = f_reached
-                other_problem = b_problem
+                other_domain = b_domain
             else:
                 direction = TwoDir.BACKWARD
-                _problem = b_problem
+                _domain = b_domain
                 _model = backward_model
                 _frontier = b_frontier
                 _reached = b_reached
-                other_problem = f_problem
+                other_domain = f_domain
 
             node = _frontier.dequeue()
             num_expanded += 1
-            actions = _problem.actions(node.parent_action, node.state)
+            actions = _domain.actions(node.parent_action, node.state)
             if not actions:
                 continue
 
             for a in actions:
-                new_state = _problem.result(node.state, a)
+                new_state = _domain.result(node.state, a)
 
                 new_node = LevinNode(
                     new_state,
@@ -130,8 +130,10 @@ class BiLevin(Agent):
                 num_generated += 1
 
                 if new_node not in _reached:
-                    trajs = _problem.try_make_solution(
-                        new_node, other_problem, num_expanded
+                    if problem_id == 14:
+                        k = 2
+                    trajs = _domain.try_make_solution(
+                        new_node, other_domain, num_expanded
                     )
 
                     if trajs:  # solution found
@@ -143,10 +145,10 @@ class BiLevin(Agent):
 
                     _reached[new_node] = new_node
                     _frontier.enqueue(new_node)
-                    _problem.update(new_node)
+                    _domain.update(new_node)
 
                     children_to_be_evaluated.append(new_node)
-                    state_t = _problem.state_tensor(new_state)
+                    state_t = _domain.state_tensor(new_state)
                     state_t_of_children_to_be_evaluated.append(state_t)
 
                 elif update_levin_costs:
@@ -170,5 +172,5 @@ class BiLevin(Agent):
                 children_to_be_evaluated = []
                 state_t_of_children_to_be_evaluated = []
 
-        print(f"Emptied frontiers for problem {id}")
+        print(f"Emptied frontiers for problem {problem_id}")
         return False, num_expanded, num_generated, None

@@ -119,13 +119,13 @@ class Levin(Agent):
                 action_logits = model(batch_states)
                 log_action_probs = log_softmax(action_logits, dim=-1)
 
-                for i, child in enumerate(children_to_be_evaluated):
-                    child.log_action_probs = log_action_probs[i]
+                for child, lap in zip(children_to_be_evaluated, log_action_probs):
+                    child.log_action_probs = lap
 
                 children_to_be_evaluated = []
                 state_t_of_children_to_be_evaluated = []
 
-        print(f"Emptied frontiers for problem {id}")
+        print(f"Emptied frontier for problem {id}")
         return 0, num_expanded, num_generated, None
 
 
