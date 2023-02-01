@@ -214,7 +214,6 @@ class Witness(Domain):
         if (
             parent_action != FourDir.DOWN
             and state.head_row + 1 < state.grid.shape[0]
-            and state.v_segs[state.head_row, state.head_col] == 0
             and state.grid[state.head_row + 1, state.head_col] == 0
         ):
             actions.append(FourDir.UP)
@@ -222,7 +221,6 @@ class Witness(Domain):
         if (
             parent_action != FourDir.UP
             and state.head_row >= 1
-            and state.v_segs[state.head_row - 1, state.head_col] == 0
             and state.grid[state.head_row - 1, state.head_col] == 0
         ):
             actions.append(FourDir.DOWN)
@@ -230,7 +228,6 @@ class Witness(Domain):
         if (
             parent_action != FourDir.LEFT
             and state.head_col + 1 < state.grid.shape[1]
-            and state.h_segs[state.head_row, state.head_col] == 0
             and state.grid[state.head_row, state.head_col + 1] == 0
         ):
             actions.append(FourDir.RIGHT)
@@ -238,7 +235,6 @@ class Witness(Domain):
         if (
             parent_action != FourDir.RIGHT
             and state.head_col >= 1
-            and state.h_segs[state.head_row, state.head_col - 1] == 0
             and state.grid[state.head_row, state.head_col - 1] == 0
         ):
             actions.append(FourDir.LEFT)
@@ -246,48 +242,24 @@ class Witness(Domain):
         return actions
 
     def actions_unpruned(self, state: WitnessState) -> list[FourDir]:
-        """
-        Successor function used by planners trying to solve the puzzle. The method returns
-        a list with legal actions for the state. The valid actions for the domain are {U, D, L, R}.
-
-        The tip of the snake can move to an adjacent intersection in the grid as long as
-        that intersection isn't already occupied by the snake and the intersection is valid
-        (i.e., it isn't negative or larger than the grid size)
-
-        Mapping of actions:
-        0 - Up
-        1 - Down
-        2 - Right
-        3 - Left
-        """
         actions = []
         # moving up
         if (
-            state.head_row + 1 < self.width + 1
-            and state.v_segs[state.head_row, state.head_col] == 0
+            state.head_row + 1 < state.grid.shape[0]
             and state.grid[state.head_row + 1, state.head_col] == 0
         ):
             actions.append(FourDir.UP)
         # moving down
-        if (
-            state.head_row - 1 >= 0
-            and state.v_segs[state.head_row - 1, state.head_col] == 0
-            and state.grid[state.head_row - 1, state.head_col] == 0
-        ):
+        if state.head_row >= 1 and state.grid[state.head_row - 1, state.head_col] == 0:
             actions.append(FourDir.DOWN)
         # moving right
         if (
-            state.head_col + 1 < self.width + 1
-            and state.h_segs[state.head_row, state.head_col] == 0
+            state.head_col + 1 < state.grid.shape[1]
             and state.grid[state.head_row, state.head_col + 1] == 0
         ):
             actions.append(FourDir.RIGHT)
         # moving left
-        if (
-            state.head_col - 1 >= 0
-            and state.h_segs[state.head_row, state.head_col - 1] == 0
-            and state.grid[state.head_row, state.head_col - 1] == 0
-        ):
+        if state.head_col >= 1 and state.grid[state.head_row, state.head_col - 1] == 0:
             actions.append(FourDir.LEFT)
 
         return actions
@@ -308,29 +280,21 @@ class Witness(Domain):
 
         # moving up
         if action == FourDir.UP:
-            assert new_state.v_segs[new_state.head_row, new_state.head_col] == 0
-            assert new_state.grid[new_state.head_row + 1, new_state.head_col] == 0
             new_state.v_segs[new_state.head_row, new_state.head_col] = 1
             new_state.grid[new_state.head_row + 1, new_state.head_col] = 1
             new_state.head_row += 1
         # moving down
-        if action == FourDir.DOWN:
-            assert new_state.v_segs[new_state.head_row - 1, new_state.head_col] == 0
-            assert new_state.grid[new_state.head_row - 1, new_state.head_col] == 0
+        elif action == FourDir.DOWN:
             new_state.v_segs[new_state.head_row - 1, new_state.head_col] = 1
             new_state.grid[new_state.head_row - 1, new_state.head_col] = 1
             new_state.head_row -= 1
         # moving right
-        if action == FourDir.RIGHT:
-            assert new_state.h_segs[new_state.head_row, new_state.head_col] == 0
-            assert new_state.grid[new_state.head_row, new_state.head_col + 1] == 0
+        elif action == FourDir.RIGHT:
             new_state.h_segs[new_state.head_row, new_state.head_col] = 1
             new_state.grid[new_state.head_row, new_state.head_col + 1] = 1
             new_state.head_col += 1
         # moving left
-        if action == FourDir.LEFT:
-            assert new_state.h_segs[new_state.head_row, new_state.head_col - 1] == 0
-            assert new_state.grid[new_state.head_row, new_state.head_col - 1] == 0
+        elif action == FourDir.LEFT:
             new_state.h_segs[new_state.head_row, new_state.head_col - 1] = 1
             new_state.grid[new_state.head_row, new_state.head_col - 1] = 1
             new_state.head_col -= 1
