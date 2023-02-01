@@ -24,16 +24,18 @@ class WitnessState(State):
         width: int,
         head_init_row,
         head_init_col,
+        init_structs=True,
     ):
         self.head_row = head_init_row
         self.head_col = head_init_col
         self.width = width  # width of cells
 
-        self.grid = np.zeros((self.width + 1, self.width + 1))
-        self.grid[self.head_row, self.head_col] = 1
+        if init_structs:
+            self.grid = np.zeros((self.width + 1, self.width + 1))
+            self.grid[self.head_row, self.head_col] = 1
 
-        self.v_segs = np.zeros((self.width, self.width + 1))
-        self.h_segs = np.zeros((self.width + 1, self.width))
+            self.v_segs = np.zeros((self.width, self.width + 1))
+            self.h_segs = np.zeros((self.width + 1, self.width))
 
     def __hash__(self) -> int:
         """
@@ -297,7 +299,9 @@ class Witness(Domain):
         """
         # faster than deepcopy or np.ndarray.copy()
         # todo make structs State constructor params
-        new_state = WitnessState(self.width, state.head_row, state.head_col)
+        new_state = WitnessState(
+            self.width, state.head_row, state.head_col, init_structs=False
+        )
         new_state.grid = np.array(state.grid)
         new_state.v_segs = np.array(state.v_segs)
         new_state.h_segs = np.array(state.h_segs)
@@ -407,14 +411,14 @@ class Witness(Domain):
         while dir2_parent_node:
             dir1_state = dir1_node.state
             new_state = WitnessState(
-                self.width, dir1_state.head_row, dir1_state.head_col
+                self.width, dir1_state.head_row, dir1_state.head_col, init_structs=False
             )
             new_state.v_segs = np.array(dir1_state.v_segs)
             new_state.h_segs = np.array(dir1_state.h_segs)
             new_state.grid = np.array(dir1_state.grid)
-            new_state.grid[
-                dir2_parent_node.state.head_row, dir2_parent_node.state.head_col
-            ] = 1
+            # new_state.grid[
+            #     dir2_parent_node.state.head_row, dir2_parent_node.state.head_col
+            # ] = 1
 
             if dir2_parent_action == FourDir.UP:
                 new_state.v_segs[new_state.head_row - 1, new_state.head_col] = 1
@@ -461,11 +465,15 @@ class Witness(Domain):
             other_state = other_node.state
 
             merged_state = WitnessState(
-                self.width, other_problem.start_row, other_problem.start_col
+                self.width,
+                other_problem.start_row,
+                other_problem.start_col,
+                init_structs=False,
             )
 
             merged_state.grid = state.grid + other_state.grid
             merged_state.grid[head_dot] = 1
+            # todo is this sufficient and neccesry to prevent overlaps bessides at head?
             if np.any(merged_state.grid > 1.5):
                 return None
 
