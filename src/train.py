@@ -37,7 +37,7 @@ def train(
     if world_size > 1:
         rank = dist.get_rank()
 
-        sh_t = to.zeros(1, dtype=to.int32) + len(problems)
+        sh_t = to.zeros(1, dtype=to.int64) + len(problems)
         dist.all_reduce(sh_t, dist.ReduceOp.SUM)
         world_num_problems = int(sh_t[0].item())
 
@@ -69,7 +69,7 @@ def train(
         (
             range(world_num_problems),
             np.zeros(
-                (world_num_problems, len(search_result_header) - 1), dtype=np.int32
+                (world_num_problems, len(search_result_header) - 1), dtype=np.int64
             ),
         )
     )
@@ -112,9 +112,9 @@ def train(
         problems, batch_size=local_batch_size, shuffle=True, dummy_last=dummy_last
     )
 
-    local_batch_opt_results = to.zeros(3, dtype=to.float32)
+    local_batch_opt_results = to.zeros(3, dtype=to.float64)
     world_batch_results = [
-        to.zeros((local_batch_size, 5), dtype=to.int32) for _ in range(world_size)
+        to.zeros((local_batch_size, 5), dtype=to.int64) for _ in range(world_size)
     ]
 
     batches_seen = 0
@@ -152,7 +152,6 @@ def train(
             problems_loader = tqdm.tqdm(problems_loader, total=world_batches_per_epoch)
 
         for local_batch_problems in problems_loader:
-            cum_unique_solved_before_batch = len(solved_problems)
             batches_seen += 1
 
             if rank == 0:
@@ -167,7 +166,7 @@ def train(
                 b_model.eval()  # type:ignore
 
             num_problems_solved_this_batch = 0
-            local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int32)
+            local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int64)
             for i, problem in enumerate(local_batch_problems):
                 start_time = time.time()
                 (solution_length, num_expanded, num_generated, traj,) = agent.search(
@@ -274,16 +273,16 @@ def train(
                         sync_grads(model)
 
                     # todo grad clipping? for now inspect norms
-                    # if trajs and rank == 0:
-                    #     total_norm = 0
-                    #     for p in model.parameters():
-                    #         param_norm = p.grad.detach().data.norm(2)
-                    #         total_norm += param_norm.item() ** 2
-                    #     total_norm = total_norm**0.5
-                    #     # print(total_norm)
-                    #     writer.add_scalar(
-                    #         f"total_grad_norm/{name}", total_norm, opt_step
-                    #     )
+                    if trajs and rank == 0:
+                        total_norm = 0
+                        for p in model.parameters():
+                            param_norm = p.grad.detach().data.norm(2)
+                            total_norm += param_norm.item() ** 2
+                        total_norm = total_norm**0.5
+                        # print(total_norm)
+                        writer.add_scalar(
+                            f"total_grad_norm/{name}", total_norm, opt_step
+                        )
 
                     optimizer.step()
 
@@ -367,12 +366,6 @@ def train(
                 writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, batches_seen)
                 writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
                 # fmt: on
-            # objs = muppy.get_objects()
-            # summ = summary.summarize(objs)
-            # summary.print_(summ)
-            # tr = tracker.SummaryTracker()
-            # tr.print_diff()
-            # print(h.heap())
 
         if rank == 0:
             epoch_solved = num_problems_solved_this_epoch / world_num_problems
