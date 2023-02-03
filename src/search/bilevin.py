@@ -35,7 +35,7 @@ class BiLevin(Agent):
     ):
         """ """
         problem_id, f_domain = problem
-        b_domain = f_domain.backward_problem()
+        b_domain = f_domain.backward_domain()
 
         f_state = f_domain.reset()
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)

@@ -42,10 +42,17 @@ class WitnessState(State):
         Note that these hash and eq implementations imply the states are generated
         from the same problem
         """
-        return self.grid.tobytes().__hash__()
+        return (
+            self.h_segs.tobytes(),
+            self.v_segs.tobytes(),
+        ).__hash__()
 
     def __eq__(self, other) -> bool:
-        return np.array_equal(self.grid, other.grid)
+        return (
+            np.array_equal(self.grid, other.grid)
+            and np.array_equal(self.h_segs, other.h_segs)
+            and np.array_equal(self.v_segs, other.v_segs)
+        )
 
 
 class Witness(Domain):
