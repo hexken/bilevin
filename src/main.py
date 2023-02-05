@@ -174,7 +174,8 @@ def parse_args():
     return args
 
 
-def run(rank, run_name, model_args, args, problemset, queue):
+def run(rank, run_name, model_args, args, problemsets, queue):
+    problemset = problemsets[rank]
     is_distributed = args.world_size > 1
 
     if is_distributed:
@@ -443,29 +444,31 @@ if __name__ == "__main__":
     }
     queue = None
     if args.mode == "test":
-        mp.set_start_method("spawn", force=True)
         queue = mp.Queue()
 
     if is_distributed:
-        processes = []
-        for rank in range(args.world_size):
-            p = mp.Process(
-                target=run,
-                args=(
-                    rank,
-                    run_name,
-                    model_args,
-                    args,
-                    problemsets[rank],
-                    queue,
-                ),
-            )
-            problemsets[rank] = None
-            p.start()
-            processes.append(p)
+        mp.spawn(
+            run,
+            args=(
+                run_name,
+                model_args,
+                args,
+                problemsets,
+                queue,
+            ),
+            nprocs=args.world_size,
+        )
+        # processes = []
+        # for rank in range(args.world_size):
+        #     p = mp.Process(
+        #         target=run,
+        #     )
+        #     problemsets[rank] = None
+        #     p.start()
+        #     processes.append(p)
 
-        for p in processes:
-            p.join()
+        # for p in processes:
+        #     p.join()
     else:
         assert len(problemsets) == 1
         run(
@@ -473,7 +476,7 @@ if __name__ == "__main__":
             run_name,
             model_args,
             args,
-            problemsets.pop(),
+            problemsets,
             queue,
         )
 
