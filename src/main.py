@@ -434,6 +434,7 @@ if __name__ == "__main__":
     )
     run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-{args.initial_budget}{exp_name}_{args.seed}_{int(start_time)}"
     del problemset_dict
+
     model_args = {
         "in_channels": in_channels,
         "state_t_width": state_t_width,
@@ -442,11 +443,10 @@ if __name__ == "__main__":
     }
     queue = None
     if args.mode == "test":
+        mp.set_start_method("spawn", force=True)
         queue = mp.Queue()
 
     if is_distributed:
-
-        mp.set_start_method("spawn", force=True)
         processes = []
         for rank in range(args.world_size):
             p = mp.Process(
