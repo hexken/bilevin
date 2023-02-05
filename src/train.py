@@ -1,4 +1,5 @@
 import math
+import os
 from pathlib import Path
 import time
 from typing import Callable, Type, Union
@@ -9,10 +10,21 @@ from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
+import random
 import tqdm
 
 from domains.domain import Domain, Problem
 from search import MergedTrajectory
+
+
+def set_seeds(seed, rank=0):
+    seed += rank
+    random.seed(seed)
+    np.random.seed(seed)
+    to.manual_seed(seed)
+    to.use_deterministic_algorithms(True)
+    to.backends.cudnn.benchmark = False  # type:ignore
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 
 def train(

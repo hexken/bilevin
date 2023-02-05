@@ -130,8 +130,6 @@ class BiLevin(Agent):
                 num_generated += 1
 
                 if new_node not in _reached:
-                    if problem_id == 14:
-                        k = 2
                     trajs = _domain.try_make_solution(
                         new_node, other_domain, num_expanded
                     )

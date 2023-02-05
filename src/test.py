@@ -1,5 +1,6 @@
 import time
 from typing import Union
+import queue
 
 import numpy as np
 import pandas as pd
@@ -52,6 +53,7 @@ def test(
         "Time",
     ]
 
+    print(rank, problems)
     dummy_data = np.column_stack(
         (
             range(world_num_problems),
@@ -98,6 +100,9 @@ def test(
             return 0
 
         world_batch_results = [results_queue.get() for _ in range(pbs)]
+        if len(world_batch_results) == 0:
+            return 0
+
         world_batch_results_arr = np.vstack(world_batch_results)
         world_batch_df = pd.DataFrame(
             {
@@ -156,6 +161,7 @@ def test(
         local_remaining_problems = tuple(
             p for p in problems if p.id not in local_solved_problems
         )
+        # print(rank, local_remaining_problems)
 
         if rank == 0 and len(world_solved_problems) == world_num_problems:
             break
@@ -191,16 +197,25 @@ def test(
             search_result[7] = end_time - start_time
 
             if traj:
+                if problem_id == 14:
+                    print(traj.actions)
                 assert problem_id not in local_solved_problems
                 local_solved_problems.add(problem_id)
 
+            # print("here")
             results_queue.put(search_result)
+            print("here")
+            # if rank == 1:
+            #     print("r1 queuesize:", results_queue.qsize())
+            # if rank == 0:
+            #     print("r0 queuesize:", results_queue.qsize())
+
             if rank == 0:
                 if sync_toggle:
                     num_expanded = try_sync_results()
-                    if num_generated > 0:
+                    if num_expanded > 0:
                         sync_toggle = False
-                        total_num_expanded += num_expanded
+                        # total_num_expanded += num_expanded
                 else:
                     sync_toggle = True
 
@@ -210,6 +225,12 @@ def test(
         current_budget *= 2
 
     # test end
+    if results_queue.qsize() > 0:
+        while True:
+            try:
+                print(results_queue.get())
+            except queue.Empty:
+                break
     print(f"Rank {rank} finished")
     if rank == 0:
         world_results_df.to_csv(f"{writer.log_dir}/results.csv")

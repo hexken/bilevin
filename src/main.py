@@ -1,4 +1,5 @@
 import argparse
+import socket
 import json
 import os
 from pathlib import Path
@@ -10,7 +11,7 @@ import numpy as np
 from test import test
 import torch as to
 import torch.distributed as dist
-from torch.multiprocessing import Queue
+import torch.multiprocessing as mp
 from torch.utils.tensorboard.writer import SummaryWriter
 import wandb
 
@@ -82,6 +83,24 @@ def parse_args():
         help="name of the search agent",
     )
     parser.add_argument(
+        "--world-size",
+        type=int,
+        default=1,
+        help="number of processes to spawn",
+    )
+    parser.add_argument(
+        "--master-addr",
+        type=str,
+        default=socket.gethostname(),
+        help="address for multiprocessing communication",
+    )
+    parser.add_argument(
+        "--master-port",
+        type=str,
+        default="34567",
+        help="port for multiprocessing communication",
+    )
+    parser.add_argument(
         "--batch-size-bootstrap",
         type=int,
         default=32,
@@ -132,12 +151,6 @@ def parse_args():
         action="store_true",
         help="update levin costs when cheaper path found",
     )
-    # parser.add_argument(
-    #     "--track-params",
-    #     action="store_true",
-    #     default=False,
-    #     help="track basic metrics with tensorboard",
-    # )
     parser.add_argument(
         "--wandb-mode",
         type=str,
@@ -161,76 +174,18 @@ def parse_args():
     return args
 
 
-if __name__ == "__main__":
-    local_rank = int(os.getenv("LOCAL_RANK", 0))
-    world_size = int(os.getenv("WORLD_SIZE", 1))
-    rank = int(os.getenv("RANK", 0))
-    args = parse_args()
-
-    is_distributed = world_size > 1
-
-    if args.batch_size_bootstrap < world_size:
-        raise ValueError(
-            f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be >= world_size {world_size} (nnodes * nproc_per_node)"
-        )
-    if args.batch_size_bootstrap % world_size != 0:
-        raise ValueError(
-            f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be a multiple of world_size {world_size} (nnodes * nproc_per_node)"
-        )
-    local_batch_size = args.batch_size_bootstrap // world_size
-
-    start_time = time.time()
-
-    problemset_dict = json.load(args.problemset_path.open("r"))
-
-    domain_module = getattr(domains, problemset_dict["domain_module"])
-    (
-        parsed_problems,
-        num_actions,
-        in_channels,
-        state_t_width,
-        double_backward,
-    ) = getattr(domain_module, "load_problemset")(problemset_dict)
-
-    num_problems_parsed = len(parsed_problems)
-    if num_problems_parsed < world_size:
-        raise Exception(
-            f"Number of problems '{num_problems_parsed}' must be greater than world size '{world_size}'"
-        )
-
-    for p in parsed_problems:
-        if p.domain.is_goal(p.domain.initial_state):
-            raise Exception(f"Problem '{p.id}' initial state is a goal state")
-
-    problems_per_process = num_problems_parsed // world_size
-    problemsets = []
-    for proc in range(world_size):
-        problems_local = parsed_problems[
-            proc * problems_per_process : (proc + 1) * problems_per_process
-        ]
-        problemsets.append(problems_local)
-
-    num_remaining_problems = num_problems_parsed - (problems_per_process * world_size)
-    if num_remaining_problems > 0:
-        for i, problem in enumerate(parsed_problems[-num_remaining_problems:]):
-            problemsets[i].append(problem)
-
-    if args.mode == "test":
-        queue = Queue()
+def run(rank, run_name, model_args, args, problemset, queue):
+    is_distributed = args.world_size > 1
 
     if is_distributed:
-        dist.init_process_group(backend="gloo", rank=rank, world_size=world_size)
+        os.environ["MASTER_ADDR"] = args.master_addr
+        os.environ["MASTER_PORT"] = args.master_port
+        dist.init_process_group(backend="gloo", rank=rank, world_size=args.world_size)
 
-    exp_name = f"_{args.exp_name}" if args.exp_name else ""
-    problemset_params = (
-        f"{args.problemset_path.parent.stem}-{args.problemset_path.stem}"
-    )
-    run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-{args.initial_budget}{args.exp_name}_{args.seed}_{int(start_time)}"
     if args.mode == "test":
         run_name = f"test_{run_name}"
 
     if rank == 0:
-        print(time.ctime(start_time))
         wandb.init(
             mode=args.wandb_mode,
             project=args.wandb_project,
@@ -247,17 +202,6 @@ if __name__ == "__main__":
             )
 
         print(f"Logging with tensorboard\n  to runs/{run_name}\n")
-
-        print(f"Parsed {num_problems_parsed} problems")
-        if len(problemsets[0]) == len(problemsets[-1]):
-            print(
-                f"  Loading {problems_per_process} into each of {world_size} processes\n"
-            )
-        else:
-            print(
-                f"  Loading {len(problemsets[0])} into ranks 0-{num_remaining_problems - 1},\n"
-                f"          {problems_per_process} into ranks {num_remaining_problems}-{world_size - 1}\n"
-            )
 
         writer = SummaryWriter(f"runs/{run_name}")
         arg_string = "|param|value|\n|-|-|\n%s" % (
@@ -279,7 +223,7 @@ if __name__ == "__main__":
         writer = SummaryWriter()
         writer.close()
 
-    args.seed += local_rank
+    args.seed += rank
     random.seed(args.seed)
     np.random.seed(args.seed)
     to.manual_seed(args.seed)
@@ -297,20 +241,36 @@ if __name__ == "__main__":
 
     if args.agent == "Levin":
         forward_model = ConvNetSingle(
-            in_channels, state_t_width, (2, 2), 32, num_actions
+            model_args["in_channels"],
+            model_args["state_t_width"],
+            (2, 2),
+            32,
+            model_args["num_actions"],
         )
         model = forward_model
     elif args.agent == "BiLevin":
         forward_model = ConvNetSingle(
-            in_channels, state_t_width, (2, 2), 32, num_actions
+            model_args["in_channels"],
+            model_args["state_t_width"],
+            (2, 2),
+            32,
+            model_args["num_actions"],
         )
-        if double_backward:
+        if model_args["double_backward"]:
             backward_model = ConvNetDouble(
-                in_channels, state_t_width, (2, 2), 32, num_actions
+                model_args["in_channels"],
+                model_args["state_t_width"],
+                (2, 2),
+                32,
+                model_args["num_actions"],
             )
         else:
             backward_model = ConvNetSingle(
-                in_channels, state_t_width, (2, 2), 32, num_actions
+                model_args["in_channels"],
+                model_args["state_t_width"],
+                (2, 2),
+                32,
+                model_args["num_actions"],
             )
         model = forward_model, backward_model
     else:
@@ -358,7 +318,7 @@ if __name__ == "__main__":
     #     model = to.jit.script(model)
 
     if rank == 0:
-        print(f"World size: {world_size}, rank {rank}")
+        print(f"World size: {args.world_size}, rank {rank}")
 
     if args.mode == "train":
         loss_fn = getattr(loss_fns, args.loss_fn)
@@ -368,6 +328,8 @@ if __name__ == "__main__":
             "weight_decay": args.weight_decay,
         }
 
+        local_batch_size = args.batch_size_bootstrap // args.world_size
+
         train(
             agent,
             model,
@@ -375,10 +337,10 @@ if __name__ == "__main__":
             loss_fn,
             optimizer_cons,
             optimizer_params,
-            problemsets[rank],
+            problemset,
             local_batch_size,
             writer,
-            world_size,
+            args.world_size,
             args.update_levin_costs,
             initial_budget=args.initial_budget,
             grad_steps=args.grad_steps,
@@ -389,15 +351,130 @@ if __name__ == "__main__":
         test(
             agent,
             model,
-            problemsets[rank],
+            problemset,
             args.batch_size_bootstrap,
             writer,
-            world_size,
+            args.world_size,
             False,
             args.initial_budget,
             results_queue=queue,
         )
 
     if rank == 0:
-        print(f"Total time: {time.time() - start_time}")
         writer.close()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+
+    is_distributed = args.world_size > 1
+
+    if args.batch_size_bootstrap < args.world_size:
+        raise ValueError(
+            f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be >= world_size {args.world_size} (nnodes * nproc_per_node)"
+        )
+    if args.batch_size_bootstrap % args.world_size != 0:
+        raise ValueError(
+            f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be a multiple of world_size {args.world_size} (nnodes * nproc_per_node)"
+        )
+
+    start_time = time.time()
+
+    problemset_dict = json.load(args.problemset_path.open("r"))
+
+    domain_module = getattr(domains, problemset_dict["domain_module"])
+    (
+        parsed_problems,
+        num_actions,
+        in_channels,
+        state_t_width,
+        double_backward,
+    ) = getattr(domain_module, "load_problemset")(problemset_dict)
+
+    num_problems_parsed = len(parsed_problems)
+    if num_problems_parsed < args.world_size:
+        raise Exception(
+            f"Number of problems '{num_problems_parsed}' must be greater than world size '{args.world_size}'"
+        )
+
+    for p in parsed_problems:
+        if p.domain.is_goal(p.domain.initial_state):
+            raise Exception(f"Problem '{p.id}' initial state is a goal state")
+
+    problems_per_process = num_problems_parsed // args.world_size
+    problemsets = []
+    for proc in range(args.world_size):
+        problems_local = parsed_problems[
+            proc * problems_per_process : (proc + 1) * problems_per_process
+        ]
+        problemsets.append(problems_local)
+
+    num_remaining_problems = num_problems_parsed - (
+        problems_per_process * args.world_size
+    )
+    if num_remaining_problems > 0:
+        for i, problem in enumerate(parsed_problems[-num_remaining_problems:]):
+            problemsets[i].append(problem)
+
+    print(time.ctime(start_time))
+    print(f"Parsed {num_problems_parsed} problems")
+    if len(problemsets[0]) == len(problemsets[-1]):
+        print(
+            f"  Loading {problems_per_process} into each of {args.world_size} processes\n"
+        )
+    else:
+        print(
+            f"  Loading {len(problemsets[0])} into ranks 0-{num_remaining_problems - 1},\n"
+            f"          {problems_per_process} into ranks {num_remaining_problems}-{args.world_size - 1}\n"
+        )
+
+    exp_name = f"_{args.exp_name}" if args.exp_name else ""
+    problemset_params = (
+        f"{args.problemset_path.parent.stem}-{args.problemset_path.stem}"
+    )
+    run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-{args.initial_budget}{exp_name}_{args.seed}_{int(start_time)}"
+    del problemset_dict
+    model_args = {
+        "in_channels": in_channels,
+        "state_t_width": state_t_width,
+        "num_actions": num_actions,
+        "double_backward": double_backward,
+    }
+    queue = None
+    if args.mode == "test":
+        queue = mp.Queue()
+
+    if is_distributed:
+
+        mp.set_start_method("spawn", force=True)
+        processes = []
+        for rank in range(args.world_size):
+            p = mp.Process(
+                target=run,
+                args=(
+                    rank,
+                    run_name,
+                    model_args,
+                    args,
+                    problemsets[rank],
+                    queue,
+                ),
+            )
+            problemsets[rank] = None
+            p.start()
+            processes.append(p)
+
+        for p in processes:
+            p.join()
+    else:
+        assert len(problemsets) == 1
+        run(
+            0,
+            run_name,
+            model_args,
+            args,
+            problemsets.pop(),
+            queue,
+        )
+
+    print(f"Total time: {time.time() - start_time}")
