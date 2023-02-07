@@ -107,6 +107,12 @@ def parse_args():
         help="number of problems to batch during bootstrap procedure",
     )
     parser.add_argument(
+        "--batch-size-print",
+        type=int,
+        default=None,
+        help="number of results to print per block during testint",
+    )
+    parser.add_argument(
         "--initial-budget",
         type=int,
         default=2**10,
@@ -175,7 +181,7 @@ def parse_args():
 
 
 def run(rank, run_name, model_args, args, problemsets, queue):
-    problemset = problemsets[rank]
+    problemset = problemsets  # [rank]
     is_distributed = args.world_size > 1
 
     if is_distributed:
@@ -353,12 +359,12 @@ def run(rank, run_name, model_args, args, problemsets, queue):
             agent,
             model,
             problemset,
-            args.batch_size_bootstrap,
             writer,
             args.world_size,
             False,
             args.initial_budget,
-            results_queue=queue,
+            queue,
+            args.batch_size_print,
         )
 
     if rank == 0:
@@ -370,14 +376,15 @@ if __name__ == "__main__":
 
     is_distributed = args.world_size > 1
 
-    if args.batch_size_bootstrap < args.world_size:
-        raise ValueError(
-            f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be >= world_size {args.world_size} (nnodes * nproc_per_node)"
-        )
-    if args.batch_size_bootstrap % args.world_size != 0:
-        raise ValueError(
-            f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be a multiple of world_size {args.world_size} (nnodes * nproc_per_node)"
-        )
+    if args.mode == "train":
+        if args.batch_size_bootstrap < args.world_size:
+            raise ValueError(
+                f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be >= world_size {args.world_size}"
+            )
+        if args.batch_size_bootstrap % args.world_size != 0:
+            raise ValueError(
+                f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be a multiple of world_size {args.world_size}"
+            )
 
     start_time = time.time()
 
@@ -447,28 +454,37 @@ if __name__ == "__main__":
         queue = mp.Queue()
 
     if is_distributed:
-        mp.spawn(
-            run,
-            args=(
-                run_name,
-                model_args,
-                args,
-                problemsets,
-                queue,
-            ),
-            nprocs=args.world_size,
-        )
-        # processes = []
-        # for rank in range(args.world_size):
-        #     p = mp.Process(
-        #         target=run,
-        #     )
-        #     problemsets[rank] = None
-        #     p.start()
-        #     processes.append(p)
+        # mp.spawn(
+        #     run,
+        #     args=(
+        #         run_name,
+        #         model_args,
+        #         args,
+        #         problemsets,
+        #         queue,
+        #     ),
+        #     nprocs=args.world_size,
+        # )
+        processes = []
+        print(len(problemsets))
+        for rank in range(args.world_size):
+            p = mp.Process(
+                target=run,
+                args=(
+                    rank,
+                    run_name,
+                    model_args,
+                    args,
+                    problemsets[rank],
+                    queue,
+                ),
+            )
+            problemsets[rank] = None
+            p.start()
+            processes.append(p)
 
-        # for p in processes:
-        #     p.join()
+        for p in processes:
+            p.join()
     else:
         assert len(problemsets) == 1
         run(

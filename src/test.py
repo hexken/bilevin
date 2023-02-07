@@ -1,5 +1,5 @@
 import time
-from typing import Union
+from typing import Union, Optional
 import queue
 
 import numpy as np
@@ -18,12 +18,12 @@ def test(
     agent,
     model: Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]],
     problems: list[Problem],
-    print_batch_size: int,
     writer: SummaryWriter,
     world_size: int,
     update_levin_costs: bool,
     initial_budget: int,
     results_queue: Queue,
+    print_batch_size: Optional[int] = None,
 ):
     test_start_time = time.time()
     current_budget = initial_budget
@@ -53,7 +53,6 @@ def test(
         "Time",
     ]
 
-    print(rank, problems)
     dummy_data = np.column_stack(
         (
             range(world_num_problems),
@@ -93,17 +92,28 @@ def test(
         """
         Try to sync results from the queue.
         Only rank 0 should call this function.
+        *NOTE*: this mutates total_num_expanded and world_solved_problems
         """
-        pbs = min(print_batch_size, world_num_problems - len(world_solved_problems))
-        qsize = results_queue.qsize()
-        if qsize < pbs:
-            return 0
+        if print_batch_size:
+            pbs = min(print_batch_size, world_num_problems - len(world_solved_problems))
+            if results_queue.qsize() < pbs:
+                return 0
+            world_batch_results = [results_queue.get() for _ in range(pbs)]
+        else:
+            world_batch_results = []
+            while True:
+                try:
+                    res = results_queue.get_nowait()
+                    world_batch_results.append(res)
+                    del res
+                except queue.Empty:
+                    break
 
-        world_batch_results = [results_queue.get() for _ in range(pbs)]
         if len(world_batch_results) == 0:
             return 0
 
         world_batch_results_arr = np.vstack(world_batch_results)
+        del world_batch_results
         world_batch_df = pd.DataFrame(
             {
                 h: v
@@ -136,14 +146,13 @@ def test(
             assert problem_id not in world_solved_problems
             world_solved_problems.add(problem_id)
 
-        print(f"Solved {len(batch_solved_df)}/{len(world_batch_results)}\n")
+        print(f"Solved {len(batch_solved_df)}/{len(world_batch_results_arr)}\n")
 
         pbar.update(len(batch_solved_df))
-        writer.add_scalar(
-            f"cum_unique_solved_vs_time",
-            len(world_solved_problems),
-            time.time(),
-        )
+
+        nonlocal total_num_expanded
+        total_num_expanded += world_batch_df["NumExpanded"].sum()
+
         writer.add_scalar(
             f"cum_unique_solved_vs_expanded",
             len(world_solved_problems),
@@ -152,7 +161,7 @@ def test(
 
         world_results_df.loc[batch_solved_df.index, :] = batch_solved_df
 
-        return world_batch_df["NumExpanded"].sum()
+        return
 
     if rank == 0:
         pbar = tqdm.tqdm(total=world_num_problems)
@@ -161,7 +170,6 @@ def test(
         local_remaining_problems = tuple(
             p for p in problems if p.id not in local_solved_problems
         )
-        # print(rank, local_remaining_problems)
 
         if rank == 0 and len(world_solved_problems) == world_num_problems:
             break
@@ -197,40 +205,25 @@ def test(
             search_result[7] = end_time - start_time
 
             if traj:
-                if problem_id == 14:
-                    print(traj.actions)
                 assert problem_id not in local_solved_problems
                 local_solved_problems.add(problem_id)
 
-            # print("here")
             results_queue.put(search_result)
-            print("here")
-            # if rank == 1:
-            #     print("r1 queuesize:", results_queue.qsize())
-            # if rank == 0:
-            #     print("r0 queuesize:", results_queue.qsize())
 
             if rank == 0:
                 if sync_toggle:
-                    num_expanded = try_sync_results()
+                    try_sync_results()
                     if num_expanded > 0:
                         sync_toggle = False
-                        # total_num_expanded += num_expanded
                 else:
                     sync_toggle = True
 
         if rank == 0:
-            total_num_expanded += try_sync_results()
+            try_sync_results()
         # epoch end
         current_budget *= 2
 
-    # test end
-    if results_queue.qsize() > 0:
-        while True:
-            try:
-                print(results_queue.get())
-            except queue.Empty:
-                break
-    print(f"Rank {rank} finished")
+    results_queue.close()
+    print(f"Rank {rank} finished at {time.ctime(time.time())}")
     if rank == 0:
         world_results_df.to_csv(f"{writer.log_dir}/results.csv")
