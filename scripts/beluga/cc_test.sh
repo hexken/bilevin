@@ -2,34 +2,22 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=3:00:00
+#SBATCH --time=0:5:00
 #SBATCH --exclusive
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/%j.txt
 #SBATCH --account=rrg-lelis
 
 source $HOME/bilevin-env/bin/activate
-cd $SLURM_TMPDIR
-pip freeze > requirements.txt
-python -m venv env
-deactivate
-source env/bin/activate
-pip install --no-index --upgrade pip
-pip install --no-index -r requirements.txt
-
-
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
 python src/main.py \
-    --world-size 32 \
-    --mode train \
+    --world-size  40 \
+    --mode test \
     --agent $1 \
-    --loss levin_loss_sum \
     --problemset-path $2 \
     --initial-budget $3 \
-    --grad-steps 10 \
-    --batch-size-bootstrap 32 \
+    --batch-size-print 40 \
     --seed $4 \
     --wandb-mode offline \
-    --exp-name "_modarch"
-
+    --model-path $5

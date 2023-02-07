@@ -21,15 +21,13 @@ cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
 python src/main.py \
-    --world-size 32 \
-    --mode train \
+    --mode test \
     --agent $1 \
     --loss levin_loss_sum \
     --problemset-path $2 \
     --initial-budget $3 \
-    --grad-steps 10 \
-    --batch-size-bootstrap 32 \
+    --batch-size-print 32 \
     --seed $4 \
     --wandb-mode offline \
-    --exp-name "_modarch"
+    --model-path $5
 

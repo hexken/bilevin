@@ -11,13 +11,8 @@ source $HOME/bilevin-env/bin/activate
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-torchrun \
-    --standalone \
-    --nnodes=1 \
-    --nproc_per_node=32 \
-    --master_addr=$(hostname)\
-    --master_port=34567 \
-    src/main.py \
+python src/main.py \
+    --world-size 32 \
     --mode train \
     --agent $1 \
     --loss levin_loss_sum \
