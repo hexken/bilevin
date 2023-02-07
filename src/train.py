@@ -281,24 +281,6 @@ def train(
                         loss, avg_action_nll, logits = loss_fn(merged_traj, model)
                         loss.backward()
 
-                    if world_size > 1:
-                        sync_grads(model)
-
-                    # todo grad clipping? for now inspect norms
-                    if trajs and rank == 0:
-                        total_norm = 0
-                        for p in model.parameters():
-                            param_norm = p.grad.detach().data.norm(2)
-                            total_norm += param_norm.item() ** 2
-                        total_norm = total_norm**0.5
-                        # print(total_norm)
-                        writer.add_scalar(
-                            f"total_grad_norm/{name}", total_norm, opt_step
-                        )
-
-                    optimizer.step()
-
-                    if trajs:
                         acc = (
                             (logits.argmax(dim=1) == merged_traj.actions).sum()
                             / len(logits)
@@ -312,8 +294,26 @@ def train(
 
                     if world_size > 1:
                         dist.all_reduce(local_batch_opt_results, op=dist.ReduceOp.SUM)
+                        num_procs_found_solution = int(
+                            local_batch_opt_results[2].item()
+                        )
+                        sync_grads(model, num_procs_found_solution)
 
-                    num_procs_found_solution = local_batch_opt_results[2].item()
+                    num_procs_found_solution = int(local_batch_opt_results[2].item())
+
+                    # todo grad clipping? for now inspect norms
+                    if trajs and rank == 0:
+                        total_norm = 0
+                        for p in model.parameters():
+                            param_norm = p.grad.detach().data.norm(2)
+                            total_norm += param_norm.item() ** 2
+                        total_norm = total_norm**0.5
+                        writer.add_scalar(
+                            f"total_grad_norm/{name}", total_norm, opt_step
+                        )
+
+                    optimizer.step()
+
                     if num_procs_found_solution > 0:
                         opt_step += 1
                         if rank == 0:
@@ -413,7 +413,6 @@ def train(
                 writer.add_scalar(f"loss_vs_epoch/backward", epoch_b_loss, epoch)
                 writer.add_scalar(f"acc_vs_epoch/backward", epoch_b_acc, epoch)
 
-            # writer.add_text(f"epoch{epoch}_results", world_results_df.to_markdown(), epoch)
             world_results_df.to_csv(f"{writer.log_dir}/epoch_{epoch}.csv")
             # fmt: on
 
@@ -483,14 +482,13 @@ def log_params(writer, model, name, batches_seen):
         )
 
 
-def sync_grads(model: to.nn.Module):
-    # assumes grads are not None
-    # todo scale gradients properly since not all processes contribute equally
+def sync_grads(model: to.nn.Module, n: int):
     all_grads_list = []
     for param in model.parameters():
         all_grads_list.append(param.grad.view(-1))
     all_grads = to.cat(all_grads_list)
     dist.all_reduce(all_grads, op=dist.ReduceOp.SUM)
+    all_grads.div_(n)
     offset = 0
     for param in model.parameters():
         numel = param.numel()

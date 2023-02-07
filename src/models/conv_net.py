@@ -18,21 +18,21 @@ class ConvBlock(nn.Module):
         to.nn.init.kaiming_uniform_(
             self.conv1.weight, mode="fan_in", nonlinearity="relu"
         )
-        # self.bn1 = nn.BatchNorm2d(num_filters)
+        self.bn1 = nn.BatchNorm2d(num_filters)
 
         self.conv2 = nn.Conv2d(num_filters, num_filters, kernel_size, padding="valid")
         to.nn.init.kaiming_uniform_(
             self.conv2.weight, mode="fan_in", nonlinearity="relu"
         )
-        # self.bn2 = nn.BatchNorm2d(num_filters)
+        self.bn2 = nn.BatchNorm2d(num_filters)
 
         self.reduced_size = (state_t_width - 2) ** 2
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
-        # x = self.bn1(x)
+        x = self.bn1(x)
         x = F.relu(self.conv2(x))
-        # x = self.bn2(x)
+        x = self.bn2(x)
 
         x = x.flatten(1)
 
@@ -52,7 +52,7 @@ class ConvNetSingle(nn.Module):
         to.nn.init.kaiming_uniform_(
             self.linear1.weight, mode="fan_in", nonlinearity="relu"
         )
-        # self.bn1 = nn.BatchNorm1d(128)
+        self.bn1 = nn.BatchNorm1d(128)
 
         self.linear2 = nn.Linear(128, num_actions)
         to.nn.init.xavier_uniform_(self.linear2.weight)
