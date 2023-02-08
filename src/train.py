@@ -315,6 +315,7 @@ def train(
                     optimizer.step()
 
                     if num_procs_found_solution > 0:
+                        print(local_batch_opt_results)
                         opt_step += 1
                         if rank == 0:
                             opt_passes = opt_step // grad_steps

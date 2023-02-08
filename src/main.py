@@ -180,8 +180,7 @@ def parse_args():
     return args
 
 
-def run(rank, run_name, model_args, args, problemsets, queue):
-    problemset = problemsets  # [rank]
+def run(rank, run_name, model_args, args, problemset, queue):
     is_distributed = args.world_size > 1
 
     if is_distributed:
@@ -324,9 +323,6 @@ def run(rank, run_name, model_args, args, problemsets, queue):
     # else:
     #     model = to.jit.script(model)
 
-    if rank == 0:
-        print(f"World size: {args.world_size}, rank {rank}")
-
     if args.mode == "train":
         loss_fn = getattr(loss_fns, args.loss_fn)
         optimizer_cons = to.optim.Adam
@@ -466,7 +462,6 @@ if __name__ == "__main__":
         #     nprocs=args.world_size,
         # )
         processes = []
-        print(len(problemsets))
         for rank in range(args.world_size):
             p = mp.Process(
                 target=run,
@@ -492,7 +487,7 @@ if __name__ == "__main__":
             run_name,
             model_args,
             args,
-            problemsets,
+            problemsets[0],
             queue,
         )
 

@@ -60,7 +60,7 @@ class ConvNetSingle(nn.Module):
     def forward(self, x):
         x = self.convblock(x)
         x = F.relu(self.linear1(x))
-        # x = self.bn1(x)
+        x = self.bn1(x)
         logits = self.linear2(x)
 
         return logits
