@@ -290,9 +290,8 @@ def run(rank, run_name, model_args, args, problemset, queue):
             assert isinstance(backward_model, nn.Module)
             model = forward_model, backward_model
         else:
-            assert isinstance(model, nn.Module)
+            assert isinstance(forward_model, nn.Module)
             model = forward_model
-        assert isinstance(forward_model, nn.Module)
 
         if args.model_path is None:
             # just use the random initialization from rank 0
