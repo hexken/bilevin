@@ -1,4 +1,5 @@
 import math
+import sys
 import os
 from pathlib import Path
 import random
@@ -313,7 +314,6 @@ def train(
                     optimizer.step()
 
                     if num_procs_found_solution > 0:
-                        # print(local_batch_opt_results)
                         opt_step += 1
                         if rank == 0:
                             opt_passes = opt_step // grad_steps
@@ -377,6 +377,7 @@ def train(
                 writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, batches_seen)
                 writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
                 # fmt: on
+                sys.stdout.flush()
 
         if rank == 0:
             epoch_solved = num_problems_solved_this_epoch / world_num_problems
@@ -415,6 +416,7 @@ def train(
 
             world_results_df.to_csv(f"{writer.log_dir}/epoch_{epoch}.csv")
             # fmt: on
+            sys.stdout.flush()
 
         if num_new_problems_solved_this_epoch == 0:
             current_budget *= 2
