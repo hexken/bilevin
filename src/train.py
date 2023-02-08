@@ -1,6 +1,7 @@
 import math
 import os
 from pathlib import Path
+import random
 import time
 from typing import Callable, Type, Union
 
@@ -10,7 +11,6 @@ from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
-import random
 import tqdm
 
 from domains.domain import Domain, Problem
@@ -40,6 +40,7 @@ def train(
     world_size: int,
     update_levin_costs: bool,
     initial_budget: int,
+    seed: int,
     grad_steps: int = 10,
     shuffle_trajectory=False,
 ):
@@ -121,7 +122,11 @@ def train(
             log_params(writer, b_model, "backward", 0)
 
     problems_loader = ProblemsBatchLoader(
-        problems, batch_size=local_batch_size, shuffle=True, dummy_last=dummy_last
+        problems,
+        batch_size=local_batch_size,
+        seed=seed,
+        shuffle=True,
+        dummy_last=dummy_last,
     )
 
     local_batch_opt_results = to.zeros(3, dtype=to.float64)
@@ -155,7 +160,7 @@ def train(
             print(
                 "============================================================================"
             )
-            print(f"\nBeginning epoch {epoch} with budget {current_budget}")
+            print(f"START EPOCH {epoch} BUDGET {current_budget}")
             print(
                 "============================================================================\n"
             )
@@ -282,9 +287,8 @@ def train(
                         loss.backward()
 
                         acc = (
-                            (logits.argmax(dim=1) == merged_traj.actions).sum()
-                            / len(logits)
-                        ).item()
+                            logits.argmax(dim=1) == merged_traj.actions
+                        ).sum().item() / len(logits)
 
                         local_batch_opt_results[0] = avg_action_nll
                         local_batch_opt_results[1] = acc
@@ -297,7 +301,8 @@ def train(
                         num_procs_found_solution = int(
                             local_batch_opt_results[2].item()
                         )
-                        sync_grads(model, num_procs_found_solution)
+                        if num_procs_found_solution > 0:
+                            sync_grads(model, num_procs_found_solution)
 
                     num_procs_found_solution = int(local_batch_opt_results[2].item())
 
@@ -315,7 +320,7 @@ def train(
                     optimizer.step()
 
                     if num_procs_found_solution > 0:
-                        print(local_batch_opt_results)
+                        # print(local_batch_opt_results)
                         opt_step += 1
                         if rank == 0:
                             opt_passes = opt_step // grad_steps
@@ -390,14 +395,15 @@ def train(
             print(
                 "============================================================================"
             )
+            print(f"END EPOCH {epoch} BUDGET {current_budget}")
             print(
-                f"Completed epoch {epoch}, solved {num_problems_solved_this_epoch}/{world_num_problems} problems with budget {current_budget}\n"
-                f"Solved {num_new_problems_solved_this_epoch} new problems, {world_num_problems - len(solved_problems)} remaining\n"
-                f"Average forward epoch loss: {epoch_f_loss}, acc: {epoch_f_acc}"
+                f"CURRENT {num_problems_solved_this_epoch}/{world_num_problems}\n"
+                f"OVERALL {len(solved_problems)}/{world_num_problems}, +{num_new_problems_solved_this_epoch}, {world_num_problems - len(solved_problems)} remaining\n"
+                f"Average forward loss: {epoch_f_loss:5.3f}, acc: {epoch_f_acc:5.3f}"
             )
             if bidirectional:
                 print(
-                    f"Average backward epoch loss: {epoch_b_loss}, acc: {epoch_b_acc}"
+                    f"Average backward loss: {epoch_b_loss:5.3f}, acc: {epoch_b_acc:5.3f}"
                 )
             print(
                 "============================================================================\n"
@@ -426,9 +432,11 @@ class ProblemsBatchLoader:
         self,
         problems: list[Problem],
         batch_size: int,
+        seed: int = 1,
         shuffle: bool = True,
         dummy_last: bool = False,
     ):
+        self.rng = np.random.default_rng(seed)
         self.problems = np.empty(len(problems), dtype=object)
         self.problems[:] = problems
         self.batch_size = batch_size
@@ -445,7 +453,7 @@ class ProblemsBatchLoader:
     def __iter__(self):
         self._dummy_served = False
         if self._shuffle:
-            self._indices = np.random.permutation(self._len)
+            self._indices = self.rng.permutation(self._len)
         else:
             self._indices = np.arange(self._len)
 
@@ -484,9 +492,7 @@ def log_params(writer, model, name, batches_seen):
 
 
 def sync_grads(model: to.nn.Module, n: int):
-    all_grads_list = []
-    for param in model.parameters():
-        all_grads_list.append(param.grad.view(-1))
+    all_grads_list = [param.grad.view(-1) for param in model.parameters()]
     all_grads = to.cat(all_grads_list)
     dist.all_reduce(all_grads, op=dist.ReduceOp.SUM)
     all_grads.div_(n)

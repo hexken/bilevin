@@ -1,9 +1,9 @@
 import argparse
-import socket
 import json
 import os
 from pathlib import Path
 import random
+import socket
 import time
 from typing import Optional
 
@@ -229,10 +229,10 @@ def run(rank, run_name, model_args, args, problemset, queue):
         writer = SummaryWriter()
         writer.close()
 
-    args.seed += rank
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    to.manual_seed(args.seed)
+    local_seed = args.seed + rank
+    random.seed(local_seed)
+    np.random.seed(local_seed)
+    to.manual_seed(local_seed)
     if args.torch_deterministic:
         to.use_deterministic_algorithms(True)
         to.backends.cudnn.benchmark = False  # type:ignore
@@ -346,6 +346,7 @@ def run(rank, run_name, model_args, args, problemset, queue):
             args.world_size,
             args.update_levin_costs,
             initial_budget=args.initial_budget,
+            seed=local_seed,
             grad_steps=args.grad_steps,
             shuffle_trajectory=args.shuffle_trajectory,
         )
