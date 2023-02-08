@@ -334,6 +334,7 @@ def run(rank, run_name, model_args, args, problemset, queue):
         local_batch_size = args.batch_size_bootstrap // args.world_size
 
         train(
+            rank,
             agent,
             model,
             model_save_path,

@@ -17,17 +17,8 @@ from domains.domain import Domain, Problem
 from search import MergedTrajectory
 
 
-def set_seeds(seed, rank=0):
-    seed += rank
-    random.seed(seed)
-    np.random.seed(seed)
-    to.manual_seed(seed)
-    to.use_deterministic_algorithms(True)
-    to.backends.cudnn.benchmark = False  # type:ignore
-    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-
-
 def train(
+    rank,
     agent,
     model: Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]],
     model_save_path: Path,
@@ -48,8 +39,6 @@ def train(
     dummy_last = False
 
     if world_size > 1:
-        rank = dist.get_rank()
-
         sh_t = to.zeros(1, dtype=to.int64) + len(problems)
         dist.all_reduce(sh_t, dist.ReduceOp.SUM)
         world_num_problems = int(sh_t[0].item())
@@ -61,7 +50,6 @@ def train(
             dummy_last = True
     else:
         world_num_problems = len(problems)
-        rank = 0
 
     world_batches_per_epoch = math.ceil(
         world_num_problems / (local_batch_size * world_size)
@@ -136,9 +124,8 @@ def train(
 
     batches_seen = 0
     epoch = 0
-
     solved_problems = set()
-
+    total_num_expanded = 0
     forward_opt_steps = 0
     backward_opt_steps = 0
 
@@ -254,6 +241,12 @@ def train(
                 )
                 print(
                     f"Solved {num_problems_solved_this_batch}/{num_problems_this_batch}\n"
+                )
+                total_num_expanded += world_batch_results_df["NumExpanded"].sum()
+                writer.add_scalar(
+                    "cum_unique_solved_vs_expanded",
+                    len(solved_problems),
+                    total_num_expanded,
                 )
 
             def fit_model(
