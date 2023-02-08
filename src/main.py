@@ -259,7 +259,6 @@ def run(rank, run_name, model_args, args, problemset, queue):
             32,
             model_args["num_actions"],
         )
-        model = forward_model
     elif args.agent == "BiLevin":
         forward_model = ConvNetSingle(
             model_args["in_channels"],
@@ -284,22 +283,25 @@ def run(rank, run_name, model_args, args, problemset, queue):
                 32,
                 model_args["num_actions"],
             )
-        model = forward_model, backward_model
 
     if agent.trainable:
+        if agent.bidirectional:
+            assert isinstance(forward_model, nn.Module)
+            assert isinstance(backward_model, nn.Module)
+            model = forward_model, backward_model
+        else:
+            assert isinstance(model, nn.Module)
+            model = forward_model
         assert isinstance(forward_model, nn.Module)
+
         if args.model_path is None:
             # just use the random initialization from rank 0
             if is_distributed:
+                for param in forward_model.parameters():
+                    dist.broadcast(param.data, 0)
                 if agent.bidirectional:
                     assert isinstance(backward_model, nn.Module)
-                    for param in forward_model.parameters():
-                        dist.broadcast(param.data, 0)
                     for param in backward_model.parameters():
-                        dist.broadcast(param.data, 0)
-                else:
-                    assert isinstance(model, nn.Module)
-                    for param in model.parameters():
                         dist.broadcast(param.data, 0)
         elif args.model_path.is_dir():
             forward_model_path = args.model_path / "forward.pt"
