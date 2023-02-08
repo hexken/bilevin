@@ -16,7 +16,7 @@ from domains.domain import Problem
 
 def test(
     agent,
-    model: Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]],
+    model: Optional[Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]]],
     problems: list[Problem],
     writer: SummaryWriter,
     world_size: int,
@@ -71,17 +71,19 @@ def test(
     world_results_df.set_index("ProblemId", inplace=True)
 
     is_bidirectional = agent.bidirectional
-    if is_bidirectional:
-        assert isinstance(model, tuple)
-        f_model, b_model = model
-    else:
-        assert isinstance(model, to.nn.Module)
-        f_model = model
 
-    to.set_grad_enabled(False)
-    f_model.eval()
-    if is_bidirectional:
-        b_model.eval()  # type:ignore
+    if agent.trainable:
+        if is_bidirectional:
+            assert isinstance(model, tuple)
+            f_model, b_model = model
+        else:
+            assert isinstance(model, to.nn.Module)
+            f_model = model
+
+        to.set_grad_enabled(False)
+        f_model.eval()
+        if is_bidirectional:
+            b_model.eval()  # type:ignore
 
     total_num_expanded = 0
 
@@ -185,7 +187,6 @@ def test(
                 model,
                 current_budget,
                 update_levin_costs,
-                train=False,
             )
             end_time = time.time()
             if is_bidirectional:

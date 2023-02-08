@@ -10,6 +10,7 @@ from typing import Optional
 import numpy as np
 from test import test
 import torch as to
+import torch.nn as nn
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -18,7 +19,7 @@ import wandb
 import domains
 from models import ConvNetDouble, ConvNetSingle
 import models.loss_functions as loss_fns
-from search import BiLevin, Levin
+from search import BiLevin, Levin, BiBS
 from search.agent import Agent
 from train import train
 
@@ -79,7 +80,7 @@ def parse_args():
         "-a",
         "--agent",
         type=str,
-        choices=["Levin", "BiLevin"],
+        choices=["Levin", "BiLevin", "BiBS"],
         help="name of the search agent",
     )
     parser.add_argument(
@@ -238,12 +239,17 @@ def run(rank, run_name, model_args, args, problemset, queue):
         to.backends.cudnn.benchmark = False  # type:ignore
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
-    agent: Optional[Agent] = None
+    model = None
+    forward_model = None
+    backward_model = None
     if args.agent == "Levin":
         agent = Levin()
     elif args.agent == "BiLevin":
         agent = BiLevin()
-    assert agent is not None
+    elif args.agent == "BiBS":
+        agent = BiBS()
+    else:
+        raise ValueError(f"Unknown agent: {args.agent}")
 
     if args.agent == "Levin":
         forward_model = ConvNetSingle(
@@ -279,31 +285,34 @@ def run(rank, run_name, model_args, args, problemset, queue):
                 model_args["num_actions"],
             )
         model = forward_model, backward_model
-    else:
-        raise ValueError("Search agent not recognized")
 
-    if args.model_path is None:
-        # just use the random initialization from rank 0
-        if is_distributed:
+    if agent.trainable:
+        assert isinstance(forward_model, nn.Module)
+        if args.model_path is None:
+            # just use the random initialization from rank 0
+            if is_distributed:
+                if agent.bidirectional:
+                    assert isinstance(backward_model, nn.Module)
+                    for param in forward_model.parameters():
+                        dist.broadcast(param.data, 0)
+                    for param in backward_model.parameters():
+                        dist.broadcast(param.data, 0)
+                else:
+                    assert isinstance(model, nn.Module)
+                    for param in model.parameters():
+                        dist.broadcast(param.data, 0)
+        elif args.model_path.is_dir():
+            forward_model_path = args.model_path / "forward.pt"
+            forward_model.load_state_dict(to.load(forward_model_path))
             if agent.bidirectional:
-                for param in forward_model.parameters():
-                    dist.broadcast(param.data, 0)
-                for param in backward_model.parameters():
-                    dist.broadcast(param.data, 0)
-            else:
-                for param in model.parameters():
-                    dist.broadcast(param.data, 0)
-    elif args.model_path.is_dir():
-        forward_model_path = args.model_path / "forward.pt"
-        forward_model.load_state_dict(to.load(forward_model_path))  # type:ignore
-        if agent.bidirectional:
-            backward_model_path = args.model_path / "backward.pt"  # type:ignore
-            backward_model.load_state_dict(to.load(backward_model_path))  # type:ignore
+                assert isinstance(backward_model, nn.Module)
+                backward_model_path = args.model_path / "backward.pt"
+                backward_model.load_state_dict(to.load(backward_model_path))
 
-        if rank == 0:
-            print(f"Loaded model(s)\n  from  {str(args.model_path)}")
-    else:
-        print("model-path argument must be a directory if given")
+            if rank == 0:
+                print(f"Loaded model(s)\n  from  {str(args.model_path)}")
+        else:
+            print("model-path argument must be a directory if given")
 
     model_save_path = Path(__file__).parent.parent / f"runs/{run_name}"
     model_save_path.mkdir(parents=True, exist_ok=True)
@@ -311,19 +320,17 @@ def run(rank, run_name, model_args, args, problemset, queue):
     if rank == 0:
         if args.mode == "train":
             print(f"Saving model(s)\n  to {str(model_save_path)}")
-        elif args.mode == "test":
+        elif args.mode == "test" and agent.trainable:
+            assert isinstance(forward_model, nn.Module)
             to.save(forward_model.state_dict(), model_save_path / "forward.pt")
             if agent.bidirectional:
+                assert isinstance(backward_model, nn.Module)
                 to.save(backward_model.state_dict(), model_save_path / "backward.pt")
 
             print(f"Copied model(s) to use\n  to {str(model_save_path)}")
 
-    # if agent.bidirectional:
-    #     model = to.jit.script(model[0]), to.jit.script(model[1])
-    # else:
-    #     model = to.jit.script(model)
-
     if args.mode == "train":
+        assert model
         loss_fn = getattr(loss_fns, args.loss_fn)
         optimizer_cons = to.optim.Adam
         optimizer_params = {
@@ -452,17 +459,6 @@ if __name__ == "__main__":
         queue = mp.Queue()
 
     if is_distributed:
-        # mp.spawn(
-        #     run,
-        #     args=(
-        #         run_name,
-        #         model_args,
-        #         args,
-        #         problemsets,
-        #         queue,
-        #     ),
-        #     nprocs=args.world_size,
-        # )
         processes = []
         for rank in range(args.world_size):
             p = mp.Process(

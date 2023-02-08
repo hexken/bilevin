@@ -19,6 +19,10 @@ class Levin(Agent):
     def bidirectional(cls):
         return False
 
+    @property
+    def trainable(cls):
+        return True
+
     def search(
         self,
         problem: Problem,

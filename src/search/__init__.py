@@ -3,4 +3,5 @@
 # from search.puct import PUCT
 from search.levin import Levin
 from search.bilevin import BiLevin
+from search.bibs import BiBS
 from search.utils import *

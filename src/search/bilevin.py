@@ -18,6 +18,10 @@ class BiLevin(Agent):
     def bidirectional(cls):
         return True
 
+    @property
+    def trainable(cls):
+        return True
+
     def search(
         self,
         problem: Problem,
