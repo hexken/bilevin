@@ -1,10 +1,19 @@
-from typing import Type
+from __future__ import annotations
+from typing import Optional, Type
 
 import torch as to
 
+from domains.domain import State, Domain
+
 
 class SearchNode:
-    def __init__(self, state, parent, parent_action, g_cost):
+    def __init__(
+        self,
+        state: State,
+        g_cost: float,
+        parent: Optional[SearchNode] = None,
+        parent_action: Optional[int] = None,
+    ):
         self.state = state
         self.parent = parent
         self.parent_action = parent_action
@@ -33,7 +42,7 @@ class SearchNode:
 class Trajectory:
     def __init__(
         self,
-        problem,
+        domain: Domain,
         final_node: SearchNode,
         num_expanded: int,
     ):
@@ -51,7 +60,7 @@ class Trajectory:
         cost = 1
 
         while node:
-            state_t = problem.state_tensor(node.state)
+            state_t = domain.state_tensor(node.state)
             states.append(state_t)
             actions.append(action)
             cost_to_gos.append(cost)

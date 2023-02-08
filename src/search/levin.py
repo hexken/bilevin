@@ -19,12 +19,6 @@ class Levin(Agent):
     def bidirectional(cls):
         return False
 
-    def __init__(
-        self,
-        weight_uniform: float = 0.0,
-    ):
-        self.weight_uniform = weight_uniform
-
     def search(
         self,
         problem: Problem,
@@ -82,10 +76,10 @@ class Levin(Agent):
 
                 new_node = LevinNode(
                     new_state,
-                    node,
-                    a,
-                    node.g_cost + 1,
-                    node.log_prob + node.log_action_probs[a].item(),
+                    g_cost=node.g_cost + 1,
+                    parent=node,
+                    parent_action=a,
+                    log_prob=node.log_prob + node.log_action_probs[a].item(),
                 )
                 new_node.levin_cost = levin_cost(new_node)
 
@@ -186,15 +180,17 @@ class PriorityQueue:
 class LevinNode(SearchNode):
     def __init__(
         self,
-        state: Optional[State],
+        state: State,
+        g_cost: float,
         parent: Optional[SearchNode] = None,
-        parent_action=None,
-        g_cost: Optional[float] = None,
+        parent_action: Optional[int] = None,
         log_prob: Optional[float] = None,
         levin_cost: Optional[float] = None,
         log_action_probs: Optional[to.Tensor] = None,
     ):
-        super().__init__(state, parent, parent_action, g_cost)
+        super().__init__(
+            state=state, parent=parent, parent_action=parent_action, g_cost=g_cost
+        )
         self.log_prob = log_prob
         self.levin_cost = levin_cost
         self.log_action_probs = log_action_probs

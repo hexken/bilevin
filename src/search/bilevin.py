@@ -18,12 +18,6 @@ class BiLevin(Agent):
     def bidirectional(cls):
         return True
 
-    def __init__(
-        self,
-        weight_uniform: float = 0.0,
-    ):
-        self.weight_uniform = weight_uniform
-
     def search(
         self,
         problem: Problem,
@@ -121,10 +115,10 @@ class BiLevin(Agent):
 
                 new_node = LevinNode(
                     new_state,
-                    node,
-                    a,
-                    node.g_cost + 1,
-                    node.log_prob + node.log_action_probs[a].item(),
+                    g_cost=node.g_cost + 1,
+                    parent=node,
+                    parent_action=a,
+                    log_prob=node.log_prob + node.log_action_probs[a].item(),
                 )
                 new_node.levin_cost = levin_cost(new_node)
                 num_generated += 1
