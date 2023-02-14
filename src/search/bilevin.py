@@ -82,7 +82,7 @@ class BiLevin(Agent):
 
         num_expanded = 0
         num_generated = 0
-        while len(f_frontier) > 0 or len(b_frontier) > 0:
+        while len(f_frontier) > 0 and len(b_frontier) > 0:
             if (
                 (budget and num_expanded >= budget)
                 or end_time
@@ -93,7 +93,7 @@ class BiLevin(Agent):
             b = b_frontier.top()
             f = f_frontier.top()
 
-            if (b and f and f < b) or not b:
+            if f < b:
                 direction = TwoDir.FORWARD
                 _domain = f_domain
                 _model = forward_model

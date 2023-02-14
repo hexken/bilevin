@@ -153,7 +153,7 @@ class PriorityQueue:
         for entry in self.pq:
             if not entry.removed:
                 return entry.node
-        return None
+        raise KeyError("top from an empty priority queue")
 
     def enqueue(self, node):
         if node in self.entry_finder:
