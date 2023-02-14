@@ -18,21 +18,17 @@ class ConvBlock(nn.Module):
         to.nn.init.kaiming_uniform_(
             self.conv1.weight, mode="fan_in", nonlinearity="relu"
         )
-        self.bn1 = nn.BatchNorm2d(num_filters)
 
         self.conv2 = nn.Conv2d(num_filters, num_filters, kernel_size, padding="valid")
         to.nn.init.kaiming_uniform_(
             self.conv2.weight, mode="fan_in", nonlinearity="relu"
         )
-        self.bn2 = nn.BatchNorm2d(num_filters)
 
         self.reduced_size = (state_t_width - 2) ** 2
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
-        x = self.bn1(x)
         x = F.relu(self.conv2(x))
-        x = self.bn2(x)
 
         x = x.flatten(1)
 
@@ -52,7 +48,6 @@ class ConvNetSingle(nn.Module):
         to.nn.init.kaiming_uniform_(
             self.linear1.weight, mode="fan_in", nonlinearity="relu"
         )
-        self.bn1 = nn.BatchNorm1d(128)
 
         self.linear2 = nn.Linear(128, num_actions)
         to.nn.init.xavier_uniform_(self.linear2.weight)
@@ -60,7 +55,6 @@ class ConvNetSingle(nn.Module):
     def forward(self, x):
         x = self.convblock(x)
         x = F.relu(self.linear1(x))
-        x = self.bn1(x)
         logits = self.linear2(x)
 
         return logits
@@ -83,13 +77,11 @@ class ConvNetDouble(nn.Module):
         to.nn.init.kaiming_uniform_(
             self.linear1.weight, mode="fan_in", nonlinearity="relu"
         )
-        self.bn1 = nn.BatchNorm1d(128)
 
         self.linear2 = nn.Linear(128, 128)
         to.nn.init.kaiming_uniform_(
             self.linear2.weight, mode="fan_in", nonlinearity="relu"
         )
-        self.bn2 = nn.BatchNorm1d(128)
 
         self.linear3 = nn.Linear(128, num_actions)
         to.nn.init.xavier_uniform_(self.linear3.weight)
@@ -104,9 +96,7 @@ class ConvNetDouble(nn.Module):
 
         x = to.cat((x1, x2), dim=-1)
         x = F.relu(self.linear1(x))
-        x = self.bn1(x)
         x = F.relu(self.linear2(x))
-        x = self.bn2(x)
         logits = self.linear3(x)
 
         return logits

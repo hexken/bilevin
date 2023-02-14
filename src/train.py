@@ -130,9 +130,6 @@ def train(
     forward_opt_steps = 0
     backward_opt_steps = 0
 
-    forward_trajs = {"one_state": []}
-    backward_trajs = {"one_state": []}
-
     world_epoch_f_loss = np.zeros(world_batches_per_epoch)
     world_epoch_f_acc = np.zeros(world_batches_per_epoch)
     world_epoch_b_loss = np.zeros(world_batches_per_epoch)
@@ -164,9 +161,9 @@ def train(
 
             to.set_grad_enabled(False)
 
-            forward_trajs["current"] = []
+            forward_trajs = []
             f_model.eval()
-            backward_trajs["current"] = []
+            backward_trajs = []
             if bidirectional:
                 b_model.eval()  # type:ignore
 
@@ -193,9 +190,9 @@ def train(
                 local_batch_search_results[i, 4] = int((end_time - start_time) * 1000)
 
                 if traj:
-                    forward_trajs["current"].append(traj[0])
+                    forward_trajs.append(traj[0])
                     if bidirectional:
-                        backward_trajs["current"].append(traj[1])
+                        backward_trajs.append(traj[1])
 
             if world_size > 1:
                 dist.all_gather(world_batch_results, local_batch_search_results)
@@ -244,6 +241,7 @@ def train(
                     f"Solved {num_problems_solved_this_batch}/{num_problems_this_batch}\n"
                 )
                 total_num_expanded += world_batch_results_df["NumExpanded"].sum()
+                print(total_num_expanded)
                 writer.add_scalar(
                     "cum_unique_solved_vs_expanded",
                     len(solved_problems),
@@ -253,16 +251,10 @@ def train(
             def fit_model(
                 model: to.nn.Module,
                 optimizer: to.optim.Optimizer,
-                trajs_dict: dict,
+                trajs: list,
                 opt_step: int,
                 name: str,
             ):
-                trajs = trajs_dict["current"]
-                if len(trajs_dict["one_state"]) == 1:
-                    trajs.append(trajs_dict["one_state"].pop())
-                if len(trajs) == 1 and len(trajs[0]) == 1:
-                    trajs_dict["one_state"].append(trajs.pop())
-
                 if rank == 0:
                     print(f"{name}:")
                     print(opt_result_header)
