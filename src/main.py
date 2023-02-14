@@ -44,10 +44,10 @@ def parse_args():
         "-l",
         "--loss-fn",
         type=str,
-        default="levin_loss_avg",
+        default="levin_loss",
         choices=[
+            "levin_loss",
             "levin_loss_avg",
-            "levin_loss_sum",
             "cross_entropy_loss",
         ],
         help="loss function",
