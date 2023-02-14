@@ -313,7 +313,7 @@ def run(rank, run_name, model_args, args, problemset, queue):
             if rank == 0:
                 print(f"Loaded model(s)\n  from  {str(args.model_path)}")
         else:
-            print("model-path argument must be a directory if given")
+            raise ValueError("model-path argument must be a directory if given")
 
     model_save_path = Path(__file__).parent.parent / f"runs/{run_name}"
     model_save_path.mkdir(parents=True, exist_ok=True)
