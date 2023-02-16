@@ -12,10 +12,12 @@ from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
 
 from domains.domain import Problem
+from search.agent import Agent
 
 
 def test(
-    agent,
+    rank: int,
+    agent: Agent,
     model: Optional[Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]]],
     problems: list[Problem],
     writer: SummaryWriter,
@@ -23,8 +25,15 @@ def test(
     update_levin_costs: bool,
     initial_budget: int,
     results_queue: Queue,
+    increase_budget: bool = True,
     print_batch_size: Optional[int] = None,
+    print_results: bool = True,
+    validate: bool = False,
+    epoch: Optional[int] = None,
 ):
+    if validate:
+        print_results = False
+
     test_start_time = time.time()
     current_budget = initial_budget
 
@@ -32,15 +41,11 @@ def test(
     local_num_problems = len(problems)
 
     if is_distributed:
-
-        rank = dist.get_rank()
-
         sh_t = to.zeros(1, dtype=to.int32) + local_num_problems
         dist.all_reduce(sh_t, dist.ReduceOp.SUM)
         world_num_problems = int(sh_t[0].item())
     else:
         world_num_problems = local_num_problems
-        rank = 0
 
     search_result_header = [
         "ProblemId",
@@ -88,7 +93,7 @@ def test(
     total_num_expanded = 0
 
     world_solved_problems = set()
-    local_solved_problems = set()
+    local_remaining_problems = set(p for p in problems)
 
     def try_sync_results():
         """
@@ -135,22 +140,27 @@ def test(
         world_batch_df.set_index("ProblemId", inplace=True)
         world_batch_df.sort_values("NumExpanded", inplace=True)
 
-        print(
-            tabulate(
-                world_batch_df,
-                headers="keys",
-                tablefmt="psql",
+        if print_results:
+            print(
+                tabulate(
+                    world_batch_df,
+                    headers="keys",
+                    tablefmt="psql",
+                )
             )
-        )
 
         batch_solved_df = world_batch_df[world_batch_df["SolutionLength"] > 0]
         for problem_id in batch_solved_df.index:
             assert problem_id not in world_solved_problems
             world_solved_problems.add(problem_id)
 
-        print(f"Solved {len(batch_solved_df)}/{len(world_batch_results_arr)}\n")
+        if print_results:
+            print(f"Solved {len(batch_solved_df)}/{len(world_batch_df)}\n")
 
-        pbar.update(len(batch_solved_df))
+        if validate:
+            pbar.update(len(world_batch_df))
+        else:
+            pbar.update(len(batch_solved_df))
 
         nonlocal total_num_expanded
         total_num_expanded += world_batch_df["NumExpanded"].sum()
@@ -169,17 +179,16 @@ def test(
         pbar = tqdm.tqdm(total=world_num_problems)
 
     while True:
-        local_remaining_problems = tuple(
-            p for p in problems if p.id not in local_solved_problems
-        )
 
+        # print(f"rank {rank} remaining: {len(local_remaining_problems)}")
         if rank == 0 and len(world_solved_problems) == world_num_problems:
             break
         elif rank != 0 and len(local_remaining_problems) == 0:
             break
 
         sync_toggle = False
-        for problem in local_remaining_problems:
+        for problem in tuple(local_remaining_problems):
+            # print(f"rank {rank} +1")
             search_result = np.zeros(8, dtype=np.int64)
             start_time = time.time()
             (solution_length, num_expanded, num_generated, traj,) = agent.search(
@@ -192,7 +201,7 @@ def test(
             if is_bidirectional:
                 problem.domain.reset()
 
-            problem_id = problem[0]
+            problem_id = problem.id
             start_time = int(start_time * 1000)
             end_time = int(end_time * 1000)
 
@@ -206,12 +215,11 @@ def test(
             search_result[7] = end_time - start_time
 
             if traj:
-                assert problem_id not in local_solved_problems
-                local_solved_problems.add(problem_id)
+                local_remaining_problems.remove(problem)
 
             results_queue.put(search_result)
 
-            if rank == 0:
+            if rank == 0 and not validate:
                 if sync_toggle:
                     try_sync_results()
                     if num_expanded > 0:
@@ -219,12 +227,27 @@ def test(
                 else:
                     sync_toggle = True
 
+        if validate:
+            dist.barrier()
+
         if rank == 0:
             try_sync_results()
-        # epoch end
-        current_budget *= 2
 
-    results_queue.close()
-    print(f"Rank {rank} finished at {time.ctime(time.time())}")
+        # epoch end
+        if increase_budget:
+            current_budget *= 2
+        else:
+            break
+
+    if print_results:
+        print(f"Rank {rank} finished at {time.ctime(time.time())}")
+
     if rank == 0:
-        world_results_df.to_csv(f"{writer.log_dir}/results.csv")
+        if epoch:
+            fname = f"{writer.log_dir}/valid_{epoch}.csv"
+        else:
+            fname = f"{writer.log_dir}/results.csv"
+            world_results_df.to_csv(fname)
+        return len(world_solved_problems) / world_num_problems, total_num_expanded
+
+    return None

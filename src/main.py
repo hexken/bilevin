@@ -34,6 +34,12 @@ def parse_args():
         help="path of file with problem instances",
     )
     parser.add_argument(
+        "-v",
+        "--validset-path",
+        type=lambda p: Path(p).absolute(),
+        help="path of file with problem instances",
+    )
+    parser.add_argument(
         "-m",
         "--model-path",
         type=lambda p: Path(p).absolute(),
@@ -181,7 +187,7 @@ def parse_args():
     return args
 
 
-def run(rank, run_name, model_args, args, problemset, queue):
+def run(rank, run_name, model_args, args, problemset, queue, validset):
     is_distributed = args.world_size > 1
 
     if is_distributed:
@@ -358,6 +364,8 @@ def run(rank, run_name, model_args, args, problemset, queue):
             seed=local_seed,
             grad_steps=args.grad_steps,
             shuffle_trajectory=args.shuffle_trajectory,
+            valid_problems=validset,
+            results_queue=queue,
         )
 
     elif args.mode == "test":
@@ -372,7 +380,7 @@ def run(rank, run_name, model_args, args, problemset, queue):
             queue,
             args.batch_size_print,
         )
-
+        queue.close()
     if rank == 0:
         writer.close()
 
@@ -395,7 +403,6 @@ if __name__ == "__main__":
     start_time = time.time()
 
     problemset_dict = json.load(args.problemset_path.open("r"))
-
     domain_module = getattr(domains, problemset_dict["domain_module"])
     (
         parsed_problems,
@@ -405,42 +412,56 @@ if __name__ == "__main__":
         double_backward,
     ) = getattr(domain_module, "load_problemset")(problemset_dict)
 
-    num_problems_parsed = len(parsed_problems)
-    if num_problems_parsed < args.world_size:
-        raise Exception(
-            f"Number of problems '{num_problems_parsed}' must be greater than world size '{args.world_size}'"
+    if args.validset_path:
+        validset_dict = json.load(args.validset_path.open("r"))
+        (valid_parsed_problems, _, _, _, _,) = getattr(
+            domain_module, "load_problemset"
+        )(validset_dict)
+
+    def split_problems(problems):
+        num_problems_parsed = len(parsed_problems)
+        if num_problems_parsed < args.world_size:
+            raise Exception(
+                f"Number of problems '{num_problems_parsed}' must be greater than world size '{args.world_size}'"
+            )
+
+        for p in parsed_problems:
+            if p.domain.is_goal(p.domain.initial_state):
+                raise Exception(f"Problem '{p.id}' initial state is a goal state")
+
+        problems_per_process = num_problems_parsed // args.world_size
+        problemsets = []
+        for proc in range(args.world_size):
+            problems_local = parsed_problems[
+                proc * problems_per_process : (proc + 1) * problems_per_process
+            ]
+            problemsets.append(problems_local)
+
+        num_remaining_problems = num_problems_parsed - (
+            problems_per_process * args.world_size
         )
+        if num_remaining_problems > 0:
+            for i, problem in enumerate(parsed_problems[-num_remaining_problems:]):
+                problemsets[i].append(problem)
 
-    for p in parsed_problems:
-        if p.domain.is_goal(p.domain.initial_state):
-            raise Exception(f"Problem '{p.id}' initial state is a goal state")
+        print(time.ctime(start_time))
+        print(f"Parsed {num_problems_parsed} problems")
+        if len(problemsets[0]) == len(problemsets[-1]):
+            print(
+                f"  Loading {problems_per_process} into each of {args.world_size} processes\n"
+            )
+        else:
+            print(
+                f"  Loading {len(problemsets[0])} into ranks 0-{num_remaining_problems - 1},\n"
+                f"          {problems_per_process} into ranks {num_remaining_problems}-{args.world_size - 1}\n"
+            )
+        return problemsets
 
-    problems_per_process = num_problems_parsed // args.world_size
-    problemsets = []
-    for proc in range(args.world_size):
-        problems_local = parsed_problems[
-            proc * problems_per_process : (proc + 1) * problems_per_process
-        ]
-        problemsets.append(problems_local)
+    problemsets = split_problems(parsed_problems)
 
-    num_remaining_problems = num_problems_parsed - (
-        problems_per_process * args.world_size
-    )
-    if num_remaining_problems > 0:
-        for i, problem in enumerate(parsed_problems[-num_remaining_problems:]):
-            problemsets[i].append(problem)
-
-    print(time.ctime(start_time))
-    print(f"Parsed {num_problems_parsed} problems")
-    if len(problemsets[0]) == len(problemsets[-1]):
-        print(
-            f"  Loading {problems_per_process} into each of {args.world_size} processes\n"
-        )
-    else:
-        print(
-            f"  Loading {len(problemsets[0])} into ranks 0-{num_remaining_problems - 1},\n"
-            f"          {problems_per_process} into ranks {num_remaining_problems}-{args.world_size - 1}\n"
-        )
+    validsets = None
+    if args.validset_path:
+        validsets = split_problems(valid_parsed_problems)
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
     problemset_params = (
@@ -456,7 +477,7 @@ if __name__ == "__main__":
         "double_backward": double_backward,
     }
     queue = None
-    if args.mode == "test":
+    if args.mode == "test" or args.validset_path:
         queue = mp.Queue()
 
     if is_distributed:
@@ -471,6 +492,7 @@ if __name__ == "__main__":
                     args,
                     problemsets[rank],
                     queue,
+                    validsets[rank] if validsets else None,
                 ),
             )
             problemsets[rank] = None
@@ -488,6 +510,7 @@ if __name__ == "__main__":
             args,
             problemsets[0],
             queue,
+            validsets[0] if validsets else None,
         )
 
     print(f"Total time: {time.time() - start_time}")

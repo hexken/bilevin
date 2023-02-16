@@ -657,9 +657,9 @@ def load_problemset(problemset: dict):
         )
         problems.append(problem)
 
-    num_actions = problems[0][1].num_actions
-    in_channels = problems[0][1].in_channels
-    state_t_width = problems[0][1].state_width
+    num_actions = problems[0].domain.num_actions
+    in_channels = problems[0].domain.in_channels
+    state_t_width = problems[0].domain.state_width
     double_backward = False
 
     return problems, num_actions, in_channels, state_t_width, double_backward

@@ -9,14 +9,19 @@ if TYPE_CHECKING:
     from search.utils import SearchNode, Trajectory
 
 
-Problem = namedtuple("Problem", "id domain")
+class Problem:
+    def __init__(self, id: int, domain: Domain):
+        self.id = id
+        self.domain = domain
+
+    def __hash__(self):
+        return self.id
+
+    def __eq__(self, other):
+        return self.id == other.id
 
 
 class State(ABC):
-    # @abstractmethod
-    # def __repr__(self):
-    #     pass
-
     @abstractmethod
     def __eq__(self) -> bool:
         pass

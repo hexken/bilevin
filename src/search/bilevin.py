@@ -32,7 +32,9 @@ class BiLevin(Agent):
         end_time=None,
     ):
         """ """
-        problem_id, f_domain = problem
+        problem_id = problem.id
+        f_domain = problem.domain
+
         b_domain = f_domain.backward_domain()
 
         f_state = f_domain.reset()

@@ -34,7 +34,9 @@ class Levin(Agent):
     ):
         """ """
 
-        id, domain = problem
+        problem_id = problem.id
+        domain = problem.domain
+
         state = domain.reset()
         state_t = domain.state_tensor(state).unsqueeze(0)
 
@@ -123,7 +125,7 @@ class Levin(Agent):
                 children_to_be_evaluated = []
                 state_t_of_children_to_be_evaluated = []
 
-        print(f"Emptied frontier for problem {id}")
+        print(f"Emptied frontier for problem {problem_id}")
         return 0, num_expanded, num_generated, None
 
 

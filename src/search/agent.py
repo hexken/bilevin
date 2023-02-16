@@ -16,5 +16,5 @@ class Agent(ABC):
         pass
 
     @abstractmethod
-    def search(self, problem: tuple[int, Domain]):
+    def search(self):
         pass

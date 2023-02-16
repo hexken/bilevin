@@ -1,26 +1,30 @@
 import math
-import sys
 import os
 from pathlib import Path
 import random
+import sys
 import time
 from typing import Callable, Type, Union
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
+from test import test
 import torch as to
 import torch.distributed as dist
+from torch.multiprocessing import Queue
 from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
 
 from domains.domain import Domain, Problem
 from search import MergedTrajectory
+from search.agent import Agent
 
 
 def train(
-    rank,
-    agent,
+    rank: int,
+    agent: Agent,
     model: Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]],
     model_save_path: Path,
     loss_fn: Callable,
@@ -35,6 +39,8 @@ def train(
     seed: int,
     grad_steps: int = 10,
     shuffle_trajectory=False,
+    valid_problems: Optional[list[Problem]] = None,
+    results_queue: Optional[Queue] = None,
 ):
     current_budget = initial_budget
     dummy_last = False
@@ -183,7 +189,7 @@ def train(
                     problem.domain.reset()
 
                 # todo handle single state trajectories, they break batchnorm layers
-                local_batch_search_results[i, 0] = problem[0]
+                local_batch_search_results[i, 0] = problem.id
                 local_batch_search_results[i, 1] = solution_length
                 local_batch_search_results[i, 2] = num_expanded
                 local_batch_search_results[i, 3] = num_generated
@@ -241,7 +247,6 @@ def train(
                     f"Solved {num_problems_solved_this_batch}/{num_problems_this_batch}\n"
                 )
                 total_num_expanded += world_batch_results_df["NumExpanded"].sum()
-                print(total_num_expanded)
                 writer.add_scalar(
                     "cum_unique_solved_vs_expanded",
                     len(solved_problems),
@@ -392,7 +397,7 @@ def train(
                     f"Average backward loss: {epoch_b_loss:5.3f}, acc: {epoch_b_acc:5.3f}"
                 )
             print(
-                "============================================================================\n"
+                "============================================================================"
             )
 
             # fmt: off
@@ -409,6 +414,32 @@ def train(
             world_results_df.to_csv(f"{writer.log_dir}/epoch_{epoch}.csv")
             # fmt: on
             sys.stdout.flush()
+
+        if valid_problems:
+            if rank == 0:
+                print("Validating...")
+            dist.barrier()
+            valid_results = test(
+                rank,
+                agent,
+                model,
+                valid_problems,
+                writer,
+                world_size,
+                update_levin_costs,
+                current_budget,
+                results_queue,
+                increase_budget=False,
+                validate=True,
+                epoch=epoch,
+            )
+
+            if rank == 0:
+                valid_solve_rate, valid_total_num_expanded = valid_results
+                print(f"Solve rate: {valid_solve_rate}")
+                print(f"Total num expanded: {valid_total_num_expanded}")
+
+            dist.barrier()
 
         if num_new_problems_solved_this_epoch == 0:
             current_budget *= 2
