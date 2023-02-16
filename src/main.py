@@ -522,5 +522,3 @@ if __name__ == "__main__":
             queue,
             validsets[0] if validsets else None,
         )
-
-    print(f"Total time: {time.time() - start_time}")
