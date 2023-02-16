@@ -416,7 +416,6 @@ def train(
             if rank == 0:
                 print("Validating...")
             dist.barrier()
-            # we also synchronize inside test before returning
             valid_results = test(
                 rank,
                 agent,

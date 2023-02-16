@@ -247,7 +247,8 @@ def test(
             fname = f"{writer.log_dir}/valid_{epoch}.csv"
         else:
             fname = f"{writer.log_dir}/results.csv"
-            world_results_df.to_csv(fname)
+
+        world_results_df.to_csv(fname)
         return len(world_solved_problems) / world_num_problems, total_num_expanded
 
     return None
