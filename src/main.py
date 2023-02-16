@@ -10,16 +10,16 @@ from typing import Optional
 import numpy as np
 from test import test
 import torch as to
-import torch.nn as nn
 import torch.distributed as dist
 import torch.multiprocessing as mp
+import torch.nn as nn
 from torch.utils.tensorboard.writer import SummaryWriter
 import wandb
 
 import domains
 from models import ConvNetDouble, ConvNetSingle
 import models.loss_functions as loss_fns
-from search import BiLevin, Levin, BiBS
+from search import BiBS, BiLevin, Levin
 from search.agent import Agent
 from train import train
 
@@ -75,7 +75,14 @@ def parse_args():
         "--grad-steps",
         type=int,
         default=10,
-        help="number of gradient steps to be performed in each iteration of the Bootstrap system",
+        help="number of gradient steps to be performed in each opt pass",
+    )
+    parser.add_argument(
+        "-e",
+        "--epohcs",
+        type=int,
+        default=10,
+        help="number of epochs to train for",
     )
     parser.add_argument(
         "--shuffle-trajectory",
@@ -108,10 +115,10 @@ def parse_args():
         help="port for multiprocessing communication",
     )
     parser.add_argument(
-        "--batch-size-bootstrap",
+        "--batch-size-train",
         type=int,
         default=32,
-        help="number of problems to batch during bootstrap procedure",
+        help="number of problems to batch during",
     )
     parser.add_argument(
         "--batch-size-print",
@@ -123,8 +130,7 @@ def parse_args():
         "--initial-budget",
         type=int,
         default=2**10,
-        help="initial budget (nodes expanded) allowed to the bootstrap procedure, or just a budget\
-         allowed a non-bootstrap search",
+        help="initial budget (nodes expanded) to solve a problem",
     )
     parser.add_argument(
         "--time-limit-overall",
@@ -345,7 +351,7 @@ def run(rank, run_name, model_args, args, problemset, queue, validset):
             "weight_decay": args.weight_decay,
         }
 
-        local_batch_size = args.batch_size_bootstrap // args.world_size
+        local_batch_size = args.batch_size_train // args.world_size
 
         train(
             rank,
@@ -360,7 +366,7 @@ def run(rank, run_name, model_args, args, problemset, queue, validset):
             writer,
             args.world_size,
             args.update_levin_costs,
-            initial_budget=args.initial_budget,
+            budget=args.initial_budget,
             seed=local_seed,
             grad_steps=args.grad_steps,
             shuffle_trajectory=args.shuffle_trajectory,
@@ -391,13 +397,13 @@ if __name__ == "__main__":
     is_distributed = args.world_size > 1
 
     if args.mode == "train":
-        if args.batch_size_bootstrap < args.world_size:
+        if args.batch_size_train < args.world_size:
             raise ValueError(
-                f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be >= world_size {args.world_size}"
+                f"batch-size-train'{args.batch_size_train}' must be >= world_size {args.world_size}"
             )
-        if args.batch_size_bootstrap % args.world_size != 0:
+        if args.batch_size_train % args.world_size != 0:
             raise ValueError(
-                f"batch-size-bootstrap '{args.batch_size_bootstrap}' must be a multiple of world_size {args.world_size}"
+                f"batch-size-train '{args.batch_size_train}' must be a multiple of world_size {args.world_size}"
             )
 
     start_time = time.time()

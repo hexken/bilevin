@@ -35,14 +35,14 @@ def train(
     writer: SummaryWriter,
     world_size: int,
     update_levin_costs: bool,
-    initial_budget: int,
+    budget: int,
     seed: int,
     grad_steps: int = 10,
-    shuffle_trajectory=False,
+    epochs: int = 10,
+    shuffle_trajectory: bool = False,
     valid_problems: Optional[list[Problem]] = None,
     results_queue: Optional[Queue] = None,
 ):
-    current_budget = initial_budget
     dummy_last = False
 
     if world_size > 1:
@@ -62,8 +62,8 @@ def train(
         world_num_problems / (local_batch_size * world_size)
     )
 
-    # try to log at most 10k histograms per param, assuming an upper bound of 100 epochs
-    param_log_interval = max(1, int(world_batches_per_epoch / 200))
+    # try to log at least 10_000  histograms per param
+    param_log_interval = int(max(1, 10_000 / epochs))
 
     search_result_header = [
         "ProblemId",
@@ -92,8 +92,8 @@ def train(
     if bidirectional:
         assert isinstance(model, tuple)
         f_model, b_model = model
-        f_model_save_path = model_save_path / "forward.pt"
-        b_model_save_path = model_save_path / "backward.pt"
+        f_model_save_path = model_save_path / "forward_best.pt"
+        b_model_save_path = model_save_path / "backward_best.pt"
 
         forward_optimizer = optimizer_cons(f_model.parameters(), **optimizer_params)
         backward_optimizer = optimizer_cons(b_model.parameters(), **optimizer_params)
@@ -104,7 +104,7 @@ def train(
     else:
         assert isinstance(model, to.nn.Module)
         f_model = model
-        f_model_save_path = model_save_path / "forward.pt"
+        f_model_save_path = model_save_path / "forward_best.pt"
         forward_optimizer = optimizer_cons(f_model.parameters(), **optimizer_params)
 
     for param in f_model.parameters():
@@ -130,7 +130,6 @@ def train(
     ]
 
     batches_seen = 0
-    epoch = 0
     solved_problems = set()
     total_num_expanded = 0
     forward_opt_steps = 0
@@ -141,9 +140,9 @@ def train(
     world_epoch_b_loss = np.zeros(world_batches_per_epoch)
     world_epoch_b_acc = np.zeros(world_batches_per_epoch)
 
-    while len(solved_problems) < world_num_problems:
-        epoch += 1
+    best_valid_solve_rate = 0.0
 
+    for epoch in range(1, epochs + 1):
         num_new_problems_solved_this_epoch = 0
         num_problems_solved_this_epoch = 0
 
@@ -151,7 +150,8 @@ def train(
             print(
                 "============================================================================"
             )
-            print(f"START EPOCH {epoch} BUDGET {current_budget}")
+            # print(f"START EPOCH {epoch} BUDGET {budget}")
+            print(f"START EPOCH {epoch}")
             print(
                 "============================================================================\n"
             )
@@ -180,7 +180,7 @@ def train(
                 (solution_length, num_expanded, num_generated, traj,) = agent.search(
                     problem,
                     model,
-                    current_budget,
+                    budget,
                     update_levin_costs,
                     train=True,
                 )
@@ -335,6 +335,7 @@ def train(
                     print("")
                 return opt_step, loss, acc
 
+            # todo more clear way to do this?
             idx = (batches_seen % world_batches_per_epoch) - 1
 
             forward_opt_steps, f_loss, f_acc = fit_model(
@@ -359,19 +360,15 @@ def train(
                 world_epoch_b_acc[idx] = b_acc
 
             if rank == 0:
-                if (
-                    batches_seen % param_log_interval == 0
-                    or len(solved_problems) == world_num_problems
-                ):
-                    to.save(f_model.state_dict(), f_model_save_path)
-                    log_params(writer, f_model, "forward", batches_seen)
+                if batches_seen % param_log_interval == 0:
+                    log_params(writer, f_model, "forward", 0)
                     if bidirectional:
-                        to.save(b_model.state_dict(), b_model_save_path)
-                        log_params(writer, b_model, "backward", batches_seen)
+                        log_params(writer, b_model, "backward", 0)
 
                 batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                 # fmt: off
-                writer.add_scalar(f"budget_{current_budget}/solved_vs_batch", batch_avg, batches_seen)
+                # writer.add_scalar(f"{budget}/solved_vs_batch", batch_avg, batches_seen)
+                writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
                 writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
                 # fmt: on
                 sys.stdout.flush()
@@ -386,7 +383,8 @@ def train(
             print(
                 "============================================================================"
             )
-            print(f"END EPOCH {epoch} BUDGET {current_budget}")
+            # print(f"END EPOCH {epoch} BUDGET {budget}")
+            print(f"END EPOCH {epoch}")
             print(
                 f"CURRENT {num_problems_solved_this_epoch}/{world_num_problems}\n"
                 f"OVERALL {len(solved_problems)}/{world_num_problems}, +{num_new_problems_solved_this_epoch}, {world_num_problems - len(solved_problems)} remaining\n"
@@ -401,8 +399,9 @@ def train(
             )
 
             # fmt: off
-            writer.add_scalar("budget_vs_epoch", current_budget, epoch)
-            writer.add_scalar(f"budget_{current_budget}/solved_vs_epoch", epoch_solved, epoch)
+            # writer.add_scalar("budget_vs_epoch", budget, epoch)
+            # writer.add_scalar(f"budget_{budget}/solved_vs_epoch", epoch_solved, epoch)
+            writer.add_scalar(f"solved_vs_epoch", epoch_solved, epoch)
             writer.add_scalar("cum_unique_solved_vs_epoch", len(solved_problems), epoch)
 
             writer.add_scalar(f"loss_vs_epoch/forward", epoch_f_loss, epoch)
@@ -427,7 +426,7 @@ def train(
                 writer,
                 world_size,
                 update_levin_costs,
-                current_budget,
+                budget,
                 results_queue,
                 increase_budget=False,
                 validate=True,
@@ -438,11 +437,28 @@ def train(
                 valid_solve_rate, valid_total_num_expanded = valid_results
                 print(f"Solve rate: {valid_solve_rate}")
                 print(f"Total num expanded: {valid_total_num_expanded}")
+                # writer.add_scalar(f"budget_{budget}/valid_solve_rate", valid_solve_rate, epoch)
+                writer.add_scalar(f"valid_solved_vs_epoch", valid_solve_rate, epoch)
+
+                if valid_solve_rate > best_valid_solve_rate:
+                    best_valid_solve_rate = valid_solve_rate
+                    print("Saving best model...")
+                    writer.add_text("best_model", f"epoch {epoch}")
+                    to.save(
+                        f_model.state_dict(), f_model_save_path.with_name("_best.pt")
+                    )
+                    if bidirectional:
+                        to.save(
+                            b_model.state_dict(),
+                            b_model_save_path.with_name("_best.pt"),
+                        )
 
             dist.barrier()
 
-        if num_new_problems_solved_this_epoch == 0:
-            current_budget *= 2
+    if rank == 0:
+        to.save(f_model.state_dict(), f_model_save_path)
+        if bidirectional:
+            to.save(b_model.state_dict(), b_model_save_path)
 
 
 class ProblemsBatchLoader:
