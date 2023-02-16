@@ -62,8 +62,9 @@ def train(
         world_num_problems / (local_batch_size * world_size)
     )
 
-    # try to log at least 10_000  histograms per param
-    param_log_interval = int(max(1, 10_000 / epochs))
+    # log at most 10_000  histograms per param
+    total_batches = world_batches_per_epoch * epochs
+    param_log_interval = int(max(1, total_batches / 10_000))
 
     search_result_header = [
         "ProblemId",
@@ -125,7 +126,7 @@ def train(
     )
 
     local_batch_opt_results = to.zeros(3, dtype=to.float64)
-    world_batch_results = [
+    world_batch_search_results = [
         to.zeros((local_batch_size, 5), dtype=to.int64) for _ in range(world_size)
     ]
 
@@ -159,7 +160,7 @@ def train(
         if rank == 0:
             problems_loader = tqdm.tqdm(problems_loader, total=world_batches_per_epoch)
 
-        for local_batch_problems in problems_loader:
+        for batch_idx, local_batch_problems in enumerate(problems_loader):
             batches_seen += 1
 
             if rank == 0:
@@ -201,8 +202,8 @@ def train(
                         backward_trajs.append(traj[1])
 
             if world_size > 1:
-                dist.all_gather(world_batch_results, local_batch_search_results)
-                world_batch_results_t = to.cat(world_batch_results, dim=0)
+                dist.all_gather(world_batch_search_results, local_batch_search_results)
+                world_batch_results_t = to.cat(world_batch_search_results, dim=0)
             else:
                 world_batch_results_t = local_batch_search_results
 
@@ -335,9 +336,6 @@ def train(
                     print("")
                 return opt_step, loss, acc
 
-            # todo more clear way to do this?
-            idx = (batches_seen % world_batches_per_epoch) - 1
-
             forward_opt_steps, f_loss, f_acc = fit_model(
                 f_model,
                 forward_optimizer,
@@ -345,8 +343,8 @@ def train(
                 forward_opt_steps,
                 name="forward",
             )
-            world_epoch_f_loss[idx] = f_loss
-            world_epoch_f_acc[idx] = f_acc
+            world_epoch_f_loss[batch_idx] = f_loss
+            world_epoch_f_acc[batch_idx] = f_acc
 
             if bidirectional:
                 backward_opt_steps, b_loss, b_acc = fit_model(
@@ -356,8 +354,8 @@ def train(
                     backward_opt_steps,  # type:ignore
                     name="backward",
                 )
-                world_epoch_b_loss[idx] = b_loss
-                world_epoch_b_acc[idx] = b_acc
+                world_epoch_b_loss[batch_idx] = b_loss
+                world_epoch_b_acc[batch_idx] = b_acc
 
             if rank == 0:
                 if batches_seen % param_log_interval == 0:
@@ -418,6 +416,7 @@ def train(
             if rank == 0:
                 print("Validating...")
             dist.barrier()
+            # we also synchronize inside test before returning
             valid_results = test(
                 rank,
                 agent,
@@ -434,27 +433,32 @@ def train(
             )
 
             if rank == 0:
-                valid_solve_rate, valid_total_num_expanded = valid_results
+                valid_solve_rate, valid_total_expanded = valid_results
                 print(f"Solve rate: {valid_solve_rate}")
-                print(f"Total num expanded: {valid_total_num_expanded}")
+                print(f"Total num expanded: {valid_total_expanded}")
                 # writer.add_scalar(f"budget_{budget}/valid_solve_rate", valid_solve_rate, epoch)
                 writer.add_scalar(f"valid_solved_vs_epoch", valid_solve_rate, epoch)
+                writer.add_scalar(
+                    f"valid_expanded_vs_epoch", valid_total_expanded, epoch
+                )
 
                 if valid_solve_rate > best_valid_solve_rate:
                     best_valid_solve_rate = valid_solve_rate
                     print("Saving best model...")
                     writer.add_text("best_model", f"epoch {epoch}")
                     to.save(
-                        f_model.state_dict(), f_model_save_path.with_name("_best.pt")
+                        f_model.state_dict(),
+                        f_model_save_path.with_name("forward_best.pt"),
                     )
                     if bidirectional:
                         to.save(
                             b_model.state_dict(),
-                            b_model_save_path.with_name("_best.pt"),
+                            b_model_save_path.with_name("backward_best.pt"),
                         )
 
             dist.barrier()
 
+    # all epochs completed
     if rank == 0:
         to.save(f_model.state_dict(), f_model_save_path)
         if bidirectional:

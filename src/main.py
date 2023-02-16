@@ -387,7 +387,11 @@ def run(rank, run_name, model_args, args, problemset, queue, validset):
             args.batch_size_print,
         )
         queue.close()
+
     if rank == 0:
+        total_time = time.time() - start_time
+        print(f"Total time: {total_time:.2f} seconds")
+        writer.add_text("total_time", f"{total_time:.2f} seconds")
         writer.close()
 
 
