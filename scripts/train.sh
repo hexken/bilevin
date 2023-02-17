@@ -3,7 +3,7 @@
 export OMP_NUM_THREADS=1
 
 python src/main.py \
-    --world-size 32 \
+    --world-size 4 \
     --mode train \
     --agent BiLevin \
     --loss levin_loss \
@@ -12,7 +12,7 @@ python src/main.py \
     --validset-path problems/witness/4w4c/100.json \
     --initial-budget 2000 \
     --grad-steps 10 \
-    --batch-size-train 32 \
+    --batch-size-train 4 \
     --seed 1 \
     --wandb-mode offline \
     # --exp-name "_orig" \
