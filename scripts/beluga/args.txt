@@ -1,0 +1,2 @@
+runs/wit_bilevin_runs/Witness-4w4c-50000-original_BiLevin-2000_avggrads_NObn_l2_g10_lr001_1_1676355408 avggrads_NObn_l2_g10_lr001_1
+runs/wit_bilevin_runs/Witness-4w4c-50000-original_BiLevin-2000_avggrads_NObn_l2_g10_lr001_2_1676356312 avggrads_NObn_l2_g10_lr001_2
