@@ -252,8 +252,9 @@ def train(
                     f"Solved {num_problems_solved_this_batch}/{num_problems_this_batch}\n"
                 )
                 total_num_expanded += world_batch_results_df["NumExpanded"].sum()
+
                 writer.add_scalar(
-                    "cum_unique_solved_vs_expanded",
+                    "cum_unique_solved_vs_expanded/train",
                     len(solved_problems),
                     total_num_expanded,
                 )

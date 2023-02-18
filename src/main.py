@@ -239,8 +239,7 @@ def run(rank, run_name, model_args, args, problemset, queue, validset):
         )
 
     else:
-        writer = SummaryWriter()
-        writer.close()
+        writer = None
 
     local_seed = args.seed + rank
     random.seed(local_seed)
@@ -394,6 +393,7 @@ def run(rank, run_name, model_args, args, problemset, queue, validset):
         print(f"Total time: {total_time:.2f} seconds")
         writer.add_text("total_time", f"{total_time:.2f} seconds")
         writer.close()
+        wandb.finish()
 
 
 if __name__ == "__main__":

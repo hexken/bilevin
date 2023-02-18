@@ -169,7 +169,7 @@ def test(
         total_num_expanded += world_batch_df["NumExpanded"].sum()
 
         writer.add_scalar(
-            f"cum_unique_solved_vs_expanded",
+            f"cum_unique_solved_vs_expanded/valid",
             len(world_solved_problems),
             total_num_expanded,
         )

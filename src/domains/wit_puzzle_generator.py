@@ -147,6 +147,7 @@ def main():
             problem["colored_cells"] = colored_cells
             problem_str = str(problem)
             if problem_str in problem_specs:
+                print("duplicate")
                 continue
             else:
                 problem_specs.add(problem_str)
