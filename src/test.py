@@ -168,11 +168,12 @@ def test(
         nonlocal total_num_expanded
         total_num_expanded += world_batch_df["NumExpanded"].sum()
 
-        writer.add_scalar(
-            f"cum_unique_solved_vs_expanded/valid",
-            len(world_solved_problems),
-            total_num_expanded,
-        )
+        if not validate:
+            writer.add_scalar(
+                f"cum_unique_solved_vs_expanded",
+                len(world_solved_problems),
+                total_num_expanded,
+            )
 
         world_results_df.loc[batch_solved_df.index, :] = batch_solved_df
 
