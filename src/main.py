@@ -79,7 +79,7 @@ def parse_args():
     )
     parser.add_argument(
         "-e",
-        "--epohcs",
+        "--epochs",
         type=int,
         default=10,
         help="number of epochs to train for",
@@ -369,6 +369,7 @@ def run(rank, run_name, model_args, args, problemset, queue, validset):
             budget=args.initial_budget,
             seed=local_seed,
             grad_steps=args.grad_steps,
+            epochs=args.epochs,
             shuffle_trajectory=args.shuffle_trajectory,
             valid_problems=validset,
             results_queue=queue,

@@ -1,4 +1,5 @@
 import queue
+import sys
 import time
 from typing import Optional, Union
 
@@ -161,6 +162,8 @@ def test(
             pbar.update(len(world_batch_df))
         else:
             pbar.update(len(batch_solved_df))
+
+        sys.stdout.flush()
 
         nonlocal total_num_expanded
         total_num_expanded += world_batch_df["NumExpanded"].sum()

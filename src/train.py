@@ -1,7 +1,6 @@
 import math
-import os
+from math import isclose
 from pathlib import Path
-import random
 import sys
 import time
 from typing import Callable, Type, Union
@@ -14,10 +13,11 @@ from test import test
 import torch as to
 import torch.distributed as dist
 from torch.multiprocessing import Queue
+from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
 
-from domains.domain import Domain, Problem
+from domains.domain import Problem
 from search import MergedTrajectory
 from search.agent import Agent
 
@@ -98,6 +98,8 @@ def train(
 
         forward_optimizer = optimizer_cons(f_model.parameters(), **optimizer_params)
         backward_optimizer = optimizer_cons(b_model.parameters(), **optimizer_params)
+        # forward_scheduler = StepLR(forward_optimizer, step_size=5, gamma=0.1)
+        # backward_scheduler = StepLR(backward_optimizer, step_size=5, gamma=0.1)
 
         for param in b_model.parameters():
             if not param.grad:
@@ -107,6 +109,7 @@ def train(
         f_model = model
         f_model_save_path = model_save_path / "forward_best.pt"
         forward_optimizer = optimizer_cons(f_model.parameters(), **optimizer_params)
+        # forward_scheduler = StepLR(forward_optimizer, step_size=5, gamma=0.1)
 
     for param in f_model.parameters():
         if not param.grad:
@@ -142,6 +145,7 @@ def train(
     world_epoch_b_acc = np.zeros(world_batches_per_epoch)
 
     best_valid_solve_rate = 0.0
+    best_valid_total_expanded = world_num_problems * budget
 
     for epoch in range(1, epochs + 1):
         num_new_problems_solved_this_epoch = 0
@@ -441,8 +445,12 @@ def train(
                     f"valid_expanded_vs_epoch", valid_total_expanded, epoch
                 )
 
-                if valid_solve_rate > best_valid_solve_rate:
+                if valid_solve_rate > best_valid_solve_rate or (
+                    isclose(valid_solve_rate, best_valid_solve_rate)
+                    and valid_total_expanded < best_valid_total_expanded
+                ):
                     best_valid_solve_rate = valid_solve_rate
+                    best_valid_total_expanded = valid_total_expanded
                     print("Saving best model...")
                     writer.add_text("best_model", f"epoch {epoch}")
                     to.save(
@@ -456,6 +464,12 @@ def train(
                         )
 
             dist.barrier()
+
+        # todo clean this up
+        if epoch == 5:
+            forward_optimizer.param_groups[0]["lr"] *= 0.1
+            if bidirectional:
+                backward_optimizer.param_groups[0]["lr"] *= 0.1
 
     # all epochs completed
     if rank == 0:
