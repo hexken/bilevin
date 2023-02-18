@@ -430,20 +430,20 @@ if __name__ == "__main__":
         )(validset_dict)
 
     def split_problems(problems):
-        num_problems_parsed = len(parsed_problems)
+        num_problems_parsed = len(problems)
         if num_problems_parsed < args.world_size:
             raise Exception(
                 f"Number of problems '{num_problems_parsed}' must be greater than world size '{args.world_size}'"
             )
 
-        for p in parsed_problems:
+        for p in problems:
             if p.domain.is_goal(p.domain.initial_state):
                 raise Exception(f"Problem '{p.id}' initial state is a goal state")
 
         problems_per_process = num_problems_parsed // args.world_size
         problemsets = []
         for proc in range(args.world_size):
-            problems_local = parsed_problems[
+            problems_local = problems[
                 proc * problems_per_process : (proc + 1) * problems_per_process
             ]
             problemsets.append(problems_local)
@@ -452,7 +452,7 @@ if __name__ == "__main__":
             problems_per_process * args.world_size
         )
         if num_remaining_problems > 0:
-            for i, problem in enumerate(parsed_problems[-num_remaining_problems:]):
+            for i, problem in enumerate(problems[-num_remaining_problems:]):
                 problemsets[i].append(problem)
 
         print(time.ctime(start_time))
