@@ -56,21 +56,17 @@ class Trajectory:
         node = final_node.parent
         states = []
         actions = []
-        cost_to_gos = []
-        cost = 1
 
         while node:
             state_t = domain.state_tensor(node.state)
             states.append(state_t)
             actions.append(action)
-            cost_to_gos.append(cost)
             action = node.parent_action
             node = node.parent
-            cost += 1
 
         self.states = to.stack(states[::-1])
         self.actions = to.tensor(actions[::-1])
-        self.cost_to_gos = to.tensor(cost_to_gos[::-1])
+        self.cost_to_gos = to.arange(len(self.states), 0, -1)
 
     def __len__(self):
         return len(self.states)
