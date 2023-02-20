@@ -85,6 +85,13 @@ def parse_args():
         help="number of epochs to train for",
     )
     parser.add_argument(
+        "-r",
+        "--epochs-reduce-lr",
+        type=int,
+        default=5,
+        help="reduce learning rate by a factor of 10 after this many epochs",
+    )
+    parser.add_argument(
         "--shuffle-trajectory",
         action="store_true",
         help="shuffle trajectory states",
@@ -369,6 +376,7 @@ def run(rank, run_name, model_args, args, problemset, queue, validset):
             seed=local_seed,
             grad_steps=args.grad_steps,
             epochs=args.epochs,
+            epochs_reduce_lr=args.epochs_reduce_lr,
             shuffle_trajectory=args.shuffle_trajectory,
             valid_problems=validset,
             results_queue=queue,

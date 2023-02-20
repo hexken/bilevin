@@ -39,6 +39,7 @@ def train(
     seed: int,
     grad_steps: int = 10,
     epochs: int = 10,
+    epochs_reduce_lr: int = 5,
     shuffle_trajectory: bool = False,
     valid_problems: Optional[list[Problem]] = None,
     results_queue: Optional[Queue] = None,
@@ -467,10 +468,15 @@ def train(
             dist.barrier()
 
         # todo clean this up
-        if epoch == 5:
-            forward_optimizer.param_groups[0]["lr"] *= 0.1
+        if epoch == epochs_reduce_lr:
+            new_lr = forward_optimizer.param_groups[0]["lr"] * 0.1
+            if rank == 0:
+                print(
+                    f"Reducing learning rate from {forward_optimizer.param_groups[0]['lr']} to {new_lr}"
+                )
+            forward_optimizer.param_groups[0]["lr"] = new_lr
             if bidirectional:
-                backward_optimizer.param_groups[0]["lr"] *= 0.1
+                backward_optimizer.param_groups[0]["lr"] = new_lr
 
     # all epochs completed
     if rank == 0:
