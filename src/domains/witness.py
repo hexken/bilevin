@@ -157,10 +157,11 @@ class Witness(Domain):
             for j in range(self.width):
                 color = self.cells[i, j]
                 if color != 0:
-                    arr[color, i, j] = 1
+                    arr[
+                        color - 1, i, j
+                    ] = 1  # -1 because we don't encode the neutral color
 
         channel_number = self.max_num_colors
-
         # channels for the current path
         # vsegs
         for i in range(self.width):
@@ -388,36 +389,12 @@ class Witness(Domain):
         dir2_parent_node = dir2_common.parent
         dir2_parent_action = dir2_common.parent_action
         while dir2_parent_node:
-            dir1_state = dir1_node.state
-            new_state = WitnessState(
-                self.width, dir1_state.head_row, dir1_state.head_col, init_structs=False
-            )
-            new_state.v_segs = np.array(dir1_state.v_segs)
-            new_state.h_segs = np.array(dir1_state.h_segs)
-            new_state.grid = np.array(dir1_state.grid)
-            # new_state.grid[
-            #     dir2_parent_node.state.head_row, dir2_parent_node.state.head_col
-            # ] = 1
-
-            if dir2_parent_action == FourDir.UP:
-                new_state.v_segs[new_state.head_row - 1, new_state.head_col] = 1
-                new_state.head_row -= 1
-            elif dir2_parent_action == FourDir.DOWN:
-                new_state.v_segs[new_state.head_row, new_state.head_col] = 1
-                new_state.head_row += 1
-            elif dir2_parent_action == FourDir.RIGHT:
-                new_state.h_segs[new_state.head_row, new_state.head_col - 1] = 1
-                new_state.head_col -= 1
-            elif dir2_parent_action == FourDir.LEFT:
-                new_state.h_segs[new_state.head_row, new_state.head_col] = 1
-                new_state.head_col += 1
-            else:
-                raise ValueError("Invalid parent action")
-
+            action = self.reverse_action(dir2_parent_action)
+            new_state = self.result(dir1_node.state, action)
             new_dir1_node = node_type(
                 state=new_state,
                 parent=dir1_node,
-                parent_action=self.reverse_action(dir2_parent_action),
+                parent_action=action,
                 g_cost=dir1_node.g_cost + 1,
             )
             dir1_node = new_dir1_node
@@ -463,14 +440,18 @@ class Witness(Domain):
                 if self.forward:
                     f_common_node = node
                     b_common_node = other_node
+                    f_domain = self
+                    b_domain = other_domain
                 else:
                     f_common_node = other_node
                     b_common_node = node
+                    f_domain = other_domain
+                    b_domain = self
 
-                f_traj = self.get_merged_trajectory(
+                f_traj = f_domain.get_merged_trajectory(
                     f_common_node, b_common_node, type(node), num_expanded
                 )
-                b_traj = self.get_merged_trajectory(
+                b_traj = b_domain.get_merged_trajectory(
                     b_common_node, f_common_node, type(node), num_expanded
                 )
                 return (f_traj, b_traj)
@@ -482,19 +463,19 @@ class Witness(Domain):
         Should only be called on a fresh domain (no calls to update). Reverses a witness problem by
         reversing the head and goal (and updating grid to be consistent with this change).
         """
+        assert self.forward
+        assert len(self.heads) == 0
+
         b_domain = deepcopy(self)
-
-        b_domain.goal_row = self.start_row
-        b_domain.goal_col = self.start_col
-
-        b_domain.start_row = self.goal_row
-        b_domain.start_col = self.goal_col
 
         b_domain.initial_state.grid[self.start_row, self.start_col] = 0
         b_domain.initial_state.grid[self.goal_row, self.goal_col] = 1
 
         b_domain.initial_state.head_row = self.goal_row
         b_domain.initial_state.head_col = self.goal_col
+
+        b_domain.start_row = self.goal_row
+        b_domain.start_col = self.goal_col
 
         b_domain.goal_row = self.start_row
         b_domain.goal_col = self.start_col
