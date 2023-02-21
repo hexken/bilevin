@@ -46,8 +46,8 @@ class Levin(Agent):
         node = LevinNode(
             state,
             g_cost=0,
-            log_prob=1.0,
-            levin_cost=1,
+            log_prob=0.0,
+            levin_cost=0.0,
             log_action_probs=log_action_probs,
         )
 

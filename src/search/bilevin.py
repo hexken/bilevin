@@ -54,16 +54,16 @@ class BiLevin(Agent):
         f_start_node = LevinNode(
             f_state,
             g_cost=0,
-            log_prob=1.0,
-            levin_cost=1,
+            log_prob=0.0,
+            levin_cost=0.0,
             log_action_probs=f_log_action_probs,
         )
 
         b_start_node = LevinNode(
             b_state,
             g_cost=0,
-            log_prob=1.0,
-            levin_cost=1,
+            log_prob=0.0,
+            levin_cost=0.0,
             log_action_probs=b_log_action_probs,
         )
 
