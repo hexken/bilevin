@@ -12,6 +12,10 @@ from domains.witness import Witness
 
 
 def main():
+    """
+    Generate a dataset of Witness problems. A generated problem instance is only kept if
+    there least args.width // 2 colored regions of size at least 2, each with a unique color.
+    """
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -122,26 +126,28 @@ def main():
             if args.width == 10:
                 min_num_regions = 5
 
-            # todo should we allow regions to have the same color?
-            if len(regions) < min_num_regions or len(regions) > args.max_num_colors:
+            if len(regions) < min_num_regions:
                 continue
 
-            # fill each region with a color
-            colors = random.sample(range(1, args.max_num_colors + 1), len(regions))
+            # fill regions with colors, only keep sufficiently non empty ones
+            colors = random.choices(range(1, args.max_num_colors + 1), k=len(regions))
+            unique_colors_used = set()
             colored_cells = []
+            non_unit_regions_unique_colors = 0
             for region in regions:
                 region_arr = np.array(sorted(region))
                 region_mask = np.random.rand(len(region_arr)) < args.bullet_prob
                 region_arr = region_arr[region_mask]
                 if len(region_arr):
+                    color = colors.pop()
+                    if len(region_arr) > 1 and color not in unique_colors_used:
+                        non_unit_regions_unique_colors += 1
+                    unique_colors_used.add(color)
                     colored_cells.extend(
-                        [f"{row} {col} {colors[-1]}" for row, col in region_arr]
+                        [f"{row} {col} {color}" for row, col in region_arr]
                     )
-                    colors.pop()
 
-            # Only add if at least two colors were used
-            max_num_colors_used = len(regions) - len(colors)
-            if max_num_colors_used < 2:
+            if non_unit_regions_unique_colors < args.width // 2:
                 continue
 
             problem["colored_cells"] = colored_cells
