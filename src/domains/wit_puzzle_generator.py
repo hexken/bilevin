@@ -22,7 +22,7 @@ def main():
         "-o",
         "--output-path",
         type=lambda p: Path(p).absolute(),
-        help="path to save problem instances",
+        help="directory path to save problem instances",
     )
 
     parser.add_argument(
@@ -34,11 +34,22 @@ def main():
     )
 
     parser.add_argument(
-        "-n",
-        "--num-problems",
+        "--n-train",
+        type=int,
+        default=50000,
+        help="number of training puzzles to be generated",
+    )
+    parser.add_argument(
+        "--n-valid",
         type=int,
         default=1000,
-        help="number of training puzzles to be generated",
+        help="number of validation puzzles to be generated",
+    )
+    parser.add_argument(
+        "--n-test",
+        type=int,
+        default=1000,
+        help="number of testing puzzles to be generated",
     )
 
     parser.add_argument(
@@ -67,9 +78,10 @@ def main():
 
     args = parser.parse_args()
 
-    assert args.max_num_colors >= 2, "Number of colors must be at least 2"
+    if args.max_num_colors < 2:
+        raise ValueError("Number of colors must be at least 2")
 
-    args.output_path.parent.mkdir(parents=True, exist_ok=True)
+    args.output_path.mkdir(parents=True, exist_ok=True)
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -84,17 +96,13 @@ def main():
 
     problem_specs = set()
 
-    dataset = {
-        "domain_module": "witness",
-        "domain_name": "Witness",
-        "width": args.width,
-        "max_num_colors": args.max_num_colors,
-        "problems": [],
-    }
+    problems = []
 
     problem_id = 0
-    with tqdm(total=args.num_problems) as pbar:
-        while len(problem_specs) < args.num_problems:
+    total_num_problems = args.n_train + args.n_valid + args.n_test
+
+    with tqdm(total=total_num_problems) as pbar:
+        while len(problem_specs) < total_num_problems:
             head_at_goal = False
             goal = random.choice(goals)
             problem = {
@@ -159,11 +167,27 @@ def main():
                 problem_specs.add(problem_str)
                 problem["id"] = problem_id
                 problem_id += 1
-                dataset["problems"].append(problem)
+                problems.append(problem)
                 pbar.update()
 
-    with args.output_path.open("w") as f:
-        json.dump(dataset, f, indent=2)
+    dataset = {
+        "domain_module": "witness",
+        "domain_name": "Witness",
+        "width": args.width,
+        "max_num_colors": args.max_num_colors,
+    }
+
+    for n, suffix in [
+        (args.n_train, "train"),
+        (args.n_valid, "valid"),
+        (args.n_test, "test"),
+    ]:
+        if n > 0:
+            dataset["problems"] = problems[:n]
+            path = args.output_path / f"{n}-{suffix}.json"
+            with path.open("w") as f:
+                json.dump(dataset, f, indent=2)
+            problems = problems[n:]
 
 
 def connected_components(wit, wit_state):
