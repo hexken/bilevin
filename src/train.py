@@ -45,8 +45,9 @@ def train(
     results_queue: Optional[Queue] = None,
 ):
     dummy_last = False
+    is_distributed = world_size > 1
 
-    if world_size > 1:
+    if is_distributed:
         sh_t = to.zeros(1, dtype=to.int64) + len(problems)
         dist.all_reduce(sh_t, dist.ReduceOp.SUM)
         world_num_problems = int(sh_t[0].item())
@@ -182,6 +183,8 @@ def train(
             num_problems_solved_this_batch = 0
             local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int64)
             for i, problem in enumerate(local_batch_problems):
+                # problem.domain.plot(problem.domain.initial_state)
+                # continue
                 start_time = time.time()
                 (solution_length, num_expanded, num_generated, traj,) = agent.search(
                     problem,
@@ -206,7 +209,7 @@ def train(
                     if bidirectional:
                         backward_trajs.append(traj[1])
 
-            if world_size > 1:
+            if is_distributed:
                 dist.all_gather(world_batch_search_results, local_batch_search_results)
                 world_batch_results_t = to.cat(world_batch_search_results, dim=0)
             else:
@@ -294,7 +297,7 @@ def train(
                     else:
                         local_batch_opt_results[:] = 0
 
-                    if world_size > 1:
+                    if is_distributed:
                         dist.all_reduce(local_batch_opt_results, op=dist.ReduceOp.SUM)
                         num_procs_found_solution = int(
                             local_batch_opt_results[2].item()
@@ -421,7 +424,8 @@ def train(
         if valid_problems:
             if rank == 0:
                 print("Validating...")
-            dist.barrier()
+            if is_distributed:
+                dist.barrier()
             valid_results = test(
                 rank,
                 agent,
@@ -465,7 +469,8 @@ def train(
                             b_model_save_path.with_name("backward_best.pt"),
                         )
 
-            dist.barrier()
+            if is_distributed:
+                dist.barrier()
 
         # todo clean this up
         if epoch == epochs_reduce_lr:

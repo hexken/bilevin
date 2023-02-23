@@ -231,7 +231,7 @@ def test(
                 else:
                     sync_toggle = True
 
-        if validate:
+        if validate and is_distributed:
             dist.barrier()
 
         if rank == 0:
