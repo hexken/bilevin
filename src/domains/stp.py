@@ -81,33 +81,19 @@ class SlidingTilePuzzle(Domain):
 
     @property
     def in_channels(self) -> int:
-        return self.num_tiles
+        return 1
 
     def state_tensor(
         self,
         state: SlidingTilePuzzleState,
     ) -> to.Tensor:
-        arr = np.zeros((self.num_tiles, self.width, self.width), dtype=np.float32)
-        indices = state.tiles.reshape(-1)
-        arr[
-            indices,
-            self._row_indices,
-            self._col_indices,
-        ] = 1
-
-        return to.from_numpy(arr)
+        return to.from_numpy(state.tiles)
 
     def backward_state_tensor(
         self,
         state: SlidingTilePuzzleState,
     ) -> to.Tensor:
-        arr = np.zeros((self.num_tiles, self.width, self.width), dtype=np.float32)
-        arr[
-            state.tiles.reshape(-1),
-            self._row_indices,
-            self._col_indices,
-        ] = 1
-        return to.stack((to.from_numpy(arr), self.initial_state_t))
+        return to.stack((to.from_numpy(state.tiles), self.initial_state_t))
 
     def reverse_action(self, action: FourDir) -> FourDir:
         if action == FourDir.UP:
@@ -257,7 +243,7 @@ def load_problemset(problemset: dict):
     problems = []
     goal_tiles = np.arange(width**2).reshape(width, width)
     for p_dict in problemset["problems"]:
-        init_tiles = np.array(p_dict["tiles"])
+        init_tiles = np.array(p_dict["tiles"], dtype=np.float32)
         problem = Problem(
             id=p_dict["id"],
             domain=SlidingTilePuzzle(init_tiles=init_tiles, goal_tiles=goal_tiles),
