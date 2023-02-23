@@ -47,6 +47,12 @@ def parse_args():
         help="path of directory to load previously saved model(s) from",
     )
     parser.add_argument(
+        "--model-suffix",
+        type=str,
+        default="best",
+        help="suffix of model to load, i.e. forward_[suffix].pt",
+    )
+    parser.add_argument(
         "-l",
         "--loss-fn",
         type=str,
@@ -138,18 +144,6 @@ def parse_args():
         type=int,
         default=2**10,
         help="initial budget (nodes expanded) to solve a problem",
-    )
-    parser.add_argument(
-        "--time-limit-overall",
-        type=int,
-        default="6000",
-        help="time limit in seconds for solving whole problem set",
-    )
-    parser.add_argument(
-        "--time-limit-each",
-        type=int,
-        default="300",
-        help="time limit in seconds for solving each problem",
     )
     parser.add_argument(
         "--mode",
@@ -321,11 +315,13 @@ def run(rank, run_name, model_args, args, problemset, queue, validset):
                     for param in backward_model.parameters():
                         dist.broadcast(param.data, 0)
         elif args.model_path.is_dir():
-            forward_model_path = args.model_path / "forward.pt"
+            forward_model_path = args.model_path / f"forward_{args.model_suffix}.pt"
             forward_model.load_state_dict(to.load(forward_model_path))
             if agent.bidirectional:
                 assert isinstance(backward_model, nn.Module)
-                backward_model_path = args.model_path / "backward.pt"
+                backward_model_path = (
+                    args.model_path / f"backward_{args.model_suffix}.pt"
+                )
                 backward_model.load_state_dict(to.load(backward_model_path))
 
             if rank == 0:
@@ -384,15 +380,20 @@ def run(rank, run_name, model_args, args, problemset, queue, validset):
 
     elif args.mode == "test":
         test(
+            rank,
             agent,
             model,
             problemset,
             writer,
             args.world_size,
-            False,
-            args.initial_budget,
-            queue,
-            args.batch_size_print,
+            update_levin_costs=args.update_levin_costs,
+            initial_budget=args.initial_budget,
+            results_queue=queue,
+            increase_budget=True,
+            print_batch_size=args.world_size,
+            print_results=True,
+            validate=False,
+            epoch=None,
         )
         queue.close()
 
