@@ -170,7 +170,7 @@ def main():
                 problems.append(problem)
                 pbar.update()
 
-    dataset = {
+    problemset = {
         "domain_module": "witness",
         "domain_name": "Witness",
         "width": args.width,
@@ -183,10 +183,10 @@ def main():
         (args.n_test, "test"),
     ]:
         if n > 0:
-            dataset["problems"] = problems[:n]
+            problemset["problems"] = problems[:n]
             path = args.output_path / f"{n}-{suffix}.json"
             with path.open("w") as f:
-                json.dump(dataset, f, indent=2)
+                json.dump(problemset, f)
             problems = problems[n:]
 
 
