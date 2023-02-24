@@ -20,6 +20,7 @@ import sys
 import time
 from typing import Callable, Type, Union
 from typing import Optional
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -399,11 +400,15 @@ def train(
 
         if rank == 0:
             epoch_solved = num_problems_solved_this_epoch / world_num_problems
-            epoch_f_loss = world_epoch_f_loss.mean(where=(world_epoch_f_loss >= 0))
-            epoch_f_acc = world_epoch_f_acc.mean(where=(world_epoch_f_acc >= 0))
-            if bidirectional:
-                epoch_b_loss = world_epoch_b_loss.mean(where=(world_epoch_b_loss >= 0))
-                epoch_b_acc = world_epoch_b_acc.mean(where=(world_epoch_b_acc >= 0))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                epoch_f_loss = world_epoch_f_loss.mean(where=(world_epoch_f_loss >= 0))
+                epoch_f_acc = world_epoch_f_acc.mean(where=(world_epoch_f_acc >= 0))
+                if bidirectional:
+                    epoch_b_loss = world_epoch_b_loss.mean(
+                        where=(world_epoch_b_loss >= 0)
+                    )
+                    epoch_b_acc = world_epoch_b_acc.mean(where=(world_epoch_b_acc >= 0))
             print(
                 "============================================================================"
             )
