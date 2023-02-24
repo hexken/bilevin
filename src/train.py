@@ -386,9 +386,9 @@ def train(
 
             if rank == 0:
                 if batches_seen % param_log_interval == 0:
-                    log_params(writer, f_model, "forward", 0)
+                    log_params(writer, f_model, "forward", batches_seen)
                     if bidirectional:
-                        log_params(writer, b_model, "backward", 0)
+                        log_params(writer, b_model, "backward", batches_seen)
 
                 batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                 # fmt: off
