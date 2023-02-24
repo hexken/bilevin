@@ -136,7 +136,7 @@ def main():
             path = args.output_path / f"{n}-{suffix}.json"
             with path.open("w") as f:
                 json.dump(problemset, f)
-            problem_specs = problems[n:]
+            problems = problems[n:]
 
 
 if __name__ == "__main__":
