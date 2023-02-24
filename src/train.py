@@ -45,6 +45,7 @@ def train(
     loss_fn: Callable,
     optimizer_cons: Type[to.optim.Optimizer],
     optimizer_params: dict,
+    world_problem_ids: np.ndarray,
     problems: list[Problem],
     local_batch_size: int,
     writer: SummaryWriter,
@@ -56,6 +57,7 @@ def train(
     epochs: int = 10,
     epochs_reduce_lr: int = 5,
     shuffle_trajectory: bool = False,
+    world_valid_ids: Optional[np.ndarray] = None,
     valid_problems: Optional[list[Problem]] = None,
     results_queue: Optional[Queue] = None,
 ):
@@ -93,7 +95,7 @@ def train(
 
     dummy_data = np.column_stack(
         (
-            range(world_num_problems),
+            world_problem_ids,
             np.zeros(
                 (world_num_problems, len(search_result_header) - 1), dtype=np.int64
             ),
@@ -445,6 +447,7 @@ def train(
                 rank,
                 agent,
                 model,
+                world_valid_ids,
                 valid_problems,
                 writer,
                 world_size,

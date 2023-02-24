@@ -209,7 +209,17 @@ def parse_args():
     return args
 
 
-def run(rank, run_name, model_args, args, problemset, queue, validset):
+def run(
+    rank,
+    run_name,
+    model_args,
+    args,
+    world_problem_ids,
+    local_problemset,
+    queue,
+    world_valid_ids,
+    local_validset,
+):
     is_distributed = args.world_size > 1
 
     if is_distributed:
@@ -378,7 +388,8 @@ def run(rank, run_name, model_args, args, problemset, queue, validset):
             loss_fn,
             optimizer_cons,
             optimizer_params,
-            problemset,
+            world_problem_ids,
+            local_problemset,
             local_batch_size,
             writer,
             args.world_size,
@@ -389,7 +400,8 @@ def run(rank, run_name, model_args, args, problemset, queue, validset):
             epochs=args.epochs,
             epochs_reduce_lr=args.epochs_reduce_lr,
             shuffle_trajectory=args.shuffle_trajectory,
-            valid_problems=validset,
+            world_valid_ids=world_valid_ids,
+            valid_problems=local_validset,
             results_queue=queue,
         )
 
@@ -398,7 +410,8 @@ def run(rank, run_name, model_args, args, problemset, queue, validset):
             rank,
             agent,
             model,
-            problemset,
+            world_problem_ids,
+            local_problemset,
             writer,
             args.world_size,
             update_levin_costs=args.update_levin_costs,
@@ -515,6 +528,12 @@ if __name__ == "__main__":
     if args.mode == "test" or args.validset_path:
         queue = mp.Queue()
 
+    world_problem_ids = [p.id for problemset in problemsets for p in problemset]
+
+    world_valid_ids = None
+    if validsets:
+        world_valid_ids = [p.id for validset in validsets for p in validset]
+
     if is_distributed:
         processes = []
         for rank in range(args.world_size):
@@ -525,8 +544,10 @@ if __name__ == "__main__":
                     run_name,
                     model_args,
                     args,
+                    world_problem_ids,
                     problemsets[rank],
                     queue,
+                    world_valid_ids,
                     validsets[rank] if validsets else None,
                 ),
             )
@@ -543,7 +564,9 @@ if __name__ == "__main__":
             run_name,
             model_args,
             args,
+            world_problem_ids,
             problemsets[0],
             queue,
+            world_valid_ids,
             validsets[0] if validsets else None,
         )

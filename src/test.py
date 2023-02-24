@@ -35,6 +35,7 @@ def test(
     rank: int,
     agent: Agent,
     model: Optional[Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]]],
+    world_problem_ids: np.ndarray,
     problems: list[Problem],
     writer: SummaryWriter,
     world_size: int,
@@ -76,7 +77,7 @@ def test(
 
     dummy_data = np.column_stack(
         (
-            range(world_num_problems),
+            world_problem_ids,
             np.zeros(
                 (world_num_problems, len(search_result_header) - 1), dtype=np.int32
             ),
