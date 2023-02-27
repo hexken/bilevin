@@ -21,6 +21,7 @@ import random
 import numpy as np
 import tqdm
 
+import domains
 from domains import SlidingTilePuzzle
 
 
@@ -30,6 +31,14 @@ def main():
     parser.add_argument(
         "-o",
         "--output-path",
+        type=lambda p: Path(p).absolute(),
+        help="path to save problem instances",
+    )
+    parser.add_argument(
+        "-x",
+        "--exclude-problemset",
+        action="extend",
+        nargs="+",
         type=lambda p: Path(p).absolute(),
         help="path to save problem instances",
     )
@@ -87,6 +96,21 @@ def main():
 
     args.output_path.mkdir(parents=True, exist_ok=True)
 
+    exclude_problemspecs = set()
+    for pset_path in args.exclude_problemset:
+        problemset_dict = json.load(pset_path.open("r"))
+        domain_module = getattr(domains, problemset_dict["domain_module"])
+        (
+            parsed_problems,
+            num_actions,
+            in_channels,
+            state_t_width,
+            double_backward,
+        ) = getattr(domain_module, "load_problemset")(problemset_dict)
+
+        for problem in parsed_problems:
+            exclude_problemspecs.add(problem.domain.initial_state)
+
     problem_specs = set()
 
     random.seed(args.seed)
@@ -110,7 +134,11 @@ def main():
                 random_action = actions[random_index]
                 state = stp.result(state, random_action)
 
-            if state in problem_specs or stp.is_goal(state):
+            if (
+                state in problem_specs
+                or state in exclude_problemspecs
+                or stp.is_goal(state)
+            ):
                 print("duplicate")
                 continue
             else:

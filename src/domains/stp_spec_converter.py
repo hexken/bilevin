@@ -18,6 +18,7 @@ from pathlib import Path
 import tqdm
 import numpy as np
 import json
+from math import sqrt
 
 
 def main():
@@ -37,16 +38,33 @@ def main():
         help="path of file to write problem instances (new spec)",
     )
 
+    parser.add_argument(
+        "--input-format",
+        type=str,
+        choices=["lelis", "felner", "korf"],
+        help="path of file to write problem instances (new spec)",
+    )
+
     args = parser.parse_args()
 
-    problem_specs_old = args.input_path.read_text().split(" \n")
-    problem_specs_old = [[int(x) for x in l.split(" ")] for l in problem_specs_old if l]
+    problem_specs_old = args.input_path.read_text().splitlines()
+    if args.input_format in ("felner", "korf"):
+        problem_specs_old = [
+            [int(x) for x in l.split()[1:]] for l in problem_specs_old if l
+        ]
+        if args.input_format == "felner":
+            problem_specs_old.pop()
+    else:
+        problem_specs_old = [
+            [int(x) for x in l.split()] for l in problem_specs_old if l
+        ]
+
+    width = int(sqrt(len(problem_specs_old[0])))
 
     problemset = {
         "domain_name": "SlidingTilePuzzle",
         "domain_module": "stp",
-        "max_num_colors": 4,
-        "width": 5,
+        "width": width,
         "problems": [],
     }
     width = problemset["width"]
