@@ -149,6 +149,8 @@ def train(
     )
 
     local_batch_opt_results = to.zeros(3, dtype=to.float64)
+
+    local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int64)
     world_batch_search_results = [
         to.zeros((local_batch_size, 5), dtype=to.int64) for _ in range(world_size)
     ]
@@ -199,10 +201,7 @@ def train(
                 b_model.eval()  # type:ignore
 
             num_problems_solved_this_batch = 0
-            local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int64)
             for i, problem in enumerate(local_batch_problems):
-                # problem.domain.plot(problem.domain.initial_state)
-                # continue
                 start_time = time.time()
                 (solution_length, num_expanded, num_generated, traj,) = agent.search(
                     problem,
@@ -215,7 +214,6 @@ def train(
                 if bidirectional:
                     problem.domain.reset()
 
-                # todo handle single state trajectories, they break batchnorm layers
                 local_batch_search_results[i, 0] = problem.id
                 local_batch_search_results[i, 1] = solution_length
                 local_batch_search_results[i, 2] = num_expanded
