@@ -16,7 +16,6 @@
 import argparse
 import json
 from pathlib import Path
-import random
 
 import numpy as np
 import tqdm
@@ -50,6 +49,16 @@ def main():
         default=4,
         help="width of puzzles to be generated",
     )
+    # parser.add_argument(
+    #     "--curriculum",
+    #     action="store_true",
+    #     help="generate training problems of increasing difficulty",
+    # )
+    # parser.add_argument(
+    #     "--hard-test",
+    #     action="store_true",
+    #     help="generate test/val problems using permutations of the goal state"
+    # )
     parser.add_argument(
         "--n-train",
         type=int,
@@ -81,9 +90,17 @@ def main():
         "-M",
         "--max-steps",
         type=int,
-        default=1000,
+        default=50000,
         help="max number of steps performed backwards from the goal",
     )
+    parser.add_argument(
+        "-n",
+        "--n-batches",
+        type=int,
+        default=25,
+        help="max number of steps performed backwards from the goal",
+    )
+
     parser.add_argument(
         "-s",
         "--seed",
@@ -93,6 +110,10 @@ def main():
     )
 
     args = parser.parse_args()
+    if args.n_train % args.n_batches != 0:
+        raise ValueError("n_train must be divisible by n_batches.")
+    elif args.n_train <= args.n_batches < 1:
+        raise ValueError("n_train must be grater than n_batches.")
 
     args.output_path.mkdir(parents=True, exist_ok=True)
 
@@ -113,42 +134,98 @@ def main():
 
     problem_specs = set()
 
-    random.seed(args.seed)
-    np.random.seed(args.seed)
+    rng = np.random.default_rng(args.seed)
+    goal_tiles = np.arange(args.width**2).reshape(args.width, args.width)
+    stp = SlidingTilePuzzle(goal_tiles, goal_tiles)
 
-    tiles = np.arange(args.width**2).reshape(args.width, args.width)
-    stp = SlidingTilePuzzle(tiles, tiles)
-
-    total_num_problems = args.n_train + args.n_valid + args.n_test
     problems = []
 
-    with tqdm.tqdm(total=total_num_problems) as pbar:
-        problem_id = 0
-        while len(problem_specs) < total_num_problems:
-            state = stp.reset()
+    if args.n_train > 0:
+        print("Generating training problems...")
+        dups = 0
+        max_steps = np.linspace(args.min_steps, args.max_steps, args.n_batches)
+        problems_per_difficulty = args.n_train // args.n_batches
+        with tqdm.tqdm(total=args.n_train) as pbar:
+            problem_id = 0
+            difficulty = 0
+            steps = int(max_steps[difficulty])
+            while len(problem_specs) < args.n_train:
+                state = stp.reset()
+                for _ in range(steps):
+                    actions = stp.actions_unpruned(state)
+                    random_action = rng.choice(actions)
+                    # random_action = actions[random_index]
+                    state = stp.result(state, random_action)
 
-            steps = random.randint(args.min_steps, args.max_steps)
-            for _ in range(steps):
-                actions = stp.actions_unpruned(state)
-                random_index = random.randint(0, len(actions) - 1)
-                random_action = actions[random_index]
-                state = stp.result(state, random_action)
+                if (
+                    state in problem_specs
+                    or state in exclude_problemspecs
+                    or stp.is_goal(state)
+                ):
+                    dups += 1
+                    continue
+                else:
+                    problem_specs.add(state)
+                    problem = {"tiles": state.tiles.tolist(), "id": problem_id}
+                    problems.append(problem)
+                    problem_id += 1
+                    pbar.update(1)
 
-            if (
-                state in problem_specs
-                or state in exclude_problemspecs
-                or stp.is_goal(state)
-            ):
-                print("duplicate")
-                continue
-            else:
-                problem_specs.add(state)
-                problem = {"tiles": state.tiles.tolist(), "id": problem_id}
-                problems.append(problem)
-                problem_id += 1
-                pbar.update(1)
+                    if len(problems) % problems_per_difficulty == 0:
+                        difficulty += 1
+                        steps = int(max_steps[difficulty])
 
-    problemset = {
+        print(f"Duplicate problems encountered: {dups}")
+
+    def is_valid(tiles):
+        blank_row = np.where(tiles == 0)[0].item()
+        num_inversions = 0
+        tiles = state.tiles.reshape(-1)
+        n = len(tiles)
+        for i in range(0, n):
+            for j in range(i + 1, n):
+                if tiles[i] > tiles[j]:
+                    num_inversions += 1
+
+        if (tiles.shape[0] - blank_row) % 2 == 0:
+            return num_inversions % 2 == 1
+        else:
+            return num_inversions % 2 == 0
+
+    def generate_permutation_problems(num_problems):
+        with tqdm.tqdm(total=num_problems) as pbar:
+            problem_id = 0
+            dups = 0
+            while len(problem_specs) < args.n_train:
+                tiles = rng.permutation(args.width**2)
+                stp = SlidingTilePuzzle(tiles, goal_tiles)
+                state = stp.initial_state
+                if (
+                    state in problem_specs
+                    or state in exclude_problemspecs
+                    or stp.is_goal(state)
+                    or not is_valid(state.tiles)
+                ):
+                    dups += 1
+                    continue
+                else:
+                    problem_specs.add(state)
+                    problem = {"tiles": state.tiles.tolist(), "id": problem_id}
+                    problems.append(problem)
+                    problem_id += 1
+                    pbar.update(1)
+
+            print(f"Duplicate problems encountered: {dups}")
+
+    if args.n_valid > 0:
+        print("Generating validation problems...")
+        generate_permutation_problems(args.n_valid)
+
+    if args.n_train > 0:
+        print("Generating testing problems...")
+        generate_permutation_problems(args.n_test)
+
+    problemset_template = {
         "domain_module": "stp",
         "domain_name": "SlidingTilePuzzle",
         "width": args.width,
@@ -160,10 +237,10 @@ def main():
         (args.n_test, "test"),
     ]:
         if n > 0:
-            problemset["problems"] = problems[:n]
+            problemset_template["problems"] = problems[:n]
             path = args.output_path / f"{n}-{suffix}.json"
             with path.open("w") as f:
-                json.dump(problemset, f)
+                json.dump(problemset_template, f)
             problems = problems[n:]
 
 
