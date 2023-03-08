@@ -92,13 +92,18 @@ def main():
     )
 
     parser.add_argument(
+        "--curriculum",
+        nargs="+",
+        default=[],
+        help="list of max steps for the curriculum",
+    )
+    parser.add_argument(
         "-m",
         "--min-steps",
         type=int,
         default=50,
         help="min number of steps performed backwards from the goal",
     )
-
     parser.add_argument(
         "-M",
         "--max-steps",
@@ -107,11 +112,10 @@ def main():
         help="max number of steps performed backwards from the goal",
     )
     parser.add_argument(
-        "-n",
-        "--n-batches",
+        "--curriculum-steps",
         type=int,
-        default=25,
-        help="max number of steps performed backwards from the goal",
+        default=20,
+        help="number of curriculum steps if specified by min and max steps",
     )
 
     parser.add_argument(
@@ -123,10 +127,15 @@ def main():
     )
 
     args = parser.parse_args()
-    if args.n_train % args.n_batches != 0:
-        raise ValueError("n_train must be divisible by n_batches.")
-    elif args.n_train <= args.n_batches < 1:
-        raise ValueError("n_train must be grater than n_batches.")
+    if args.curriculum:
+        curriculum_steps = len(args.curriculum) + 1
+    else:
+        curriculum_steps = args.curriculum_steps
+
+    if args.n_train % curriculum_steps != 0:
+        raise ValueError("n_train must be divisible by curriculum_steps.")
+    elif args.n_train <= curriculum_steps:
+        raise ValueError("n_train must be grater than curriculum_steps.")
 
     args.output_path.mkdir(parents=True, exist_ok=True)
 
@@ -134,15 +143,9 @@ def main():
     for pset_path in args.exclude_problemset:
         problemset_dict = json.load(pset_path.open("r"))
         domain_module = getattr(domains, problemset_dict["domain_module"])
-        (
-            parsed_problems,
-            num_actions,
-            in_channels,
-            state_t_width,
-            double_backward,
-        ) = getattr(domain_module, "load_problemset")(problemset_dict)
+        problemset = getattr(domain_module, "parse_problemset")(problemset_dict)
 
-        for problem in parsed_problems:
+        for problem in problemset["problems"]:
             exclude_problemspecs.add(problem.domain.initial_state)
 
     problem_specs = set()
@@ -151,13 +154,19 @@ def main():
     goal_tiles = np.arange(args.width**2).reshape(args.width, args.width)
     stp = SlidingTilePuzzle(goal_tiles, goal_tiles)
 
+    problemset_template = {
+        "domain_module": "stp",
+        "domain_name": "SlidingTilePuzzle",
+        "width": args.width,
+    }
+
     problems = []
 
     def generate_permutation_problems(num_problems, desc):
         with tqdm.tqdm(total=num_problems) as pbar:
             pbar.set_description(desc)
             generated = 0
-            problem_id = len(problems)
+            problem_id = len(problem_specs)
             while generated < num_problems:
                 tiles = rng.permutation(args.width**2).reshape(
                     (args.width, args.width)
@@ -179,10 +188,24 @@ def main():
                     generated += 1
                     pbar.update(1)
 
+    def save_problemset(problems, suffix):
+        problemset_template["problems"] = problems
+        path = args.output_path / f"{len(problems)}-{suffix}.json"
+        with path.open("w") as f:
+            json.dump(problemset_template, f)
+
     if args.n_train > 0:
-        max_steps = np.linspace(args.min_steps, args.max_steps, args.n_batches)
-        problems_per_difficulty = args.n_train // (args.n_batches - 1)
+        if args.curriculum:
+            max_steps = args.curriculum
+            problems_per_difficulty = args.n_train // (len(args.curriculum) + 1)
+        else:
+            max_steps = np.linspace(
+                args.min_steps, args.max_steps, num=args.curriculum_steps - 1
+            )
+            problems_per_difficulty = args.n_train // args.curriculum_steps
+
         num_curriculum_problems = args.n_train - problems_per_difficulty
+
         with tqdm.tqdm(total=num_curriculum_problems) as pbar:
             pbar.set_description("Curriculum problems")
             problem_id = 0
@@ -218,29 +241,23 @@ def main():
             problems_per_difficulty, "Hard curriculum problems"
         )
 
+        problemset_template["problems_per_difficulty"] = problems_per_difficulty
+        save_problemset(problems, "train")
+        del problemset_template["problems_per_difficulty"]
+
     if args.n_valid > 0:
         generate_permutation_problems(args.n_valid, "Validation problems")
+        save_problemset(
+            problems[args.n_train :],
+            "valid",
+        )
 
     if args.n_train > 0:
         generate_permutation_problems(args.n_test, "Test problems")
-
-    problemset_template = {
-        "domain_module": "stp",
-        "domain_name": "SlidingTilePuzzle",
-        "width": args.width,
-    }
-
-    for n, suffix in [
-        (args.n_train, "train"),
-        (args.n_valid, "valid"),
-        (args.n_test, "test"),
-    ]:
-        if n > 0:
-            problemset_template["problems"] = problems[:n]
-            path = args.output_path / f"{n}-{suffix}.json"
-            with path.open("w") as f:
-                json.dump(problemset_template, f)
-            problems = problems[n:]
+        save_problemset(
+            problems[args.n_train + args.n_valid :],
+            "test",
+        )
 
 
 if __name__ == "__main__":

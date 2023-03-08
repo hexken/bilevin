@@ -452,45 +452,58 @@ if __name__ == "__main__":
 
     problemset_dict = json.load(args.problemset_path.open("r"))
     domain_module = getattr(domains, problemset_dict["domain_module"])
-    (
-        parsed_problems,
-        num_actions,
-        in_channels,
-        state_t_width,
-        double_backward,
-    ) = getattr(domain_module, "load_problemset")(problemset_dict)
+    problemset = getattr(domain_module, "parse_problemset")(problemset_dict)
+
+    if (
+        "problems_per_difficulty" in problemset
+        and problemset["problems_per_difficulty"] % args.world_size != 0
+    ):
+        raise ValueError("problems-per-difficulty must be a multiple of world_size")
 
     if args.validset_path:
         validset_dict = json.load(args.validset_path.open("r"))
-        (valid_parsed_problems, _, _, _, _,) = getattr(
-            domain_module, "load_problemset"
-        )(validset_dict)
+        validset = getattr(domain_module, "parse_problemset")(validset_dict)
 
-    def split_problems(problems):
+    def split_problems(problemset):
+        problems = problemset["problems"]
         num_problems_parsed = len(problems)
         if num_problems_parsed < args.world_size:
             raise Exception(
                 f"Number of problems '{num_problems_parsed}' must be greater than world size '{args.world_size}'"
             )
 
+        # should be a redundant check, since this is checked during problem generation
         for p in problems:
             if p.domain.is_goal(p.domain.initial_state):
                 raise Exception(f"Problem '{p.id}' initial state is a goal state")
 
         problems_per_process = num_problems_parsed // args.world_size
         problemsets = []
-        for proc in range(args.world_size):
-            problems_local = problems[
-                proc * problems_per_process : (proc + 1) * problems_per_process
-            ]
-            problemsets.append(problems_local)
 
-        num_remaining_problems = num_problems_parsed - (
-            problems_per_process * args.world_size
-        )
-        if num_remaining_problems > 0:
-            for i, problem in enumerate(problems[-num_remaining_problems:]):
-                problemsets[i].append(problem)
+        if "problems_per_difficulty" in problemset:
+            print("Loading a curriculum train set")
+            problemsets = list(
+                zip(
+                    *[
+                        problems[idx : idx + args.world_size]
+                        for idx in range(0, len(problems), args.world_size)
+                    ]
+                )
+            )
+            num_remaining_problems = 0
+        else:
+            for proc in range(args.world_size):
+                problems_local = problems[
+                    proc * problems_per_process : (proc + 1) * problems_per_process
+                ]
+                problemsets.append(problems_local)
+
+            num_remaining_problems = num_problems_parsed - (
+                problems_per_process * args.world_size
+            )
+            if num_remaining_problems > 0:
+                for i, problem in enumerate(problems[-num_remaining_problems:]):
+                    problemsets[i].append(problem)
 
         print(time.ctime(start_time))
         print(f"Parsed {num_problems_parsed} problems")
@@ -505,11 +518,11 @@ if __name__ == "__main__":
             )
         return problemsets
 
-    problemsets = split_problems(parsed_problems)
+    problemsets = split_problems(problemset)
 
     validsets = None
     if args.validset_path:
-        validsets = split_problems(valid_parsed_problems)
+        validsets = split_problems(validset)
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
     problemset_params = (
@@ -519,10 +532,10 @@ if __name__ == "__main__":
     del problemset_dict
 
     model_args = {
-        "in_channels": in_channels,
-        "state_t_width": state_t_width,
-        "num_actions": num_actions,
-        "double_backward": double_backward,
+        "in_channels": problemset["in_channels"],
+        "state_t_width": problemset["state_t_width"],
+        "num_actions": problemset["num_actions"],
+        "double_backward": problemset["double_backward"],
     }
     queue = None
     if args.mode == "test" or args.validset_path:

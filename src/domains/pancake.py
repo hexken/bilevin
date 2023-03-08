@@ -18,68 +18,53 @@ from typing import Optional, Type
 
 import numpy as np
 import torch as to
+import numba
 
 from domains.domain import Domain, State, Problem
 from enums import FourDir
 from search.utils import SearchNode, Trajectory
 
 
-class SlidingTilePuzzleState(State):
+class PancakeState(State):
     def __init__(
         self,
-        tiles: np.ndarray,
-        blank_row: int,
-        blank_col: int,
+        pancakes: np.ndarray,
     ):
-        self.tiles = tiles
-        self.blank_row = blank_row
-        self.blank_col = blank_col
+        self.pancakes = pancakes
 
     def __repr__(self) -> str:
-        mlw = self.tiles.shape[0] ** 2
-        return (
-            f" {np.array2string(self.tiles, separator=' ' , max_line_width=mlw)[1:-1]}"
-        )
+        return self.pancakes.__str__()
 
     def __str__(self) -> str:
-        return self.__repr__()
+        return self.pancakes.__repr__()
 
     def __hash__(self) -> int:
-        return self.tiles.tobytes().__hash__()
+        return self.pancakes.tobytes().__hash__()
 
     def __eq__(self, other) -> bool:
-        return np.array_equal(self.tiles, other.tiles)
+        return np.array_equal(self.pancakes, other.pancakes)
 
 
-class SlidingTilePuzzle(Domain):
-    def __init__(self, init_tiles: np.ndarray, goal_tiles: np.ndarray, forward=True):
-        self.width = init_tiles.shape[0]
-        self.num_tiles = self.width**2
+class PancakePuzzle(Domain):
+    def __init__(
+        self, init_pancakes: np.ndarray, goal_pancakes: np.ndarray, forward=True
+    ):
+        self.num_pancakes = init_pancakes.shape[0]
 
         self.forward = forward
 
-        width_indices = np.arange(self.width)
-        self._row_indices = np.repeat(width_indices, self.width)
-        self._col_indices = np.tile(width_indices, self.width)
-
-        blank_pos = np.where(init_tiles == 0)
-        self.blank_row = blank_pos[0].item()
-        self.blank_col = blank_pos[1].item()
-
-        self.initial_state = SlidingTilePuzzleState(
-            init_tiles, self.blank_row, self.blank_col
-        )
+        self.initial_state = PancakeState(init_pancakes)
 
         self.initial_state_t = self.state_tensor(self.initial_state)
 
         if not self.forward:
             self.state_tensor = self.backward_state_tensor
 
-        self.goal_tiles = goal_tiles
+        self.goal_pancakes = goal_pancakes
 
         self.visited = {}
 
-    def reset(self) -> SlidingTilePuzzleState:
+    def reset(self) -> PancakeState:
         self.visited = {}
         return self.initial_state
 
@@ -88,11 +73,11 @@ class SlidingTilePuzzle(Domain):
 
     @property
     def state_width(self) -> int:
-        return self.width
+        return 1
 
     @property
-    def num_actions(cls) -> int:
-        return 4
+    def num_actions(self) -> int:
+        return self.num_pancakes
 
     @property
     def in_channels(self) -> int:
@@ -266,7 +251,7 @@ class SlidingTilePuzzle(Domain):
             return None
 
 
-def parse_problemset(problemset: dict):
+def load_problemset(problemset: dict):
     width = problemset["width"]
     problems = []
     goal_tiles = np.arange(width**2).reshape(width, width)
@@ -278,10 +263,9 @@ def parse_problemset(problemset: dict):
         )
         problems.append(problem)
 
-    problemset["num_actions"] = problems[0].domain.num_actions
-    problemset["in_channels"] = problems[0].domain.in_channels
-    problemset["state_t_width"] = problems[0].domain.state_width
-    problemset["double_backward"] = True
-    problemset["problems"] = problems
+    num_actions = problems[0].domain.num_actions
+    in_channels = problems[0].domain.in_channels
+    state_t_width = problems[0].domain.state_width
+    double_backward = True
 
-    return problemset
+    return problems, num_actions, in_channels, state_t_width, double_backward
