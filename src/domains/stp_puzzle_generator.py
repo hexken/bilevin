@@ -27,23 +27,24 @@ from domains import SlidingTilePuzzle
 def is_valid(tiles):
     """
     Check if a sliding tile puzzle is solvable.
-    if the width is odd, then the number of inversions must be even.
-    if the width is even, then the parity of the number of inversions must equal the parity of the
-    blank_row, counting from the bottom (1-indexed)
+    For nxn grids.
+    if n is odd, then the number of inversions must be even.
+    if n is even, then the number of inversions + blank_row (0-indexed) must be even.
     """
     blank_row = np.where(tiles == 0)[0].item()
     num_inversions = 0
-    tiles_1d = tiles.reshape(-1)
-    n = len(tiles_1d)
+    width = tiles.shape[0]
+    n = width**2
+    tiles = tiles.reshape(-1)
     for i in range(0, n):
         for j in range(i + 1, n):
-            if tiles_1d[i] and tiles_1d[j] and tiles_1d[i] > tiles_1d[j]:
+            if tiles[i] and tiles[j] and tiles[i] > tiles[j]:
                 num_inversions += 1
 
-    if tiles.shape[1] % 2 == 1:
+    if width % 2 == 1:
         return num_inversions % 2 == 0
     else:
-        return ((tiles.shape[0] - blank_row) % 2 == 0) == (num_inversions % 2 == 0)
+        return (blank_row + num_inversions) % 2 == 0
 
 
 def main():
@@ -71,16 +72,6 @@ def main():
         default=4,
         help="width of puzzles to be generated",
     )
-    # parser.add_argument(
-    #     "--curriculum",
-    #     action="store_true",
-    #     help="generate training problems of increasing difficulty",
-    # )
-    # parser.add_argument(
-    #     "--hard-test",
-    #     action="store_true",
-    #     help="generate test/val problems using permutations of the goal state"
-    # )
     parser.add_argument(
         "--n-train",
         type=int,
@@ -112,7 +103,7 @@ def main():
         "-M",
         "--max-steps",
         type=int,
-        default=50000,
+        default=20000,
         help="max number of steps performed backwards from the goal",
     )
     parser.add_argument(
@@ -162,15 +153,42 @@ def main():
 
     problems = []
 
+    def generate_permutation_problems(num_problems, desc):
+        with tqdm.tqdm(total=num_problems) as pbar:
+            pbar.set_description(desc)
+            generated = 0
+            problem_id = len(problems)
+            while generated < num_problems:
+                tiles = rng.permutation(args.width**2).reshape(
+                    (args.width, args.width)
+                )
+                stp = SlidingTilePuzzle(tiles, goal_tiles)
+                state = stp.initial_state
+                if (
+                    not is_valid(state.tiles)
+                    or state in problem_specs
+                    or state in exclude_problemspecs
+                    or stp.is_goal(state)
+                ):
+                    continue
+                else:
+                    problem_specs.add(state)
+                    problem = {"tiles": state.tiles.tolist(), "id": problem_id}
+                    problems.append(problem)
+                    problem_id += 1
+                    generated += 1
+                    pbar.update(1)
+
     if args.n_train > 0:
-        print("Generating training problems...")
         max_steps = np.linspace(args.min_steps, args.max_steps, args.n_batches)
-        problems_per_difficulty = args.n_train // args.n_batches
-        with tqdm.tqdm(total=args.n_train) as pbar:
+        problems_per_difficulty = args.n_train // (args.n_batches - 1)
+        num_curriculum_problems = args.n_train - problems_per_difficulty
+        with tqdm.tqdm(total=num_curriculum_problems) as pbar:
+            pbar.set_description("Curriculum problems")
             problem_id = 0
             difficulty = 0
             steps = int(max_steps[difficulty])
-            while len(problem_specs) < args.n_train:
+            while len(problem_specs) < num_curriculum_problems:
 
                 if problems and len(problems) % problems_per_difficulty == 0:
                     difficulty += 1
@@ -196,38 +214,15 @@ def main():
                     problem_id += 1
                     pbar.update(1)
 
-    def generate_permutation_problems(num_problems):
-        with tqdm.tqdm(total=num_problems) as pbar:
-            generated = 0
-            problem_id = len(problems)
-            while generated < num_problems:
-                tiles = rng.permutation(args.width**2).reshape(
-                    (args.width, args.width)
-                )
-                stp = SlidingTilePuzzle(tiles, goal_tiles)
-                state = stp.initial_state
-                if (
-                    not is_valid(state.tiles)
-                    or state in problem_specs
-                    or state in exclude_problemspecs
-                    or stp.is_goal(state)
-                ):
-                    continue
-                else:
-                    problem_specs.add(state)
-                    problem = {"tiles": state.tiles.tolist(), "id": problem_id}
-                    problems.append(problem)
-                    problem_id += 1
-                    generated += 1
-                    pbar.update(1)
+        generate_permutation_problems(
+            problems_per_difficulty, "Hard curriculum problems"
+        )
 
     if args.n_valid > 0:
-        print("Generating validation problems...")
-        generate_permutation_problems(args.n_valid)
+        generate_permutation_problems(args.n_valid, "Validation problems")
 
     if args.n_train > 0:
-        print("Generating testing problems...")
-        generate_permutation_problems(args.n_test)
+        generate_permutation_problems(args.n_test, "Test problems")
 
     problemset_template = {
         "domain_module": "stp",
