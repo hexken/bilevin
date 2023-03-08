@@ -24,6 +24,28 @@ import domains
 from domains import SlidingTilePuzzle
 
 
+def is_valid(tiles):
+    """
+    Check if a sliding tile puzzle is solvable.
+    if the width is odd, then the number of inversions must be even.
+    if the width is even, then the parity of the number of inversions must equal the parity of the
+    blank_row, counting from the bottom (1-indexed)
+    """
+    blank_row = np.where(tiles == 0)[0].item()
+    num_inversions = 0
+    tiles_1d = tiles.reshape(-1)
+    n = len(tiles_1d)
+    for i in range(0, n):
+        for j in range(i + 1, n):
+            if tiles_1d[i] and tiles_1d[j] and tiles_1d[i] > tiles_1d[j]:
+                num_inversions += 1
+
+    if tiles.shape[1] % 2 == 1:
+        return num_inversions % 2 == 0
+    else:
+        return ((tiles.shape[0] - blank_row) % 2 == 0) == (num_inversions % 2 == 0)
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -142,7 +164,6 @@ def main():
 
     if args.n_train > 0:
         print("Generating training problems...")
-        dups = 0
         max_steps = np.linspace(args.min_steps, args.max_steps, args.n_batches)
         problems_per_difficulty = args.n_train // args.n_batches
         with tqdm.tqdm(total=args.n_train) as pbar:
@@ -150,11 +171,15 @@ def main():
             difficulty = 0
             steps = int(max_steps[difficulty])
             while len(problem_specs) < args.n_train:
+
+                if problems and len(problems) % problems_per_difficulty == 0:
+                    difficulty += 1
+                    steps = int(max_steps[difficulty])
+
                 state = stp.reset()
                 for _ in range(steps):
                     actions = stp.actions_unpruned(state)
                     random_action = rng.choice(actions)
-                    # random_action = actions[random_index]
                     state = stp.result(state, random_action)
 
                 if (
@@ -162,60 +187,39 @@ def main():
                     or state in exclude_problemspecs
                     or stp.is_goal(state)
                 ):
-                    dups += 1
                     continue
                 else:
                     problem_specs.add(state)
+                    is_valid(state.tiles)
                     problem = {"tiles": state.tiles.tolist(), "id": problem_id}
                     problems.append(problem)
                     problem_id += 1
                     pbar.update(1)
-
-                    if len(problems) % problems_per_difficulty == 0:
-                        difficulty += 1
-                        steps = int(max_steps[difficulty])
-
-        print(f"Duplicate problems encountered: {dups}")
-
-    def is_valid(tiles):
-        blank_row = np.where(tiles == 0)[0].item()
-        num_inversions = 0
-        tiles = state.tiles.reshape(-1)
-        n = len(tiles)
-        for i in range(0, n):
-            for j in range(i + 1, n):
-                if tiles[i] > tiles[j]:
-                    num_inversions += 1
-
-        if (tiles.shape[0] - blank_row) % 2 == 0:
-            return num_inversions % 2 == 1
-        else:
-            return num_inversions % 2 == 0
 
     def generate_permutation_problems(num_problems):
         with tqdm.tqdm(total=num_problems) as pbar:
-            problem_id = 0
-            dups = 0
-            while len(problem_specs) < args.n_train:
-                tiles = rng.permutation(args.width**2)
+            generated = 0
+            problem_id = len(problems)
+            while generated < num_problems:
+                tiles = rng.permutation(args.width**2).reshape(
+                    (args.width, args.width)
+                )
                 stp = SlidingTilePuzzle(tiles, goal_tiles)
                 state = stp.initial_state
                 if (
-                    state in problem_specs
+                    not is_valid(state.tiles)
+                    or state in problem_specs
                     or state in exclude_problemspecs
                     or stp.is_goal(state)
-                    or not is_valid(state.tiles)
                 ):
-                    dups += 1
                     continue
                 else:
                     problem_specs.add(state)
                     problem = {"tiles": state.tiles.tolist(), "id": problem_id}
                     problems.append(problem)
                     problem_id += 1
+                    generated += 1
                     pbar.update(1)
-
-            print(f"Duplicate problems encountered: {dups}")
 
     if args.n_valid > 0:
         print("Generating validation problems...")
