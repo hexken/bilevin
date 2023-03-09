@@ -219,6 +219,8 @@ def run(
     queue,
     world_valid_ids,
     local_validset,
+    num_curriculum_steps,
+    local_problems_per_diffculty,
 ):
     is_distributed = args.world_size > 1
 
@@ -380,6 +382,10 @@ def run(
 
         local_batch_size = args.batch_size_train // args.world_size
 
+        # when no curriculum, some processes may have less problems
+        if local_problems_per_diffculty >= len(local_problemset):
+            local_problems_per_diffculty = len(local_problemset)
+
         train(
             rank,
             agent,
@@ -390,6 +396,8 @@ def run(
             optimizer_params,
             world_problem_ids,
             local_problemset,
+            num_curriculum_steps,
+            local_problems_per_diffculty,
             local_batch_size,
             writer,
             args.world_size,
@@ -454,15 +462,21 @@ if __name__ == "__main__":
     domain_module = getattr(domains, problemset_dict["domain_module"])
     problemset = getattr(domain_module, "parse_problemset")(problemset_dict)
 
-    if (
-        "problems_per_difficulty" in problemset
-        and problemset["problems_per_difficulty"] % args.world_size != 0
-    ):
-        raise ValueError("problems-per-difficulty must be a multiple of world_size")
+    num_curriculum_steps = 1
+    problems_per_difficulty = len(problemset["problems"])
+
+    if "problems_per_difficulty" in problemset:
+        if problemset["problems_per_difficulty"] % args.world_size != 0:
+            raise ValueError("problems-per-difficulty must be a multiple of world_size")
+
+        problems_per_difficulty = problemset["problems_per_difficulty"]
+        num_curriculum_steps = len(problemset["problems"]) // problems_per_difficulty
 
     if args.validset_path:
         validset_dict = json.load(args.validset_path.open("r"))
         validset = getattr(domain_module, "parse_problemset")(validset_dict)
+
+    print(time.ctime(start_time))
 
     def split_problems(problemset):
         problems = problemset["problems"]
@@ -505,11 +519,10 @@ if __name__ == "__main__":
                 for i, problem in enumerate(problems[-num_remaining_problems:]):
                     problemsets[i].append(problem)
 
-        print(time.ctime(start_time))
         print(f"Parsed {num_problems_parsed} problems")
         if len(problemsets[0]) == len(problemsets[-1]):
             print(
-                f"  Loading {problems_per_process} into each of {args.world_size} processes\n"
+                f"  Loading {problems_per_process} into each of {args.world_size} processes"
             )
         else:
             print(
@@ -518,6 +531,7 @@ if __name__ == "__main__":
             )
         return problemsets
 
+    world_problem_ids = [p.id for p in problemset["problems"]]
     problemsets = split_problems(problemset)
 
     validsets = None
@@ -541,11 +555,11 @@ if __name__ == "__main__":
     if args.mode == "test" or args.validset_path:
         queue = mp.Queue()
 
-    world_problem_ids = [p.id for problemset in problemsets for p in problemset]
-
     world_valid_ids = None
     if validsets:
         world_valid_ids = [p.id for validset in validsets for p in validset]
+
+    local_problems_per_difficulty = problems_per_difficulty // args.world_size
 
     if is_distributed:
         processes = []
@@ -562,6 +576,8 @@ if __name__ == "__main__":
                     queue,
                     world_valid_ids,
                     validsets[rank] if validsets else None,
+                    num_curriculum_steps,
+                    local_problems_per_difficulty,
                 ),
             )
             problemsets[rank] = None
@@ -582,4 +598,6 @@ if __name__ == "__main__":
             queue,
             world_valid_ids,
             validsets[0] if validsets else None,
+            num_curriculum_steps,
+            local_problems_per_difficulty,
         )
