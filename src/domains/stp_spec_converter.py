@@ -80,7 +80,7 @@ def main():
         problemset["problems"].append(new_spec)
 
     with args.output_path.open("w") as f:
-        json.dump(problemset, f, indent=2)
+        json.dump(problemset, f, indent=0)
 
 
 if __name__ == "__main__":

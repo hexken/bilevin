@@ -94,30 +94,9 @@ def main():
     parser.add_argument(
         "--curriculum",
         nargs="+",
-        default=[],
-        help="list of max steps for the curriculum",
+        default=[50, 100, 250, 500, 1000],
+        help="list of steps away from goal for the curriculum",
     )
-    parser.add_argument(
-        "-m",
-        "--min-steps",
-        type=int,
-        default=50,
-        help="min number of steps performed backwards from the goal",
-    )
-    parser.add_argument(
-        "-M",
-        "--max-steps",
-        type=int,
-        default=20000,
-        help="max number of steps performed backwards from the goal",
-    )
-    parser.add_argument(
-        "--curriculum-steps",
-        type=int,
-        default=20,
-        help="number of curriculum steps if specified by min and max steps",
-    )
-
     parser.add_argument(
         "-s",
         "--seed",
@@ -127,15 +106,9 @@ def main():
     )
 
     args = parser.parse_args()
-    if args.curriculum:
-        curriculum_steps = len(args.curriculum) + 1
-    else:
-        curriculum_steps = args.curriculum_steps
 
-    if args.n_train % curriculum_steps != 0:
-        raise ValueError("n_train must be divisible by curriculum_steps.")
-    elif args.n_train <= curriculum_steps:
-        raise ValueError("n_train must be grater than curriculum_steps.")
+    if args.n_train <= len(args.curriculum) + 2:
+        raise ValueError("n_train must be grater than curriculum_steps + 2")
 
     args.output_path.mkdir(parents=True, exist_ok=True)
 
@@ -194,48 +167,56 @@ def main():
         with path.open("w") as f:
             json.dump(problemset_template, f)
 
-    def add_all_states(stp, state, step, max_step):
-        if step == max_step:
-            return
-        else
+    def get_all_reachable_states(pid, state, step, max_step):
+        def helper(state, step, max_step):
+            nonlocal pid
+            if step >= max_step:
+                return
+            stp = SlidingTilePuzzle(state.tiles, goal_tiles)
             actions = stp.actions_unpruned(state)
             for action in actions:
-                state = stp.result(state, action)
+                new_state = stp.result(state, action)
                 if (
-                    state in problem_specs
-                    or state in exclude_problemspecs
-                    or stp.is_goal(state)
+                    new_state in problem_specs
+                    or new_state in exclude_problemspecs
+                    or stp.is_goal(new_state)
                 ):
                     continue
                 else:
-                    problem_specs.add(state)
-                    problem = {"tiles": state.tiles.tolist(), "id": problem_id}
+                    problem_specs.add(new_state)
+                    problem = {"tiles": new_state.tiles.tolist(), "id": pid}
+                    pid += 1
                     problems.append(problem)
-                    pbar.update(1)
+                    helper(new_state, step + 1, max_step)
+
+        helper(state, step, max_step)
 
     if args.n_train > 0:
-        if args.curriculum:
-            max_steps = args.curriculum
-            problems_per_difficulty = args.n_train // (len(args.curriculum) + 1)
-        else:
-            max_steps = np.linspace(
-                args.min_steps, args.max_steps, num=args.curriculum_steps - 1
-            )
-            problems_per_difficulty = args.n_train // args.curriculum_steps
+        get_all_reachable_states(0, stp.initial_state, 0, 10)
+        problem_id = len(problems)
 
-        num_curriculum_problems = args.n_train - problems_per_difficulty
+        curriculum = args.curriculum
+
+        # split remaining train between specified curriculum and permutations
+        num_remaining_problems = args.n_train - len(problems)
+        problems_per_difficulty = num_remaining_problems // (len(curriculum) + 1)
+        num_curriculum_problems = num_remaining_problems - (
+            problems_per_difficulty * len(curriculum)
+        )
+
+        if len(problems) > num_curriculum_problems:
+            raise ValueError(
+                "Num curriculum problems must be greater than all reachable states"
+            )
 
         with tqdm.tqdm(total=num_curriculum_problems) as pbar:
             pbar.set_description("Curriculum problems")
-            problem_id = 0
             difficulty = 0
-
-            steps = int(max_steps[difficulty])
+            steps = int(curriculum[difficulty])
             while len(problem_specs) < num_curriculum_problems:
-
                 if problems and len(problems) % problems_per_difficulty == 0:
                     difficulty += 1
-                    steps = int(max_steps[difficulty])
+                    steps = int(curriculum[difficulty])
 
                 state = stp.reset()
                 for _ in range(steps):
@@ -256,8 +237,9 @@ def main():
                     problem_id += 1
                     pbar.update(1)
 
+            num_remaining_problems -= 
         generate_permutation_problems(
-            problems_per_difficulty, "Hard curriculum problems"
+            , "Hard curriculum problems"
         )
 
         problemset_template["problems_per_difficulty"] = problems_per_difficulty
