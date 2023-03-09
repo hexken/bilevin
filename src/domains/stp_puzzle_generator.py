@@ -194,6 +194,25 @@ def main():
         with path.open("w") as f:
             json.dump(problemset_template, f)
 
+    def add_all_states(stp, state, step, max_step):
+        if step == max_step:
+            return
+        else
+            actions = stp.actions_unpruned(state)
+            for action in actions:
+                state = stp.result(state, action)
+                if (
+                    state in problem_specs
+                    or state in exclude_problemspecs
+                    or stp.is_goal(state)
+                ):
+                    continue
+                else:
+                    problem_specs.add(state)
+                    problem = {"tiles": state.tiles.tolist(), "id": problem_id}
+                    problems.append(problem)
+                    pbar.update(1)
+
     if args.n_train > 0:
         if args.curriculum:
             max_steps = args.curriculum
@@ -210,6 +229,7 @@ def main():
             pbar.set_description("Curriculum problems")
             problem_id = 0
             difficulty = 0
+
             steps = int(max_steps[difficulty])
             while len(problem_specs) < num_curriculum_problems:
 
@@ -231,7 +251,6 @@ def main():
                     continue
                 else:
                     problem_specs.add(state)
-                    is_valid(state.tiles)
                     problem = {"tiles": state.tiles.tolist(), "id": problem_id}
                     problems.append(problem)
                     problem_id += 1
