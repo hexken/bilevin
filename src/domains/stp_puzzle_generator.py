@@ -73,29 +73,40 @@ def main():
         help="width of puzzles to be generated",
     )
     parser.add_argument(
-        "--n-train",
+        "--bootstrap-steps",
         type=int,
-        default=50000,
+        default=10,
+        help="generate all problems up to (inclusive) this many steps away from the goal",
+    )
+    parser.add_argument(
+        "--curriculum",
+        nargs="+",
+        default=[],
+        help="list of steps away from goal for the curriculum",
+    )
+    parser.add_argument(
+        "--n-problems-per-difficulty",
+        type=int,
+        default=3200,
         help="number of training puzzles to be generated",
+    )
+    parser.add_argument(
+        "--n-permutation-problems",
+        type=int,
+        default=3200,
+        help="number of validation puzzles to be generated",
     )
     parser.add_argument(
         "--n-valid",
         type=int,
-        default=1000,
+        default=3200,
         help="number of validation puzzles to be generated",
     )
     parser.add_argument(
         "--n-test",
         type=int,
-        default=1000,
+        default=3200,
         help="number of testing puzzles to be generated",
-    )
-
-    parser.add_argument(
-        "--curriculum",
-        nargs="+",
-        default=[50, 100, 250, 500, 1000],
-        help="list of steps away from goal for the curriculum",
     )
     parser.add_argument(
         "-s",
@@ -106,9 +117,6 @@ def main():
     )
 
     args = parser.parse_args()
-
-    if args.n_train <= len(args.curriculum) + 2:
-        raise ValueError("n_train must be grater than curriculum_steps + 2")
 
     args.output_path.mkdir(parents=True, exist_ok=True)
 
@@ -121,8 +129,6 @@ def main():
         for problem in problemset["problems"]:
             exclude_problemspecs.add(problem.domain.initial_state)
 
-    problem_specs = set()
-
     rng = np.random.default_rng(args.seed)
     goal_tiles = np.arange(args.width**2).reshape(args.width, args.width)
     stp = SlidingTilePuzzle(goal_tiles, goal_tiles)
@@ -133,13 +139,12 @@ def main():
         "width": args.width,
     }
 
-    problems = []
-
-    def generate_permutation_problems(num_problems, desc):
-        with tqdm.tqdm(total=num_problems) as pbar:
-            pbar.set_description(desc)
+    def generate_permutation_problems(id_prefix, id_start, num_problems, desc):
+        problems = []
+        id_counter = id_start
+        with tqdm.tqdm(total=num_problems) as local_pbar:
+            local_pbar.set_description(desc)
             generated = 0
-            problem_id = len(problem_specs)
             while generated < num_problems:
                 tiles = rng.permutation(args.width**2).reshape(
                     (args.width, args.width)
@@ -148,76 +153,86 @@ def main():
                 state = stp.initial_state
                 if (
                     not is_valid(state.tiles)
-                    or state in problem_specs
                     or state in exclude_problemspecs
                     or stp.is_goal(state)
                 ):
                     continue
                 else:
-                    problem_specs.add(state)
-                    problem = {"tiles": state.tiles.tolist(), "id": problem_id}
+                    exclude_problemspecs.add(state)
+                    problem = {
+                        "tiles": state.tiles.tolist(),
+                        "id": f"{id_prefix}{id_counter}",
+                    }
                     problems.append(problem)
-                    problem_id += 1
+                    id_counter += 1
                     generated += 1
-                    pbar.update(1)
+                    local_pbar.update(1)
+        return problems
 
-    def save_problemset(problems, suffix):
-        problemset_template["problems"] = problems
-        path = args.output_path / f"{len(problems)}-{suffix}.json"
-        with path.open("w") as f:
-            json.dump(problemset_template, f)
+    def get_all_reachable_states(
+        id_prefix, id_start, state, max_step, exclude_problemspecs
+    ):
+        problems = []
+        id_counter = id_start
 
-    def get_all_reachable_states(pid, state, step, max_step):
         def helper(state, step, max_step):
-            nonlocal pid
-            if step >= max_step:
+            nonlocal id_counter
+            if step > max_step:
                 return
             stp = SlidingTilePuzzle(state.tiles, goal_tiles)
             actions = stp.actions_unpruned(state)
             for action in actions:
                 new_state = stp.result(state, action)
-                if (
-                    new_state in problem_specs
-                    or new_state in exclude_problemspecs
-                    or stp.is_goal(new_state)
-                ):
+                if new_state in exclude_problemspecs or stp.is_goal(new_state):
                     continue
                 else:
-                    problem_specs.add(new_state)
-                    problem = {"tiles": new_state.tiles.tolist(), "id": pid}
-                    pid += 1
+                    problem = {
+                        "tiles": new_state.tiles.tolist(),
+                        "id": f"{id_prefix}{id_counter}",
+                    }
+                    id_counter += 1
                     problems.append(problem)
                     helper(new_state, step + 1, max_step)
 
-        helper(state, step, max_step)
+        helper(state, 1, max_step)
+        return problems
 
-    if args.n_train > 0:
-        get_all_reachable_states(0, stp.initial_state, 0, 10)
-        problem_id = len(problems)
+    def save_problemset(problems, problemset_template, suffix):
+        problemset_template["problems"] = problems
+        path = args.output_path / f"{len(problems)}-{suffix}.json"
+        with path.open("w") as f:
+            json.dump(problemset_template, f)
 
-        curriculum = args.curriculum
-
-        # split remaining train between specified curriculum and permutations
-        num_remaining_problems = args.n_train - len(problems)
-        problems_per_difficulty = num_remaining_problems // (len(curriculum) + 1)
-        num_curriculum_problems = num_remaining_problems - (
-            problems_per_difficulty * len(curriculum)
+    if args.bootstrap_steps > 0:
+        print(
+            f"Generating bootstrap problems up to {args.bootstrap_steps} steps away from goal.."
         )
+        bootstrap_problems = get_all_reachable_states(
+            "b", 0, stp.initial_state, args.bootstrap_steps, exclude_problemspecs
+        )
+        print(f"Generated {len(bootstrap_problems)} problems.")
 
-        if len(problems) > num_curriculum_problems:
+    if args.curriculum:
+        print(
+            f"Generating {args.n_problems_per_difficulty} curriculum problems using {args.curriculum} steps (plus permutation problems)"
+        )
+        problems_per_difficulty = num_remaining_problems // (len(curriculum) + 1)
+        if problems_per_difficulty < 1:
             raise ValueError(
-                "Num curriculum problems must be greater than all reachable states"
+                "n_train - bootstrap problems must be greater than curriculum_steps + 1"
             )
+        num_curriculum_problems = problems_per_difficulty * len(curriculum)
+        num_permutation_problems = num_remaining_problems - num_curriculum_problems
+        print(
+            f"  {problems_per_difficulty} steps each difficulty level, {num_permutation_problems} permutation problems"
+        )
 
         with tqdm.tqdm(total=num_curriculum_problems) as pbar:
             pbar.set_description("Curriculum problems")
             difficulty = 0
             steps = int(curriculum[difficulty])
-            while len(problem_specs) < num_curriculum_problems:
-                if problems and len(problems) % problems_per_difficulty == 0:
-                    difficulty += 1
-                    steps = int(curriculum[difficulty])
-
+            curriculum_problems = 0
+            while curriculum_problems < num_curriculum_problems:
                 state = stp.reset()
                 for _ in range(steps):
                     actions = stp.actions_unpruned(state)
@@ -235,26 +250,33 @@ def main():
                     problem = {"tiles": state.tiles.tolist(), "id": problem_id}
                     problems.append(problem)
                     problem_id += 1
+                    curriculum_problems += 1
                     pbar.update(1)
+                    if (
+                        curriculum_problems < num_curriculum_problems
+                        and curriculum_problems % problems_per_difficulty == 0
+                    ):
+                        difficulty += 1
+                        steps = int(curriculum[difficulty])
 
-            num_remaining_problems -= 
         generate_permutation_problems(
-            , "Hard curriculum problems"
+            len(problems), num_permutation_problems, "Permutation problems"
         )
 
+        problemset_template["bootstrap_end_index"] = num_bootstrap_problems
         problemset_template["problems_per_difficulty"] = problems_per_difficulty
         save_problemset(problems, "train")
         del problemset_template["problems_per_difficulty"]
 
     if args.n_valid > 0:
-        generate_permutation_problems(args.n_valid, "Validation problems")
+        generate_permutation_problems(0, args.n_valid, "Validation problems")
         save_problemset(
             problems[args.n_train :],
             "valid",
         )
 
     if args.n_train > 0:
-        generate_permutation_problems(args.n_test, "Test problems")
+        generate_permutation_problems(0, args.n_test, "Test problems")
         save_problemset(
             problems[args.n_train + args.n_valid :],
             "test",
