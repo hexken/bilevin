@@ -34,6 +34,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
 
 from domains.domain import Problem
+from loaders import CurriculumLoader, ProblemsBatchLoader
 from search import MergedTrajectory
 from search.agent import Agent
 
@@ -551,57 +552,6 @@ def train(
         to.save(f_model.state_dict(), f_model_save_path)
         if bidirectional:
             to.save(b_model.state_dict(), b_model_save_path)
-
-
-class ProblemsBatchLoader:
-    def __init__(
-        self,
-        problems: list[Problem],
-        batch_size: int,
-        seed: int = 1,
-        shuffle: bool = True,
-        dummy_last: bool = False,
-    ):
-        self.rng = np.random.default_rng(seed)
-        self.problems = np.empty(len(problems), dtype=object)
-        self.problems[:] = problems
-        self.batch_size = batch_size
-        self._len = len(problems)
-        self._num_problems_served = 0
-        self._shuffle = shuffle
-
-        self.dummy_last = dummy_last
-        self._dummy_served = False
-
-    def __len__(self):
-        return self._len
-
-    def __iter__(self):
-        self._dummy_served = False
-        if self._shuffle:
-            self._indices = self.rng.permutation(self._len)
-        else:
-            self._indices = np.arange(self._len)
-
-        self._num_problems_served = 0
-
-        return self
-
-    def __next__(self):
-        if self._num_problems_served >= self._len:
-            if self.dummy_last and not self._dummy_served:
-                self._dummy_served = True
-                return []
-
-            raise StopIteration
-        next_indices = self._indices[
-            self._num_problems_served : self._num_problems_served + self.batch_size
-        ]
-        self._num_problems_served += len(next_indices)
-        return self.problems[next_indices]
-
-    def __getitem__(self, idx):
-        return self.problems[idx]
 
 
 def log_params(writer, model, name, batches_seen):

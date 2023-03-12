@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 class Problem:
-    def __init__(self, id: int, domain: Domain):
+    def __init__(self, id: str, domain: Domain):
         self.id = id
         self.domain = domain
 

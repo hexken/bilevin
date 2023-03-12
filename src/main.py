@@ -32,6 +32,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 import wandb
 
 import domains
+from loaders import CurriculumLoader, ProblemsBatchLoader
 from models import ConvNetDouble, ConvNetSingle
 import models.loss_functions as loss_fns
 from search import BiBS, BiLevin, Levin
