@@ -63,34 +63,38 @@ class CurriculumLoader:
     def __init__(
         self,
         bootstrap_problems: list[Problem],
+        bootstrap_dummy_last: bool,
         bootstrap_epochs: int,
         curriculum: list[int],
         problems_per_difficulty: int,
         curriculum_problems: list[Problem],
+        curriculum_dummy_last: bool,
         curriculum_epochs: int,
         permutation_problems: list[Problem],
+        permutation_dummy_last: bool,
         permutation_epochs: int,
         batch_size: int,
         seed: int = 1,
         shuffle: bool = True,
-        dummy_last: bool = False,
     ):
         self.shuffle = shuffle
-        self.dummy_last = dummy_last
         self.batch_size = batch_size
         self.seed = seed
         self.rng = np.random.default_rng(self.seed)
 
         self.bootstrap_problems = bootstrap_problems
+        self.bootstrap_dummy_last = bootstrap_dummy_last
         self.bootstrap_epochs = bootstrap_epochs
 
         self.curriculum = curriculum
         self.curriculum_stages = len(curriculum)
         self.curriculum_problems = curriculum_problems
+        self.curriculum_dummy_last = curriculum_dummy_last
         self.problems_per_difficulty = problems_per_difficulty
         self.curriculum_epochs = curriculum_epochs
 
         self.permutation_problems = permutation_problems
+        self.permutation_dummy_last = permutation_dummy_last
         self.permutation_epochs = permutation_epochs
 
     def __iter__(self):
@@ -109,7 +113,7 @@ class CurriculumLoader:
                     self._problems,
                     self.batch_size,
                     False,  # don't shuffle the bootstrap loader on first epoch
-                    self.dummy_last,
+                    self.bootstrap_dummy_last,
                     self.rng,
                 )
             elif self.stage_epoch <= self.bootstrap_epochs:
@@ -146,7 +150,7 @@ class CurriculumLoader:
                     self._problems,
                     self.batch_size,
                     self.shuffle,
-                    self.dummy_last,
+                    self.permutation_dummy_last,
                     self.rng,
                 )
             elif self.stage_epoch > self.permutation_epochs:

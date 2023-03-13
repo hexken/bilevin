@@ -473,53 +473,101 @@ if __name__ == "__main__":
     print(time.ctime(start_time))
 
     def split_problemset(problemset):
-
         def split(problems):
-            problemsets = [[] for i in range(args.world_size)]
+
+            num_problems_parsed = len(problems)
+            if num_problems_parsed < args.world_size:
+                raise Exception(
+                    f"Number of problems '{num_problems_parsed}' must be greater than world size '{args.world_size}'"
+                )
+
+            problemsets = [[] for _ in range(args.world_size)]
             proc = 0
             for problem in problems:
+                # this should be a redundant check, but just in case
+                if problem.domain.is_goal(problem.domain.initial_state):
+                    raise Exception(
+                        f"Problem '{problem.id}' initial state is a goal state"
+                    )
+
                 problemsets[proc].append(problem)
                 proc = (proc + 1) % args.world_size
 
-            return problemsets
+            print(f"Parsed {num_problems_parsed} problems")
+
+            large_size = len(problemsets[0])
+            small_size = len(problemsets[-1])
+            if large_size == small_size:
+                print(
+                    f"  Loading {large_size} into each of {args.world_size} processes"
+                )
+            else:
+                small_ranks = 0
+                while len(problemsets[small_ranks]) == large_size:
+                    small_ranks += 1
+                    continue
+
+                print(
+                    f"  Loading {large_size} into ranks 0-{small_ranks - 1},\n"
+                    f"          {small_size} into ranks {small_ranks}-{args.world_size - 1}\n"
+                )
+
+            return problemsets, large_size
+
+        local_batch_size = args.batch_size_train // args.world_size
 
         if "is_curriculum" in problemset:
-            bootstrap_problemsets = split(problemset["bootstrap_problems"])
+            bootstrap_problemsets, N = split(problemset["bootstrap_problems"])
 
             curriculum_problems = problemset["curriculum_problems"]
             problems_per_difficulty = problemset["problems_per_difficulty"]
             num_difficulty_levels = len(problemset["curriculum"])
 
+            curriculum_problemsets = [[] for i in range(args.world_size)]
+            for i in range(num_difficulty_levels):
+                curriculum_problemsets[i], N = split(
+                    curriculum_problems[
+                        i * problems_per_difficulty : (i + 1) * problems_per_difficulty
+                    ]
+                )
+
             permutation_problemsets = split(problemset["permutation_problems"])
+            loaders = []
+            for rank in args.world_size:
+                bs_dummy_last = len(bootstrap_problemsets[rank]) == N
+                curr_dummy_last = len(curriculum_problemsets[rank]) == N
+                perm_dummy_last = len(permutation_problemsets[rank]) == N
+                loaders.append(
+                    CurriculumLoader(
+                        bootstrap_problems=bootstrap_problemsets[rank],
+                        bootstrap_dummy_last=bs_dummy_last,
+                        bootstrap_epochs=1,
+                        curriculum=problemset["curriculum"],
+                        problems_per_difficulty=problems_per_difficulty,
+                        curriculum_problems=curriculum_problemsets[rank],
+                        curriculum_dummy_last=curr_dummy_last,
+                        curriculum_epochs=1,
+                        permutation_problems=permutation_problemsets[rank],
+                        permutation_dummy_last=perm_dummy_last,
+                        permutation_epochs=5,
+                        batch_size=local_batch_size,
+                        seed=args.seed,
+                    )
+                )
+
         else:
-            problemsets = split(problemset["problems"])
-
-        num_problems_parsed = len(problems)
-
-        if num_problems_parsed < args.world_size:
-            raise Exception(
-                f"Number of problems '{num_problems_parsed}' must be greater than world size '{args.world_size}'"
-            )
-
-        # should be a redundant check, since this is checked during problem generation
-        for p in problems:
-            if p.domain.is_goal(p.domain.initial_state):
-                raise Exception(f"Problem '{p.id}' initial state is a goal state")
-
-        problems_per_process = num_problems_parsed // args.world_size
-        problemsets = []
-
-
-        print(f"Parsed {num_problems_parsed} problems")
-        if len(problemsets[0]) == len(problemsets[-1]):
-            print(
-                f"  Loading {problems_per_process} into each of {args.world_size} processes"
-            )
-        else:
-            print(
-                f"  Loading {len(problemsets[0])} into ranks 0-{num_remaining_problems - 1},\n"
-                f"          {problems_per_process} into ranks {num_remaining_problems}-{args.world_size - 1}\n"
-            )
+            loaders = []
+            problemsets, N = split(problemset["problems"])
+            for pset in problemsets:
+                dummy_last = len(pset) == N
+                loaders.append(
+                    ProblemsBatchLoader(
+                        problems=pset,
+                        batch_size=local_batch_size,
+                        dummy_last=dummy_last,
+                        seed=args.seed,
+                    )
+                )
 
         return loaders
 
@@ -556,7 +604,7 @@ if __name__ == "__main__":
     if is_distributed:
         processes = []
         for rank in range(args.world_size):
-            p = mp.Process(
+            problem = mp.Process(
                 target=run,
                 args=(
                     rank,
@@ -573,11 +621,11 @@ if __name__ == "__main__":
                 ),
             )
             problemsets[rank] = None
-            p.start()
-            processes.append(p)
+            problem.start()
+            processes.append(problem)
 
-        for p in processes:
-            p.join()
+        for problem in processes:
+            problem.join()
     else:
         assert len(problemsets) == 1
         run(
