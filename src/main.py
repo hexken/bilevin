@@ -466,22 +466,36 @@ if __name__ == "__main__":
     num_curriculum_steps = 1
     problems_per_difficulty = len(problemset["problems"])
 
-    if "problems_per_difficulty" in problemset:
-        if problemset["problems_per_difficulty"] % args.world_size != 0:
-            raise ValueError("problems-per-difficulty must be a multiple of world_size")
-
-        problems_per_difficulty = problemset["problems_per_difficulty"]
-        num_curriculum_steps = len(problemset["problems"]) // problems_per_difficulty
-
     if args.validset_path:
         validset_dict = json.load(args.validset_path.open("r"))
         validset = getattr(domain_module, "parse_problemset")(validset_dict)
 
     print(time.ctime(start_time))
 
-    def split_problems(problemset):
-        problems = problemset["problems"]
+    def split_problemset(problemset):
+
+        def split(problems):
+            problemsets = [[] for i in range(args.world_size)]
+            proc = 0
+            for problem in problems:
+                problemsets[proc].append(problem)
+                proc = (proc + 1) % args.world_size
+
+            return problemsets
+
+        if "is_curriculum" in problemset:
+            bootstrap_problemsets = split(problemset["bootstrap_problems"])
+
+            curriculum_problems = problemset["curriculum_problems"]
+            problems_per_difficulty = problemset["problems_per_difficulty"]
+            num_difficulty_levels = len(problemset["curriculum"])
+
+            permutation_problemsets = split(problemset["permutation_problems"])
+        else:
+            problemsets = split(problemset["problems"])
+
         num_problems_parsed = len(problems)
+
         if num_problems_parsed < args.world_size:
             raise Exception(
                 f"Number of problems '{num_problems_parsed}' must be greater than world size '{args.world_size}'"
@@ -495,30 +509,6 @@ if __name__ == "__main__":
         problems_per_process = num_problems_parsed // args.world_size
         problemsets = []
 
-        if "problems_per_difficulty" in problemset:
-            print("Loading a curriculum train set")
-            problemsets = list(
-                zip(
-                    *[
-                        problems[idx : idx + args.world_size]
-                        for idx in range(0, len(problems), args.world_size)
-                    ]
-                )
-            )
-            num_remaining_problems = 0
-        else:
-            for proc in range(args.world_size):
-                problems_local = problems[
-                    proc * problems_per_process : (proc + 1) * problems_per_process
-                ]
-                problemsets.append(problems_local)
-
-            num_remaining_problems = num_problems_parsed - (
-                problems_per_process * args.world_size
-            )
-            if num_remaining_problems > 0:
-                for i, problem in enumerate(problems[-num_remaining_problems:]):
-                    problemsets[i].append(problem)
 
         print(f"Parsed {num_problems_parsed} problems")
         if len(problemsets[0]) == len(problemsets[-1]):
@@ -530,14 +520,15 @@ if __name__ == "__main__":
                 f"  Loading {len(problemsets[0])} into ranks 0-{num_remaining_problems - 1},\n"
                 f"          {problems_per_process} into ranks {num_remaining_problems}-{args.world_size - 1}\n"
             )
-        return problemsets
+
+        return loaders
 
     world_problem_ids = [p.id for p in problemset["problems"]]
-    problemsets = split_problems(problemset)
+    problemsets = split_problemset(problemset)
 
     validsets = None
     if args.validset_path:
-        validsets = split_problems(validset)
+        validsets = split_problemset(validset)
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
     problemset_params = (
