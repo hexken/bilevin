@@ -268,20 +268,39 @@ class SlidingTilePuzzle(Domain):
 
 def parse_problemset(problemset: dict):
     width = problemset["width"]
-    problems = []
     goal_tiles = np.arange(width**2).reshape(width, width)
-    for p_dict in problemset["problems"]:
-        init_tiles = np.array(p_dict["tiles"])
-        problem = Problem(
-            id=p_dict["id"],
-            domain=SlidingTilePuzzle(init_tiles=init_tiles, goal_tiles=goal_tiles),
-        )
-        problems.append(problem)
 
-    problemset["num_actions"] = problems[0].domain.num_actions
-    problemset["in_channels"] = problems[0].domain.in_channels
-    problemset["state_t_width"] = problems[0].domain.state_width
-    problemset["double_backward"] = True
-    problemset["problems"] = problems
+    def parse_specs(problem_specs):
+        problems = []
+        for spec in problem_specs:
+            init_tiles = np.array(spec["tiles"])
+            problem = Problem(
+                id=spec["id"],
+                domain=SlidingTilePuzzle(init_tiles=init_tiles, goal_tiles=goal_tiles),
+            )
+            problems.append(problem)
+        return problems
+
+    if "is_curriculum" in problemset:
+        bootstrap_problems = parse_specs(problemset["bootstrap_problems"])
+        problemset["num_actions"] = bootstrap_problems[0].domain.num_actions
+        problemset["in_channels"] = bootstrap_problems[0].domain.in_channels
+        problemset["state_t_width"] = bootstrap_problems[0].domain.state_width
+        problemset["double_backward"] = True
+        problemset["bootstrap_problems"] = bootstrap_problems
+        problemset["curriculum_problems"] = parse_specs(
+            problemset["curriculum_problems"]
+        )
+        problemset["permutation_problems"] = parse_specs(
+            problemset["permutation_problems"]
+        )
+
+    else:
+        problems = parse_specs(problemset["problems"])
+        problemset["num_actions"] = problems[0].domain.num_actions
+        problemset["in_channels"] = problems[0].domain.in_channels
+        problemset["state_t_width"] = problems[0].domain.state_width
+        problemset["double_backward"] = True
+        problemset["problems"] = problems
 
     return problemset

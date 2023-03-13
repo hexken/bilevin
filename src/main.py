@@ -210,19 +210,7 @@ def parse_args():
     return args
 
 
-def run(
-    rank,
-    run_name,
-    model_args,
-    args,
-    world_problem_ids,
-    local_problemset,
-    queue,
-    world_valid_ids,
-    local_validset,
-    num_curriculum_steps,
-    local_problems_per_diffculty,
-):
+def run(rank, run_name, model_args, args, local_loader, queue, local_valid_loader):
     is_distributed = args.world_size > 1
 
     if is_distributed:
@@ -381,12 +369,6 @@ def run(
             "weight_decay": args.weight_decay,
         }
 
-        local_batch_size = args.batch_size_train // args.world_size
-
-        # when no curriculum, some processes may have less problems
-        if local_problems_per_diffculty >= len(local_problemset):
-            local_problems_per_diffculty = len(local_problemset)
-
         train(
             rank,
             agent,
@@ -395,22 +377,16 @@ def run(
             loss_fn,
             optimizer_cons,
             optimizer_params,
-            world_problem_ids,
-            local_problemset,
-            num_curriculum_steps,
-            local_problems_per_diffculty,
-            local_batch_size,
+            local_loader,
             writer,
             args.world_size,
             args.update_levin_costs,
             budget=args.initial_budget,
             seed=local_seed,
             grad_steps=args.grad_steps,
-            epochs=args.epochs,
             epochs_reduce_lr=args.epochs_reduce_lr,
             shuffle_trajectory=args.shuffle_trajectory,
-            world_valid_ids=world_valid_ids,
-            valid_problems=local_validset,
+            valid_loader=local_valid_loader,
             results_queue=queue,
         )
 
@@ -419,8 +395,7 @@ def run(
             rank,
             agent,
             model,
-            world_problem_ids,
-            local_problemset,
+            local_loader,
             writer,
             args.world_size,
             update_levin_costs=args.update_levin_costs,
@@ -463,8 +438,7 @@ if __name__ == "__main__":
     domain_module = getattr(domains, problemset_dict["domain_module"])
     problemset = getattr(domain_module, "parse_problemset")(problemset_dict)
 
-    num_curriculum_steps = 1
-    problems_per_difficulty = len(problemset["problems"])
+    problems_per_difficulty = problemset["problems_per_difficulty"]
 
     if args.validset_path:
         validset_dict = json.load(args.validset_path.open("r"))
@@ -472,7 +446,7 @@ if __name__ == "__main__":
 
     print(time.ctime(start_time))
 
-    def split_problemset(problemset):
+    def get_loaders(problemset):
         def split(problems):
 
             num_problems_parsed = len(problems)
@@ -516,38 +490,52 @@ if __name__ == "__main__":
 
         local_batch_size = args.batch_size_train // args.world_size
 
+        def set_id_idxs(problems):
+            for i, p in enumerate(problems):
+                p.id_idx = i
+
         if "is_curriculum" in problemset:
             bootstrap_problemsets, N = split(problemset["bootstrap_problems"])
+            all_bootstrap_ids = [p.id for p in problemset["bootstrap_problems"]]
+            set_id_idxs(problemset["bootstrap_problems"])
 
             curriculum_problems = problemset["curriculum_problems"]
+            all_curr_ids = [p.id for p in problemset["curriculum_problems"]]
             problems_per_difficulty = problemset["problems_per_difficulty"]
             num_difficulty_levels = len(problemset["curriculum"])
 
-            curriculum_problemsets = [[] for i in range(args.world_size)]
+            curriculum_problemsets = [[] for _ in range(args.world_size)]
             for i in range(num_difficulty_levels):
-                curriculum_problemsets[i], N = split(
-                    curriculum_problems[
-                        i * problems_per_difficulty : (i + 1) * problems_per_difficulty
-                    ]
-                )
+                curriculum_difficulty_problems = curriculum_problems[
+                    i * problems_per_difficulty : (i + 1) * problems_per_difficulty
+                ]
+                set_id_idxs(curriculum_difficulty_problems)
+                curriculum_problemsets[i], N = split(curriculum_difficulty_problems)
 
             permutation_problemsets = split(problemset["permutation_problems"])
+            all_permutation_ids = [p.id for p in problemset["permutation_problems"]]
+            set_id_idxs(problemset["permutation_problems"])
+
             loaders = []
             for rank in args.world_size:
                 bs_dummy_last = len(bootstrap_problemsets[rank]) == N
                 curr_dummy_last = len(curriculum_problemsets[rank]) == N
                 perm_dummy_last = len(permutation_problemsets[rank]) == N
+
                 loaders.append(
                     CurriculumLoader(
                         bootstrap_problems=bootstrap_problemsets[rank],
+                        all_bootstrap_ids=all_bootstrap_ids,
                         bootstrap_dummy_last=bs_dummy_last,
                         bootstrap_epochs=1,
                         curriculum=problemset["curriculum"],
                         problems_per_difficulty=problems_per_difficulty,
                         curriculum_problems=curriculum_problemsets[rank],
+                        all_curriculum_ids=all_curr_ids,
                         curriculum_dummy_last=curr_dummy_last,
                         curriculum_epochs=1,
                         permutation_problems=permutation_problemsets[rank],
+                        all_permutation_ids=all_permutation_ids,
                         permutation_dummy_last=perm_dummy_last,
                         permutation_epochs=5,
                         batch_size=local_batch_size,
@@ -558,11 +546,17 @@ if __name__ == "__main__":
         else:
             loaders = []
             problemsets, N = split(problemset["problems"])
-            for pset in problemsets:
-                dummy_last = len(pset) == N
+            all_ids = [p.id for p in problemset["problems"]]
+
+            if args.mode == "test":
+                local_batch_size = 1
+
+            for rank in range(args.world_size):
+                dummy_last = len(problemsets[rank]) == N
                 loaders.append(
                     ProblemsBatchLoader(
-                        problems=pset,
+                        problems=problemsets[rank],
+                        all_ids=all_ids,
                         batch_size=local_batch_size,
                         dummy_last=dummy_last,
                         seed=args.seed,
@@ -571,12 +565,11 @@ if __name__ == "__main__":
 
         return loaders
 
-    world_problem_ids = [p.id for p in problemset["problems"]]
-    problemsets = split_problemset(problemset)
+    problem_loaders = get_loaders(problemset)
 
     validsets = None
     if args.validset_path:
-        validsets = split_problemset(validset)
+        valid_loaders = get_loaders(validset)
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
     problemset_params = (
@@ -595,49 +588,35 @@ if __name__ == "__main__":
     if args.mode == "test" or args.validset_path:
         queue = mp.Queue()
 
-    world_valid_ids = None
-    if validsets:
-        world_valid_ids = [p.id for validset in validsets for p in validset]
-
-    local_problems_per_difficulty = problems_per_difficulty // args.world_size
-
     if is_distributed:
         processes = []
         for rank in range(args.world_size):
-            problem = mp.Process(
+            proc = mp.Process(
                 target=run,
                 args=(
                     rank,
                     run_name,
                     model_args,
                     args,
-                    world_problem_ids,
-                    problemsets[rank],
+                    problem_loaders[rank],
                     queue,
-                    world_valid_ids,
-                    validsets[rank] if validsets else None,
-                    num_curriculum_steps,
-                    local_problems_per_difficulty,
+                    valid_loaders[rank] if validsets else None,
                 ),
             )
-            problemsets[rank] = None
-            problem.start()
-            processes.append(problem)
+            problem_loaders[rank] = None
+            proc.start()
+            processes.append(proc)
 
-        for problem in processes:
-            problem.join()
+        for proc in processes:
+            proc.join()
     else:
-        assert len(problemsets) == 1
+        assert len(problem_loaders) == 1
         run(
             0,
             run_name,
             model_args,
             args,
-            world_problem_ids,
-            problemsets[0],
+            problem_loaders[0],
             queue,
-            world_valid_ids,
             validsets[0] if validsets else None,
-            num_curriculum_steps,
-            local_problems_per_difficulty,
         )

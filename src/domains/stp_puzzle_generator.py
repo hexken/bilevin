@@ -200,11 +200,13 @@ def main():
         helper(state, 1, max_step)
         return problems
 
-    def save_problemset(problems, problemset_template, suffix):
-        problemset_template["problems"] = problems
+    def save_problemset(problems, problemset_template, suffix, is_curriculum=False):
+        if not is_curriculum:
+            problemset_template["problems"] = problems
         path = args.output_path / f"{len(problems)}-{suffix}.json"
         with path.open("w") as f:
             json.dump(problemset_template, f)
+        print(f"Saved {len(problems)} problems to {path}")
 
     print(
         f"Generating bootstrap problems up to {args.bootstrap_steps} steps away from goal.."
@@ -263,7 +265,7 @@ def main():
     trainset_template["bootstrap_problems"] = bootstrap_problems
     trainset_template["curriculum_problems"] = curriculum_problems
     trainset_template["permutation_problems"] = permutation_problems
-    save_problemset(curriculum_problems, trainset_template, "train")
+    save_problemset(curriculum_problems, trainset_template, "train", is_curriculum=True)
 
     if args.n_valid > 0:
         valid_problems = generate_permutation_problems(

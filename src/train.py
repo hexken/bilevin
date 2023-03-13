@@ -47,39 +47,20 @@ def train(
     loss_fn: Callable,
     optimizer_cons: Type[to.optim.Optimizer],
     optimizer_params: dict,
-    world_problem_ids: np.ndarray,
-    problems: list[Problem],
-    num_curriculum_steps: int,
-    problems_per_difficulty: int,
-    local_batch_size: int,
+    train_loader: CurriculumLoader,
     writer: SummaryWriter,
     world_size: int,
     update_levin_costs: bool,
     budget: int,
     seed: int,
     grad_steps: int = 10,
-    epochs: int = 10,
     epochs_reduce_lr: int = 5,
     shuffle_trajectory: bool = False,
-    world_valid_ids: Optional[np.ndarray] = None,
-    valid_problems: Optional[list[Problem]] = None,
+    valid_loader: Optional[ProblemsBatchLoader] = None,
     results_queue: Optional[Queue] = None,
 ):
     dummy_last = False
     is_distributed = world_size > 1
-
-    if is_distributed:
-        sh_t = to.zeros(1, dtype=to.int64) + len(problems)
-        dist.all_reduce(sh_t, dist.ReduceOp.SUM)
-        world_num_problems = int(sh_t[0].item())
-
-        n_batches = math.ceil(len(problems) / local_batch_size)
-        sh_t[0] = n_batches
-        dist.all_reduce(sh_t, dist.ReduceOp.MAX)
-        if n_batches < sh_t[0]:
-            dummy_last = True
-    else:
-        world_num_problems = len(problems)
 
     param_log_interval = 20
 
@@ -123,6 +104,7 @@ def train(
 
     local_batch_opt_results = to.zeros(3, dtype=to.float64)
 
+    local_batch_size = train_loader.batch_size
     local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int64)
     world_batch_search_results = [
         to.zeros((local_batch_size, 5), dtype=to.int64) for _ in range(world_size)
@@ -136,35 +118,22 @@ def train(
 
     best_valid_solve_rate = 0.0
     best_valid_total_expanded = (
-        0 if not world_valid_ids else len(world_valid_ids) * budget
+        0 if not valid_loader else (len(valid_loader.all_ids) * budget)
     )
 
     epoch = 1
-    for difficulty in range(1, num_curriculum_steps + 1):
-        difficulty_problems = problems[: difficulty * problems_per_difficulty]
+    for batch_loader in train_loader:
 
-        problems_loader = ProblemsBatchLoader(
-            difficulty_problems,
-            batch_size=local_batch_size,
-            seed=seed,
-            shuffle=True,
-            dummy_last=dummy_last,
-        )
-
-        if num_curriculum_steps == 1:
-            world_problems_this_difficulty = world_num_problems
-        else:
-            world_problems_this_difficulty = len(difficulty_problems) * world_size
+        world_num_problems = len(batch_loader.all_ids)
 
         world_batches_this_difficulty = math.ceil(
-            world_problems_this_difficulty / (local_batch_size * world_size)
+            world_num_problems / (local_batch_size * world_size)
         )
 
         dummy_data = np.column_stack(
             (
-                world_problem_ids[:world_problems_this_difficulty],
                 np.zeros(
-                    (world_problems_this_difficulty, len(search_result_header) - 1),
+                    (world_num_problems, len(search_result_header) - 2),
                     dtype=np.int64,
                 ),
             )
@@ -172,6 +141,7 @@ def train(
         world_results_df = pd.DataFrame(dummy_data, columns=search_result_header)
         del dummy_data
         world_results_df["Time"] = world_results_df["Time"].astype(float, copy=False)
+        world_results_df["ProblemId"] = batch_loader.all_ids
         world_results_df.set_index("ProblemId", inplace=True)
 
         world_epoch_f_loss = np.zeros(world_batches_this_difficulty)
@@ -179,13 +149,7 @@ def train(
         world_epoch_b_loss = np.zeros(world_batches_this_difficulty)
         world_epoch_b_acc = np.zeros(world_batches_this_difficulty)
 
-        if difficulty == num_curriculum_steps:
-            epochs_this_difficulty = epochs
-        else:
-            epochs_this_difficulty = 1
-
-        epoch_this_difficulty = 1
-        while epoch_this_difficulty <= epochs_this_difficulty:
+        for stage_epoch in range(1, batch_loader.epochs + 1):
             num_new_problems_solved_this_epoch = 0
             num_problems_solved_this_epoch = 0
 
@@ -194,7 +158,7 @@ def train(
                     "============================================================================"
                 )
                 print(
-                    f"START | DIFFICULTY {difficulty} EPOCH {epoch_this_difficulty} | TOTAL EPOCH {epoch}"
+                    f"START | STAGE {train_loader.stage} EPOCH {stage_epoch} | TOTAL EPOCH {epoch}"
                 )
                 print(
                     "============================================================================\n"
@@ -202,8 +166,10 @@ def train(
 
             if rank == 0:
                 problems_loader = tqdm.tqdm(
-                    problems_loader, total=world_batches_this_difficulty
+                    batch_loader, total=world_batches_this_difficulty
                 )
+            else:
+                problems_loader = batch_loader
 
             for batch_idx, local_batch_problems in enumerate(problems_loader):
                 batches_seen += 1
@@ -238,7 +204,7 @@ def train(
                     if bidirectional:
                         problem.domain.reset()
 
-                    local_batch_search_results[i, 0] = problem.id
+                    local_batch_search_results[i, 0] = problem.id_idx
                     local_batch_search_results[i, 1] = solution_length
                     local_batch_search_results[i, 2] = num_expanded
                     local_batch_search_results[i, 3] = num_generated
@@ -265,7 +231,9 @@ def train(
                     world_batch_results_arr[:, 2] > 0
                 ]
 
-                world_batch_ids = world_batch_results_arr[:, 0]
+                world_batch_ids = [
+                    batch_loader.all_ids[i] for i in world_batch_results_arr[:, 0]
+                ]
                 world_results_df.loc[
                     world_batch_ids, search_result_header[1:-1]
                 ] = world_batch_results_arr[
@@ -450,10 +418,10 @@ def train(
                     "============================================================================"
                 )
                 print(
-                    f"END | DIFFICULTY {difficulty} EPOCH {epoch_this_difficulty} | TOTAL EPOCH {epoch}"
+                    f"END | STAGE {train_loader.stage} EPOCH {stage_epoch} | TOTAL EPOCH {epoch}"
                 )
                 print(
-                    f"CURRENT {num_problems_solved_this_epoch}/{world_problems_this_difficulty}\n"
+                    f"CURRENT {num_problems_solved_this_epoch}/{world_num_problems}\n"
                     f"OVERALL {len(solved_problems)}/{world_num_problems}, +{num_new_problems_solved_this_epoch}, {world_num_problems - len(solved_problems)} remaining\n"
                     f"Average forward loss: {epoch_f_loss:5.3f}, acc: {epoch_f_acc:5.3f}"
                 )
@@ -544,7 +512,7 @@ def train(
                 if bidirectional:
                     backward_optimizer.param_groups[0]["lr"] = new_lr
 
-            epoch_this_difficulty += 1
+            epoch_this_stage += 1
             epoch += 1
 
     # all epochs completed

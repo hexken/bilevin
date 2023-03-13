@@ -29,14 +29,14 @@ import tqdm
 
 from domains.domain import Problem
 from search.agent import Agent
+from loaders import ProblemsBatchLoader
 
 
 def test(
     rank: int,
     agent: Agent,
     model: Optional[Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]]],
-    world_problem_ids: np.ndarray,
-    problems: list[Problem],
+    problems_loader: ProblemsBatchLoader,
     writer: SummaryWriter,
     world_size: int,
     update_levin_costs: bool,
@@ -55,14 +55,9 @@ def test(
     current_budget = initial_budget
 
     is_distributed = world_size > 1
-    local_num_problems = len(problems)
 
-    if is_distributed:
-        sh_t = to.zeros(1, dtype=to.int32) + local_num_problems
-        dist.all_reduce(sh_t, dist.ReduceOp.SUM)
-        world_num_problems = int(sh_t[0].item())
-    else:
-        world_num_problems = local_num_problems
+    local_num_problems = len(problems_loader)
+    world_num_problems = len(problems_loader.all_ids)
 
     search_result_header = [
         "ProblemId",

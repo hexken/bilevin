@@ -1,3 +1,20 @@
+# Copyright (C) 2021-2022, Ken Tjhia
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+from copy import copy
+
 import numpy as np
 
 from domains.domain import Problem
@@ -7,7 +24,9 @@ class ProblemsBatchLoader:
     def __init__(
         self,
         problems: list[Problem],
+        all_ids: list[str],
         batch_size: int,
+        epochs: int = 1,
         shuffle: bool = True,
         dummy_last: bool = False,
         rng=None,
@@ -19,7 +38,9 @@ class ProblemsBatchLoader:
             self.rng = rng
 
         self.shuffle = shuffle
+        self.epochs = epochs
         self.problems = np.empty(len(problems), dtype=object)
+        self.all_ids = all_ids
         self.problems[:] = problems
         self.batch_size = batch_size
         self._len = len(problems)
@@ -63,14 +84,17 @@ class CurriculumLoader:
     def __init__(
         self,
         bootstrap_problems: list[Problem],
+        all_bootstrap_ids: list[str],
         bootstrap_dummy_last: bool,
         bootstrap_epochs: int,
         curriculum: list[int],
         problems_per_difficulty: int,
         curriculum_problems: list[Problem],
+        all_curriculum_ids: list[str],
         curriculum_dummy_last: bool,
         curriculum_epochs: int,
         permutation_problems: list[Problem],
+        all_permutation_ids: list[str],
         permutation_dummy_last: bool,
         permutation_epochs: int,
         batch_size: int,
@@ -81,6 +105,7 @@ class CurriculumLoader:
         self.batch_size = batch_size
         self.seed = seed
         self.rng = np.random.default_rng(self.seed)
+        self.all_bootstrap_ids = all_bootstrap_ids
 
         self.bootstrap_problems = bootstrap_problems
         self.bootstrap_dummy_last = bootstrap_dummy_last
@@ -89,11 +114,13 @@ class CurriculumLoader:
         self.curriculum = curriculum
         self.curriculum_stages = len(curriculum)
         self.curriculum_problems = curriculum_problems
+        self.all_curriculum_ids = all_curriculum_ids
         self.curriculum_dummy_last = curriculum_dummy_last
         self.problems_per_difficulty = problems_per_difficulty
         self.curriculum_epochs = curriculum_epochs
 
         self.permutation_problems = permutation_problems
+        self.all_permutation_ids = all_permutation_ids
         self.permutation_dummy_last = permutation_dummy_last
         self.permutation_epochs = permutation_epochs
 
@@ -108,10 +135,13 @@ class CurriculumLoader:
 
         if self.stage == "bootstrap":
             if self.stage_epoch == 1:
-                self._problems = self.bootstrap_problems
+                self._problems = copy(self.bootstrap_problems)
+                self._ids = copy(self.all_bootstrap_ids)
                 self.loader = ProblemsBatchLoader(
                     self._problems,
+                    self.all_bootstrap_ids,
                     self.batch_size,
+                    self.bootstrap_epochs,
                     False,  # don't shuffle the bootstrap loader on first epoch
                     self.bootstrap_dummy_last,
                     self.rng,
@@ -133,7 +163,7 @@ class CurriculumLoader:
             if self.curriculum_difficulty >= self.curriculum_stages:
                 self.stage = "permutation"
                 self.stage_epoch = 1
-            else:
+            elif self.stage_epoch == 1:
                 self._problems.extend(
                     self.curriculum_problems[
                         (self.curriculum_difficulty * self.problems_per_difficulty) : (
@@ -142,13 +172,32 @@ class CurriculumLoader:
                         * self.problems_per_difficulty
                     ]
                 )
+                self._ids.extend(
+                    self.all_curriculum_ids[
+                        (self.curriculum_difficulty * self.problems_per_difficulty) : (
+                            self.curriculum_difficulty + 1
+                        )
+                        * self.problems_per_difficulty
+                    ]
+                )
+                self.loader = ProblemsBatchLoader(
+                    self._problems,
+                    self._ids,
+                    self.batch_size,
+                    self.curriculum_epochs,
+                    self.shuffle,
+                    self.curriculum_dummy_last,
+                    self.rng,
+                )
 
         if self.stage == "permutation":
             if self.stage_epoch == 1:
                 self._problems.extend(self.permutation_problems)
                 self.loader = ProblemsBatchLoader(
                     self._problems,
+                    self.all_permutation_ids,
                     self.batch_size,
+                    self.permutation_epochs,
                     self.shuffle,
                     self.permutation_dummy_last,
                     self.rng,
