@@ -72,19 +72,16 @@ def test(
 
     dummy_data = np.column_stack(
         (
-            world_problem_ids,
             np.zeros(
-                (world_num_problems, len(search_result_header) - 1), dtype=np.int32
+                (world_num_problems, len(search_result_header) - 1),
+                dtype=np.int64,
             ),
         )
     )
-    world_results_df = pd.DataFrame(dummy_data, columns=search_result_header)
+    world_results_df = pd.DataFrame(dummy_data, columns=search_result_header[1:])
     del dummy_data
     world_results_df["Time"] = world_results_df["Time"].astype(float, copy=False)
-    world_results_df["StartTime"] = world_results_df["StartTime"].astype(
-        float, copy=False
-    )
-    world_results_df["EndTime"] = world_results_df["EndTime"].astype(float, copy=False)
+    world_results_df["ProblemId"] = problems_loader.all_ids
     world_results_df.set_index("ProblemId", inplace=True)
 
     is_bidirectional = agent.bidirectional
@@ -105,7 +102,7 @@ def test(
     total_num_expanded = 0
 
     world_solved_problems = set()
-    local_remaining_problems = set(p for p in problems)
+    local_remaining_problems = set(p[0] for p in problems_loader)
 
     def try_sync_results():
         """
@@ -137,10 +134,13 @@ def test(
             {
                 h: v
                 for h, v in zip(
-                    search_result_header[0:-3], world_batch_results_arr.T[:-3]
+                    search_result_header[1:-3], world_batch_results_arr.T[1:-3]
                 )
             }
         )
+        world_batch_df["ProblemId"] = [
+            problems_loader.all_ids[i] for i in world_batch_results_arr[:, 0]
+        ]
         world_batch_df["StartTime"] = (
             (world_batch_results_arr[:, -3].astype(float) / 1000) - test_start_time
         ).round(3)
@@ -193,6 +193,8 @@ def test(
     if rank == 0:
         pbar = tqdm.tqdm(total=world_num_problems)
 
+    search_result = np.zeros(8, dtype=np.int64)
+
     while True:
 
         # print(f"rank {rank} remaining: {len(local_remaining_problems)}")
@@ -204,7 +206,6 @@ def test(
         sync_toggle = False
         for problem in tuple(local_remaining_problems):
             # print(f"rank {rank} +1")
-            search_result = np.zeros(8, dtype=np.int64)
             start_time = time.time()
             (solution_length, num_expanded, num_generated, traj,) = agent.search(
                 problem,
@@ -216,11 +217,10 @@ def test(
             if is_bidirectional:
                 problem.domain.reset()
 
-            problem_id = problem.id
             start_time = int(start_time * 1000)
             end_time = int(end_time * 1000)
 
-            search_result[0] = problem_id
+            search_result[0] = problem.id_idx
             search_result[1] = solution_length
             search_result[2] = current_budget
             search_result[3] = num_expanded

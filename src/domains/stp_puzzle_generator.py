@@ -249,6 +249,7 @@ def main():
                     and len(curriculum_problems) % args.n_problems_per_difficulty == 0
                 ):
                     difficulty += 1
+                    id_counter = 0
                     steps = int(args.curriculum[difficulty])
 
     permutation_problems = generate_permutation_problems(

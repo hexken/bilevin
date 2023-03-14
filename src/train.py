@@ -172,6 +172,7 @@ def train(
 
             for batch_idx, local_batch_problems in enumerate(problems_loader):
                 batches_seen += 1
+                local_batch_search_results[:] = 0 # since final batch might contain <= local_batch_size problems
 
                 if rank == 0:
                     print(f"\n\nBatch {batches_seen}")

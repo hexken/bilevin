@@ -70,6 +70,8 @@ class ProblemsBatchLoader:
                 return []
 
             raise StopIteration
+        # elif self._num_problems_served + self.batch_size > self._len:
+        #     next_indices = self._indices[self._num_problems_served :]
         next_indices = self._indices[
             self._num_problems_served : self._num_problems_served + self.batch_size
         ]
@@ -135,10 +137,10 @@ class CurriculumLoader:
 
         if self.stage == "bootstrap":
             if self.stage_epoch == 1:
-                self._problems = copy(self.bootstrap_problems)
-                self._ids = copy(self.all_bootstrap_ids)
+                self.problems = copy(self.bootstrap_problems)
+                self.ids = copy(self.all_bootstrap_ids)
                 self.loader = ProblemsBatchLoader(
-                    self._problems,
+                    self.problems,
                     self.all_bootstrap_ids,
                     self.batch_size,
                     self.bootstrap_epochs,
@@ -150,7 +152,7 @@ class CurriculumLoader:
                 # do not update loader
                 self.loader.shuffle = self.shuffle
             else:
-                self.curriculum_difficulty = -1
+                self.curriculum_difficulty = 0
                 self.stage = "curriculum"
                 self.stage_epoch = 1
 
@@ -158,13 +160,12 @@ class CurriculumLoader:
 
             if self.stage_epoch > self.curriculum_epochs:
                 self.curriculum_difficulty += 1
-                self.stage = f"curriculum_{self.curriculum_difficulty}"
-
+                self.stage_epoch = 1
             if self.curriculum_difficulty >= self.curriculum_stages:
                 self.stage = "permutation"
-                self.stage_epoch = 1
             elif self.stage_epoch == 1:
-                self._problems.extend(
+                self.stage = f"curriculum_{self.curriculum_difficulty}"
+                self.problems.extend(
                     self.curriculum_problems[
                         (self.curriculum_difficulty * self.problems_per_difficulty) : (
                             self.curriculum_difficulty + 1
@@ -172,7 +173,7 @@ class CurriculumLoader:
                         * self.problems_per_difficulty
                     ]
                 )
-                self._ids.extend(
+                self.ids.extend(
                     self.all_curriculum_ids[
                         (self.curriculum_difficulty * self.problems_per_difficulty) : (
                             self.curriculum_difficulty + 1
@@ -181,8 +182,8 @@ class CurriculumLoader:
                     ]
                 )
                 self.loader = ProblemsBatchLoader(
-                    self._problems,
-                    self._ids,
+                    self.problems,
+                    self.ids,
                     self.batch_size,
                     self.curriculum_epochs,
                     self.shuffle,
@@ -192,9 +193,10 @@ class CurriculumLoader:
 
         if self.stage == "permutation":
             if self.stage_epoch == 1:
-                self._problems.extend(self.permutation_problems)
+                self.problems.extend(self.permutation_problems)
+                self.ids.extend(self.all_permutation_ids)
                 self.loader = ProblemsBatchLoader(
-                    self._problems,
+                    self.problems,
                     self.all_permutation_ids,
                     self.batch_size,
                     self.permutation_epochs,

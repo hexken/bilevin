@@ -501,8 +501,11 @@ if __name__ == "__main__":
 
         local_batch_size = args.batch_size_train // args.world_size
 
-        def set_id_idxs(problems):
-            for i, p in enumerate(problems):
+        def set_id_idxs(start_idx, problems):
+            for i, p in enumerate(
+                problems,
+                start=start_idx,
+            ):
                 p.id_idx = i
 
         if "is_curriculum" in problemset:
@@ -510,11 +513,11 @@ if __name__ == "__main__":
                 problemset["bootstrap_problems"]
             )
             all_bootstrap_ids = [p.id for p in problemset["bootstrap_problems"]]
-            set_id_idxs(problemset["bootstrap_problems"])
+            set_id_idxs(0, problemset["bootstrap_problems"])
 
             curriculum_problems = problemset["curriculum_problems"]
             all_curr_ids = [p.id for p in problemset["curriculum_problems"]]
-            set_id_idxs(curriculum_problems)
+            set_id_idxs(len(all_bootstrap_ids), curriculum_problems)
             problems_per_difficulty = problemset["problems_per_difficulty"]
             num_difficulty_levels = len(problemset["curriculum"])
 
@@ -537,7 +540,10 @@ if __name__ == "__main__":
                 problemset["permutation_problems"]
             )
             all_permutation_ids = [p.id for p in problemset["permutation_problems"]]
-            set_id_idxs(problemset["permutation_problems"])
+            set_id_idxs(
+                len(all_bootstrap_ids) + len(all_curr_ids),
+                problemset["permutation_problems"],
+            )
 
             loaders = []
             for rank in range(args.world_size):
@@ -570,6 +576,7 @@ if __name__ == "__main__":
             loaders = []
             problemsets, N = split(problemset["problems"])
             all_ids = [p.id for p in problemset["problems"]]
+            set_id_idxs(0, problemset["problems"])
 
             if args.mode == "test":
                 local_batch_size = 1

@@ -30,7 +30,7 @@ class Problem:
         self.domain = domain
 
     def __hash__(self):
-        return self.id
+        return self.id.__hash__()
 
     def __eq__(self, other):
         return self.id == other.id
