@@ -495,32 +495,44 @@ if __name__ == "__main__":
                 p.id_idx = i
 
         if "is_curriculum" in problemset:
-            bootstrap_problemsets, N = split(problemset["bootstrap_problems"])
+            bootstrap_problemsets, bs_large_size = split(
+                problemset["bootstrap_problems"]
+            )
             all_bootstrap_ids = [p.id for p in problemset["bootstrap_problems"]]
             set_id_idxs(problemset["bootstrap_problems"])
 
             curriculum_problems = problemset["curriculum_problems"]
             all_curr_ids = [p.id for p in problemset["curriculum_problems"]]
+            set_id_idxs(curriculum_problems)
             problems_per_difficulty = problemset["problems_per_difficulty"]
             num_difficulty_levels = len(problemset["curriculum"])
 
-            curriculum_problemsets = [[] for _ in range(args.world_size)]
+            curriculum_split = [[] for _ in range(num_difficulty_levels)]
             for i in range(num_difficulty_levels):
                 curriculum_difficulty_problems = curriculum_problems[
                     i * problems_per_difficulty : (i + 1) * problems_per_difficulty
                 ]
-                set_id_idxs(curriculum_difficulty_problems)
-                curriculum_problemsets[i], N = split(curriculum_difficulty_problems)
+                curriculum_split[i], curr_large_size = split(
+                    curriculum_difficulty_problems
+                )
+            curr_large_size *= num_difficulty_levels # assumes all curriculum difficulties are the same size
 
-            permutation_problemsets = split(problemset["permutation_problems"])
+            curriculum_problemsets = [[] for _ in range(args.world_size)]
+            for i in range(args.world_size):
+                for j in range(num_difficulty_levels):
+                    curriculum_problemsets[i].extend(curriculum_split[j][i])
+
+            permutation_problemsets, perm_large_size = split(
+                problemset["permutation_problems"]
+            )
             all_permutation_ids = [p.id for p in problemset["permutation_problems"]]
             set_id_idxs(problemset["permutation_problems"])
 
             loaders = []
-            for rank in args.world_size:
-                bs_dummy_last = len(bootstrap_problemsets[rank]) == N
-                curr_dummy_last = len(curriculum_problemsets[rank]) == N
-                perm_dummy_last = len(permutation_problemsets[rank]) == N
+            for rank in range(args.world_size):
+                bs_dummy_last = len(bootstrap_problemsets[rank]) != bs_large_size
+                curr_dummy_last = len(curriculum_problemsets[rank]) != curr_large_size
+                perm_dummy_last = len(permutation_problemsets[rank]) != perm_large_size
 
                 loaders.append(
                     CurriculumLoader(
@@ -552,7 +564,7 @@ if __name__ == "__main__":
                 local_batch_size = 1
 
             for rank in range(args.world_size):
-                dummy_last = len(problemsets[rank]) == N
+                dummy_last = len(problemsets[rank]) != N
                 loaders.append(
                     ProblemsBatchLoader(
                         problems=problemsets[rank],
