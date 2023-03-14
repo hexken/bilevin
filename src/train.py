@@ -59,7 +59,6 @@ def train(
     valid_loader: Optional[ProblemsBatchLoader] = None,
     results_queue: Optional[Queue] = None,
 ):
-    dummy_last = False
     is_distributed = world_size > 1
 
     param_log_interval = 20
@@ -133,12 +132,12 @@ def train(
         dummy_data = np.column_stack(
             (
                 np.zeros(
-                    (world_num_problems, len(search_result_header) - 2),
+                    (world_num_problems, len(search_result_header) - 1),
                     dtype=np.int64,
                 ),
             )
         )
-        world_results_df = pd.DataFrame(dummy_data, columns=search_result_header)
+        world_results_df = pd.DataFrame(dummy_data, columns=search_result_header[1:])
         del dummy_data
         world_results_df["Time"] = world_results_df["Time"].astype(float, copy=False)
         world_results_df["ProblemId"] = batch_loader.all_ids
@@ -231,9 +230,10 @@ def train(
                     world_batch_results_arr[:, 2] > 0
                 ]
 
-                world_batch_ids = [
-                    batch_loader.all_ids[i] for i in world_batch_results_arr[:, 0]
-                ]
+                world_batch_ids = np.array(
+                    [batch_loader.all_ids[i] for i in world_batch_results_arr[:, 0]],
+                    dtype=np.unicode_,
+                )
                 world_results_df.loc[
                     world_batch_ids, search_result_header[1:-1]
                 ] = world_batch_results_arr[
@@ -393,9 +393,8 @@ def train(
 
                     batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                     # fmt: off
-                    # writer.add_scalar(f"{budget}/solved_vs_batch", batch_avg, batches_seen)
                     writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
-                    writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
+                    # writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
                     # fmt: on
                     sys.stdout.flush()
 
@@ -421,8 +420,7 @@ def train(
                     f"END | STAGE {train_loader.stage} EPOCH {stage_epoch} | TOTAL EPOCH {epoch}"
                 )
                 print(
-                    f"CURRENT {num_problems_solved_this_epoch}/{world_num_problems}\n"
-                    f"OVERALL {len(solved_problems)}/{world_num_problems}, +{num_new_problems_solved_this_epoch}, {world_num_problems - len(solved_problems)} remaining\n"
+                    f"SOLVED {num_problems_solved_this_epoch}/{world_num_problems}  {num_problems_solved_this_epoch / world_num_problems}\n"
                     f"Average forward loss: {epoch_f_loss:5.3f}, acc: {epoch_f_acc:5.3f}"
                 )
                 if bidirectional:
@@ -437,7 +435,7 @@ def train(
                 # writer.add_scalar("budget_vs_epoch", budget, epoch)
                 # writer.add_scalar(f"budget_{budget}/solved_vs_epoch", epoch_solved, epoch)
                 writer.add_scalar(f"solved_vs_epoch", epoch_solved, epoch)
-                writer.add_scalar("cum_unique_solved_vs_epoch", len(solved_problems), epoch)
+                # writer.add_scalar("cum_unique_solved_vs_epoch", len(solved_problems), epoch)
 
                 writer.add_scalar(f"loss_vs_epoch/forward", epoch_f_loss, epoch)
                 writer.add_scalar(f"acc_vs_epoch/forward", epoch_f_acc, epoch)
@@ -449,7 +447,7 @@ def train(
                 # fmt: on
                 sys.stdout.flush()
 
-            if valid_problems:
+            if valid_loader:
                 if rank == 0:
                     print("Validating...")
                 if is_distributed:
@@ -458,8 +456,7 @@ def train(
                     rank,
                     agent,
                     model,
-                    world_valid_ids,
-                    valid_problems,
+                    valid_loader,
                     writer,
                     world_size,
                     update_levin_costs,
@@ -512,7 +509,6 @@ def train(
                 if bidirectional:
                     backward_optimizer.param_groups[0]["lr"] = new_lr
 
-            epoch_this_stage += 1
             epoch += 1
 
     # all epochs completed

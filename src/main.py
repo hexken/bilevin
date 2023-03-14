@@ -100,11 +100,22 @@ def parse_args():
         help="number of gradient steps to be performed in each opt pass",
     )
     parser.add_argument(
-        "-e",
-        "--epochs",
+        "--bootstrap-epochs",
         type=int,
-        default=10,
-        help="number of epochs to train for",
+        default=1,
+        help="number of bootstrap epochs to train for",
+    )
+    parser.add_argument(
+        "--curriculum-epochs",
+        type=int,
+        default=1,
+        help="number of curriculum epochs to train for",
+    )
+    parser.add_argument(
+        "--permutation-epochs",
+        type=int,
+        default=1,
+        help="number of permutation epochs to train for",
     )
     parser.add_argument(
         "-r",
@@ -515,7 +526,7 @@ if __name__ == "__main__":
                 curriculum_split[i], curr_large_size = split(
                     curriculum_difficulty_problems
                 )
-            curr_large_size *= num_difficulty_levels # assumes all curriculum difficulties are the same size
+            curr_large_size *= num_difficulty_levels  # assumes all curriculum difficulties are the same size
 
             curriculum_problemsets = [[] for _ in range(args.world_size)]
             for i in range(args.world_size):
@@ -539,17 +550,17 @@ if __name__ == "__main__":
                         bootstrap_problems=bootstrap_problemsets[rank],
                         all_bootstrap_ids=all_bootstrap_ids,
                         bootstrap_dummy_last=bs_dummy_last,
-                        bootstrap_epochs=1,
+                        bootstrap_epochs=args.bootstrap_epochs,
                         curriculum=problemset["curriculum"],
                         problems_per_difficulty=problems_per_difficulty,
                         curriculum_problems=curriculum_problemsets[rank],
                         all_curriculum_ids=all_curr_ids,
                         curriculum_dummy_last=curr_dummy_last,
-                        curriculum_epochs=1,
+                        curriculum_epochs=args.curriculum_epochs,
                         permutation_problems=permutation_problemsets[rank],
                         all_permutation_ids=all_permutation_ids,
                         permutation_dummy_last=perm_dummy_last,
-                        permutation_epochs=5,
+                        permutation_epochs=args.permutation_epochs,
                         batch_size=local_batch_size,
                         seed=args.seed,
                     )
@@ -579,7 +590,7 @@ if __name__ == "__main__":
 
     problem_loaders = get_loaders(problemset)
 
-    validsets = None
+    valid_loaders = None
     if args.validset_path:
         valid_loaders = get_loaders(validset)
 
@@ -612,7 +623,7 @@ if __name__ == "__main__":
                     args,
                     problem_loaders[rank],
                     queue,
-                    valid_loaders[rank] if validsets else None,
+                    valid_loaders[rank] if valid_loaders else None,
                 ),
             )
             problem_loaders[rank] = None
@@ -630,5 +641,5 @@ if __name__ == "__main__":
             args,
             problem_loaders[0],
             queue,
-            validsets[0] if validsets else None,
+            valid_loaders[0] if valid_loaders else None,
         )
