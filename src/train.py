@@ -1,4 +1,4 @@
-#offlini Copyright (C) 2021-2022, Ken Tjhia
+# offlini Copyright (C) 2021-2022, Ken Tjhia
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -116,13 +116,11 @@ def train(
     backward_opt_steps = 0
 
     best_valid_solve_rate = 0.0
-    best_valid_total_expanded = (
-        0 if not valid_loader else (len(valid_loader.all_ids) * budget)
-    )
+    max_valid_expanded = 0 if not valid_loader else (len(valid_loader.all_ids) * budget)
+    best_valid_total_expanded = max_valid_expanded
 
     epoch = 1
     for batch_loader in train_loader:
-
         world_num_problems = len(batch_loader.all_ids)
 
         world_batches_this_difficulty = math.ceil(
@@ -171,8 +169,15 @@ def train(
                 problems_loader = batch_loader
 
             for batch_idx, local_batch_problems in enumerate(problems_loader):
+                # if rank != 0:
+                #     print(f"rank {rank} bs {problems_loader.batches_served}")
+                # else:
+                #     print(f"rank {rank} bs {problems_loader.iterable.batches_served}")
+
                 batches_seen += 1
-                local_batch_search_results[:] = 0 # since final batch might contain <= local_batch_size problems
+                local_batch_search_results[
+                    :
+                ] = 0  # since final batch might contain <= local_batch_size problems
 
                 if rank == 0:
                     print(f"\n\nBatch {batches_seen}")
@@ -452,6 +457,7 @@ def train(
                 sys.stdout.flush()
 
             if valid_loader:
+                # print(f"rank {rank}")
                 if rank == 0:
                     print("Validating...")
                 if is_distributed:
@@ -474,7 +480,9 @@ def train(
                 if rank == 0:
                     valid_solve_rate, valid_total_expanded = valid_results
                     print(f"Solve rate: {valid_solve_rate}")
-                    print(f"Total num expanded: {valid_total_expanded}")
+                    print(
+                        f"Total num expanded: {valid_total_expanded}/{max_valid_expanded}"
+                    )
                     # writer.add_scalar(f"budget_{budget}/valid_solve_rate", valid_solve_rate, epoch)
                     writer.add_scalar(f"valid_solved_vs_epoch", valid_solve_rate, epoch)
                     writer.add_scalar(
@@ -520,6 +528,7 @@ def train(
         to.save(f_model.state_dict(), f_model_save_path)
         if bidirectional:
             to.save(b_model.state_dict(), b_model_save_path)
+        print("END TRAINING")
 
 
 def log_params(writer, model, name, batches_seen):

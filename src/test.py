@@ -51,6 +51,7 @@ def test(
     if validate:
         print_results = False
 
+    # print(f"rank {rank}")
     test_start_time = time.time()
     current_budget = initial_budget
 
@@ -195,7 +196,6 @@ def test(
     search_result = np.zeros(8, dtype=np.int64)
 
     while True:
-
         # print(f"rank {rank} remaining: {len(local_remaining_problems)}")
         if rank == 0 and len(world_solved_problems) == world_num_problems:
             break
@@ -204,9 +204,14 @@ def test(
 
         sync_toggle = False
         for problem in tuple(local_remaining_problems):
-            # print(f"rank {rank} +1")
+            # print(f"rank {rank} {problem.id}")
             start_time = time.time()
-            (solution_length, num_expanded, num_generated, traj,) = agent.search(
+            (
+                solution_length,
+                num_expanded,
+                num_generated,
+                traj,
+            ) = agent.search(
                 problem,
                 model,
                 current_budget,

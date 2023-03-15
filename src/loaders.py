@@ -68,6 +68,7 @@ class ProblemsBatchLoader:
     def __next__(self):
         if self._num_problems_served >= self._len:
             if self.batches_served < self.world_num_batches:
+                self.batches_served += 1
                 return []
             raise StopIteration
         # elif self._num_problems_served + self.batch_size > self._len:
@@ -194,7 +195,7 @@ class CurriculumLoader:
                 self.ids.extend(self.all_permutation_ids)
                 self.loader = ProblemsBatchLoader(
                     self.problems,
-                    self.all_permutation_ids,
+                    self.ids,
                     self.batch_size,
                     self.world_size,
                     self.permutation_epochs,
