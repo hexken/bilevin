@@ -14,6 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from copy import copy
+from math import ceil
 
 import numpy as np
 
@@ -26,9 +27,9 @@ class ProblemsBatchLoader:
         problems: list[Problem],
         all_ids: list[str],
         batch_size: int,
+        world_size: int = 1,
         epochs: int = 1,
         shuffle: bool = True,
-        dummy_last: bool = False,
         rng=None,
         seed: int = 1,
     ):
@@ -46,14 +47,15 @@ class ProblemsBatchLoader:
         self._len = len(problems)
         self._num_problems_served = 0
 
-        self.dummy_last = dummy_last
-        self._dummy_served = False
+        self.world_size = world_size
+        self.world_num_batches = ceil(len(all_ids) / (batch_size * world_size))
+        self.batches_served = 0
 
     def __len__(self):
         return self._len
 
     def __iter__(self):
-        self._dummy_served = False
+        self.batches_served = 0
         if self.shuffle:
             self._indices = self.rng.permutation(self._len)
         else:
@@ -65,10 +67,8 @@ class ProblemsBatchLoader:
 
     def __next__(self):
         if self._num_problems_served >= self._len:
-            if self.dummy_last and not self._dummy_served:
-                self._dummy_served = True
+            if self.batches_served < self.world_num_batches:
                 return []
-
             raise StopIteration
         # elif self._num_problems_served + self.batch_size > self._len:
         #     next_indices = self._indices[self._num_problems_served :]
@@ -76,6 +76,7 @@ class ProblemsBatchLoader:
             self._num_problems_served : self._num_problems_served + self.batch_size
         ]
         self._num_problems_served += len(next_indices)
+        self.batches_served += 1
         return self.problems[next_indices]
 
     def __getitem__(self, idx):
@@ -87,17 +88,14 @@ class CurriculumLoader:
         self,
         bootstrap_problems: list[Problem],
         all_bootstrap_ids: list[str],
-        bootstrap_dummy_last: bool,
         bootstrap_epochs: int,
         curriculum: list[int],
         problems_per_difficulty: int,
         curriculum_problems: list[Problem],
         all_curriculum_ids: list[str],
-        curriculum_dummy_last: bool,
         curriculum_epochs: int,
         permutation_problems: list[Problem],
         all_permutation_ids: list[str],
-        permutation_dummy_last: bool,
         permutation_epochs: int,
         batch_size: int,
         world_size: int,
@@ -111,22 +109,20 @@ class CurriculumLoader:
         self.all_bootstrap_ids = all_bootstrap_ids
 
         self.bootstrap_problems = bootstrap_problems
-        self.bootstrap_dummy_last = bootstrap_dummy_last
         self.bootstrap_epochs = bootstrap_epochs
 
         self.curriculum = curriculum
         self.curriculum_stages = len(curriculum)
         self.curriculum_problems = curriculum_problems
         self.all_curriculum_ids = all_curriculum_ids
-        self.curriculum_dummy_last = curriculum_dummy_last
         self.problems_per_difficulty = problems_per_difficulty
         self.curriculum_epochs = curriculum_epochs
 
         self.permutation_problems = permutation_problems
         self.all_permutation_ids = all_permutation_ids
-        self.permutation_dummy_last = permutation_dummy_last
         self.permutation_epochs = permutation_epochs
         self.world_ppd = problems_per_difficulty * world_size
+        self.world_size = world_size
 
     def __iter__(self):
         self.stage = "bootstrap"
@@ -145,9 +141,9 @@ class CurriculumLoader:
                     self.problems,
                     self.all_bootstrap_ids,
                     self.batch_size,
+                    self.world_size,
                     self.bootstrap_epochs,
                     False,  # don't shuffle the bootstrap loader on first epoch
-                    self.bootstrap_dummy_last,
                     self.rng,
                 )
             elif self.stage_epoch <= self.bootstrap_epochs:
@@ -159,7 +155,6 @@ class CurriculumLoader:
                 self.stage_epoch = 1
 
         if "curriculum" in self.stage:
-
             if self.stage_epoch > self.curriculum_epochs:
                 self.curriculum_difficulty += 1
                 self.stage_epoch = 1
@@ -187,9 +182,9 @@ class CurriculumLoader:
                     self.problems,
                     self.ids,
                     self.batch_size,
+                    self.world_size,
                     self.curriculum_epochs,
                     self.shuffle,
-                    self.curriculum_dummy_last,
                     self.rng,
                 )
 
@@ -201,9 +196,9 @@ class CurriculumLoader:
                     self.problems,
                     self.all_permutation_ids,
                     self.batch_size,
+                    self.world_size,
                     self.permutation_epochs,
                     self.shuffle,
-                    self.permutation_dummy_last,
                     self.rng,
                 )
             elif self.stage_epoch > self.permutation_epochs:

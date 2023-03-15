@@ -1,4 +1,4 @@
-# Copyright (C) 2021-2022, Ken Tjhia
+#offlini Copyright (C) 2021-2022, Ken Tjhia
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -204,7 +204,7 @@ def train(
                     if bidirectional:
                         problem.domain.reset()
 
-                    print(problem.id)
+                    # print(problem.id)
                     local_batch_search_results[i, 0] = problem.id_idx
                     local_batch_search_results[i, 1] = solution_length
                     local_batch_search_results[i, 2] = num_expanded
@@ -232,8 +232,8 @@ def train(
                     world_batch_results_arr[:, 2] > 0
                 ]
 
-                print(world_batch_results_arr[:,0])
-                print(batch_loader.all_ids)
+                # print(world_batch_results_arr[:,0])
+                # print(batch_loader.all_ids)
                 world_batch_ids = np.array(
                     [batch_loader.all_ids[i] for i in world_batch_results_arr[:, 0]],
                     dtype=np.unicode_,

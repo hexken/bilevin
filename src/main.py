@@ -461,7 +461,6 @@ if __name__ == "__main__":
 
     def get_loaders(problemset):
         def split(problems):
-
             num_problems_parsed = len(problems)
             if num_problems_parsed < args.world_size:
                 raise Exception(
@@ -539,8 +538,8 @@ if __name__ == "__main__":
                 for j in range(num_difficulty_levels):
                     curriculum_problemsets[i].extend(curriculum_diff_ranks_split[j][i])
 
-            for pset in curriculum_problemsets:
-                print([p.id for p in pset])
+            # for pset in curriculum_problemsets:
+            #     print([p.id for p in pset])
 
             permutation_problemsets, perm_large_size = split(
                 problemset["permutation_problems"]
@@ -553,25 +552,19 @@ if __name__ == "__main__":
 
             loaders = []
             for rank in range(args.world_size):
-                bs_dummy_last = len(bootstrap_problemsets[rank]) != bs_large_size
-                curr_dummy_last = len(curriculum_problemsets[rank]) != curr_large_size
-                perm_dummy_last = len(permutation_problemsets[rank]) != perm_large_size
 
                 loaders.append(
                     CurriculumLoader(
                         bootstrap_problems=bootstrap_problemsets[rank],
                         all_bootstrap_ids=all_bootstrap_ids,
-                        bootstrap_dummy_last=bs_dummy_last,
                         bootstrap_epochs=args.bootstrap_epochs,
                         curriculum=problemset["curriculum"],
                         problems_per_difficulty=ppd // args.world_size,
                         curriculum_problems=curriculum_problemsets[rank],
                         all_curriculum_ids=all_curr_ids,
-                        curriculum_dummy_last=curr_dummy_last,
                         curriculum_epochs=args.curriculum_epochs,
                         permutation_problems=permutation_problemsets[rank],
                         all_permutation_ids=all_permutation_ids,
-                        permutation_dummy_last=perm_dummy_last,
                         permutation_epochs=args.permutation_epochs,
                         batch_size=local_batch_size,
                         world_size=args.world_size,
@@ -588,13 +581,12 @@ if __name__ == "__main__":
             set_id_idxs(0, problemset["problems"])
 
             for rank in range(args.world_size):
-                dummy_last = len(problemsets[rank]) != N
                 loaders.append(
                     ProblemsBatchLoader(
                         problems=problemsets[rank],
                         all_ids=all_ids,
                         batch_size=1,
-                        dummy_last=dummy_last,
+                        world_size=args.world_size,
                         seed=args.seed,
                     )
                 )
