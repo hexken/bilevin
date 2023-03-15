@@ -449,7 +449,9 @@ if __name__ == "__main__":
     domain_module = getattr(domains, problemset_dict["domain_module"])
     problemset = getattr(domain_module, "parse_problemset")(problemset_dict)
 
-    problems_per_difficulty = problemset["problems_per_difficulty"]
+    # problems_per_difficulty = problemset["problems_per_difficulty"]
+    # if problems_per_difficulty % args.world_size != 0:
+    #     raise ValueError("problems_per_difficulty must be a multiple of world_size")
 
     if args.validset_path:
         validset_dict = json.load(args.validset_path.open("r"))
@@ -509,6 +511,7 @@ if __name__ == "__main__":
                 p.id_idx = i
 
         if "is_curriculum" in problemset:
+            # for now, all training problemsets should be curricula
             bootstrap_problemsets, bs_large_size = split(
                 problemset["bootstrap_problems"]
             )
@@ -518,15 +521,15 @@ if __name__ == "__main__":
             curriculum_problems = problemset["curriculum_problems"]
             all_curr_ids = [p.id for p in problemset["curriculum_problems"]]
             set_id_idxs(len(all_bootstrap_ids), curriculum_problems)
-            problems_per_difficulty = problemset["problems_per_difficulty"]
+            ppd = problemset["problems_per_difficulty"]
             num_difficulty_levels = len(problemset["curriculum"])
 
-            curriculum_split = [[] for _ in range(num_difficulty_levels)]
+            curriculum_diff_ranks_split = [[] for _ in range(num_difficulty_levels)]
             for i in range(num_difficulty_levels):
                 curriculum_difficulty_problems = curriculum_problems[
-                    i * problems_per_difficulty : (i + 1) * problems_per_difficulty
+                    i * ppd : (i + 1) * ppd
                 ]
-                curriculum_split[i], curr_large_size = split(
+                curriculum_diff_ranks_split[i], curr_large_size = split(
                     curriculum_difficulty_problems
                 )
             curr_large_size *= num_difficulty_levels  # assumes all curriculum difficulties are the same size
@@ -534,7 +537,10 @@ if __name__ == "__main__":
             curriculum_problemsets = [[] for _ in range(args.world_size)]
             for i in range(args.world_size):
                 for j in range(num_difficulty_levels):
-                    curriculum_problemsets[i].extend(curriculum_split[j][i])
+                    curriculum_problemsets[i].extend(curriculum_diff_ranks_split[j][i])
+
+            for pset in curriculum_problemsets:
+                print([p.id for p in pset])
 
             permutation_problemsets, perm_large_size = split(
                 problemset["permutation_problems"]
@@ -558,7 +564,7 @@ if __name__ == "__main__":
                         bootstrap_dummy_last=bs_dummy_last,
                         bootstrap_epochs=args.bootstrap_epochs,
                         curriculum=problemset["curriculum"],
-                        problems_per_difficulty=problems_per_difficulty,
+                        problems_per_difficulty=ppd // args.world_size,
                         curriculum_problems=curriculum_problemsets[rank],
                         all_curriculum_ids=all_curr_ids,
                         curriculum_dummy_last=curr_dummy_last,
@@ -568,18 +574,18 @@ if __name__ == "__main__":
                         permutation_dummy_last=perm_dummy_last,
                         permutation_epochs=args.permutation_epochs,
                         batch_size=local_batch_size,
+                        world_size=args.world_size,
                         seed=args.seed,
                     )
                 )
 
         else:
+            # this is only for loading test/valid problemsets, which always use a batch_size of 1 to
+            # populate lists/tuples inside the test script
             loaders = []
             problemsets, N = split(problemset["problems"])
             all_ids = [p.id for p in problemset["problems"]]
             set_id_idxs(0, problemset["problems"])
-
-            if args.mode == "test":
-                local_batch_size = 1
 
             for rank in range(args.world_size):
                 dummy_last = len(problemsets[rank]) != N
@@ -587,7 +593,7 @@ if __name__ == "__main__":
                     ProblemsBatchLoader(
                         problems=problemsets[rank],
                         all_ids=all_ids,
-                        batch_size=local_batch_size,
+                        batch_size=1,
                         dummy_last=dummy_last,
                         seed=args.seed,
                     )

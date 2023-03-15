@@ -86,18 +86,17 @@ def test(
 
     is_bidirectional = agent.bidirectional
 
+    to.set_grad_enabled(False)
     if agent.trainable:
         if is_bidirectional:
             assert isinstance(model, tuple)
             f_model, b_model = model
+            b_model.eval()  # type:ignore
         else:
             assert isinstance(model, to.nn.Module)
             f_model = model
 
-        to.set_grad_enabled(False)
         f_model.eval()
-        if is_bidirectional:
-            b_model.eval()  # type:ignore
 
     total_num_expanded = 0
 

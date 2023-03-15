@@ -100,6 +100,7 @@ class CurriculumLoader:
         permutation_dummy_last: bool,
         permutation_epochs: int,
         batch_size: int,
+        world_size: int,
         seed: int = 1,
         shuffle: bool = True,
     ):
@@ -125,6 +126,7 @@ class CurriculumLoader:
         self.all_permutation_ids = all_permutation_ids
         self.permutation_dummy_last = permutation_dummy_last
         self.permutation_epochs = permutation_epochs
+        self.world_ppd = problems_per_difficulty * world_size
 
     def __iter__(self):
         self.stage = "bootstrap"
@@ -175,10 +177,10 @@ class CurriculumLoader:
                 )
                 self.ids.extend(
                     self.all_curriculum_ids[
-                        (self.curriculum_difficulty * self.problems_per_difficulty) : (
+                        (self.curriculum_difficulty * self.world_ppd) : (
                             self.curriculum_difficulty + 1
                         )
-                        * self.problems_per_difficulty
+                        * self.world_ppd
                     ]
                 )
                 self.loader = ProblemsBatchLoader(
