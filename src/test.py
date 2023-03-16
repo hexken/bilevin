@@ -193,8 +193,6 @@ def test(
     if rank == 0:
         pbar = tqdm.tqdm(total=world_num_problems)
 
-    search_result = np.zeros(8, dtype=np.int64)
-
     while True:
         # print(f"rank {rank} remaining: {len(local_remaining_problems)}")
         if rank == 0 and len(world_solved_problems) == world_num_problems:
@@ -204,14 +202,12 @@ def test(
 
         sync_toggle = False
         for problem in tuple(local_remaining_problems):
+            # need to create a new results array, or else data could
+            # be overwritten
+            search_result = np.zeros(8, dtype=np.int64)
             # print(f"rank {rank} {problem.id}")
             start_time = time.time()
-            (
-                solution_length,
-                num_expanded,
-                num_generated,
-                traj,
-            ) = agent.search(
+            (solution_length, num_expanded, num_generated, traj,) = agent.search(
                 problem,
                 model,
                 current_budget,

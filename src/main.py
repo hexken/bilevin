@@ -121,7 +121,7 @@ def parse_args():
         "-r",
         "--epochs-reduce-lr",
         type=int,
-        default=5,
+        default=99999,
         help="reduce learning rate by a factor of 10 after this many epochs",
     )
     parser.add_argument(
