@@ -264,6 +264,6 @@ def test(
             fname = f"{writer.log_dir}/results.csv"
 
         world_results_df.to_csv(fname)
-        return len(world_solved_problems) / world_num_problems, total_num_expanded
+        return len(world_solved_problems), total_num_expanded
 
     return None

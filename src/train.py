@@ -121,6 +121,7 @@ def train(
 
     epoch = 1
     for batch_loader in train_loader:
+        print(f"{train_loader.stage} NEW BATCH LOADER")
         world_num_problems = len(batch_loader.all_ids)
 
         world_batches_this_difficulty = math.ceil(
@@ -403,11 +404,13 @@ def train(
                     batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                     # fmt: off
                     writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
-                    # writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
+                    writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
                     # fmt: on
                     sys.stdout.flush()
 
             if rank == 0:
+                expansions = world_results_df["NumExpanded"].sum()
+                expansions_ratio = expansions / (world_num_problems * budget)
                 epoch_solved = num_problems_solved_this_epoch / world_num_problems
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -429,7 +432,11 @@ def train(
                     f"END | STAGE {train_loader.stage} EPOCH {stage_epoch} | TOTAL EPOCH {epoch}"
                 )
                 print(
+                    "----------------------------------------------------------------------------"
+                )
+                print(
                     f"SOLVED {num_problems_solved_this_epoch}/{world_num_problems}  {num_problems_solved_this_epoch / world_num_problems}\n"
+                    f"EXPANSIONS {expansions}/{world_num_problems * budget}  {expansions_ratio}  \n"
                     f"Average forward loss: {epoch_f_loss:5.3f}, acc: {epoch_f_acc:5.3f}"
                 )
                 if bidirectional:
@@ -444,7 +451,7 @@ def train(
                 # writer.add_scalar("budget_vs_epoch", budget, epoch)
                 # writer.add_scalar(f"budget_{budget}/solved_vs_epoch", epoch_solved, epoch)
                 writer.add_scalar(f"solved_vs_epoch", epoch_solved, epoch)
-                # writer.add_scalar("cum_unique_solved_vs_epoch", len(solved_problems), epoch)
+                writer.add_scalar("cum_unique_solved_vs_epoch", len(solved_problems), epoch)
 
                 writer.add_scalar(f"loss_vs_epoch/forward", epoch_f_loss, epoch)
                 writer.add_scalar(f"acc_vs_epoch/forward", epoch_f_acc, epoch)
@@ -453,13 +460,15 @@ def train(
                     writer.add_scalar(f"acc_vs_epoch/backward", epoch_b_acc, epoch)
 
                 world_results_df.to_csv(f"{writer.log_dir}/epoch_{epoch}.csv")
+                writer.add_scalar(f"expansions_vs_epoch/forward", expansions_ratio, epoch)
+                writer.add_scalar(f"expansions_ratio_vs_epoch/forward", expansions_ratio, epoch)
                 # fmt: on
                 sys.stdout.flush()
 
             if valid_loader:
                 # print(f"rank {rank}")
                 if rank == 0:
-                    print("Validating...")
+                    print("VALIDATION")
                 if is_distributed:
                     dist.barrier()
                 valid_results = test(
@@ -478,13 +487,22 @@ def train(
                 )
 
                 if rank == 0:
-                    valid_solve_rate, valid_total_expanded = valid_results
-                    print(f"Solve rate: {valid_solve_rate}")
+                    valid_solved, valid_total_expanded = valid_results
+                    valid_expansions_rate = valid_total_expanded / max_valid_expanded
+                    valid_solve_rate = valid_solved / len(valid_loader.all_ids)
                     print(
-                        f"Total num expanded: {valid_total_expanded}/{max_valid_expanded}"
+                        f"SOLVED:  {valid_solved}/{len(valid_loader.all_ids)}  {valid_solve_rate}"
+                    )
+                    print(
+                        f"EXPANSIONS: {valid_total_expanded}/{max_valid_expanded} {valid_expansions_rate}"
                     )
                     # writer.add_scalar(f"budget_{budget}/valid_solve_rate", valid_solve_rate, epoch)
                     writer.add_scalar(f"valid_solved_vs_epoch", valid_solve_rate, epoch)
+                    writer.add_scalar(
+                        f"expansions_ratio_vs_epoch/forward",
+                        valid_expansions_rate,
+                        epoch,
+                    )
                     writer.add_scalar(
                         f"valid_expanded_vs_epoch", valid_total_expanded, epoch
                     )

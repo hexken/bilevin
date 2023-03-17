@@ -41,8 +41,8 @@ class ProblemsBatchLoader:
         self.shuffle = shuffle
         self.epochs = epochs
         self.problems = np.empty(len(problems), dtype=object)
-        self.all_ids = all_ids
         self.problems[:] = problems
+        self.all_ids = all_ids  # ids of problems accross all ranks
         self.batch_size = batch_size
         self._len = len(problems)
         self._num_problems_served = 0
@@ -193,6 +193,16 @@ class CurriculumLoader:
             if self.stage_epoch == 1:
                 self.problems.extend(self.permutation_problems)
                 self.ids.extend(self.all_permutation_ids)
+                self.loader = ProblemsBatchLoader(
+                    self.problems,
+                    self.ids,
+                    self.batch_size,
+                    self.world_size,
+                    self.permutation_epochs,
+                    self.shuffle,
+                    self.rng,
+                )
+            elif self.stage_epoch <= self.permutation_epochs:
                 self.loader = ProblemsBatchLoader(
                     self.problems,
                     self.ids,
