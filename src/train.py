@@ -121,7 +121,7 @@ def train(
 
     epoch = 1
     for batch_loader in train_loader:
-        print(f"{train_loader.stage} NEW BATCH LOADER")
+        # print(f"rank {rank} {train_loader.stage} NEW BATCH LOADER epoch {epoch}")
         world_num_problems = len(batch_loader.all_ids)
 
         world_batches_this_difficulty = math.ceil(
@@ -171,9 +171,9 @@ def train(
 
             for batch_idx, local_batch_problems in enumerate(problems_loader):
                 # if rank != 0:
-                #     print(f"rank {rank} bs {problems_loader.batches_served}")
+                #     print(f"rank {rank} bs {problems_loader.batches_served} {time.time()}")
                 # else:
-                #     print(f"rank {rank} bs {problems_loader.iterable.batches_served}")
+                #     print(f"rank {rank} bs {problems_loader.iterable.batches_served} {time.time()}")
 
                 batches_seen += 1
                 local_batch_search_results[
@@ -436,7 +436,7 @@ def train(
                 )
                 print(
                     f"SOLVED {num_problems_solved_this_epoch}/{world_num_problems}  {num_problems_solved_this_epoch / world_num_problems}\n"
-                    f"EXPANSIONS {expansions}/{world_num_problems * budget}  {expansions_ratio}  \n"
+                    f"EXPANSIONS {expansions}/{world_num_problems * budget}  {expansions_ratio}\n"
                     f"Average forward loss: {epoch_f_loss:5.3f}, acc: {epoch_f_acc:5.3f}"
                 )
                 if bidirectional:

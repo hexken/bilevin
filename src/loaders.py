@@ -113,7 +113,7 @@ class CurriculumLoader:
         self.bootstrap_epochs = bootstrap_epochs
 
         self.curriculum = curriculum
-        self.curriculum_stages = len(curriculum)
+        self.num_curriculum_stages = len(curriculum)
         self.curriculum_problems = curriculum_problems
         self.all_curriculum_ids = all_curriculum_ids
         self.problems_per_difficulty = problems_per_difficulty
@@ -126,93 +126,70 @@ class CurriculumLoader:
         self.world_size = world_size
 
     def __iter__(self):
-        self.stage = "bootstrap"
-        self.stage_epoch = 0
-
+        self.next_stage = "bootstrap"
         return self
 
     def __next__(self):
-        self.stage_epoch += 1
-
-        if self.stage == "bootstrap":
-            if self.stage_epoch == 1:
-                self.problems = copy(self.bootstrap_problems)
-                self.ids = copy(self.all_bootstrap_ids)
-                self.loader = ProblemsBatchLoader(
-                    self.problems,
-                    self.all_bootstrap_ids,
-                    self.batch_size,
-                    self.world_size,
-                    self.bootstrap_epochs,
-                    False,  # don't shuffle the bootstrap loader on first epoch
-                    self.rng,
-                )
-            elif self.stage_epoch <= self.bootstrap_epochs:
-                # do not update loader
-                self.loader.shuffle = self.shuffle
-            else:
-                self.curriculum_difficulty = 0
-                self.stage = "curriculum"
-                self.stage_epoch = 1
-
-        if "curriculum" in self.stage:
-            if self.stage_epoch > self.curriculum_epochs:
-                self.curriculum_difficulty += 1
-                self.stage_epoch = 1
-            if self.curriculum_difficulty >= self.curriculum_stages:
-                self.stage = "permutation"
-            elif self.stage_epoch == 1:
-                self.stage = f"curriculum_{self.curriculum_difficulty}"
-                self.problems.extend(
-                    self.curriculum_problems[
-                        (self.curriculum_difficulty * self.problems_per_difficulty) : (
-                            self.curriculum_difficulty + 1
-                        )
-                        * self.problems_per_difficulty
-                    ]
-                )
-                self.ids.extend(
-                    self.all_curriculum_ids[
-                        (self.curriculum_difficulty * self.world_ppd) : (
-                            self.curriculum_difficulty + 1
-                        )
-                        * self.world_ppd
-                    ]
-                )
-                self.loader = ProblemsBatchLoader(
-                    self.problems,
-                    self.ids,
-                    self.batch_size,
-                    self.world_size,
-                    self.curriculum_epochs,
-                    self.shuffle,
-                    self.rng,
-                )
-
-        if self.stage == "permutation":
-            if self.stage_epoch == 1:
-                self.problems.extend(self.permutation_problems)
-                self.ids.extend(self.all_permutation_ids)
-                self.loader = ProblemsBatchLoader(
-                    self.problems,
-                    self.ids,
-                    self.batch_size,
-                    self.world_size,
-                    self.permutation_epochs,
-                    self.shuffle,
-                    self.rng,
-                )
-            elif self.stage_epoch <= self.permutation_epochs:
-                self.loader = ProblemsBatchLoader(
-                    self.problems,
-                    self.ids,
-                    self.batch_size,
-                    self.world_size,
-                    self.permutation_epochs,
-                    self.shuffle,
-                    self.rng,
-                )
-            elif self.stage_epoch > self.permutation_epochs:
-                raise StopIteration
+        if self.next_stage == "bootstrap":
+            self.next_stage = "curriculum"
+            self.curriculum_stage = -1
+            self.stage = "bootstrap"
+            self.problems = copy(self.bootstrap_problems)
+            self.ids = copy(self.all_bootstrap_ids)
+            self.loader = ProblemsBatchLoader(
+                self.problems,
+                self.all_bootstrap_ids,
+                self.batch_size,
+                self.world_size,
+                self.bootstrap_epochs,
+                False,  # don't shuffle the bootstrap loader on first epoch
+                self.rng,
+            )
+        elif "curriculum" in self.next_stage:
+            self.curriculum_stage += 1
+            if self.curriculum_stage == self.num_curriculum_stages - 1:
+                self.next_stage = "permutation"
+            self.stage = f"curriculum_{self.curriculum_stage}"
+            self.problems.extend(
+                self.curriculum_problems[
+                    (self.curriculum_stage * self.problems_per_difficulty) : (
+                        self.curriculum_stage + 1
+                    )
+                    * self.problems_per_difficulty
+                ]
+            )
+            self.ids.extend(
+                self.all_curriculum_ids[
+                    (self.curriculum_stage * self.world_ppd) : (
+                        self.curriculum_stage + 1
+                    )
+                    * self.world_ppd
+                ]
+            )
+            self.loader = ProblemsBatchLoader(
+                self.problems,
+                self.ids,
+                self.batch_size,
+                self.world_size,
+                self.curriculum_epochs,
+                self.shuffle,
+                self.rng,
+            )
+        elif self.next_stage == "permutation":
+            self.next_stage = "end"
+            self.stage = "permutation"
+            self.problems.extend(self.permutation_problems)
+            self.ids.extend(self.all_permutation_ids)
+            self.loader = ProblemsBatchLoader(
+                self.problems,
+                self.ids,
+                self.batch_size,
+                self.world_size,
+                self.permutation_epochs,
+                self.shuffle,
+                self.rng,
+            )
+        elif self.next_stage == "end":
+            raise StopIteration
 
         return self.loader
