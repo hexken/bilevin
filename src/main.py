@@ -125,6 +125,12 @@ def parse_args():
         help="reduce learning rate by a factor of 10 after this many epochs",
     )
     parser.add_argument(
+        "--epoch-begin-validate",
+        type=int,
+        default=1,
+        help="reduce learning rate by a factor of 10 after this many epochs",
+    )
+    parser.add_argument(
         "--shuffle-trajectory",
         action="store_true",
         help="shuffle trajectory states",
@@ -396,6 +402,7 @@ def run(rank, run_name, model_args, args, local_loader, queue, local_valid_loade
             seed=local_seed,
             grad_steps=args.grad_steps,
             epochs_reduce_lr=args.epochs_reduce_lr,
+            epoch_begin_validate=args.epoch_begin_validate,
             shuffle_trajectory=args.shuffle_trajectory,
             valid_loader=local_valid_loader,
             results_queue=queue,
