@@ -568,7 +568,7 @@ if __name__ == "__main__":
                         permutation_epochs=args.permutation_epochs,
                         batch_size=local_batch_size,
                         world_size=args.world_size,
-                        seed=args.seed,
+                        seed=args.seed + rank,
                     )
                 )
 
