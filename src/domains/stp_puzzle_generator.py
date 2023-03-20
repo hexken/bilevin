@@ -123,13 +123,14 @@ def main():
     args.output_path.mkdir(parents=True, exist_ok=True)
 
     exclude_problemspecs = set()
-    for pset_path in args.exclude_problemset:
-        problemset_dict = json.load(pset_path.open("r"))
-        domain_module = getattr(domains, problemset_dict["domain_module"])
-        problemset = getattr(domain_module, "parse_problemset")(problemset_dict)
+    if args.exclude_problemset:
+        for pset_path in args.exclude_problemset:
+            problemset_dict = json.load(pset_path.open("r"))
+            domain_module = getattr(domains, problemset_dict["domain_module"])
+            problemset = getattr(domain_module, "parse_problemset")(problemset_dict)
 
-        for problem in problemset["problems"]:
-            exclude_problemspecs.add(problem.domain.initial_state)
+            for problem in problemset["problems"]:
+                exclude_problemspecs.add(problem.domain.initial_state)
 
     rng = np.random.default_rng(args.seed)
     goal_tiles = np.arange(args.width**2).reshape(args.width, args.width)
