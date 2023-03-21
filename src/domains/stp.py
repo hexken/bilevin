@@ -144,7 +144,21 @@ class SlidingTilePuzzle(Domain):
     def actions(
         self, parent_action: FourDir, state: SlidingTilePuzzleState
     ) -> list[FourDir]:
-        return self.actions_unpruned(state)
+        actions = []
+
+        if parent_action != FourDir.LEFT and state.blank_col != self.width - 1:
+            actions.append(FourDir.RIGHT)
+
+        if parent_action != FourDir.DOWN and state.blank_row != 0:
+            actions.append(FourDir.UP)
+
+        if parent_action != FourDir.RIGHT and state.blank_col != 0:
+            actions.append(FourDir.LEFT)
+
+        if parent_action != FourDir.UP and state.blank_row != self.width - 1:
+            actions.append(FourDir.DOWN)
+
+        return actions
 
     def actions_unpruned(self, state: SlidingTilePuzzleState):
         actions = []
