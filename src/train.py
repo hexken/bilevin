@@ -279,11 +279,7 @@ def train(
                     )
                     total_num_expanded += world_batch_results_df["NumExpanded"].sum()
 
-                    writer.add_scalar(
-                        "cum_unique_solved_vs_expanded",
-                        len(solved_problems),
-                        total_num_expanded,
-                    )
+                    writer.add_scalar( "cum_unique_solved_vs_expanded", len(solved_problems), total_num_expanded,)
 
                 def fit_model(
                     model: to.nn.Module,
@@ -404,7 +400,7 @@ def train(
                     batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                     # fmt: off
                     writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
-                    writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
+                    # writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
                     # fmt: on
                     sys.stdout.flush()
 
@@ -459,7 +455,7 @@ def train(
                     writer.add_scalar(f"loss_vs_epoch/backward", epoch_b_loss, epoch)
                     writer.add_scalar(f"acc_vs_epoch/backward", epoch_b_acc, epoch)
 
-                writer.add_scalar(f"expansions_vs_epoch", expansions, epoch)
+                # writer.add_scalar(f"expansions_vs_epoch", expansions, epoch)
                 writer.add_scalar(f"expansions_ratio_vs_epoch", expansions_ratio, epoch)
 
                 world_results_df.to_csv(f"{writer.log_dir}/epoch_{epoch}.csv")
@@ -482,6 +478,7 @@ def train(
                     update_levin_costs,
                     budget,
                     increase_budget=False,
+                    print_results=False,
                     validate=True,
                     epoch=epoch,
                 )
@@ -499,13 +496,11 @@ def train(
                     # writer.add_scalar(f"budget_{budget}/valid_solve_rate", valid_solve_rate, epoch)
                     writer.add_scalar(f"valid_solved_vs_epoch", valid_solve_rate, epoch)
                     writer.add_scalar(
-                        f"expansions_ratio_vs_epoch/forward",
+                        f"valid_expansions_ratio_vs_epoch",
                         valid_expansions_ratio,
                         epoch,
                     )
-                    writer.add_scalar(
-                        f"valid_expanded_vs_epoch", valid_total_expanded, epoch
-                    )
+                    # writer.add_scalar( f"valid_expanded_vs_epoch", valid_total_expanded, epoch)
 
                     if valid_solve_rate > best_valid_solve_rate or (
                         isclose(valid_solve_rate, best_valid_solve_rate)
