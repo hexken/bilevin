@@ -28,7 +28,6 @@ from tabulate import tabulate
 from test import test
 import torch as to
 import torch.distributed as dist
-from torch.multiprocessing import Queue
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
@@ -58,7 +57,6 @@ def train(
     epoch_begin_validate: int = 1,
     shuffle_trajectory: bool = False,
     valid_loader: Optional[ProblemsBatchLoader] = None,
-    results_queue: Optional[Queue] = None,
 ):
     is_distributed = world_size > 1
 
@@ -124,6 +122,7 @@ def train(
     for batch_loader in train_loader:
         # print(f"rank {rank} {train_loader.stage} NEW BATCH LOADER epoch {epoch}")
         world_num_problems = len(batch_loader.all_ids)
+        max_expansions = world_num_problems * budget
 
         world_batches_this_difficulty = math.ceil(
             world_num_problems / (local_batch_size * world_size)
@@ -411,8 +410,8 @@ def train(
 
             if rank == 0:
                 expansions = world_results_df["NumExpanded"].sum()
-                expansions_ratio = expansions / (world_num_problems * budget)
-                epoch_solved = num_problems_solved_this_epoch / world_num_problems
+                expansions_ratio = expansions / max_expansions
+                epoch_solved_ratio = num_problems_solved_this_epoch / world_num_problems
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
                     epoch_f_loss = world_epoch_f_loss.mean(
@@ -436,8 +435,8 @@ def train(
                     "----------------------------------------------------------------------------"
                 )
                 print(
-                    f"SOLVED {num_problems_solved_this_epoch}/{world_num_problems}  {num_problems_solved_this_epoch / world_num_problems}\n"
-                    f"EXPANSIONS {expansions}/{world_num_problems * budget}  {expansions_ratio:5.3f}\n"
+                    f"SOLVED {num_problems_solved_this_epoch}/{world_num_problems} {epoch_solved_ratio}\n"
+                    f"EXPANSIONS {expansions}/{max_expansions}  {expansions_ratio:5.3f}\n"
                     f"Average forward loss: {epoch_f_loss:5.3f}, acc: {epoch_f_acc:5.3f}"
                 )
                 if bidirectional:
@@ -451,7 +450,7 @@ def train(
                 # fmt: off
                 # writer.add_scalar("budget_vs_epoch", budget, epoch)
                 # writer.add_scalar(f"budget_{budget}/solved_vs_epoch", epoch_solved, epoch)
-                writer.add_scalar(f"solved_vs_epoch", epoch_solved, epoch)
+                writer.add_scalar(f"solved_vs_epoch", epoch_solved_ratio, epoch)
                 writer.add_scalar("cum_unique_solved_vs_epoch", len(solved_problems), epoch)
 
                 writer.add_scalar(f"loss_vs_epoch/forward", epoch_f_loss, epoch)
@@ -460,9 +459,10 @@ def train(
                     writer.add_scalar(f"loss_vs_epoch/backward", epoch_b_loss, epoch)
                     writer.add_scalar(f"acc_vs_epoch/backward", epoch_b_acc, epoch)
 
+                writer.add_scalar(f"expansions_vs_epoch", expansions, epoch)
+                writer.add_scalar(f"expansions_ratio_vs_epoch", expansions_ratio, epoch)
+
                 world_results_df.to_csv(f"{writer.log_dir}/epoch_{epoch}.csv")
-                writer.add_scalar(f"expansions_vs_epoch/forward", expansions_ratio, epoch)
-                writer.add_scalar(f"expansions_ratio_vs_epoch/forward", expansions_ratio, epoch)
                 # fmt: on
                 sys.stdout.flush()
 
@@ -481,7 +481,6 @@ def train(
                     world_size,
                     update_levin_costs,
                     budget,
-                    results_queue,
                     increase_budget=False,
                     validate=True,
                     epoch=epoch,

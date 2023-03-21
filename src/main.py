@@ -227,7 +227,7 @@ def parse_args():
     return args
 
 
-def run(rank, run_name, model_args, args, local_loader, queue, local_valid_loader):
+def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
     is_distributed = args.world_size > 1
 
     if is_distributed:
@@ -405,7 +405,6 @@ def run(rank, run_name, model_args, args, local_loader, queue, local_valid_loade
             epoch_begin_validate=args.epoch_begin_validate,
             shuffle_trajectory=args.shuffle_trajectory,
             valid_loader=local_valid_loader,
-            results_queue=queue,
         )
 
     elif args.mode == "test":
@@ -418,14 +417,11 @@ def run(rank, run_name, model_args, args, local_loader, queue, local_valid_loade
             args.world_size,
             update_levin_costs=args.update_levin_costs,
             initial_budget=args.initial_budget,
-            results_queue=queue,
             increase_budget=True,
-            print_batch_size=args.world_size,
             print_results=True,
             validate=False,
             epoch=None,
         )
-        queue.close()
 
     if rank == 0:
         total_time = time.time() - start_time
@@ -619,9 +615,6 @@ if __name__ == "__main__":
         "num_actions": problemset["num_actions"],
         "double_backward": problemset["double_backward"],
     }
-    queue = None
-    if args.mode == "test" or args.validset_path:
-        queue = mp.Queue()
 
     if is_distributed:
         processes = []
@@ -634,7 +627,6 @@ if __name__ == "__main__":
                     model_args,
                     args,
                     problem_loaders[rank],
-                    queue,
                     valid_loaders[rank] if valid_loaders else None,
                 ),
             )
@@ -652,6 +644,5 @@ if __name__ == "__main__":
             model_args,
             args,
             problem_loaders[0],
-            queue,
             valid_loaders[0] if valid_loaders else None,
         )
