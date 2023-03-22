@@ -33,7 +33,7 @@ import wandb
 
 import domains
 from loaders import CurriculumLoader, ProblemsBatchLoader
-from models import ConvNetDouble, ConvNetSingle
+from models import AgentModel
 import models.loss_functions as loss_fns
 from search import BiBS, BiLevin, Levin
 from search.agent import Agent
@@ -66,7 +66,7 @@ def parse_args():
         "--model-suffix",
         type=str,
         default="best",
-        help="suffix of model to load, i.e. forward_[suffix].pt",
+        help="suffix of model to load, i.e. model_[suffix].pt",
     )
     parser.add_argument(
         "-l",
@@ -285,8 +285,6 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
     model = None
-    forward_model = None
-    backward_model = None
     if args.agent == "Levin":
         agent = Levin()
     elif args.agent == "BiLevin":
@@ -296,86 +294,35 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
     else:
         raise ValueError(f"Unknown agent: {args.agent}")
 
-    if args.agent == "Levin":
-        forward_model = ConvNetSingle(
-            model_args["in_channels"],
-            model_args["state_t_width"],
-            (2, 2),
-            32,
-            model_args["num_actions"],
-        )
-    elif args.agent == "BiLevin":
-        forward_model = ConvNetSingle(
-            model_args["in_channels"],
-            model_args["state_t_width"],
-            (2, 2),
-            32,
-            model_args["num_actions"],
-        )
-        if model_args["double_backward"]:
-            backward_model = ConvNetDouble(
-                model_args["in_channels"],
-                model_args["state_t_width"],
-                (2, 2),
-                32,
-                model_args["num_actions"],
-            )
-        else:
-            backward_model = ConvNetSingle(
-                model_args["in_channels"],
-                model_args["state_t_width"],
-                (2, 2),
-                32,
-                model_args["num_actions"],
-            )
-
     if agent.trainable:
         if agent.bidirectional:
-            assert isinstance(forward_model, nn.Module)
-            assert isinstance(backward_model, nn.Module)
-            model = forward_model, backward_model
-        else:
-            assert isinstance(forward_model, nn.Module)
-            model = forward_model
+            model_args["bidirectional"] = True
+        model = AgentModel(model_args)
 
         if args.model_path is None:
             # just use the random initialization from rank 0
             if is_distributed:
-                for param in forward_model.parameters():
+                for param in model.parameters():
                     dist.broadcast(param.data, 0)
-                if agent.bidirectional:
-                    assert isinstance(backward_model, nn.Module)
-                    for param in backward_model.parameters():
-                        dist.broadcast(param.data, 0)
         elif args.model_path.is_dir():
-            forward_model_path = args.model_path / f"forward_{args.model_suffix}.pt"
-            forward_model.load_state_dict(to.load(forward_model_path))
-            if agent.bidirectional:
-                assert isinstance(backward_model, nn.Module)
-                backward_model_path = (
-                    args.model_path / f"backward_{args.model_suffix}.pt"
-                )
-                backward_model.load_state_dict(to.load(backward_model_path))
+            model_path = args.model_path / f"model_{args.model_suffix}.pt"
+            model.load_state_dict(to.load(model_path))
 
             if rank == 0:
-                print(f"Loaded model(s)\n  from  {str(args.model_path)}")
+                print(f"Loaded model\n  from  {str(args.model_path)}")
         else:
             raise ValueError("model-path argument must be a directory if given")
 
-    model_save_path = Path(__file__).parent.parent / f"runs/{run_name}"
-    model_save_path.mkdir(parents=True, exist_ok=True)
+        model_save_path = Path(__file__).parent.parent / f"runs/{run_name}"
+        model_save_path.mkdir(parents=True, exist_ok=True)
+        model.save_path = model_save_path
 
-    if rank == 0:
-        if args.mode == "train":
-            print(f"Saving model(s)\n  to {str(model_save_path)}")
-        elif args.mode == "test" and agent.trainable:
-            assert isinstance(forward_model, nn.Module)
-            to.save(forward_model.state_dict(), model_save_path / "forward.pt")
-            if agent.bidirectional:
-                assert isinstance(backward_model, nn.Module)
-                to.save(backward_model.state_dict(), model_save_path / "backward.pt")
-
-            print(f"Copied model(s) to use\n  to {str(model_save_path)}")
+        if rank == 0:
+            if args.mode == "train":
+                print(f"Saving model\n  to {str(model_save_path)}")
+            elif args.mode == "test" and agent.trainable:
+                to.save(model.state_dict(), model_save_path / "forward.pt")
+                print(f"Copied model to use\n  to {str(model_save_path)}")
 
     if args.mode == "train":
         assert model
@@ -390,7 +337,6 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             rank,
             agent,
             model,
-            model_save_path,
             loss_fn,
             optimizer_cons,
             optimizer_params,
@@ -501,7 +447,7 @@ if __name__ == "__main__":
                     f"          {small_size} into ranks {small_ranks}-{args.world_size - 1}\n"
                 )
 
-            return problemsets, large_size
+            return problemsets
 
         local_batch_size = args.batch_size_train // args.world_size
 
@@ -514,9 +460,7 @@ if __name__ == "__main__":
 
         if "is_curriculum" in problemset:
             # for now, all training problemsets should be curricula
-            bootstrap_problemsets, bs_large_size = split(
-                problemset["bootstrap_problems"]
-            )
+            bootstrap_problemsets = split(problemset["bootstrap_problems"])
             all_bootstrap_ids = [p.id for p in problemset["bootstrap_problems"]]
             set_id_idxs(0, problemset["bootstrap_problems"])
 
@@ -531,10 +475,7 @@ if __name__ == "__main__":
                 curriculum_difficulty_problems = curriculum_problems[
                     i * ppd : (i + 1) * ppd
                 ]
-                curriculum_diff_ranks_split[i], curr_large_size = split(
-                    curriculum_difficulty_problems
-                )
-            curr_large_size *= num_difficulty_levels  # assumes all curriculum difficulties are the same size
+                curriculum_diff_ranks_split[i] = split(curriculum_difficulty_problems)
 
             curriculum_problemsets = [[] for _ in range(args.world_size)]
             for i in range(args.world_size):
@@ -544,9 +485,7 @@ if __name__ == "__main__":
             # for pset in curriculum_problemsets:
             #     print([p.id for p in pset])
 
-            permutation_problemsets, perm_large_size = split(
-                problemset["permutation_problems"]
-            )
+            permutation_problemsets = split(problemset["permutation_problems"])
             all_permutation_ids = [p.id for p in problemset["permutation_problems"]]
             set_id_idxs(
                 len(all_bootstrap_ids) + len(all_curr_ids),
@@ -614,6 +553,8 @@ if __name__ == "__main__":
         "state_t_width": problemset["state_t_width"],
         "num_actions": problemset["num_actions"],
         "double_backward": problemset["double_backward"],
+        "kernel_size": (2, 2),
+        "num_filters": 32,
     }
 
     if is_distributed:

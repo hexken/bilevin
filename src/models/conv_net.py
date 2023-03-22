@@ -16,6 +16,119 @@
 import torch as to
 import torch.nn as nn
 import torch.nn.functional as F
+from pathlib import Path
+
+
+class AgentModel(nn.Module):
+    def __init__(self, model_args):
+        super().__init__()
+        self.model_args: dict = model_args
+        self.num_actions: int = model_args.num_actions
+        self.state_t_width: int = model_args.state_t_width
+        self.in_channels: int = model_args.in_channels
+        self.kernel_size: tuple[int, int] = model_args.kernel_size
+        self.num_filters: int = model_args.num_filters
+        self.bidirectional: bool = model_args["bidirectional"]
+        self.save_path: Path
+
+        self.feature_net: nn.Module = ConvBlock(
+            self.in_channels,
+            self.state_t_width,
+            self.kernel_size,
+            self.num_filters,
+            self.num_actions,
+        )
+        self.num_features: int = self.num_filters * ((self.state_t_width - 2) ** 2)
+
+        self.forward_policy: nn.Module = SinglePolicy(
+            self.num_features,
+            self.num_actions,
+            model_args["forward_hidden_layer_sizes"],
+        )
+
+        self.bidirectional = model_args["bidirectional"]
+        if self.bidirectional:
+            self.backward_policy: nn.Module = DoublePolicy(
+                self.num_features,
+                self.num_actions,
+                model_args["backward_hidden_layer_sizes"],
+            )
+
+        def save(self, suffix=""):
+            tmp_path = self.save_path
+            if suffix:
+                tmp_path = tmp_path.with_stem(tmp_path.stem + f"_{suffix}")
+            to.save(self.state_dict(), self.save_path)
+
+
+class SinglePolicy(nn.Module):
+    def __init__(self, num_features, num_actions, hidden_layer_sizes=[128]):
+        super().__init__()
+        self.num_features = num_features
+        self.num_actions = num_actions
+
+        self.layers = nn.ModuleList([nn.Linear(num_features, hidden_layer_sizes[0])])
+        self.layers.extend(
+            [
+                nn.Linear(hidden_layer_sizes[i], hidden_layer_sizes[i + 1])
+                for i in range(len(hidden_layer_sizes) - 1)
+            ]
+        )
+        self.layers.append(nn.Linear(hidden_layer_sizes[-1], num_actions))
+
+        for i in range(len(self.layers) - 1):
+            to.nn.init.kaiming_uniform_(
+                self.layers[i].weight, mode="fan_in", nonlinearity="relu"
+            )
+        to.nn.init.xavier_uniform_(self.layers[-1].weight)
+
+    def forward(self, state_feats):
+        for i in range(len(self.layers) - 1):
+            state_feats = F.relu(self.layers[i](state_feats))
+
+        logits = self.layers[-1](state_feats)
+
+        return logits
+
+
+class DoublePolicy(nn.Module):
+    def __init__(
+        self,
+        num_features,
+        num_actions,
+        hidden_layer_sizes=[256, 192, 128],
+    ):
+        super().__init__()
+        self.num_features = num_features * 2
+        self.num_actions = num_actions
+
+        self.layers = nn.ModuleList([nn.Linear(num_features, hidden_layer_sizes[0])])
+        self.layers.extend(
+            [
+                nn.Linear(hidden_layer_sizes[i], hidden_layer_sizes[i + 1])
+                for i in range(len(hidden_layer_sizes) - 1)
+            ]
+        )
+        self.layers.append(nn.Linear(hidden_layer_sizes[-1], num_actions))
+
+        for i in range(len(self.layers) - 1):
+            to.nn.init.kaiming_uniform_(
+                self.layers[i].weight, mode="fan_in", nonlinearity="relu"
+            )
+        to.nn.init.xavier_uniform_(self.layers[-1].weight)
+
+    def forward(self, state_feats, goal_feats):
+        bs = state_feats.shape[0]
+        if goal_feats.shape[0] != bs:
+            goal_feats = goal_feats.expand(bs, -1)
+
+        x = to.cat((state_feats, goal_feats), dim=-1)
+        for i in range(len(self.layers) - 1):
+            x = F.relu(self.layers[i](x))
+
+        logits = self.layers[-1](x)
+
+        return logits
 
 
 class ConvBlock(nn.Module):

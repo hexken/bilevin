@@ -30,6 +30,7 @@ import torch as to
 import torch.distributed as dist
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard.writer import SummaryWriter
+from models.conv_net import AgentModel
 import tqdm
 
 from domains.domain import Problem
@@ -41,8 +42,7 @@ from search.agent import Agent
 def train(
     rank: int,
     agent: Agent,
-    model: Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]],
-    model_save_path: Path,
+    model: AgentModel,
     loss_fn: Callable,
     optimizer_cons: Type[to.optim.Optimizer],
     optimizer_params: dict,
@@ -55,7 +55,6 @@ def train(
     grad_steps: int = 10,
     epochs_reduce_lr: int = 5,
     epoch_begin_validate: int = 1,
-    shuffle_trajectory: bool = False,
     valid_loader: Optional[ProblemsBatchLoader] = None,
 ):
     is_distributed = world_size > 1
@@ -73,34 +72,26 @@ def train(
     opt_result_header = f"OptStep   Loss    Acc"
 
     bidirectional = agent.bidirectional
-    if bidirectional:
-        assert isinstance(model, tuple)
-        f_model, b_model = model
-        f_model_save_path = model_save_path / "forward_best.pt"
-        b_model_save_path = model_save_path / "backward_best.pt"
+    optimizer = optimizer_cons(model.parameters(), **optimizer_params)
+    # forward_optimizer = optimizer_cons(
+    #     list(model.feature_net.parameters()) + list(model.forward_policy.parameters()),
+    #     **optimizer_params,
+    # )
+    # if bidirectional:
+    #     backward_optimizer = optimizer_cons(
+    #         list(model.feature_net.parameters())
+    #         + list(model.backward_policy.parameters()),
+    #         **optimizer_params,
+    #     )
 
-        forward_optimizer = optimizer_cons(f_model.parameters(), **optimizer_params)
-        backward_optimizer = optimizer_cons(b_model.parameters(), **optimizer_params)
-
-        for param in b_model.parameters():
-            if not param.grad:
-                param.grad = to.zeros_like(param)
-    else:
-        assert isinstance(model, to.nn.Module)
-        f_model = model
-        f_model_save_path = model_save_path / "forward_best.pt"
-        forward_optimizer = optimizer_cons(f_model.parameters(), **optimizer_params)
-
-    for param in f_model.parameters():
+    for param in model.parameters():
         if not param.grad:
             param.grad = to.zeros_like(param)
 
     if rank == 0:
-        log_params(writer, f_model, "forward", 0)
-        if bidirectional:
-            log_params(writer, b_model, "backward", 0)
+        log_params(writer, model, 0)
 
-    local_batch_opt_results = to.zeros(3, dtype=to.float64)
+    local_batch_opt_results = to.zeros(5, dtype=to.float64)
 
     local_batch_size = train_loader.batch_size
     local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int64)
@@ -111,8 +102,7 @@ def train(
     batches_seen = 0
     solved_problems = set()
     total_num_expanded = 0
-    forward_opt_steps = 0
-    backward_opt_steps = 0
+    opt_step = 1
 
     best_valid_solve_rate = 0.0
     max_valid_expanded = 0 if not valid_loader else (len(valid_loader.all_ids) * budget)
@@ -186,10 +176,8 @@ def train(
                 to.set_grad_enabled(False)
 
                 forward_trajs = []
-                f_model.eval()
+                model.eval()
                 backward_trajs = []
-                if bidirectional:
-                    b_model.eval()  # type:ignore
 
                 num_problems_solved_this_batch = 0
                 for i, problem in enumerate(local_batch_problems):
@@ -279,123 +267,121 @@ def train(
                     )
                     total_num_expanded += world_batch_results_df["NumExpanded"].sum()
 
-                    writer.add_scalar( "cum_unique_solved_vs_expanded", len(solved_problems), total_num_expanded,)
+                    writer.add_scalar(
+                        "cum_unique_solved_vs_expanded",
+                        len(solved_problems),
+                        total_num_expanded,
+                    )
 
-                def fit_model(
-                    model: to.nn.Module,
-                    optimizer: to.optim.Optimizer,
-                    trajs: list,
-                    opt_step: int,
-                    name: str,
-                ):
-                    if rank == 0:
-                        print(f"{name}:")
-                        print(opt_result_header)
+                if rank == 0:
+                    print(f"Forward  Backward")
+                    print(opt_result_header)
 
-                    merged_traj = MergedTrajectory(trajs, shuffle_trajectory)
-                    to.set_grad_enabled(True)
-                    model.train()
+                f_merged_traj = MergedTrajectory(forward_trajs)
+                if bidirectional:
+                    b_merged_traj = MergedTrajectory(backward_trajs)
 
-                    num_procs_found_solution = 0
-                    loss = -1
-                    acc = -1
-                    for _ in range(grad_steps):
-                        optimizer.zero_grad()
-                        if trajs:
-                            loss, avg_action_nll, logits = loss_fn(merged_traj, model)
-                            loss.backward()
+                to.set_grad_enabled(True)
+                model.train()
 
-                            acc = (
-                                logits.argmax(dim=1) == merged_traj.actions
-                            ).sum().item() / len(logits)
+                num_procs_found_solution = 0
+                f_loss = 0
+                f_acc = -1
+                b_loss = 0
+                b_acc = -1
 
-                            local_batch_opt_results[0] = avg_action_nll
-                            local_batch_opt_results[1] = acc
-                            local_batch_opt_results[2] = 1
-                        else:
-                            local_batch_opt_results[:] = 0
+                for _ in range(grad_steps):
+                    optimizer.zero_grad()
+                    if forward_trajs:
+                        f_loss, f_avg_action_nll, f_logits = loss_fn( f_merged_traj, model)
 
-                        if is_distributed:
-                            dist.all_reduce(
-                                local_batch_opt_results, op=dist.ReduceOp.SUM
-                            )
-                            num_procs_found_solution = int(
-                                local_batch_opt_results[2].item()
-                            )
-                            if num_procs_found_solution > 0:
-                                sync_grads(model, num_procs_found_solution)
+                        f_acc = (
+                            f_logits.argmax(dim=1) == f_merged_traj.actions
+                        ).sum().item() / len(f_logits)
 
+                        local_batch_opt_results[0] = f_avg_action_nll
+                        local_batch_opt_results[1] = f_acc
+                        local_batch_opt_results[2] = 1
+
+                        if bidirectional:
+                            b_loss, b_avg_action_nll, b_logits = loss_fn( b_merged_traj, model):
+                            b_acc = (
+                                b_logits.argmax(dim=1) == b_merged_traj.actions
+                            ).sum().item() / len(b_logits)
+
+                            local_batch_opt_results[3] = b_avg_action_nll
+                            local_batch_opt_results[3] = b_acc
+                    else:
+                        local_batch_opt_results[:] = 0
+
+
+                        loss = f_loss + b_loss
+                        loss.backward()
+
+                    if is_distributed:
+                        dist.all_reduce(local_batch_opt_results, op=dist.ReduceOp.SUM)
                         num_procs_found_solution = int(
                             local_batch_opt_results[2].item()
                         )
-
-                        # todo grad clipping? for now inspect norms
-                        if trajs and rank == 0:
-                            total_norm = 0
-                            for p in model.parameters():
-                                param_norm = p.grad.detach().data.norm(2)
-                                total_norm += param_norm.item() ** 2
-                            total_norm = total_norm**0.5
-                            writer.add_scalar(
-                                f"total_grad_norm/{name}", total_norm, opt_step
-                            )
-
-                        optimizer.step()
-
                         if num_procs_found_solution > 0:
-                            opt_step += 1
-                            if rank == 0:
-                                opt_passes = opt_step // grad_steps
-                                step_within_opt_pass = opt_step % grad_steps
-                                if (
-                                    step_within_opt_pass == 1
-                                    or step_within_opt_pass == 0
-                                ):
-                                    loss = (
-                                        local_batch_opt_results[0].item()
-                                        / num_procs_found_solution
-                                    )
-                                    acc = (
-                                        local_batch_opt_results[1].item()
-                                        / num_procs_found_solution
-                                    )
-                                    print(f"{opt_step:7}  {loss:5.3f}  {acc:5.3f}")
-                                    if step_within_opt_pass == 0:
-                                        # fmt: off
-                                        writer.add_scalar( f"loss_vs_opt_pass/{name}", loss, opt_passes,)
-                                        writer.add_scalar( f"acc_vs_opt_pass/{name}", acc, opt_passes,)
-                                        # fmt:on
+                            sync_grads(model, num_procs_found_solution)
+                    else:
+                        num_procs_found_solution = int(local_batch_opt_results[2].item())
+
+                    # todo grad clipping? for now inspect norms
+                    if num_procs_found_solution > 0 and rank == 0:
+                        log_grad_norm(model.feature_net.parameters(), "feature_net", writer, opt_step)
+                        log_grad_norm(model.forward_policy.parameters(), "forward", writer, opt_step)
+                        if bidirectional:
+                            log_grad_norm(model.backward_policy.parameters(), "backward", writer, opt_step)
+
+                    optimizer.step()
+
+                    if num_procs_found_solution > 0:
+                        opt_step += 1
+                        if rank == 0:
+                            opt_passes = opt_step // grad_steps
+                            step_within_opt_pass = opt_step % grad_steps
+                            if step_within_opt_pass == 1 or step_within_opt_pass == 0:
+                                f_loss = (
+                                    local_batch_opt_results[0].item()
+                                    / num_procs_found_solution
+                                )
+                                f_acc = (
+                                    local_batch_opt_results[1].item()
+                                    / num_procs_found_solution
+                                )
+                                b_loss = (
+                                    local_batch_opt_results[3].item()
+                                    / num_procs_found_solution
+                                )
+                                b_acc = (
+                                    local_batch_opt_results[4].item()
+                                    / num_procs_found_solution
+                                )
+                                print(f"{opt_step:7}  {f_loss:5.3f}  {f_acc:5.3f}")
+                                print(f"{opt_step:7}  {b_loss:5.3f}  {b_acc:5.3f}")
+                                if step_within_opt_pass == 0:
+                                    # fmt: off
+                                    writer.add_scalar( f"loss_vs_opt_pass/forward", f_loss, opt_passes,)
+                                    writer.add_scalar( f"acc_vs_opt_pass/forward", f_acc, opt_passes,)
+                                    if bidirectional:
+                                        writer.add_scalar( f"loss_vs_opt_pass/backward", b_loss, opt_passes,)
+                                        writer.add_scalar( f"acc_vs_opt_pass/backward", b_acc, opt_passes,)
+                                    # fmt:on
 
                     if rank == 0 and num_procs_found_solution > 0:
                         print("")
-                    return opt_step, loss, acc
 
-                forward_opt_steps, f_loss, f_acc = fit_model(
-                    f_model,
-                    forward_optimizer,
-                    forward_trajs,
-                    forward_opt_steps,
-                    name="forward",
-                )
                 world_epoch_f_loss[batch_idx] = f_loss
                 world_epoch_f_acc[batch_idx] = f_acc
-
                 if bidirectional:
-                    backward_opt_steps, b_loss, b_acc = fit_model(
-                        b_model,  # type:ignore
-                        backward_optimizer,  # type:ignore
-                        backward_trajs,  # type:ignore
-                        backward_opt_steps,  # type:ignore
-                        name="backward",
-                    )
                     world_epoch_b_loss[batch_idx] = b_loss
                     world_epoch_b_acc[batch_idx] = b_acc
 
                 if rank == 0:
                     if batches_seen % param_log_interval == 0:
-                        log_params(writer, f_model, "forward", batches_seen)
-                        if bidirectional:
-                            log_params(writer, b_model, "backward", batches_seen)
+                        log_params(writer, model, batches_seen)
 
                     batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                     # fmt: off
@@ -510,15 +496,7 @@ def train(
                         best_valid_total_expanded = valid_total_expanded
                         print("Saving best model...")
                         writer.add_text("best_model", f"epoch {epoch}")
-                        to.save(
-                            f_model.state_dict(),
-                            f_model_save_path.with_name("forward_best.pt"),
-                        )
-                        if bidirectional:
-                            to.save(
-                                b_model.state_dict(),
-                                b_model_save_path.with_name("backward_best.pt"),
-                            )
+                        model.save("best")
 
                 if is_distributed:
                     dist.barrier()
@@ -538,24 +516,31 @@ def train(
 
     # all epochs completed
     if rank == 0:
-        to.save(f_model.state_dict(), f_model_save_path)
-        if bidirectional:
-            to.save(b_model.state_dict(), b_model_save_path)
+        model.save()
         print("END TRAINING")
 
 
-def log_params(writer, model, name, batches_seen):
+def log_params(writer, model, batches_seen):
     for (
         param_name,
         param,
     ) in model.named_parameters():
         writer.add_histogram(
-            f"param_vs_batch/{name}/{param_name}",
+            f"param_vs_batch/{param_name}",
             param.data,
             batches_seen,
             bins=512,
         )
 
+def log_grad_norm(parameters, name, writer, opt_step):
+    total_norm = 0
+    for p in parameters:
+        param_norm = p.grad.detach().data.norm(2)
+        total_norm += param_norm.item() ** 2
+    total_norm = total_norm**0.5
+    writer.add_scalar(
+        f"total_grad_norm/{name}", total_norm, opt_step
+    )
 
 def sync_grads(model: to.nn.Module, n: int):
     all_grads_list = [param.grad.view(-1) for param in model.parameters()]
@@ -569,3 +554,4 @@ def sync_grads(model: to.nn.Module, n: int):
             all_grads[offset : offset + numel].view_as(param.grad.data)
         )
         offset += numel
+

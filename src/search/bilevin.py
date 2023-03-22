@@ -14,6 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import annotations
+from copy import deepcopy
 import time
 from typing import TYPE_CHECKING
 
@@ -58,10 +59,16 @@ class BiLevin(Agent):
         b_state = b_domain.reset()
         b_state_t = b_domain.state_tensor(b_state).unsqueeze(0)
 
-        forward_model, backward_model = model
+        f_state_feats, b_state_feats = model.feature_net(
+            to.vstack((f_state_t, b_state_t))
+        )
 
-        f_action_logits = forward_model(f_state_t)
-        b_action_logits = backward_model(b_state_t)
+        b_goal_feats = deepcopy(f_state_t)
+
+        f_action_logits = model.forward_policy(f_state_feats)
+        b_action_logits = model.backward_policy(b_state_feats, b_goal_feats)
+
+        # b_state_feats = model.feature_net(b_state_t)
 
         f_log_action_probs = log_softmax(f_action_logits[0], dim=-1)
         b_log_action_probs = log_softmax(b_action_logits[0], dim=-1)
@@ -113,14 +120,14 @@ class BiLevin(Agent):
             if f < b:
                 direction = TwoDir.FORWARD
                 _domain = f_domain
-                _model = forward_model
+                _policy = model.forward_policy
                 _frontier = f_frontier
                 _reached = f_reached
                 other_domain = b_domain
             else:
                 direction = TwoDir.BACKWARD
                 _domain = b_domain
-                _model = backward_model
+                _policy = model.backward_policy
                 _frontier = b_frontier
                 _reached = b_reached
                 other_domain = f_domain
@@ -176,7 +183,11 @@ class BiLevin(Agent):
 
             if children_to_be_evaluated:
                 batch_states = to.stack(state_t_of_children_to_be_evaluated)
-                action_logits = _model(batch_states)
+                batch_feats = model.feature_net(batch_states)
+                if direction == TwoDir.BACKWARD:
+                    action_logits = _policy(batch_feats, b_goal_feats)
+                else:
+                    action_logits = _policy(batch_feats)
                 log_action_probs = log_softmax(action_logits, dim=-1)
 
                 for i, child in enumerate(children_to_be_evaluated):

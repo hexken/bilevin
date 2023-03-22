@@ -72,10 +72,14 @@ class SlidingTilePuzzle(Domain):
 
         self.initial_state_t = self.state_tensor(self.initial_state)
 
-        if not self.forward:
-            self.state_tensor = self.backward_state_tensor
-
         self.goal_tiles = goal_tiles
+        blank_pos = np.where(goal_tiles == 0)
+        goal_blank_row = blank_pos[0].item()
+        goal_blank_col = blank_pos[1].item()
+        self.goal_state = SlidingTilePuzzleState(
+            goal_tiles, goal_blank_row, goal_blank_col
+        )
+        self.goal_state_t = self.state_tensor(self.goal_state)
 
         self.visited = {}
 
@@ -110,18 +114,6 @@ class SlidingTilePuzzle(Domain):
             self._col_indices,
         ] = 1
         return to.from_numpy(arr)
-
-    def backward_state_tensor(
-        self,
-        state: SlidingTilePuzzleState,
-    ) -> to.Tensor:
-        arr = np.zeros((self.num_tiles, self.width, self.width), dtype=np.float32)
-        arr[
-            state.tiles.reshape(-1),
-            self._row_indices,
-            self._col_indices,
-        ] = 1
-        return to.stack((to.from_numpy(arr), self.initial_state_t))
 
     def reverse_action(self, action: FourDir) -> FourDir:
         if action == FourDir.UP:
@@ -218,12 +210,13 @@ class SlidingTilePuzzle(Domain):
     def is_goal(self, state: SlidingTilePuzzleState) -> bool:
         return np.array_equal(state.tiles, self.goal_tiles)
 
-    def get_merged_trajectory(
+    def get_merged_solution(
         self,
         dir1_common: SearchNode,
         dir2_common: SearchNode,
         node_type: Type[SearchNode],
         num_expanded: int,
+        goal_state: Optional[to.Tensor] = None,
     ):
         """
         Returns a new trajectory going from dir1_start to dir2_start, passing through
@@ -243,7 +236,7 @@ class SlidingTilePuzzle(Domain):
             parent_dir2_action = parent_dir2_node.parent_action
             parent_dir2_node = parent_dir2_node.parent
 
-        return Trajectory(self, dir1_node, num_expanded)
+        return Trajectory(self, dir1_node, num_expanded, goal_state)
 
     def try_make_solution(
         self,
@@ -268,11 +261,15 @@ class SlidingTilePuzzle(Domain):
                 f_domain = other_domain
                 b_domain = self
 
-            f_traj = f_domain.get_merged_trajectory(
+            f_traj = f_domain.get_merged_solution(
                 f_common_node, b_common_node, type(node), num_expanded
             )
-            b_traj = b_domain.get_merged_trajectory(
-                b_common_node, f_common_node, type(node), num_expanded
+            b_traj = b_domain.get_merged_solution(
+                b_common_node,
+                f_common_node,
+                type(node),
+                num_expanded,
+                b_domain.goal_state_t,
             )
 
             return (f_traj, b_traj)

@@ -60,12 +60,14 @@ class Trajectory:
         domain: Domain,
         final_node: SearchNode,
         num_expanded: int,
+        goal_state_t: Optional[to.Tensor] = None,
     ):
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
         self.num_expanded = num_expanded
+        self.goal_state_t = goal_state_t
 
         action = final_node.parent_action
         node = final_node.parent
@@ -88,30 +90,34 @@ class Trajectory:
 
 
 class MergedTrajectory:
-    def __init__(self, trajs: list, shuffle: bool = False):
+    def __init__(self, trajs: list):
         if trajs:
+            if trajs[0].goal_state_t is not None:
+                self.goal_states = to.cat(tuple(t.goal_state_t for t in trajs))
+            else:
+                self.goal_states = None
+
             self.states = to.cat(tuple(t.states for t in trajs))
             self.actions = to.cat(tuple(t.actions for t in trajs))
             indices = to.arange(len(trajs))
-            self.indices = to.repeat_interleave(
-                indices, to.tensor(tuple(len(t) for t in trajs))
-            )
+            self.lengths = to.tensor(tuple(len(t) for t in trajs))
+            self.indices = to.repeat_interleave(indices, self.lengths)
             self.nums_expanded = to.tensor(
                 tuple(t.num_expanded for t in trajs), dtype=to.float32
             )
             self.num_trajs = len(self.nums_expanded)
             self.num_states = len(self.states)
 
-            if shuffle:
-                self.shuffle()
+            # if shuffle:
+            #     self.shuffle()
         else:
             return None
 
     def __len__(self):
         raise NotImplementedError
 
-    def shuffle(self):
-        perm = to.randperm(self.num_states)
-        self.states = self.states[perm]
-        self.actions = self.actions[perm]
-        self.indices = self.indices[perm]
+    # def shuffle(self):
+    #     perm = to.randperm(self.num_states)
+    #     self.states = self.states[perm]
+    #     self.actions = self.actions[perm]
+    #     self.indices = self.indices[perm]
