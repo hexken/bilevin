@@ -136,7 +136,7 @@ def main():
     goal_tiles = np.arange(args.width**2).reshape(args.width, args.width)
     stp = SlidingTilePuzzle(goal_tiles, goal_tiles)
 
-    problemset_template = {
+    problemset_dict = {
         "domain_module": "stp",
         "domain_name": "SlidingTilePuzzle",
         "width": args.width,
@@ -204,13 +204,21 @@ def main():
         helper(state, 1, max_step)
         return problems
 
-    def save_problemset(problems, problemset_template, suffix, is_curriculum=False):
-        if not is_curriculum:
-            problemset_template["problems"] = problems
-        path = args.output_path / f"{len(problems)}-{suffix}.json"
+    def save_problemset(problemset_dict, suffix, is_curriculum=False):
+        n_problems = 0
+        if "problems" in problemset_dict:
+            n_problems += len(problemset_dict["problems"])
+        if "bootstrap_problems" in problemset_dict:
+            n_problems += len(problemset_dict["bootstrap_problems"])
+        if "curriculum_problems" in problemset_dict:
+            n_problems += len(problemset_dict["curriculum_problems"])
+        if "permutation_problems" in problemset_dict:
+            n_problems += len(problemset_dict["permutation_problems"])
+
+        path = args.output_path / f"{n_problems}-{suffix}.json"
         with path.open("w") as f:
-            json.dump(problemset_template, f)
-        print(f"Saved {len(problems)} problems to {path}")
+            json.dump(problemset_dict, f)
+        print(f"Saved {n_problems} problems to {path}")
 
     print(
         f"Generating bootstrap problems up to {args.bootstrap_steps} steps away from goal.."
@@ -221,7 +229,7 @@ def main():
     print(f"Generated {len(bootstrap_problems)} problems.")
 
     print(
-        f"Generating {args.n_problems_per_difficulty} curriculum problems for each of {args.curriculum} steps"
+        f"Generating {args.n_problems_per_difficulty} curriculum problems for each of {len(args.curriculum)} steps: {args.curriculum}"
     )
     curriculum_problems = []
     id_counter = 0
@@ -263,22 +271,22 @@ def main():
         "Permutation problems",
     )
 
-    trainset_template = copy(problemset_template)
-    trainset_template["is_curriculum"] = True
-    trainset_template["curriculum"] = args.curriculum
-    trainset_template["problems_per_difficulty"] = args.n_problems_per_difficulty
-    trainset_template["bootstrap_problems"] = bootstrap_problems
-    trainset_template["curriculum_problems"] = curriculum_problems
-    trainset_template["permutation_problems"] = permutation_problems
-    save_problemset(curriculum_problems, trainset_template, "train", is_curriculum=True)
+    trainset_dict = copy(problemset_dict)
+    trainset_dict["is_curriculum"] = True
+    trainset_dict["curriculum"] = args.curriculum
+    trainset_dict["problems_per_difficulty"] = args.n_problems_per_difficulty
+    trainset_dict["bootstrap_problems"] = bootstrap_problems
+    trainset_dict["curriculum_problems"] = curriculum_problems
+    trainset_dict["permutation_problems"] = permutation_problems
+    save_problemset(trainset_dict, "train")
 
     if args.n_valid > 0:
         valid_problems = generate_permutation_problems(
             "v", 0, args.n_valid, "Validation problems"
         )
+        problemset_dict["problems"] = valid_problems
         save_problemset(
-            valid_problems,
-            problemset_template,
+            problemset_dict,
             "valid",
         )
 
@@ -286,9 +294,9 @@ def main():
         test_problems = generate_permutation_problems(
             "t", 0, args.n_test, "Test problems"
         )
+        problemset_dict["problems"] = test_problems
         save_problemset(
-            test_problems,
-            problemset_template,
+            problemset_dict,
             "test",
         )
 

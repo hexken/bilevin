@@ -371,9 +371,12 @@ def train(
                                     local_batch_opt_results[4].item()
                                     / num_procs_found_solution
                                 )
-                                print(
-                                    f"{opt_step:7}  {f_loss:5.3f}  {f_acc:5.3f}    {b_loss:5.3f}  {b_acc:5.3f}"
-                                )
+                                if bidirectional:
+                                    print(
+                                        f"{opt_step:7}  {f_loss:5.3f}  {f_acc:5.3f}    {b_loss:5.3f}  {b_acc:5.3f}"
+                                    )
+                                else:
+                                    print(f"{opt_step:7}  {f_loss:5.3f}  {f_acc:5.3f}")
                                 if grad_step == grad_steps:
                                     # fmt: off
                                     writer.add_scalar( f"loss_vs_opt_pass/forward", f_loss, opt_passes,)
@@ -433,12 +436,14 @@ def train(
                 print(
                     f"SOLVED {num_problems_solved_this_epoch}/{world_num_problems} {epoch_solved_ratio}\n"
                     f"EXPANSIONS {expansions}/{max_expansions}  {expansions_ratio:5.3f}\n"
-                    f"Average forward loss: {epoch_f_loss:5.3f}, acc: {epoch_f_acc:5.3f}"
                 )
+                print(f"  Forward        Backward\nLoss    Acc    Loss    Acc")
                 if bidirectional:
                     print(
-                        f"Average backward loss: {epoch_b_loss:5.3f}, acc: {epoch_b_acc:5.3f}"
+                        f"{epoch_f_loss:5.3f}  {epoch_f_acc:5.3f}    {epoch_b_loss:5.3f}  {epoch_b_acc:5.3f}"
                     )
+                else:
+                    print(f"{epoch_f_loss:5.3f}  {epoch_f_acc:5.3f}")
                 print(
                     "============================================================================"
                 )

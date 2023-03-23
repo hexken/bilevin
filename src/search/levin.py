@@ -55,7 +55,8 @@ class Levin(Agent):
         state = domain.reset()
         state_t = domain.state_tensor(state).unsqueeze(0)
 
-        action_logits = model(state_t)
+        state_feats = model.feature_net(state_t)
+        action_logits = model.forward_policy(state_feats)
         log_action_probs = log_softmax(action_logits[0], dim=-1)
 
         node = LevinNode(
@@ -131,7 +132,8 @@ class Levin(Agent):
 
             if children_to_be_evaluated:
                 batch_states = to.stack(state_t_of_children_to_be_evaluated)
-                action_logits = model(batch_states)
+                batch_feats = model.feature_net(batch_states)
+                action_logits = model.forward_policy(batch_feats)
                 log_action_probs = log_softmax(action_logits, dim=-1)
 
                 for child, lap in zip(children_to_be_evaluated, log_action_probs):

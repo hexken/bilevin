@@ -81,16 +81,16 @@ def parse_args():
         help="loss function",
     )
     parser.add_argument(
-        "--forward-hidden-layer-sizes",
-        action="extend",
+        "--forward-hidden-layers",
+        action="store",
         nargs="+",
         default=[128],
         type=int,
         help="hidden layer sizes of forward policy",
     )
     parser.add_argument(
-        "--backward-hidden-layer-sizes",
-        action="extend",
+        "--backward-hidden-layers",
+        action="store",
         nargs="+",
         default=[256, 192, 128],
         type=int,
@@ -310,6 +310,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
     else:
         raise ValueError(f"Unknown agent: {args.agent}")
 
+    model_args["bidirectional"] = False
     if agent.trainable:
         if agent.bidirectional:
             model_args["bidirectional"] = True
@@ -568,8 +569,8 @@ if __name__ == "__main__":
         {
             "kernel_size": (2, 2),
             "num_filters": 32,
-            "forward_hidden_layer_sizes": args.forward_hidden_layer_sizes,
-            "backward_hidden_layer_sizes": args.backward_hidden_layer_sizes,
+            "forward_hidden_layers": args.forward_hidden_layers,
+            "backward_hidden_layers": args.backward_hidden_layers,
         }
     )
 

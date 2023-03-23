@@ -43,7 +43,7 @@ class AgentModel(nn.Module):
         self.forward_policy: nn.Module = SinglePolicy(
             self.num_features,
             self.num_actions,
-            model_args["forward_hidden_layer_sizes"],
+            model_args["forward_hidden_layers"],
         )
 
         self.bidirectional = model_args["bidirectional"]
@@ -51,7 +51,7 @@ class AgentModel(nn.Module):
             self.backward_policy: nn.Module = DoublePolicy(
                 self.num_features,
                 self.num_actions,
-                model_args["backward_hidden_layer_sizes"],
+                model_args["backward_hidden_layers"],
             )
 
     def save(self, suffix=""):
