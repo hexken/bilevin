@@ -50,6 +50,7 @@ def train(
     writer: SummaryWriter,
     world_size: int,
     update_levin_costs: bool,
+    use_shortest_solutions: bool,
     budget: int,
     seed: int,
     grad_steps: int = 10,
@@ -100,6 +101,9 @@ def train(
     best_valid_solve_rate = 0.0
     max_valid_expanded = 0 if not valid_loader else (len(valid_loader.all_ids) * budget)
     best_valid_total_expanded = max_valid_expanded
+
+    f_shortest_solutions = {}
+    b_shortest_solutions = {}
 
     epoch = 1
     for batch_loader in train_loader:
@@ -203,9 +207,23 @@ def train(
                     )
 
                     if traj:
-                        forward_trajs.append(traj[0])
-                        if bidirectional:
-                            backward_trajs.append(traj[1])
+                        if problem.id_idx not in f_shortest_solutions or len(
+                            traj[0]
+                        ) < len(f_shortest_solutions[problem.id_idx]):
+                            f_shortest_solutions[problem.id_idx] = traj[0]
+                            if bidirectional:
+                                b_shortest_solutions[problem.id_idx] = traj[1]
+
+                        if use_shortest_solutions:
+                            forward_trajs.append(f_shortest_solutions[problem.id_idx])
+                            if bidirectional:
+                                backward_trajs.append(
+                                    b_shortest_solutions[problem.id_idx]
+                                )
+                        else:
+                            forward_trajs.append(traj[0])
+                            if bidirectional:
+                                backward_trajs.append(traj[1])
 
                 if is_distributed:
                     dist.all_gather(

@@ -221,6 +221,11 @@ def parse_args():
         help="update levin costs when cheaper path found",
     )
     parser.add_argument(
+        "--use-shortest-solutions",
+        action="store_true",
+        help="use the shortest solutions found during training",
+    )
+    parser.add_argument(
         "--wandb-mode",
         type=str,
         default="disabled",
@@ -362,6 +367,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             writer,
             args.world_size,
             args.update_levin_costs,
+            args.use_shortest_solutions,
             budget=args.initial_budget,
             seed=local_seed,
             grad_steps=args.grad_steps,
