@@ -292,12 +292,15 @@ def parse_problemset(problemset: dict):
             problems.append(problem)
         return problems
 
+    model_args = {
+        "num_actions": problemset["num_actions"],
+        "in_channels": problemset["in_channels"],
+        "state_t_width": problemset["state_t_width"],
+        "width": problemset["width"],
+    }
+
     if "is_curriculum" in problemset:
         bootstrap_problems = parse_specs(problemset["bootstrap_problems"])
-        problemset["num_actions"] = bootstrap_problems[0].domain.num_actions
-        problemset["in_channels"] = bootstrap_problems[0].domain.in_channels
-        problemset["state_t_width"] = bootstrap_problems[0].domain.state_width
-        problemset["double_backward"] = True
         problemset["bootstrap_problems"] = bootstrap_problems
         problemset["curriculum_problems"] = parse_specs(
             problemset["curriculum_problems"]
@@ -305,13 +308,8 @@ def parse_problemset(problemset: dict):
         problemset["permutation_problems"] = parse_specs(
             problemset["permutation_problems"]
         )
-
     else:
         problems = parse_specs(problemset["problems"])
-        problemset["num_actions"] = problems[0].domain.num_actions
-        problemset["in_channels"] = problems[0].domain.in_channels
-        problemset["state_t_width"] = problems[0].domain.state_width
-        problemset["double_backward"] = True
         problemset["problems"] = problems
 
-    return problemset
+    return problemset, model_args

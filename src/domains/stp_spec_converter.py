@@ -66,6 +66,9 @@ def main():
         "domain_module": "stp",
         "width": width,
         "problems": [],
+        "num_actions": 4,
+        "in_channels": int(width**2),
+        "state_t_width": width,
     }
     width = problemset["width"]
 

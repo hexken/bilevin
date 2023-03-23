@@ -127,7 +127,7 @@ def main():
         for pset_path in args.exclude_problemset:
             problemset_dict = json.load(pset_path.open("r"))
             domain_module = getattr(domains, problemset_dict["domain_module"])
-            problemset = getattr(domain_module, "parse_problemset")(problemset_dict)
+            problemset, _ = getattr(domain_module, "parse_problemset")(problemset_dict)
 
             for problem in problemset["problems"]:
                 exclude_problemspecs.add(problem.domain.initial_state)
@@ -140,6 +140,9 @@ def main():
         "domain_module": "stp",
         "domain_name": "SlidingTilePuzzle",
         "width": args.width,
+        "state_t_width": args.width,
+        "num_actions": 4,
+        "in_channels": int(args.width**2),
     }
 
     def generate_permutation_problems(id_prefix, id_start, num_problems, desc):

@@ -105,6 +105,8 @@ def train(
     for batch_loader in train_loader:
         # print(f"rank {rank} {train_loader.stage} NEW BATCH LOADER epoch {epoch}")
         world_num_problems = len(batch_loader.all_ids)
+        if world_num_problems == 0:
+            continue
         max_expansions = world_num_problems * budget
 
         world_batches_this_difficulty = math.ceil(
@@ -277,9 +279,9 @@ def train(
                 model.train()
 
                 num_procs_found_solution = 0
-                f_loss = 0
+                f_loss = -1
                 f_acc = -1
-                b_loss = 0
+                b_loss = -1
                 b_acc = -1
 
                 for grad_step in range(1, grad_steps + 1):
@@ -382,8 +384,8 @@ def train(
                                     # fmt:on
                         opt_step += 1
 
-                if rank == 0 and num_procs_found_solution > 0:
-                    print("")
+                # if rank == 0 and num_procs_found_solution > 0:
+                #     print("")
 
                 world_epoch_f_loss[batch_idx] = f_loss
                 world_epoch_f_acc[batch_idx] = f_acc

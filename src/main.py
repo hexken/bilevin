@@ -412,7 +412,7 @@ if __name__ == "__main__":
 
     problemset_dict = json.load(args.problemset_path.open("r"))
     domain_module = getattr(domains, problemset_dict["domain_module"])
-    problemset = getattr(domain_module, "parse_problemset")(problemset_dict)
+    problemset, model_args = getattr(domain_module, "parse_problemset")(problemset_dict)
 
     # problems_per_difficulty = problemset["problems_per_difficulty"]
     # if problems_per_difficulty % args.world_size != 0:
@@ -420,17 +420,17 @@ if __name__ == "__main__":
 
     if args.validset_path:
         validset_dict = json.load(args.validset_path.open("r"))
-        validset = getattr(domain_module, "parse_problemset")(validset_dict)
+        validset, _ = getattr(domain_module, "parse_problemset")(validset_dict)
 
     print(time.ctime(start_time))
 
     def get_loaders(problemset):
         def split(problems):
             num_problems_parsed = len(problems)
-            if num_problems_parsed < args.world_size:
-                raise Exception(
-                    f"Number of problems '{num_problems_parsed}' must be greater than world size '{args.world_size}'"
-                )
+            # if num_problems_parsed < args.world_size:
+            #     raise Exception(
+            #         f"Number of problems '{num_problems_parsed}' must be greater than world size '{args.world_size}'"
+            #     )
 
             problemsets = [[] for _ in range(args.world_size)]
             proc = 0
@@ -564,16 +564,14 @@ if __name__ == "__main__":
     run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-{args.initial_budget}{exp_name}_{args.seed}_{int(start_time)}"
     del problemset_dict
 
-    model_args = {
-        "in_channels": problemset["in_channels"],
-        "state_t_width": problemset["state_t_width"],
-        "num_actions": problemset["num_actions"],
-        "double_backward": problemset["double_backward"],
-        "kernel_size": (2, 2),
-        "num_filters": 32,
-        "forward_hidden_layer_sizes": args.forward_hidden_layer_sizes,
-        "backward_hidden_layer_sizes": args.backward_hidden_layer_sizes,
-    }
+    model_args.update(
+        {
+            "kernel_size": (2, 2),
+            "num_filters": 32,
+            "forward_hidden_layer_sizes": args.forward_hidden_layer_sizes,
+            "backward_hidden_layer_sizes": args.backward_hidden_layer_sizes,
+        }
+    )
 
     if is_distributed:
         processes = []
