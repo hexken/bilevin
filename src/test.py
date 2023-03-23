@@ -25,14 +25,15 @@ from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
 
 from domains.domain import Problem
-from search.agent import Agent
 from loaders import ProblemsBatchLoader
+from search.agent import Agent
+from models.conv_net import AgentModel
 
 
 def test(
     rank: int,
     agent: Agent,
-    model: Optional[Union[to.nn.Module, tuple[to.nn.Module, to.nn.Module]]],
+    model: AgentModel,
     problems_loader: ProblemsBatchLoader,
     writer: SummaryWriter,
     world_size: int,
@@ -68,15 +69,7 @@ def test(
 
     to.set_grad_enabled(False)
     if agent.trainable:
-        if is_bidirectional:
-            assert isinstance(model, tuple)
-            f_model, b_model = model
-            b_model.eval()  # type:ignore
-        else:
-            assert isinstance(model, to.nn.Module)
-            f_model = model
-
-        f_model.eval()
+        model.eval()
 
     total_num_expanded = 0
 

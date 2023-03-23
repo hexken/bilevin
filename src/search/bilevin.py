@@ -59,11 +59,11 @@ class BiLevin(Agent):
         b_state = b_domain.reset()
         b_state_t = b_domain.state_tensor(b_state).unsqueeze(0)
 
-        f_state_feats, b_state_feats = model.feature_net(
-            to.vstack((f_state_t, b_state_t))
-        )
+        feats = model.feature_net(to.vstack((f_state_t, b_state_t)))
+        f_state_feats = feats[0].unsqueeze(0)
+        b_state_feats = feats[1].unsqueeze(0)
 
-        b_goal_feats = deepcopy(f_state_t)
+        b_goal_feats = deepcopy(f_state_feats)
 
         f_action_logits = model.forward_policy(f_state_feats)
         b_action_logits = model.backward_policy(b_state_feats, b_goal_feats)

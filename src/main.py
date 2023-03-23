@@ -81,6 +81,22 @@ def parse_args():
         help="loss function",
     )
     parser.add_argument(
+        "--forward-hidden-layer-sizes",
+        action="extend",
+        nargs="+",
+        default=[128],
+        type=int,
+        help="hidden layer sizes of forward policy",
+    )
+    parser.add_argument(
+        "--backward-hidden-layer-sizes",
+        action="extend",
+        nargs="+",
+        default=[256, 192, 128],
+        type=int,
+        help="hidden layer sizes of backward policy",
+    )
+    parser.add_argument(
         "--weight-decay",
         type=float,
         default=0.001,
@@ -130,11 +146,11 @@ def parse_args():
         default=1,
         help="reduce learning rate by a factor of 10 after this many epochs",
     )
-    parser.add_argument(
-        "--shuffle-trajectory",
-        action="store_true",
-        help="shuffle trajectory states",
-    )
+    # parser.add_argument(
+    #     "--shuffle-trajectory",
+    #     action="store_true",
+    #     help="shuffle trajectory states",
+    # )
     parser.add_argument(
         "-a",
         "--agent",
@@ -297,32 +313,33 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
     if agent.trainable:
         if agent.bidirectional:
             model_args["bidirectional"] = True
-        model = AgentModel(model_args)
 
+        model_save_path = Path(__file__).parent.parent / f"runs/{run_name}"
+        model_save_path.mkdir(parents=True, exist_ok=True)
+        model_args["save_path"] = model_save_path
+
+        model = AgentModel(model_args)
         if args.model_path is None:
             # just use the random initialization from rank 0
             if is_distributed:
                 for param in model.parameters():
                     dist.broadcast(param.data, 0)
         elif args.model_path.is_dir():
-            model_path = args.model_path / f"model_{args.model_suffix}.pt"
-            model.load_state_dict(to.load(model_path))
+            load_model_path = args.model_path / f"model_{args.model_suffix}.pt"
+            model.load_state_dict(to.load(load_model_path))
 
             if rank == 0:
-                print(f"Loaded model\n  from  {str(args.model_path)}")
+                print(f"Loaded model\n  {str(load_model_path)}")
         else:
             raise ValueError("model-path argument must be a directory if given")
-
-        model_save_path = Path(__file__).parent.parent / f"runs/{run_name}"
-        model_save_path.mkdir(parents=True, exist_ok=True)
-        model.save_path = model_save_path
 
         if rank == 0:
             if args.mode == "train":
                 print(f"Saving model\n  to {str(model_save_path)}")
             elif args.mode == "test" and agent.trainable:
-                to.save(model.state_dict(), model_save_path / "forward.pt")
-                print(f"Copied model to use\n  to {str(model_save_path)}")
+                test_model_path = model_save_path / f"model_init.pt"
+                to.save(model.state_dict(), test_model_path)
+                print(f"Copied model to use\n  to {str(test_model_path)}")
 
     if args.mode == "train":
         assert model
@@ -349,7 +366,6 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             grad_steps=args.grad_steps,
             epochs_reduce_lr=args.epochs_reduce_lr,
             epoch_begin_validate=args.epoch_begin_validate,
-            shuffle_trajectory=args.shuffle_trajectory,
             valid_loader=local_valid_loader,
         )
 
@@ -518,7 +534,7 @@ if __name__ == "__main__":
             # this is only for loading test/valid problemsets, which always use a batch_size of 1 to
             # populate lists/tuples inside the test script
             loaders = []
-            problemsets, N = split(problemset["problems"])
+            problemsets = split(problemset["problems"])
             all_ids = [p.id for p in problemset["problems"]]
             set_id_idxs(0, problemset["problems"])
 
@@ -555,6 +571,8 @@ if __name__ == "__main__":
         "double_backward": problemset["double_backward"],
         "kernel_size": (2, 2),
         "num_filters": 32,
+        "forward_hidden_layer_sizes": args.forward_hidden_layer_sizes,
+        "backward_hidden_layer_sizes": args.backward_hidden_layer_sizes,
     }
 
     if is_distributed:

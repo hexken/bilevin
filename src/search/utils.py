@@ -67,7 +67,9 @@ class Trajectory:
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
         self.num_expanded = num_expanded
-        self.goal_state_t = goal_state_t
+        self.goal_state_t = (
+            goal_state_t.unsqueeze(0) if goal_state_t is not None else None
+        )
 
         action = final_node.parent_action
         node = final_node.parent

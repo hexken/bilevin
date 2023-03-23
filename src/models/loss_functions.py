@@ -35,7 +35,7 @@ def levin_loss_avg(trajs: MergedTrajectory, model: nn.Module):
 def levin_loss(trajs: MergedTrajectory, model: AgentModel):
     state_feats = model.feature_net(trajs.states)
 
-    if trajs.goal_states:
+    if trajs.goal_states is not None:
         goal_feats = model.feature_net(trajs.goal_states)
         goal_feats_expanded = to.repeat_interleave(goal_feats, trajs.lengths, dim=0)
         assert goal_feats_expanded.shape[0] == state_feats.shape[0]

@@ -23,13 +23,13 @@ class AgentModel(nn.Module):
     def __init__(self, model_args):
         super().__init__()
         self.model_args: dict = model_args
-        self.num_actions: int = model_args.num_actions
-        self.state_t_width: int = model_args.state_t_width
-        self.in_channels: int = model_args.in_channels
-        self.kernel_size: tuple[int, int] = model_args.kernel_size
-        self.num_filters: int = model_args.num_filters
+        self.num_actions: int = model_args["num_actions"]
+        self.state_t_width: int = model_args["state_t_width"]
+        self.in_channels: int = model_args["in_channels"]
+        self.kernel_size: tuple[int, int] = model_args["kernel_size"]
+        self.num_filters: int = model_args["num_filters"]
         self.bidirectional: bool = model_args["bidirectional"]
-        self.save_path: Path
+        self.save_path: Path = model_args["save_path"]
 
         self.feature_net: nn.Module = ConvBlock(
             self.in_channels,
@@ -54,11 +54,13 @@ class AgentModel(nn.Module):
                 model_args["backward_hidden_layer_sizes"],
             )
 
-        def save(self, suffix=""):
-            tmp_path = self.save_path
-            if suffix:
-                tmp_path = tmp_path.with_stem(tmp_path.stem + f"_{suffix}")
-            to.save(self.state_dict(), self.save_path)
+    def save(self, suffix=""):
+        path = self.save_path
+        if suffix:
+            path = path / f"model_{suffix}.pt"
+        else:
+            path = path / "model.pt"
+        to.save(self.state_dict(), path)
 
 
 class SinglePolicy(nn.Module):
@@ -102,7 +104,9 @@ class DoublePolicy(nn.Module):
         self.num_features = num_features * 2
         self.num_actions = num_actions
 
-        self.layers = nn.ModuleList([nn.Linear(num_features, hidden_layer_sizes[0])])
+        self.layers = nn.ModuleList(
+            [nn.Linear(self.num_features, hidden_layer_sizes[0])]
+        )
         self.layers.extend(
             [
                 nn.Linear(hidden_layer_sizes[i], hidden_layer_sizes[i + 1])
