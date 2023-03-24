@@ -62,7 +62,6 @@ def cross_entropy_loss(trajs: MergedTrajectory, model: AgentModel):
     else:
         logits = model.forward_policy(state_feats)
 
-    logits = model(trajs.states)
     loss = F.cross_entropy(logits, trajs.actions)
     avg_action_nll = loss.detach().item()
 
