@@ -51,7 +51,17 @@ def levin_loss(trajs: MergedTrajectory, model: AgentModel):
     return loss, avg_action_nll, logits.detach()
 
 
-def cross_entropy_loss(trajs: MergedTrajectory, model: nn.Module):
+def cross_entropy_loss(trajs: MergedTrajectory, model: AgentModel):
+    state_feats = model.feature_net(trajs.states)
+
+    if trajs.goal_states is not None:
+        goal_feats = model.feature_net(trajs.goal_states)
+        goal_feats_expanded = to.repeat_interleave(goal_feats, trajs.lengths, dim=0)
+        assert goal_feats_expanded.shape[0] == state_feats.shape[0]
+        logits = model.backward_policy(state_feats, goal_feats_expanded)
+    else:
+        logits = model.forward_policy(state_feats)
+
     logits = model(trajs.states)
     loss = F.cross_entropy(logits, trajs.actions)
     avg_action_nll = loss.detach().item()
