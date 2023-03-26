@@ -76,19 +76,19 @@ class SinglePolicy(nn.Module):
                 for i in range(len(hidden_layer_sizes) - 1)
             ]
         )
-        self.layers.append(nn.Linear(hidden_layer_sizes[-1], num_actions))
+        self.output_layer = nn.Linear(hidden_layer_sizes[-1], num_actions)
 
-        for i in range(len(self.layers) - 1):
+        for i in range(len(self.layers)):
             to.nn.init.kaiming_uniform_(
                 self.layers[i].weight, mode="fan_in", nonlinearity="relu"
             )
         to.nn.init.xavier_uniform_(self.layers[-1].weight)
 
     def forward(self, state_feats):
-        for i in range(len(self.layers) - 1):
-            state_feats = F.relu(self.layers[i](state_feats))
+        for l in self.layers:
+            state_feats = F.relu(l(state_feats))
 
-        logits = self.layers[-1](state_feats)
+        logits = self.output_layer(state_feats)
 
         return logits
 
@@ -113,9 +113,9 @@ class DoublePolicy(nn.Module):
                 for i in range(len(hidden_layer_sizes) - 1)
             ]
         )
-        self.layers.append(nn.Linear(hidden_layer_sizes[-1], num_actions))
+        self.output_layer = nn.Linear(hidden_layer_sizes[-1], num_actions)
 
-        for i in range(len(self.layers) - 1):
+        for i in range(len(self.layers)):
             to.nn.init.kaiming_uniform_(
                 self.layers[i].weight, mode="fan_in", nonlinearity="relu"
             )
@@ -127,10 +127,10 @@ class DoublePolicy(nn.Module):
             goal_feats = goal_feats.expand(bs, -1)
 
         x = to.cat((state_feats, goal_feats), dim=-1)
-        for i in range(len(self.layers) - 1):
-            x = F.relu(self.layers[i](x))
+        for l in self.layers:
+            x = F.relu(l(x))
 
-        logits = self.layers[-1](x)
+        logits = self.output_layer(x)
 
         return logits
 

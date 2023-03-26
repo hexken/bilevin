@@ -103,10 +103,22 @@ def parse_args():
         help="l2 regularization weight",
     )
     parser.add_argument(
-        "--learning-rate",
+        "--feature-net-lr",
         type=float,
-        default=0.0001,
-        help="optimizer learning rate",
+        default=0.0005,
+        help="feature net learning rate",
+    )
+    parser.add_argument(
+        "--forward-policy-lr",
+        type=float,
+        default=0.001,
+        help="forward policy learning rate",
+    )
+    parser.add_argument(
+        "--backward-policy-lr",
+        type=float,
+        default=0.001,
+        help="backward policu learning rate",
     )
     parser.add_argument(
         "-g",
@@ -350,18 +362,33 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
     if args.mode == "train":
         assert model
         loss_fn = getattr(loss_fns, args.loss_fn)
-        optimizer_cons = to.optim.Adam
-        optimizer_params = {
-            "lr": args.learning_rate,
-            "weight_decay": args.weight_decay,
-        }
+
+        optimizer_params = [
+            {
+                "params": model.feature_net.parameters(),
+                "lr": args.feature_net_lr,
+                "weight_decay": args.weight_decay,
+            },
+            {
+                "params": model.forward_policy.parameters(),
+                "lr": args.forward_policy_lr,
+                "weight_decay": args.weight_decay,
+            },
+        ]
+        if agent.bidirectional:
+            optimizer_params.append(
+                {
+                    "params": model.backward_policy.parameters(),
+                    "lr": args.backward_policy_lr,
+                    "weight_decay": args.weight_decay,
+                }
+            )
 
         train(
             rank,
             agent,
             model,
             loss_fn,
-            optimizer_cons,
             optimizer_params,
             local_loader,
             writer,

@@ -44,8 +44,7 @@ def train(
     agent: Agent,
     model: AgentModel,
     loss_fn: Callable,
-    optimizer_cons: Type[to.optim.Optimizer],
-    optimizer_params: dict,
+    optimizer_params: list[dict],
     train_loader: CurriculumLoader,
     writer: SummaryWriter,
     world_size: int,
@@ -75,7 +74,8 @@ def train(
     )
 
     bidirectional = agent.bidirectional
-    optimizer = optimizer_cons(model.parameters(), **optimizer_params)
+    model = to.jit.script(model)
+    optimizer = to.optim.Adam(optimizer_params)
 
     for param in model.parameters():
         if not param.grad:
@@ -328,7 +328,10 @@ def train(
                             local_batch_opt_results[3] = b_avg_action_nll
                             local_batch_opt_results[4] = b_acc
 
-                        loss = f_loss + b_loss
+                            loss = f_loss + b_loss
+                        else:
+                            loss = f_loss
+
                         loss.backward()
                     else:
                         local_batch_opt_results[:] = 0
