@@ -100,6 +100,7 @@ class CurriculumLoader:
         permutation_epochs: int,
         batch_size: int,
         world_size: int,
+        include_prev_difficulty: bool,
         seed: int = 1,
         shuffle: bool = True,
     ):
@@ -124,6 +125,7 @@ class CurriculumLoader:
         self.permutation_epochs = permutation_epochs
         self.world_ppd = problems_per_difficulty * world_size
         self.world_size = world_size
+        self.include_prev_difficulty = include_prev_difficulty
 
     def __iter__(self):
         self.next_stage = "bootstrap"
@@ -138,7 +140,7 @@ class CurriculumLoader:
             self.ids = copy(self.all_bootstrap_ids)
             self.loader = ProblemsBatchLoader(
                 self.problems,
-                self.all_bootstrap_ids,
+                self.ids,
                 self.batch_size,
                 self.world_size,
                 self.bootstrap_epochs,
@@ -150,22 +152,23 @@ class CurriculumLoader:
             if self.curriculum_stage == self.num_curriculum_stages - 1:
                 self.next_stage = "permutation"
             self.stage = f"curriculum_{self.curriculum_stage}"
-            self.problems.extend(
-                self.curriculum_problems[
-                    (self.curriculum_stage * self.problems_per_difficulty) : (
-                        self.curriculum_stage + 1
-                    )
-                    * self.problems_per_difficulty
-                ]
-            )
-            self.ids.extend(
-                self.all_curriculum_ids[
-                    (self.curriculum_stage * self.world_ppd) : (
-                        self.curriculum_stage + 1
-                    )
-                    * self.world_ppd
-                ]
-            )
+            new_problems = self.curriculum_problems[
+                (self.curriculum_stage * self.problems_per_difficulty) : (
+                    self.curriculum_stage + 1
+                )
+                * self.problems_per_difficulty
+            ]
+            new_ids = self.all_curriculum_ids[
+                (self.curriculum_stage * self.world_ppd) : (self.curriculum_stage + 1)
+                * self.world_ppd
+            ]
+            if self.include_prev_difficulty:
+                self.problems.extend(new_problems)
+                self.ids.extend(new_ids)
+            else:
+                self.problems = new_problems
+                self.ids = new_ids
+
             self.loader = ProblemsBatchLoader(
                 self.problems,
                 self.ids,
@@ -178,8 +181,12 @@ class CurriculumLoader:
         elif self.next_stage == "permutation":
             self.next_stage = "end"
             self.stage = "permutation"
-            self.problems.extend(self.permutation_problems)
-            self.ids.extend(self.all_permutation_ids)
+            if self.include_prev_difficulty:
+                self.problems.extend(self.permutation_problems)
+                self.ids.extend(self.all_permutation_ids)
+            else:
+                self.problems = self.permutation_problems
+                self.ids = self.all_permutation_ids
             self.loader = ProblemsBatchLoader(
                 self.problems,
                 self.ids,
