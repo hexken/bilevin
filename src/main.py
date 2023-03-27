@@ -140,9 +140,14 @@ def parse_args():
         help="number of curriculum epochs to train for",
     )
     parser.add_argument(
-        "--include-prev-difficulty",
+        "--no-include-prev-difficulty",
         action="store_true",
-        help="include previous difficulties in curriculum",
+        help="do not include previous difficulties in curriculum",
+    )
+    parser.add_argument(
+        "--permutation-focus",
+        action="store_true",
+        help="just use the permutation problems once the bootstrap/curriculum is done",
     )
     parser.add_argument(
         "--permutation-epochs",
@@ -513,6 +518,7 @@ if __name__ == "__main__":
             ):
                 p.id_idx = i
 
+        include_prev_difficulty = not args.no_include_prev_difficulty
         if "is_curriculum" in problemset:
             # for now, all training problemsets should be curricula
             bootstrap_problemsets = split(problemset["bootstrap_problems"])
@@ -522,7 +528,7 @@ if __name__ == "__main__":
             curriculum_problems = problemset["curriculum_problems"]
             all_curr_ids = [p.id for p in problemset["curriculum_problems"]]
 
-            if args.include_prev_difficulty:
+            if include_prev_difficulty:
                 set_id_idxs(len(all_bootstrap_ids), curriculum_problems)
             ppd = problemset["problems_per_difficulty"]
             num_difficulty_levels = len(problemset["curriculum"])
@@ -532,7 +538,7 @@ if __name__ == "__main__":
                 curriculum_difficulty_problems = curriculum_problems[
                     i * ppd : (i + 1) * ppd
                 ]
-                if not args.include_prev_difficulty:
+                if not include_prev_difficulty:
                     set_id_idxs(0, curriculum_difficulty_problems)
                 curriculum_diff_ranks_split[i] = split(curriculum_difficulty_problems)
 
@@ -548,7 +554,7 @@ if __name__ == "__main__":
             all_permutation_ids = [p.id for p in problemset["permutation_problems"]]
             start_idx = (
                 len(all_bootstrap_ids) + len(all_curr_ids)
-                if args.include_prev_difficulty
+                if (include_prev_difficulty and not args.permutation_focus)
                 else 0
             )
             set_id_idxs(
@@ -575,7 +581,8 @@ if __name__ == "__main__":
                         batch_size=local_batch_size,
                         world_size=args.world_size,
                         seed=args.seed + rank,
-                        include_prev_difficulty=args.include_prev_difficulty,
+                        include_prev_difficulty=not args.no_include_prev_difficulty,
+                        permutation_focus=args.permutation_focus,
                     )
                 )
 

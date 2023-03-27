@@ -101,6 +101,7 @@ class CurriculumLoader:
         batch_size: int,
         world_size: int,
         include_prev_difficulty: bool,
+        permutation_focus: bool,
         seed: int = 1,
         shuffle: bool = True,
     ):
@@ -125,7 +126,9 @@ class CurriculumLoader:
         self.permutation_epochs = permutation_epochs
         self.world_ppd = problems_per_difficulty * world_size
         self.world_size = world_size
+
         self.include_prev_difficulty = include_prev_difficulty
+        self.permutation_focus = permutation_focus
 
     def __iter__(self):
         self.next_stage = "bootstrap"
@@ -181,7 +184,7 @@ class CurriculumLoader:
         elif self.next_stage == "permutation":
             self.next_stage = "end"
             self.stage = "permutation"
-            if self.include_prev_difficulty:
+            if self.include_prev_difficulty and not self.permutation_focus:
                 self.problems.extend(self.permutation_problems)
                 self.ids.extend(self.all_permutation_ids)
             else:
