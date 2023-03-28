@@ -28,315 +28,201 @@ from search.utils import SearchNode, Trajectory
 
 
 class SokobanState(State):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, man_row: int, man_col: int, boxes: np.ndarray) -> None:
+        self.man_row = man_row
+        self.man_col = man_col
+        self.boxes = boxes
 
-    def __eq__(self) -> bool:
-        return False
+    def __eq__(self, other) -> bool:
+        return (
+            self.man_row == other.man_row
+            and self.man_col == other.man_col
+            and np.array_equal(self.boxes, other.boxes)
+        )
 
     def __hash__(self) -> int:
-        return 1
+        return (self.man_row, self.man_col, self.boxes.tobytes()).__hash__()
 
 
 class Sokoban(Domain):
-    def __init__(self, string_state=[]):
+    def __init__(
+        self, map: np.ndarray, man_row: int, man_col: int, boxes: np.ndarray
+    ) -> None:
 
         self._channel_walls = 0
         self._channel_goals = 1
-
         self._channel_boxes = 2
         self._channel_man = 3
+        self._number_channels = 4
 
         self._goal = "."
         self._man = "@"
         self._wall = "#"
         self._box = "$"
 
-        self._E = 0
-        self._W = 1
-        self._N = 2
-        self._S = 3
+        self.map = map
+        self.rows = map.shape[1]
+        self.cols = map.shape[0]
 
-        self._number_channels = 4
+        self.initial_state = SokobanState(man_row, man_col, boxes)
+        # todo state tensors, backward state
 
+    def _parse_string(
+        self, string_state: str
+    ) -> Optional[tuple[np.ndarray, int, int, np.ndarray]]:
         if len(string_state) > 0:
-            self._width = len(string_state[0])
-            self._height = len(string_state)
+            cols = len(string_state[0])
+            rows = len(string_state)
 
-            self._maze = np.zeros((self._height, self._width, 2))
-            self._boxes = np.zeros((self._height, self._width))
-            # self._puzzle = np.zeros((self._height, self._width, self._number_channels))
+            map = np.zeros((rows, cols, 2))
+            boxes = np.zeros((rows, cols))
+            man_row = -1
+            man_col = -1
 
-            for i in range(self._height):
-                for j in range(self._width):
+            for i in range(rows):
+                for j in range(cols):
                     if string_state[i][j] == self._goal:
-                        self._maze[i][j][self._channel_goals] = 1
+                        map[i][j][self._channel_goals] = 1
 
                     if string_state[i][j] == self._man:
-                        self._y_man = i
-                        self._x_man = j
+                        man_row = i
+                        man_col = j
 
                     if string_state[i][j] == self._wall:
-                        self._maze[i][j][self._channel_walls] = 1
+                        map[i][j][self._channel_walls] = 1
 
                     if string_state[i][j] == self._box:
-                        self._boxes[i][j] = 1
+                        boxes[i, j] = 1
 
-    def copy(self):
-        copy_state = Sokoban()
+            boxes = np.array(boxes)
+            return map, man_row, man_col, boxes
 
-        copy_state._width = self._width
-        copy_state._height = self._height
-        copy_state._maze = self._maze
+    @property
+    def num_actions(cls) -> int:
+        return 4
 
-        copy_state._x_man = self._x_man
-        copy_state._y_man = self._y_man
+    @property
+    def in_channels(self) -> int:
+        return self._number_channels
 
-        copy_state._boxes = self._boxes.copy()
-
-        return copy_state
-
-    def __hash__(self):
-        return hash((str(self._boxes), str(self._man)))
-
-    def __eq__(self, other):
-        return (
-            np.array_equal(self._boxes, other._boxes)
-            and self._x_man == other._x_man
-            and self._y_man == other._y_man
-        )
-
-    def successors(self):
+    def actions_unpruned(self, state: SokobanState) -> list[FourDir]:
         actions = []
+        man_row = state.man_row
+        man_col = state.man_col
 
-        if self._x_man + 1 < self._width:
-            if (
-                self._maze[self._y_man][self._x_man + 1][self._channel_walls] == 0
-                and self._boxes[self._y_man][self._x_man + 1] == 0
-            ):
+        if (
+            self.map[man_row, man_col + 1, self._channel_walls] == 0
+            and state.boxes[man_row, man_col + 1] == 0
+        ):
+            actions.append(FourDir.RIGHT)
+        elif (
+            state.boxes[man_row, man_col + 1] == 1
+            and self.map[man_row, man_col + 2, self._channel_walls] == 0
+            and state.boxes[man_row, man_col + 2] == 0
+        ):
+            actions.append(FourDir.RIGHT)
 
-                actions.append(self._E)
-            elif (
-                self._maze[self._y_man][self._x_man + 1][self._channel_walls] == 0
-                and self._boxes[self._y_man][self._x_man + 1] == 1
-                and self._x_man + 2 < self._width
-                and self._maze[self._y_man][self._x_man + 2][self._channel_walls] == 0
-                and self._boxes[self._y_man][self._x_man + 2] == 0
-            ):
+        if (
+            self.map[man_row, man_col - 1][self._channel_walls] == 0
+            and state.boxes[man_row, man_col - 1] == 0
+        ):
+            actions.append(FourDir.LEFT)
+        elif (
+            state.boxes[man_row, man_col - 1] == 1
+            and self.map[man_row, man_col - 2, self._channel_walls] == 0
+            and state.boxes[man_row, man_col - 2] == 0
+        ):
+            actions.append(FourDir.LEFT)
 
-                actions.append(self._E)
+        if (
+            self.map[man_row + 1, man_col, self._channel_walls] == 0
+            and state.boxes[man_row + 1, man_col] == 0
+        ):
+            actions.append(FourDir.DOWN)
+        elif (
+            state.boxes[man_row + 1, man_col] == 1
+            and self.map[man_row + 2, man_col, self._channel_walls] == 0
+            and state.boxes[man_row + 2, man_col] == 0
+        ):
+            actions.append(FourDir.DOWN)
 
-        if self._x_man - 1 > 0:
-            if (
-                self._maze[self._y_man][self._x_man - 1][self._channel_walls] == 0
-                and self._boxes[self._y_man][self._x_man - 1] == 0
-            ):
+        if (
+            self.map[man_row - 1, man_col, self._channel_walls] == 0
+            and state.boxes[man_row - 1, man_col] == 0
+        ):
 
-                actions.append(self._W)
-            elif (
-                self._maze[self._y_man][self._x_man - 1][self._channel_walls] == 0
-                and self._boxes[self._y_man][self._x_man - 1] == 1
-                and self._x_man - 2 > 0
-                and self._maze[self._y_man][self._x_man - 2][self._channel_walls] == 0
-                and self._boxes[self._y_man][self._x_man - 2] == 0
-            ):
-
-                actions.append(self._W)
-
-        if self._y_man + 1 < self._height:
-            if (
-                self._maze[self._y_man + 1][self._x_man][self._channel_walls] == 0
-                and self._boxes[self._y_man + 1][self._x_man] == 0
-            ):
-
-                actions.append(self._S)
-            elif (
-                self._maze[self._y_man + 1][self._x_man][self._channel_walls] == 0
-                and self._boxes[self._y_man + 1][self._x_man] == 1
-                and self._y_man + 2 < self._height
-                and self._maze[self._y_man + 2][self._x_man][self._channel_walls] == 0
-                and self._boxes[self._y_man + 2][self._x_man] == 0
-            ):
-
-                actions.append(self._S)
-
-        if self._y_man - 1 > 0:
-            if (
-                self._maze[self._y_man - 1][self._x_man][self._channel_walls] == 0
-                and self._boxes[self._y_man - 1][self._x_man] == 0
-            ):
-
-                actions.append(self._N)
-            elif (
-                self._maze[self._y_man - 1][self._x_man][self._channel_walls] == 0
-                and self._boxes[self._y_man - 1][self._x_man] == 1
-                and self._y_man - 2 > 0
-                and self._maze[self._y_man - 2][self._x_man][self._channel_walls] == 0
-                and self._boxes[self._y_man - 2][self._x_man] == 0
-            ):
-
-                actions.append(self._N)
+            actions.append(FourDir.UP)
+        elif (
+            state.boxes[man_row - 1, man_col] == 1
+            and self.map[man_row - 2, man_col, self._channel_walls] == 0
+            and state.boxes[man_row - 2, man_col] == 0
+        ):
+            actions.append(FourDir.UP)
 
         return actions
 
-    def successors_parent_pruning(self, op):
-        actions = []
+    def actions(self, parent_action: FourDir, state: SokobanState) -> list[FourDir]:
+        return self.actions_unpruned(state)
 
-        return self.successors()
+    def result(self, state: SokobanState, action: FourDir) -> SokobanState:
 
-        #         if self._x_man + 1 < self._width and not (op == self._W and self._puzzle[self._y_man][self._x_man - 1][self._channel_boxes] == 0):
-        #             if (self._puzzle[self._y_man][self._x_man + 1][self._channel_walls] == 0 and
-        #                 self._puzzle[self._y_man][self._x_man + 1][self._channel_boxes] == 0):
-        #
-        #                 actions.append(self._E)
-        #             elif (self._puzzle[self._y_man][self._x_man + 1][self._channel_walls] == 0 and
-        #                 self._puzzle[self._y_man][self._x_man + 1][self._channel_boxes] == 1 and
-        #                 self._x_man + 2 < self._width and
-        #                 self._puzzle[self._y_man][self._x_man + 2][self._channel_walls] == 0 and
-        #                 self._puzzle[self._y_man][self._x_man + 2][self._channel_boxes] == 0):
-        #
-        #                 actions.append(self._E)
-        #
-        #         if self._x_man - 1 > 0 and not (op == self._E and self._puzzle[self._y_man][self._x_man + 1][self._channel_boxes] == 0):
-        #             if (self._puzzle[self._y_man][self._x_man - 1][self._channel_walls] == 0 and
-        #                 self._puzzle[self._y_man][self._x_man - 1][self._channel_boxes] == 0):
-        #
-        #                 actions.append(self._W)
-        #             elif (self._puzzle[self._y_man][self._x_man - 1][self._channel_walls] == 0 and
-        #                 self._puzzle[self._y_man][self._x_man - 1][self._channel_boxes] == 1 and
-        #                 self._x_man - 2 > 0 and
-        #                 self._puzzle[self._y_man][self._x_man - 2][self._channel_walls] == 0 and
-        #                 self._puzzle[self._y_man][self._x_man - 2][self._channel_boxes] == 0):
-        #
-        #                 actions.append(self._W)
-        #
-        #         if self._y_man + 1 < self._height and not (op == self._N and self._puzzle[self._y_man - 1][self._x_man][self._channel_boxes] == 0):
-        #             if (self._puzzle[self._y_man + 1][self._x_man][self._channel_walls] == 0 and
-        #                 self._puzzle[self._y_man + 1][self._x_man][self._channel_boxes] == 0):
-        #
-        #                 actions.append(self._S)
-        #             elif (self._puzzle[self._y_man + 1][self._x_man][self._channel_walls] == 0 and
-        #                 self._puzzle[self._y_man + 1][self._x_man][self._channel_boxes] == 1 and
-        #                 self._y_man + 2 < self._height and
-        #                 self._puzzle[self._y_man + 2][self._x_man][self._channel_walls] == 0 and
-        #                 self._puzzle[self._y_man + 2][self._x_man][self._channel_boxes] == 0):
-        #
-        #                 actions.append(self._S)
-        #
-        #         if self._y_man - 1 > 0 and not (op == self._S and self._puzzle[self._y_man + 1][self._x_man][self._channel_boxes] == 0):
-        #             if (self._puzzle[self._y_man - 1][self._x_man][self._channel_walls] == 0 and
-        #                 self._puzzle[self._y_man - 1][self._x_man][self._channel_boxes] == 0):
-        #
-        #                 actions.append(self._N)
-        #             elif (self._puzzle[self._y_man - 1][self._x_man][self._channel_walls] == 0 and
-        #                 self._puzzle[self._y_man - 1][self._x_man][self._channel_boxes] == 1 and
-        #                 self._y_man - 2 > 0 and
-        #                 self._puzzle[self._y_man - 2][self._x_man][self._channel_walls] == 0 and
-        #                 self._puzzle[self._y_man - 2][self._x_man][self._channel_boxes] == 0):
-        #
-        #                 actions.append(self._N)
+        boxes = np.array(state.boxes)
+        man_row = state.man_row
+        man_col = state.man_col
 
-        return actions
+        if action == FourDir.UP:
+            if boxes[man_row - 1, man_col] == 1:
+                boxes[man_row - 1, man_col] = 0
+                boxes[man_row - 2, man_col] = 1
+            man_row -= 1
 
-    def apply_action(self, action):
+        if action == FourDir.DOWN:
+            if boxes[man_row + 1, man_col] == 1:
+                boxes[man_row + 1, man_col] = 0
+                boxes[man_row + 2, man_col] = 1
+            man_row += 1
 
-        if action == self._N:
-            if self._boxes[self._y_man - 1][self._x_man] == 1:
-                self._boxes[self._y_man - 1][self._x_man] = 0
-                self._boxes[self._y_man - 2][self._x_man] = 1
-            # self._puzzle[self._y_man][self._x_man][self._channel_man] = 0
-            # self._puzzle[self._y_man - 1][self._x_man][self._channel_man] = 1
-            self._y_man = self._y_man - 1
+        if action == FourDir.RIGHT:
+            if boxes[man_row, man_col + 1] == 1:
+                boxes[man_row, man_col + 1] = 0
+                boxes[man_row, man_col + 2] = 1
+            man_col += 1
 
-        if action == self._S:
-            if self._boxes[self._y_man + 1][self._x_man] == 1:
-                self._boxes[self._y_man + 1][self._x_man] = 0
-                self._boxes[self._y_man + 2][self._x_man] = 1
-            # self._puzzle[self._y_man][self._x_man][self._channel_man] = 0
-            # self._puzzle[self._y_man + 1][self._x_man][self._channel_man] = 1
-            self._y_man = self._y_man + 1
+        if action == FourDir.LEFT:
+            if boxes[man_row, man_col - 1] == 1:
+                boxes[man_row, man_col - 1] = 0
+                boxes[man_row, man_col - 2] = 1
+            man_col -= 1
 
-        if action == self._E:
-            if self._boxes[self._y_man][self._x_man + 1] == 1:
-                self._boxes[self._y_man][self._x_man + 1] = 0
-                self._boxes[self._y_man][self._x_man + 2] = 1
-            # self._puzzle[self._y_man][self._x_man][self._channel_man] = 0
-            # self._puzzle[self._y_man][self._x_man + 1][self._channel_man] = 1
-            self._x_man = self._x_man + 1
+        return SokobanState(man_row, man_col, boxes)
 
-        if action == self._W:
-            if self._boxes[self._y_man][self._x_man - 1] == 1:
-                self._boxes[self._y_man][self._x_man - 1] = 0
-                self._boxes[self._y_man][self._x_man - 2] = 1
-            #             self._puzzle[self._y_man][self._x_man][self._channel_man] = 0
-            #             self._puzzle[self._y_man][self._x_man - 1][self._channel_man] = 1
-            self._x_man = self._x_man - 1
+    def is_goal(self, state: SokobanState) -> bool:
+        return self.map[:, :, self._channel_goals][
+            state.boxes[:, 0], state.boxes[:, 1]
+        ].all()
 
-    def is_solution(self):
-        for i in range(self._height):
-            for j in range(self._width):
-                if (
-                    self._boxes[i][j] == 1
-                    and self._maze[i][j][self._channel_goals] == 0
-                ):
-                    return False
-        return True
+    def state_tensor(self, state: SokobanState) -> to.Tensor:
+        channel_man = np.zeros((self.cols, self.rows))
+        channel_man[state.man_row, state.man_col] = 1
+        arr = np.concatenate((self.map, channel_man), axis=-1)
 
-    def get_image_representation(self):
-        image = np.zeros((self._height, self._width, self._number_channels))
-        for i in range(self._height):
-            for j in range(self._width):
-                image[i][j][self._channel_goals] = self._maze[i][j][self._channel_goals]
-                image[i][j][self._channel_walls] = self._maze[i][j][self._channel_walls]
-                image[i][j][self._channel_boxes] = self._boxes[i][j]
+        return to.from_numpy(arr)
 
-        image[self._y_man][self._x_man][self._channel_man] = 1
-
-        return image
-
-    def heuristic_value(self):
-        h = 0
-        h_man = self._width + self._height
-
-        for i in range(self._height):
-            for j in range(self._width):
-                if (
-                    self._boxes[i][j] == 1
-                    and self._maze[i][j][self._channel_goals] == 0
-                ):
-                    h_box = self._width + self._height
-                    for l in range(self._height):
-                        for m in range(self._width):
-                            if self._maze[l][m][self._channel_goals] == 1:
-                                dist_to_goal = abs(l - i) + abs(m - j)
-                                if dist_to_goal < h_box:
-                                    h_box = dist_to_goal
-                    h += h_box
-
-                if self._boxes[i][j] == 1:
-                    dist_to_man = abs(self._y_man - i) + abs(self._x_man - j) - 1
-                    if dist_to_man < h_man:
-                        h_man = dist_to_man
-        h += h_man
-        return h
-
-    def print(self):
-        for i in range(self._height):
-            for j in range(self._width):
-                if (
-                    self._maze[i][j][self._channel_goals] == 1
-                    and self._boxes[i][j] == 1
-                ):
+    def print(self, state: SokobanState):
+        boxes_list = state.boxes.tolist()
+        for i in range(self.rows):
+            for j in range(self.cols):
+                loc = [i, j]
+                if self.map[i, j, self._channel_goals] == 1 and loc in boxes_list:
                     print("*", end="")
-                elif i == self._y_man and j == self._x_man:
+                elif i == state.man_row and j == state.man_col:
                     print(self._man, end="")
-                elif self._maze[i][j][self._channel_goals] == 1:
+                elif self.map[i, j, self._channel_goals] == 1:
                     print(self._goal, end="")
-                elif self._maze[i][j][self._channel_walls] == 1:
+                elif self.map[i, j, self._channel_walls] == 1:
                     print(self._wall, end="")
-                elif self._boxes[i][j] == 1:
+                elif loc in boxes_list:
                     print(self._box, end="")
                 else:
                     print(" ", end="")
             print()
-

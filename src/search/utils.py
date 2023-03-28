@@ -67,7 +67,7 @@ class Trajectory:
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
         self.num_expanded = num_expanded
-        self.goal_state_t = (
+        self.goal_state_t: Optional[to.Tensor] = (
             goal_state_t.unsqueeze(0) if goal_state_t is not None else None
         )
 
@@ -92,7 +92,7 @@ class Trajectory:
 
 
 class MergedTrajectory:
-    def __init__(self, trajs: list):
+    def __init__(self, trajs: list[Trajectory]):
         if trajs:
             if trajs[0].goal_state_t is not None:
                 self.goal_states = to.cat(tuple(t.goal_state_t for t in trajs))
