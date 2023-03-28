@@ -77,18 +77,9 @@ class Domain(ABC):
     def state_width(self):
         pass
 
-    # @property
-    # @abstractmethod
-    # def visited(self) -> dict:
-    #     pass
-
     @abstractmethod
     def is_goal(self, state: State) -> bool:
         pass
-
-    # @abstractmethod
-    # def reset(self) -> State:
-    #     pass
 
     @abstractmethod
     def backward_domain(self) -> list[Domain]:
@@ -102,10 +93,6 @@ class Domain(ABC):
     def state_tensor(self, state: State) -> to.Tensor:
         pass
 
-    # @abstractmethod
-    # def update(self, node: SearchNode):
-    #     pass
-
     @abstractmethod
     def actions(self, action, state: State) -> list:
         pass
@@ -117,9 +104,3 @@ class Domain(ABC):
     @abstractmethod
     def result(self, state: State, action) -> State:
         pass
-
-    # @abstractmethod
-    # def try_make_solution(
-    #     self, node: SearchNode, other_problem: Domain, num_expanded: int
-    # ) -> Optional[tuple[Trajectory, Trajectory]]:
-    #     pass

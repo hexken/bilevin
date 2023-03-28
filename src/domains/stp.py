@@ -83,8 +83,6 @@ class SlidingTilePuzzle(Domain):
         )
         self.goal_state_t = self.state_tensor(self.goal_state)
 
-        self._visited = {}
-
     @property
     def initial_state(self) -> SlidingTilePuzzleState:
         return self._initial_state
