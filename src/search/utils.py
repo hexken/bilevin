@@ -18,7 +18,7 @@ from typing import Optional, Type
 
 import torch as to
 
-from domains.domain import State, Domain
+from domains.domain import Domain, State
 
 
 class SearchNode:
@@ -123,3 +123,73 @@ class MergedTrajectory:
     #     self.states = self.states[perm]
     #     self.actions = self.actions[perm]
     #     self.indices = self.indices[perm]
+
+
+def get_merged_solution(
+    dir1_domain: Domain,
+    dir1_common: SearchNode,
+    dir2_common: SearchNode,
+    node_type: Type[SearchNode],
+    num_expanded: int,
+    goal_state: Optional[to.Tensor] = None,
+):
+    """
+    Returns a new trajectory going from dir1_start to dir2_start, passing through
+    merge(dir1_common, dir2_common).
+    """
+    dir1_node = dir1_common
+    parent_dir2_node = dir2_common.parent
+    parent_dir2_action = dir2_common.parent_action
+    while parent_dir2_node:
+        new_dir1_node = node_type(
+            state=parent_dir2_node.state,
+            parent=dir1_node,
+            parent_action=dir1_domain.reverse_action(parent_dir2_action),
+            g_cost=dir1_node.g_cost + 1,
+        )
+        dir1_node = new_dir1_node
+        parent_dir2_action = parent_dir2_node.parent_action
+        parent_dir2_node = parent_dir2_node.parent
+
+    return Trajectory(dir1_domain, dir1_node, num_expanded, goal_state)
+
+
+def try_make_solution(
+    self,
+    node: SearchNode,
+    this_domain: Domain,
+    other_domain: Domain,
+    num_expanded: int,
+) -> Optional[tuple[Trajectory, Trajectory]]:
+    """
+    Returns a trajectory if state is a solution to this problem, None otherwise.
+    """
+    hsh = node.state.__hash__()
+    if hsh in other_domain.visited:  # solution found
+        other_node = other_domain.visited[hsh]
+        if self.forward:
+            f_common_node = node
+            b_common_node = other_node
+            f_domain = this_domain
+            b_domain = other_domain
+        else:
+            f_common_node = other_node
+            b_common_node = node
+            f_domain = other_domain
+            b_domain = this_domain
+
+        f_traj = get_merged_solution(
+            f_domain, f_common_node, b_common_node, type(node), num_expanded
+        )
+        b_traj = get_merged_solution(
+            b_domain,
+            b_common_node,
+            f_common_node,
+            type(node),
+            num_expanded,
+            b_domain.goal_state_t,
+        )
+
+        return (f_traj, b_traj)
+    else:
+        return None

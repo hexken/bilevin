@@ -14,17 +14,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import annotations
-from collections import deque
-from copy import deepcopy
-from typing import Optional, Type
+from typing import Optional
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch as to
 
 from domains.domain import Domain, State
-from enums import Color, FourDir
-from search.utils import SearchNode, Trajectory
+from enums import FourDir
 
 
 class SokobanState(State):
@@ -46,14 +42,20 @@ class SokobanState(State):
 
 class Sokoban(Domain):
     def __init__(
-        self, map: np.ndarray, man_row: int, man_col: int, boxes: np.ndarray
+        self,
+        map: np.ndarray,
+        man_row: int,
+        man_col: int,
+        boxes: np.ndarray,
+        forward: bool = True,
     ) -> None:
-
+        super().__init__()
         self._channel_walls = 0
         self._channel_goals = 1
         self._channel_boxes = 2
         self._channel_man = 3
         self._number_channels = 4
+        self.forward = forward
 
         self._goal = "."
         self._man = "@"
@@ -64,8 +66,15 @@ class Sokoban(Domain):
         self.rows = map.shape[1]
         self.cols = map.shape[0]
 
-        self.initial_state = SokobanState(man_row, man_col, boxes)
-        # todo state tensors, backward state
+        self.original_man_row = man_row
+        self.original_man_col = man_col
+        self.original_boxes = boxes
+        self._initial_state = SokobanState(man_row, man_col, boxes)
+        self.initial_state_t = self.state_tensor(self.initial_state)
+
+    @property
+    def initial_state(self) -> SokobanState:
+        return self._initial_state
 
     def _parse_string(
         self, string_state: str
@@ -74,8 +83,8 @@ class Sokoban(Domain):
             cols = len(string_state[0])
             rows = len(string_state)
 
-            map = np.zeros((rows, cols, 2))
-            boxes = np.zeros((rows, cols))
+            map = np.zeros((rows, cols, 2), dtype=np.float32)
+            boxes = np.zeros((rows, cols), dtype=np.float32)
             man_row = -1
             man_col = -1
 
@@ -96,6 +105,10 @@ class Sokoban(Domain):
 
             boxes = np.array(boxes)
             return map, man_row, man_col, boxes
+
+    @property
+    def state_width(cls) -> int:
+        return 10
 
     @property
     def num_actions(cls) -> int:
@@ -196,6 +209,117 @@ class Sokoban(Domain):
 
         return SokobanState(man_row, man_col, boxes)
 
+    def reverse_action(self, action: FourDir) -> FourDir:
+        if action == FourDir.UP:
+            return FourDir.DOWN
+        elif action == FourDir.DOWN:
+            return FourDir.UP
+        elif action == FourDir.LEFT:
+            return FourDir.RIGHT
+        elif action == FourDir.RIGHT:
+            return FourDir.LEFT
+
+    def _backward_actions_unpruned(self, state: SokobanState) -> list[FourDir]:
+        assert not self.forward
+        actions = []
+        man_row = state.man_row
+        man_col = state.man_col
+
+        if self.map[man_row, man_col + 1, self._channel_walls] == 0:
+            actions.append(FourDir.RIGHT)
+
+        if self.map[man_row, man_col - 1][self._channel_walls] == 0:
+            actions.append(FourDir.LEFT)
+
+        if self.map[man_row + 1, man_col, self._channel_walls] == 0:
+            actions.append(FourDir.DOWN)
+
+        if self.map[man_row - 1, man_col, self._channel_walls] == 0:
+            actions.append(FourDir.UP)
+
+        return actions
+
+    def _backward_actions(
+        self, parent_action: FourDir, state: SokobanState
+    ) -> list[FourDir]:
+        return self._backward_actions_unpruned(state)
+
+    def _backward_result(self, state: SokobanState, action: FourDir) -> SokobanState:
+
+        boxes = np.array(state.boxes)
+        man_row = state.man_row
+        man_col = state.man_col
+
+        if action == FourDir.UP:
+            if boxes[man_row + 1, man_col] == 1:
+                boxes[man_row + 1, man_col] = 0
+                boxes[man_row - 1, man_col] = 1
+            man_row -= 1
+
+        if action == FourDir.DOWN:
+            if boxes[man_row - 1, man_col] == 1:
+                boxes[man_row - 1, man_col] = 0
+                boxes[man_row + 1, man_col] = 1
+            man_row += 1
+
+        if action == FourDir.RIGHT:
+            if boxes[man_row, man_col - 1] == 1:
+                boxes[man_row, man_col - 1] = 0
+                boxes[man_row, man_col + 1] = 1
+            man_col += 1
+
+        if action == FourDir.LEFT:
+            if boxes[man_row, man_col + 1] == 1:
+                boxes[man_row, man_col + 1] = 0
+                boxes[man_row, man_col - 1] = 1
+            man_col -= 1
+
+        return SokobanState(man_row, man_col, boxes)
+
+    def backward_domain(self) -> list[Sokoban]:
+        assert self.forward
+        boxes = np.argwhere(self.map[:, :, self._channel_boxes])
+        map = np.array(self.map)
+        domains = []
+        for box in boxes:
+            if not map[
+                box[0] - 1, box[1], [self._channel_walls, self._channel_boxes]
+            ].any():
+                new_domain = Sokoban(map, box[0] - 1, box[1], boxes, forward=False)
+                domains.append(new_domain)
+
+            if not map[
+                box[0] + 1, box[1], [self._channel_walls, self._channel_boxes]
+            ].any():
+                new_domain = Sokoban(map, box[0] + 1, box[1], boxes, forward=False)
+                domains.append(new_domain)
+
+            if not map[
+                box[0], box[1] + 1, [self._channel_walls, self._channel_boxes]
+            ].any():
+                new_domain = Sokoban(map, box[0], box[1] + 1, boxes, forward=False)
+                domains.append(new_domain)
+
+            if not map[
+                box[0], box[1] - 1, [self._channel_walls, self._channel_boxes]
+            ].any():
+                new_domain = Sokoban(map, box[0], box[1] - 1, boxes, forward=False)
+                domains.append(new_domain)
+
+        for new_domain in domains:
+            new_domain.goal_state = self.initial_state
+            new_domain.goal_state_t = self.initial_state_t
+            new_domain.actions = self._backward_actions
+            new_domain.actions_unpruned = self._backward_actions_unpruned
+            new_domain.result = self._backward_result
+            new_domain.is_goal = self._backward_is_goal
+
+        return domains
+
+    def _backward_is_goal(self, state: SokobanState) -> bool:
+        assert not self.forward
+        return state == self.goal_state
+
     def is_goal(self, state: SokobanState) -> bool:
         return self.map[:, :, self._channel_goals][
             state.boxes[:, 0], state.boxes[:, 1]
@@ -204,8 +328,11 @@ class Sokoban(Domain):
     def state_tensor(self, state: SokobanState) -> to.Tensor:
         channel_man = np.zeros((self.cols, self.rows))
         channel_man[state.man_row, state.man_col] = 1
-        arr = np.concatenate((self.map, channel_man), axis=-1)
 
+        channel_boxes = np.zeros((self.cols, self.rows))
+        channel_boxes[state.boxes[:, 0], state.boxes[:, 1]] = 1
+
+        arr = np.concatenate((self.map, channel_boxes, channel_man), axis=-1)
         return to.from_numpy(arr)
 
     def print(self, state: SokobanState):
@@ -226,3 +353,41 @@ class Sokoban(Domain):
                 else:
                     print(" ", end="")
             print()
+
+
+def parse_problemset(problemset: dict):
+    width = problemset["width"]
+    goal_tiles = np.arange(width**2).reshape(width, width)
+
+    def parse_specs(problem_specs):
+        problems = []
+        for spec in problem_specs:
+            init_tiles = np.array(spec["tiles"])
+            problem = Problem(
+                id=spec["id"],
+                domain=SlidingTilePuzzle(init_tiles=init_tiles, goal_tiles=goal_tiles),
+            )
+            problems.append(problem)
+        return problems
+
+    model_args = {
+        "num_actions": problemset["num_actions"],
+        "in_channels": problemset["in_channels"],
+        "state_t_width": problemset["state_t_width"],
+        "width": problemset["width"],
+    }
+
+    if "is_curriculum" in problemset:
+        bootstrap_problems = parse_specs(problemset["bootstrap_problems"])
+        problemset["bootstrap_problems"] = bootstrap_problems
+        problemset["curriculum_problems"] = parse_specs(
+            problemset["curriculum_problems"]
+        )
+        problemset["permutation_problems"] = parse_specs(
+            problemset["permutation_problems"]
+        )
+    else:
+        problems = parse_specs(problemset["problems"])
+        problemset["problems"] = problems
+
+    return problemset, model_args

@@ -47,6 +47,21 @@ class State(ABC):
 
 
 class Domain(ABC):
+    def __init__(self):
+        self.visited = {}
+
+    def reset(self) -> State:
+        self.visited = {}
+        return self.initial_state
+
+    def update(self, node: SearchNode):
+        self.visited[node.state.__hash__()] = node
+
+    @property
+    @abstractmethod
+    def initial_state(self) -> State:
+        pass
+
     @property
     @abstractmethod
     def num_actions(self):
@@ -62,25 +77,34 @@ class Domain(ABC):
     def state_width(self):
         pass
 
+    # @property
+    # @abstractmethod
+    # def visited(self) -> dict:
+    #     pass
+
     @abstractmethod
     def is_goal(self, state: State) -> bool:
         pass
 
+    # @abstractmethod
+    # def reset(self) -> State:
+    #     pass
+
     @abstractmethod
-    def reset(self) -> State:
+    def backward_domain(self) -> list[Domain]:
         pass
 
     @abstractmethod
-    def backward_domain(self) -> Domain:
+    def reverse_action(self, action) -> int:
         pass
 
     @abstractmethod
     def state_tensor(self, state: State) -> to.Tensor:
         pass
 
-    @abstractmethod
-    def update(self, node: SearchNode):
-        pass
+    # @abstractmethod
+    # def update(self, node: SearchNode):
+    #     pass
 
     @abstractmethod
     def actions(self, action, state: State) -> list:
@@ -94,8 +118,8 @@ class Domain(ABC):
     def result(self, state: State, action) -> State:
         pass
 
-    @abstractmethod
-    def try_make_solution(
-        self, node: SearchNode, other_problem: Domain, num_expanded: int
-    ) -> Optional[tuple[Trajectory, Trajectory]]:
-        pass
+    # @abstractmethod
+    # def try_make_solution(
+    #     self, node: SearchNode, other_problem: Domain, num_expanded: int
+    # ) -> Optional[tuple[Trajectory, Trajectory]]:
+    #     pass

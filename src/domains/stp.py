@@ -14,14 +14,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import annotations
-from typing import Optional, Type
 
 import numpy as np
 import torch as to
 
-from domains.domain import Domain, State, Problem
+from domains.domain import Domain, Problem, State
 from enums import FourDir
-from search.utils import SearchNode, Trajectory
 
 
 class SlidingTilePuzzleState(State):
@@ -52,7 +50,10 @@ class SlidingTilePuzzleState(State):
 
 
 class SlidingTilePuzzle(Domain):
-    def __init__(self, init_tiles: np.ndarray, goal_tiles: np.ndarray, forward=True):
+    def __init__(
+        self, init_tiles: np.ndarray, goal_tiles: np.ndarray, forward: bool = True
+    ):
+        super().__init__()
         self.width = init_tiles.shape[0]
         self.num_tiles = self.width**2
 
@@ -66,7 +67,7 @@ class SlidingTilePuzzle(Domain):
         self.blank_row = blank_pos[0].item()
         self.blank_col = blank_pos[1].item()
 
-        self.initial_state = SlidingTilePuzzleState(
+        self._initial_state = SlidingTilePuzzleState(
             init_tiles, self.blank_row, self.blank_col
         )
 
@@ -76,19 +77,17 @@ class SlidingTilePuzzle(Domain):
         blank_pos = np.where(goal_tiles == 0)
         goal_blank_row = blank_pos[0].item()
         goal_blank_col = blank_pos[1].item()
+
         self.goal_state = SlidingTilePuzzleState(
             goal_tiles, goal_blank_row, goal_blank_col
         )
         self.goal_state_t = self.state_tensor(self.goal_state)
 
-        self.visited = {}
+        self._visited = {}
 
-    def reset(self) -> SlidingTilePuzzleState:
-        self.visited = {}
-        return self.initial_state
-
-    def update(self, node: SearchNode):
-        self.visited[node.state.__hash__()] = node
+    @property
+    def initial_state(self) -> SlidingTilePuzzleState:
+        return self._initial_state
 
     @property
     def state_width(self) -> int:
@@ -125,13 +124,13 @@ class SlidingTilePuzzle(Domain):
         elif action == FourDir.RIGHT:
             return FourDir.LEFT
 
-    def backward_domain(self) -> SlidingTilePuzzle:
+    def backward_domain(self) -> list[SlidingTilePuzzle]:
         assert self.forward
         init_tiles = self.goal_tiles
         goal_tiles = self.initial_state.tiles
         domain = SlidingTilePuzzle(init_tiles, goal_tiles, False)
 
-        return domain
+        return [domain]
 
     def actions(
         self, parent_action: FourDir, state: SlidingTilePuzzleState
@@ -209,72 +208,6 @@ class SlidingTilePuzzle(Domain):
 
     def is_goal(self, state: SlidingTilePuzzleState) -> bool:
         return np.array_equal(state.tiles, self.goal_tiles)
-
-    def get_merged_solution(
-        self,
-        dir1_common: SearchNode,
-        dir2_common: SearchNode,
-        node_type: Type[SearchNode],
-        num_expanded: int,
-        goal_state: Optional[to.Tensor] = None,
-    ):
-        """
-        Returns a new trajectory going from dir1_start to dir2_start, passing through
-        merge(dir1_common, dir2_common).
-        """
-        dir1_node = dir1_common
-        parent_dir2_node = dir2_common.parent
-        parent_dir2_action = dir2_common.parent_action
-        while parent_dir2_node:
-            new_dir1_node = node_type(
-                state=parent_dir2_node.state,
-                parent=dir1_node,
-                parent_action=self.reverse_action(parent_dir2_action),
-                g_cost=dir1_node.g_cost + 1,
-            )
-            dir1_node = new_dir1_node
-            parent_dir2_action = parent_dir2_node.parent_action
-            parent_dir2_node = parent_dir2_node.parent
-
-        return Trajectory(self, dir1_node, num_expanded, goal_state)
-
-    def try_make_solution(
-        self,
-        node: SearchNode,
-        other_domain: SlidingTilePuzzle,
-        num_expanded: int,
-    ) -> Optional[tuple[Trajectory, Trajectory]]:
-        """
-        Returns a trajectory if state is a solution to this problem, None otherwise.
-        """
-        hsh = node.state.__hash__()
-        if hsh in other_domain.visited:  # solution found
-            other_node = other_domain.visited[hsh]
-            if self.forward:
-                f_common_node = node
-                b_common_node = other_node
-                f_domain = self
-                b_domain = other_domain
-            else:
-                f_common_node = other_node
-                b_common_node = node
-                f_domain = other_domain
-                b_domain = self
-
-            f_traj = f_domain.get_merged_solution(
-                f_common_node, b_common_node, type(node), num_expanded
-            )
-            b_traj = b_domain.get_merged_solution(
-                b_common_node,
-                f_common_node,
-                type(node),
-                num_expanded,
-                b_domain.goal_state_t,
-            )
-
-            return (f_traj, b_traj)
-        else:
-            return None
 
 
 def parse_problemset(problemset: dict):
