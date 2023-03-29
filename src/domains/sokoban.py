@@ -63,8 +63,8 @@ class Sokoban(Domain):
         self.forward = forward
 
         self.map = map
-        self.rows = map.shape[1]
-        self.cols = map.shape[0]
+        self.rows = map.shape[0]
+        self.cols = map.shape[1]
 
         self.original_man_row = man_row
         self.original_man_col = man_col
@@ -296,13 +296,15 @@ class Sokoban(Domain):
         ].all()
 
     def state_tensor(self, state: SokobanState) -> to.Tensor:
-        channel_man = np.zeros((self.cols, self.rows))
+        channel_man = np.zeros((self.rows, self.cols))
         channel_man[state.man_row, state.man_col] = 1
 
-        channel_boxes = np.zeros((self.cols, self.rows))
+        channel_boxes = np.zeros((self.rows, self.cols))
         channel_boxes[state.boxes[:, 0], state.boxes[:, 1]] = 1
 
-        arr = np.concatenate((self.map, channel_boxes, channel_man), axis=-1)
+        arr = np.concatenate(
+            (self.map, channel_boxes[..., None], channel_man[..., None]), axis=-1
+        )
         return to.from_numpy(arr)
 
     def print(self, state: SokobanState):
@@ -328,28 +330,29 @@ class Sokoban(Domain):
 def from_string(
     string_state: str,
 ) -> Sokoban:
-    cols = len(string_state[0])
-    rows = len(string_state)
+    lines = string_state.splitlines()
+    rows = len(lines)
+    cols = len(lines[0])
 
     map = np.zeros((rows, cols, 2), dtype=np.float32)
-    boxes = np.zeros((rows, cols), dtype=np.float32)
+    boxes = []
     man_row = -1
     man_col = -1
 
     for i in range(rows):
         for j in range(cols):
-            if string_state[i][j] == Sokoban.goal_str:
+            if lines[i][j] == Sokoban.goal_str:
                 map[i][j][Sokoban.goal_channel] = 1
 
-            if string_state[i][j] == Sokoban.man_str:
+            if lines[i][j] == Sokoban.man_str:
                 man_row = i
                 man_col = j
 
-            if string_state[i][j] == Sokoban.wall_str:
+            if lines[i][j] == Sokoban.wall_str:
                 map[i][j][Sokoban.wall_channel] = 1
 
-            if string_state[i][j] == Sokoban.box_str:
-                boxes[i, j] = 1
+            if lines[i][j] == Sokoban.box_str:
+                boxes.append([i, j])
 
     boxes = np.array(boxes)
 

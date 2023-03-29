@@ -17,6 +17,10 @@ import argparse
 import json
 from pathlib import Path
 import pathlib
+import pickle
+
+import numpy as np
+import tqdm
 
 from domains.sokoban import Sokoban, SokobanState, from_string
 
@@ -28,7 +32,7 @@ def main():
         "-i",
         "--input-path",
         type=lambda p: Path(p).absolute(),
-        help="path of file with problem instances to read (old spec)",
+        help="path of directory contianing problem files, each with instances, to read (old spec)",
     )
     parser.add_argument(
         "--id-prefix",
@@ -46,29 +50,32 @@ def main():
 
     args = parser.parse_args()
     if args.id_prefix:
-        id_prefix = f"_{args.id_prefix}"
+        id_prefix = f"{args.id_prefix}_"
     else:
         id_prefix = ""
 
-    problem_files = pathlib.Path(args.input_path).glob("*.txt")
+    problem_files = sorted(pathlib.Path(args.input_path).glob("*.txt"))
     problemset = []
-    for f in problem_files:
+    for f in tqdm.tqdm(problem_files):
         all_txt = f.read_text()
-        all_problem_strings = all_txt.split()
+        all_problem_strings = all_txt.split("\n\n")
         for problem_string in all_problem_strings:
-            problem_id = f"{id_prefix}{int(problem_string[0][1:])}"
-            problem = from_string(problem_string[1:])
+            if not problem_string:
+                continue
+            num, new_line, problem_string = problem_string.partition("\n")
+            problem_id = f"{id_prefix}{int(num[1:])}"
+            problem = from_string(problem_string)
             new_spec = {
-                "map": problem.map,
+                "map": problem.map.astype(np.int8).tolist(),
                 "man_row": problem.original_man_row,
                 "man_col": problem.original_man_col,
-                "boxes": problem.original_boxes,
+                "boxes": problem.original_boxes.astype(np.int8).tolist(),
                 "id": problem_id,
             }
             problemset.append(new_spec)
 
-    width = problemset[0].width
-    in_channels = problemset[0].in_channels
+    width = problem.cols
+    in_channels = problem.in_channels
 
     problemset = {
         "domain_name": "Sokoban",
