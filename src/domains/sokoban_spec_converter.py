@@ -22,7 +22,37 @@ import pickle
 import numpy as np
 import tqdm
 
-from domains.sokoban import Sokoban, SokobanState, from_string
+from domains.sokoban import Sokoban, SokobanState
+
+
+def from_string(
+    string_state: str,
+) -> Sokoban:
+    lines = string_state.splitlines()
+    rows = len(lines)
+    cols = len(lines[0])
+
+    map = np.zeros((2, rows, cols), dtype=np.float32)
+    boxes = np.zeros((rows, cols), dtype=np.int8)
+    man_row = -1
+    man_col = -1
+
+    for i in range(rows):
+        for j in range(cols):
+            if lines[i][j] == Sokoban.goal_str:
+                map[Sokoban.goal_channel, i, j] = 1
+
+            if lines[i][j] == Sokoban.man_str:
+                man_row = i
+                man_col = j
+
+            if lines[i][j] == Sokoban.wall_str:
+                map[Sokoban.wall_channel, i, j] = 1
+
+            if lines[i][j] == Sokoban.box_str:
+                boxes[i, j] = 1
+
+    return Sokoban(map, man_row, man_col, boxes)
 
 
 def main():
@@ -67,13 +97,13 @@ def main():
             if not problem_string:
                 continue
             num, new_line, problem_string = problem_string.partition("\n")
-            problem_id = f"{id_prefix}{int(num[1:])}"
+            problem_id = f"{id_prefix}{f.stem}_{int(num[1:])}"
             problem = from_string(problem_string)
             new_spec = {
-                "map": problem.map.astype(np.int8).tolist(),
+                "map": problem.map.tolist(),
                 "man_row": problem.original_man_row,
                 "man_col": problem.original_man_col,
-                "boxes": problem.original_boxes.astype(np.int8).tolist(),
+                "boxes": problem.original_boxes.tolist(),
                 "id": problem_id,
             }
             problemset.append(new_spec)

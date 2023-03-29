@@ -69,7 +69,6 @@ def main():
         "in_channels": int(width**2),
         "state_t_width": width,
     }
-    width = problemset["width"]
 
     for i, old_spec in tqdm.tqdm(enumerate(problem_specs_old)):
         new_spec = {}

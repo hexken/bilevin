@@ -63,8 +63,8 @@ class Sokoban(Domain):
         self.forward = forward
 
         self.map = map
-        self.rows = map.shape[0]
-        self.cols = map.shape[1]
+        self.rows = map.shape[1]
+        self.cols = map.shape[2]
 
         self.original_man_row = man_row
         self.original_man_col = man_col
@@ -89,55 +89,59 @@ class Sokoban(Domain):
         return 4
 
     def actions_unpruned(self, state: SokobanState) -> list[FourDir]:
+        """
+        Can move in each direction where either there is no wall or box, or there is a box that can
+        be pushed (i.e. no wall or box behind it)
+        """
         actions = []
         man_row = state.man_row
         man_col = state.man_col
 
         if (
-            self.map[man_row, man_col + 1, Sokoban.wall_channel] == 0
+            self.map[Sokoban.wall_channel, man_row, man_col + 1] == 0
             and state.boxes[man_row, man_col + 1] == 0
         ):
             actions.append(FourDir.RIGHT)
         elif (
             state.boxes[man_row, man_col + 1] == 1
-            and self.map[man_row, man_col + 2, Sokoban.wall_channel] == 0
+            and self.map[Sokoban.wall_channel, man_row, man_col + 2] == 0
             and state.boxes[man_row, man_col + 2] == 0
         ):
             actions.append(FourDir.RIGHT)
 
         if (
-            self.map[man_row, man_col - 1][Sokoban.wall_channel] == 0
+            self.map[Sokoban.wall_channel, man_row, man_col - 1] == 0
             and state.boxes[man_row, man_col - 1] == 0
         ):
             actions.append(FourDir.LEFT)
         elif (
             state.boxes[man_row, man_col - 1] == 1
-            and self.map[man_row, man_col - 2, Sokoban.wall_channel] == 0
+            and self.map[Sokoban.wall_channel, man_row, man_col - 2] == 0
             and state.boxes[man_row, man_col - 2] == 0
         ):
             actions.append(FourDir.LEFT)
 
         if (
-            self.map[man_row + 1, man_col, Sokoban.wall_channel] == 0
+            self.map[Sokoban.wall_channel, man_row + 1, man_col] == 0
             and state.boxes[man_row + 1, man_col] == 0
         ):
             actions.append(FourDir.DOWN)
         elif (
             state.boxes[man_row + 1, man_col] == 1
-            and self.map[man_row + 2, man_col, Sokoban.wall_channel] == 0
+            and self.map[Sokoban.wall_channel, man_row + 2, man_col] == 0
             and state.boxes[man_row + 2, man_col] == 0
         ):
             actions.append(FourDir.DOWN)
 
         if (
-            self.map[man_row - 1, man_col, Sokoban.wall_channel] == 0
+            self.map[Sokoban.wall_channel, man_row - 1, man_col] == 0
             and state.boxes[man_row - 1, man_col] == 0
         ):
 
             actions.append(FourDir.UP)
         elif (
             state.boxes[man_row - 1, man_col] == 1
-            and self.map[man_row - 2, man_col, Sokoban.wall_channel] == 0
+            and self.map[Sokoban.wall_channel, man_row - 2, man_col] == 0
             and state.boxes[man_row - 2, man_col] == 0
         ):
             actions.append(FourDir.UP)
@@ -195,16 +199,16 @@ class Sokoban(Domain):
         man_row = state.man_row
         man_col = state.man_col
 
-        if self.map[man_row, man_col + 1, Sokoban.wall_channel] == 0:
+        if self.map[Sokoban.wall_channel, man_row, man_col + 1] == 0:
             actions.append(FourDir.RIGHT)
 
-        if self.map[man_row, man_col - 1][Sokoban.wall_channel] == 0:
+        if self.map[Sokoban.wall_channel, man_row, man_col - 1] == 0:
             actions.append(FourDir.LEFT)
 
-        if self.map[man_row + 1, man_col, Sokoban.wall_channel] == 0:
+        if self.map[Sokoban.wall_channel, man_row + 1, man_col] == 0:
             actions.append(FourDir.DOWN)
 
-        if self.map[man_row - 1, man_col, Sokoban.wall_channel] == 0:
+        if self.map[Sokoban.wall_channel, man_row - 1, man_col] == 0:
             actions.append(FourDir.UP)
 
         return actions
@@ -247,32 +251,28 @@ class Sokoban(Domain):
         return SokobanState(man_row, man_col, boxes)
 
     def backward_domain(self) -> list[Sokoban]:
+        """
+        create a new states by placing the man at each side of each box, where not blocked
+        """
         assert self.forward
-        boxes = np.argwhere(self.map[:, :, Sokoban.box_channel])
+        boxes = np.argwhere(self.original_boxes)
         map = np.array(self.map)
+        wall_or_box = np.logical_or(map[Sokoban.wall_channel], map[Sokoban.box_channel])
         domains = []
         for box in boxes:
-            if not map[
-                box[0] - 1, box[1], [Sokoban.wall_channel, Sokoban.box_channel]
-            ].any():
+            if wall_or_box[box[0] - 1, box[1]] == 0:
                 new_domain = Sokoban(map, box[0] - 1, box[1], boxes, forward=False)
                 domains.append(new_domain)
 
-            if not map[
-                box[0] + 1, box[1], [Sokoban.wall_channel, Sokoban.box_channel]
-            ].any():
+            if wall_or_box[box[0] + 1, box[1]] == 0:
                 new_domain = Sokoban(map, box[0] + 1, box[1], boxes, forward=False)
                 domains.append(new_domain)
 
-            if not map[
-                box[0], box[1] + 1, [Sokoban.wall_channel, Sokoban.box_channel]
-            ].any():
+            if wall_or_box[box[0], box[1] + 1] == 0:
                 new_domain = Sokoban(map, box[0], box[1] + 1, boxes, forward=False)
                 domains.append(new_domain)
 
-            if not map[
-                box[0], box[1] - 1, [Sokoban.wall_channel, Sokoban.box_channel]
-            ].any():
+            if wall_or_box[box[0], box[1] - 1] == 0:
                 new_domain = Sokoban(map, box[0], box[1] - 1, boxes, forward=False)
                 domains.append(new_domain)
 
@@ -291,74 +291,57 @@ class Sokoban(Domain):
         return state == self.goal_state
 
     def is_goal(self, state: SokobanState) -> bool:
-        return self.map[:, :, Sokoban.goal_channel][
-            state.boxes[:, 0], state.boxes[:, 1]
-        ].all()
+        return np.array_equal(state.boxes, self.map[Sokoban.goal_channel])
 
     def state_tensor(self, state: SokobanState) -> to.Tensor:
         channel_man = np.zeros((self.rows, self.cols), dtype=np.float32)
         channel_man[state.man_row, state.man_col] = 1
 
-        channel_boxes = np.zeros((self.rows, self.cols), dtype=np.float32)
-        channel_boxes[state.boxes[:, 0], state.boxes[:, 1]] = 1
-
         arr = np.concatenate(
-            (self.map, channel_boxes[..., None], channel_man[..., None]),
-            axis=-1,
+            (self.map, state.boxes[None, ...], channel_man[None, ...]),
+            axis=0,
             dtype=np.float32,
         )
         return to.from_numpy(arr)
 
     def print(self, state: SokobanState):
-        boxes_list = state.boxes.tolist()
         for i in range(self.rows):
             for j in range(self.cols):
-                loc = [i, j]
-                if self.map[i, j, Sokoban.goal_channel] == 1 and loc in boxes_list:
+                if (
+                    self.map[
+                        Sokoban.goal_channel,
+                        i,
+                        j,
+                    ]
+                    == 1
+                    and state.boxes[i, j] == 1
+                ):
                     print("*", end="")
                 elif i == state.man_row and j == state.man_col:
                     print(Sokoban.man_str, end="")
-                elif self.map[i, j, Sokoban.goal_channel] == 1:
+                elif (
+                    self.map[
+                        Sokoban.goal_channel,
+                        i,
+                        j,
+                    ]
+                    == 1
+                ):
                     print(Sokoban.goal_str, end="")
-                elif self.map[i, j, Sokoban.wall_channel] == 1:
+                elif (
+                    self.map[
+                        Sokoban.wall_channel,
+                        i,
+                        j,
+                    ]
+                    == 1
+                ):
                     print(Sokoban.wall_str, end="")
-                elif loc in boxes_list:
+                elif state.boxes[i, j] == 1:
                     print(Sokoban.box_str, end="")
                 else:
                     print(" ", end="")
             print()
-
-
-def from_string(
-    string_state: str,
-) -> Sokoban:
-    lines = string_state.splitlines()
-    rows = len(lines)
-    cols = len(lines[0])
-
-    map = np.zeros((rows, cols, 2), dtype=np.float32)
-    boxes = []
-    man_row = -1
-    man_col = -1
-
-    for i in range(rows):
-        for j in range(cols):
-            if lines[i][j] == Sokoban.goal_str:
-                map[i][j][Sokoban.goal_channel] = 1
-
-            if lines[i][j] == Sokoban.man_str:
-                man_row = i
-                man_col = j
-
-            if lines[i][j] == Sokoban.wall_str:
-                map[i][j][Sokoban.wall_channel] = 1
-
-            if lines[i][j] == Sokoban.box_str:
-                boxes.append([i, j])
-
-    boxes = np.array(boxes)
-
-    return Sokoban(map, man_row, man_col, boxes)
 
 
 def parse_problemset(problemset: dict):
@@ -371,7 +354,7 @@ def parse_problemset(problemset: dict):
                     map=np.array(spec["map"], dtype=np.float32),
                     man_row=spec["man_row"],
                     man_col=spec["man_col"],
-                    boxes=np.array(spec["boxes"], dtype=np.int8),
+                    boxes=np.array(spec["boxes"], dtype=np.float32),
                 ),
             )
             problems.append(problem)
