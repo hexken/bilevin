@@ -40,7 +40,11 @@ def main():
         default="",
         help="prefix to add to problem id ([prefix]_id)",
     )
-
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="save as a test problemset (default is train)",
+    )
     parser.add_argument(
         "-o",
         "--output-path",
@@ -77,18 +81,27 @@ def main():
     width = problem.cols
     in_channels = problem.in_channels
 
-    problemset = {
+    # todo these aren't really a curriculum
+    problemset_dict = {
         "domain_name": "Sokoban",
         "domain_module": "sokoban",
-        "width": width,
-        "problems": problemset,
         "num_actions": 4,
         "in_channels": in_channels,
         "state_t_width": width,
     }
+    if args.test:
+        problemset_dict["problems"] = problemset
+    else:
+        problemset_dict["is_curriculum"] = True
+        problemset_dict["bootstrap_problems"] = []
+        problemset_dict["permutation_problems"] = []
+
+        problemset_dict["curriculum_problems"] = problemset
+        problemset_dict["curriculum"] = ["unfiltered"]
+        problemset_dict["problems_per_difficulty"] = len(problemset)
 
     with args.output_path.open("w") as f:
-        json.dump(problemset, f, indent=0)
+        json.dump(problemset_dict, f, indent=0)
 
 
 if __name__ == "__main__":

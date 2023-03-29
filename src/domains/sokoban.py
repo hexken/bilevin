@@ -70,7 +70,7 @@ class Sokoban(Domain):
         self.original_man_col = man_col
         self.original_boxes = boxes
         self._initial_state = SokobanState(man_row, man_col, boxes)
-        self.initial_state_t = self.state_tensor(self.initial_state)
+        self.initial_state_t = self.state_tensor(self._initial_state)
 
     @property
     def initial_state(self) -> SokobanState:
@@ -296,14 +296,16 @@ class Sokoban(Domain):
         ].all()
 
     def state_tensor(self, state: SokobanState) -> to.Tensor:
-        channel_man = np.zeros((self.rows, self.cols))
+        channel_man = np.zeros((self.rows, self.cols), dtype=np.float32)
         channel_man[state.man_row, state.man_col] = 1
 
-        channel_boxes = np.zeros((self.rows, self.cols))
+        channel_boxes = np.zeros((self.rows, self.cols), dtype=np.float32)
         channel_boxes[state.boxes[:, 0], state.boxes[:, 1]] = 1
 
         arr = np.concatenate(
-            (self.map, channel_boxes[..., None], channel_man[..., None]), axis=-1
+            (self.map, channel_boxes[..., None], channel_man[..., None]),
+            axis=-1,
+            dtype=np.float32,
         )
         return to.from_numpy(arr)
 
@@ -366,10 +368,10 @@ def parse_problemset(problemset: dict):
             problem = Problem(
                 id=spec["id"],
                 domain=Sokoban(
-                    map=spec["map"],
+                    map=np.array(spec["map"], dtype=np.float32),
                     man_row=spec["man_row"],
                     man_col=spec["man_col"],
-                    boxes=spec["boxes"],
+                    boxes=np.array(spec["boxes"], dtype=np.int8),
                 ),
             )
             problems.append(problem)
@@ -379,10 +381,13 @@ def parse_problemset(problemset: dict):
         "num_actions": problemset["num_actions"],
         "in_channels": problemset["in_channels"],
         "state_t_width": problemset["state_t_width"],
-        "width": problemset["width"],
     }
 
-    problems = parse_specs(problemset["problems"])
-    problemset["problems"] = problems
+    if "is_curriculum" in problemset:
+        problems = parse_specs(problemset["curriculum_problems"])
+        problemset["curriculum_problems"] = problems
+    else:
+        problems = parse_specs(problemset["problems"])
+        problemset["problems"] = problems
 
     return problemset, model_args

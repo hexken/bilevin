@@ -14,5 +14,5 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from domains.stp import SlidingTilePuzzle
-# from domains.sokoban import Sokoban
+from domains.sokoban import Sokoban
 from domains.witness import Witness

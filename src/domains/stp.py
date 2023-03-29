@@ -227,7 +227,6 @@ def parse_problemset(problemset: dict):
         "num_actions": problemset["num_actions"],
         "in_channels": problemset["in_channels"],
         "state_t_width": problemset["state_t_width"],
-        "width": problemset["width"],
     }
 
     if "is_curriculum" in problemset:

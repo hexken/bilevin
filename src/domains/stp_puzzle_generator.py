@@ -139,7 +139,6 @@ def main():
     problemset_dict = {
         "domain_module": "stp",
         "domain_name": "SlidingTilePuzzle",
-        "width": args.width,
         "state_t_width": args.width,
         "num_actions": 4,
         "in_channels": int(args.width**2),

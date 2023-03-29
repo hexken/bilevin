@@ -64,7 +64,6 @@ def main():
     problemset = {
         "domain_name": "SlidingTilePuzzle",
         "domain_module": "stp",
-        "width": width,
         "problems": [],
         "num_actions": 4,
         "in_channels": int(width**2),
