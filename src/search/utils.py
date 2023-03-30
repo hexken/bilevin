@@ -155,9 +155,8 @@ def get_merged_solution(
 
 
 def try_make_solution(
-    self,
-    node: SearchNode,
     this_domain: Domain,
+    node: SearchNode,
     other_domain: Domain,
     num_expanded: int,
 ) -> Optional[tuple[Trajectory, Trajectory]]:
@@ -167,7 +166,7 @@ def try_make_solution(
     hsh = node.state.__hash__()
     if hsh in other_domain.visited:  # solution found
         other_node = other_domain.visited[hsh]
-        if self.forward:
+        if this_domain.forward:
             f_common_node = node
             b_common_node = other_node
             f_domain = this_domain

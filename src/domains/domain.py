@@ -16,7 +16,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Callable
 
 import torch as to
 
@@ -50,7 +50,7 @@ class Domain(ABC):
     def __init__(self):
         self.visited = {}
 
-    def reset(self) -> State:
+    def reset(self) -> State | list[State]:
         self.visited = {}
         return self.initial_state
 
@@ -59,7 +59,21 @@ class Domain(ABC):
 
     @property
     @abstractmethod
-    def initial_state(self) -> State:
+    def forward(self) -> bool:
+        pass
+
+    @property
+    @abstractmethod
+    def try_make_solution_func(
+        cls,
+    ) -> Callable[
+        [Domain, SearchNode, Domain, int], Optional[tuple[Trajectory, Trajectory]]
+    ]:
+        pass
+
+    @property
+    @abstractmethod
+    def initial_state(self) -> State | list[State]:
         pass
 
     @property
@@ -82,7 +96,7 @@ class Domain(ABC):
         pass
 
     @abstractmethod
-    def backward_domain(self) -> list[Domain]:
+    def backward_domain(self) -> Domain:
         pass
 
     @abstractmethod

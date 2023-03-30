@@ -14,13 +14,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import annotations
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 import torch as to
 
-from domains.domain import Domain, State, Problem
+from domains.domain import Domain, Problem, State
 from enums import FourDir
+from search import SearchNode, Trajectory, try_make_solution
 
 
 class SokobanState(State):
@@ -51,6 +52,8 @@ class Sokoban(Domain):
     box_channel = 2
     man_channel = 3
 
+    _try_make_solution = try_make_solution
+
     def __init__(
         self,
         map: np.ndarray,
@@ -60,20 +63,30 @@ class Sokoban(Domain):
         forward: bool = True,
     ) -> None:
         super().__init__()
-        self.forward = forward
+        self._forward = forward
 
         self.map = map
         self.rows = map.shape[1]
         self.cols = map.shape[2]
 
-        self.original_man_row = man_row
-        self.original_man_col = man_col
         self.original_boxes = boxes
         self._initial_state = SokobanState(man_row, man_col, boxes)
         self.initial_state_t = self.state_tensor(self._initial_state)
 
     @property
-    def initial_state(self) -> SokobanState:
+    def try_make_solution_func(
+        cls,
+    ) -> Callable[
+        [Domain, SearchNode, Domain, int], Optional[tuple[Trajectory, Trajectory]]
+    ]:
+        return Sokoban._try_make_solution
+
+    @property
+    def forward(self) -> bool:
+        return self._forward
+
+    @property
+    def initial_state(self) -> SokobanState | list[SokobanState]:
         return self._initial_state
 
     @property
@@ -250,41 +263,43 @@ class Sokoban(Domain):
 
         return SokobanState(man_row, man_col, boxes)
 
-    def backward_domain(self) -> list[Sokoban]:
+    def backward_domain(self) -> Sokoban:
         """
-        create a new states by placing the man at each side of each box, where not blocked
+        create new states by placing the boxes on the goals, then the man at each side of each box, where not blocked
         """
         assert self.forward
-        boxes = np.argwhere(self.original_boxes)
-        map = np.array(self.map)
-        wall_or_box = np.logical_or(map[Sokoban.wall_channel], map[Sokoban.box_channel])
-        domains = []
-        for box in boxes:
-            if wall_or_box[box[0] - 1, box[1]] == 0:
-                new_domain = Sokoban(map, box[0] - 1, box[1], boxes, forward=False)
-                domains.append(new_domain)
+        boxes = self.map[Sokoban.goal_channel]
+        walls = self.map[Sokoban.wall_channel]
+        new_domain = Sokoban(
+            self.map, 0, 0, boxes, forward=False
+        )  # temp man_row, man_col
+        states = []
+        box_coords = np.argwhere(boxes)
+        for row, col in box_coords:
+            row = int(row)
+            col = int(col)
+            if walls[row - 1, col] == 0:
+                states.append(SokobanState(row - 1, col, boxes))
 
-            if wall_or_box[box[0] + 1, box[1]] == 0:
-                new_domain = Sokoban(map, box[0] + 1, box[1], boxes, forward=False)
-                domains.append(new_domain)
+            if walls[row + 1, col] == 0:
+                states.append(SokobanState(row + 1, col, boxes))
 
-            if wall_or_box[box[0], box[1] + 1] == 0:
-                new_domain = Sokoban(map, box[0], box[1] + 1, boxes, forward=False)
-                domains.append(new_domain)
+            if walls[row, col + 1] == 0:
+                states.append(SokobanState(row, col + 1, boxes))
 
-            if wall_or_box[box[0], box[1] - 1] == 0:
-                new_domain = Sokoban(map, box[0], box[1] - 1, boxes, forward=False)
-                domains.append(new_domain)
+            if walls[row, col - 1] == 0:
+                states.append(SokobanState(row, col - 1, boxes))
 
-        for new_domain in domains:
-            new_domain.goal_state = self.initial_state
-            new_domain.goal_state_t = self.initial_state_t
-            new_domain.actions = self._backward_actions
-            new_domain.actions_unpruned = self._backward_actions_unpruned
-            new_domain.result = self._backward_result
-            new_domain.is_goal = self._backward_is_goal
+        new_domain._initial_state = states
+        new_domain.initial_state_t = None
+        new_domain.goal_state = self.initial_state
+        new_domain.goal_state_t = self.initial_state_t
+        new_domain.actions = new_domain._backward_actions
+        new_domain.actions_unpruned = new_domain._backward_actions_unpruned
+        new_domain.result = new_domain._backward_result
+        new_domain.is_goal = new_domain._backward_is_goal
 
-        return domains
+        return new_domain
 
     def _backward_is_goal(self, state: SokobanState) -> bool:
         assert not self.forward

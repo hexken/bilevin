@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import numpy as np
 import torch as to
+from typing import Optional, Callable
 
 from domains.domain import Domain, Problem, State
+from search import try_make_solution, Trajectory, SearchNode
 from enums import FourDir
 
 
@@ -50,6 +52,8 @@ class SlidingTilePuzzleState(State):
 
 
 class SlidingTilePuzzle(Domain):
+    _try_make_solution = try_make_solution
+
     def __init__(
         self, init_tiles: np.ndarray, goal_tiles: np.ndarray, forward: bool = True
     ):
@@ -57,7 +61,7 @@ class SlidingTilePuzzle(Domain):
         self.width = init_tiles.shape[0]
         self.num_tiles = self.width**2
 
-        self.forward = forward
+        self._forward = forward
 
         width_indices = np.arange(self.width)
         self._row_indices = np.repeat(width_indices, self.width)
@@ -82,6 +86,18 @@ class SlidingTilePuzzle(Domain):
             goal_tiles, goal_blank_row, goal_blank_col
         )
         self.goal_state_t = self.state_tensor(self.goal_state)
+
+    @property
+    def try_make_solution_func(
+        cls,
+    ) -> Callable[
+        [Domain, SearchNode, Domain, int], Optional[tuple[Trajectory, Trajectory]]
+    ]:
+        return SlidingTilePuzzle._try_make_solution
+
+    @property
+    def forward(self) -> bool:
+        return self._forward
 
     @property
     def initial_state(self) -> SlidingTilePuzzleState:
@@ -122,13 +138,13 @@ class SlidingTilePuzzle(Domain):
         elif action == FourDir.RIGHT:
             return FourDir.LEFT
 
-    def backward_domain(self) -> list[SlidingTilePuzzle]:
+    def backward_domain(self) -> SlidingTilePuzzle:
         assert self.forward
         init_tiles = self.goal_tiles
         goal_tiles = self.initial_state.tiles
-        domain = SlidingTilePuzzle(init_tiles, goal_tiles, False)
+        domain = SlidingTilePuzzle(init_tiles, goal_tiles, forward=False)
 
-        return [domain]
+        return domain
 
     def actions(
         self, parent_action: FourDir, state: SlidingTilePuzzleState

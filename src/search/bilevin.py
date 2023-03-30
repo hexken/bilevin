@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 import torch as to
 from torch.nn.functional import log_softmax
 
+from domains.domain import State
 from enums import TwoDir
 from search.agent import Agent
 from search.levin import LevinNode, PriorityQueue, levin_cost, swap_node_contents
@@ -48,30 +49,41 @@ class BiLevin(Agent):
         end_time=None,
     ):
         """ """
+        f_frontier = PriorityQueue()
+        b_frontier = PriorityQueue()
+        f_reached = {}
+        b_reached = {}
+
         problem_id = problem.id
         f_domain = problem.domain
+
+        try_make_solution = f_domain.try_make_solution_func
 
         b_domain = f_domain.backward_domain()
 
         f_state = f_domain.reset()
+        assert isinstance(f_state, State)
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
 
-        b_state = b_domain.reset()
-        b_state_t = b_domain.state_tensor(b_state).unsqueeze(0)
+        b_states = b_domain.reset()
+        if isinstance(b_states, list):
+            b_state_t = to.stack([b_domain.state_tensor(s) for s in b_states])
+        else:
+            b_state_t = b_domain.state_tensor(b_states)
+            b_state_t = b_state_t.unsqueeze(0)
+            b_states = [b_states]
 
         feats = model.feature_net(to.vstack((f_state_t, b_state_t)))
-        f_state_feats = feats[0].unsqueeze(0)
-        b_state_feats = feats[1].unsqueeze(0)
+        f_state_feats = feats[0]
+        b_states_feat = feats[1:]
 
         b_goal_feats = deepcopy(f_state_feats)
 
         f_action_logits = model.forward_policy(f_state_feats)
-        b_action_logits = model.backward_policy(b_state_feats, b_goal_feats)
+        b_action_logits = model.backward_policy(b_states_feat, b_goal_feats)
 
-        # b_state_feats = model.feature_net(b_state_t)
-
-        f_log_action_probs = log_softmax(f_action_logits[0], dim=-1)
-        b_log_action_probs = log_softmax(b_action_logits[0], dim=-1)
+        f_log_action_probs = log_softmax(f_action_logits, dim=-1)
+        b_log_action_probs = log_softmax(b_action_logits, dim=-1)
 
         f_start_node = LevinNode(
             f_state,
@@ -80,26 +92,21 @@ class BiLevin(Agent):
             levin_cost=0.0,
             log_action_probs=f_log_action_probs,
         )
-
-        b_start_node = LevinNode(
-            b_state,
-            g_cost=0,
-            log_prob=0.0,
-            levin_cost=0.0,
-            log_action_probs=b_log_action_probs,
-        )
-
-        f_frontier = PriorityQueue()
-        b_frontier = PriorityQueue()
-        f_reached = {}
-        b_reached = {}
         f_frontier.enqueue(f_start_node)
-        b_frontier.enqueue(b_start_node)
         f_reached[f_start_node] = f_start_node
-        b_reached[b_start_node] = b_start_node
-
         f_domain.update(f_start_node)
-        b_domain.update(b_start_node)
+
+        for i, state in enumerate(b_states):
+            start_node = LevinNode(
+                state,
+                g_cost=0,
+                log_prob=0.0,
+                levin_cost=0.0,
+                log_action_probs=b_log_action_probs[i],
+            )
+            b_frontier.enqueue(start_node)
+            b_reached[start_node] = start_node
+            b_domain.update(start_node)
 
         children_to_be_evaluated = []
         state_t_of_children_to_be_evaluated = []
@@ -152,8 +159,8 @@ class BiLevin(Agent):
                 num_generated += 1
 
                 if new_node not in _reached:
-                    trajs = _domain.try_make_solution(
-                        new_node, other_domain, num_expanded
+                    trajs = try_make_solution(
+                        _domain, new_node, other_domain, num_expanded
                     )
 
                     if trajs:  # solution found
