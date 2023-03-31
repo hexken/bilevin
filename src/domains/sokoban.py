@@ -212,16 +212,28 @@ class Sokoban(Domain):
         man_row = state.man_row
         man_col = state.man_col
 
-        if self.map[Sokoban.wall_channel, man_row, man_col + 1] == 0:
+        if (
+            self.map[Sokoban.wall_channel, man_row, man_col + 1] == 0
+            and state.boxes[man_row, man_col + 1] == 0
+        ):
             actions.append(FourDir.RIGHT)
 
-        if self.map[Sokoban.wall_channel, man_row, man_col - 1] == 0:
+        if (
+            self.map[Sokoban.wall_channel, man_row, man_col - 1] == 0
+            and state.boxes[man_row, man_col - 1] == 0
+        ):
             actions.append(FourDir.LEFT)
 
-        if self.map[Sokoban.wall_channel, man_row + 1, man_col] == 0:
+        if (
+            self.map[Sokoban.wall_channel, man_row + 1, man_col] == 0
+            and state.boxes[man_row + 1, man_col] == 0
+        ):
             actions.append(FourDir.DOWN)
 
-        if self.map[Sokoban.wall_channel, man_row - 1, man_col] == 0:
+        if (
+            self.map[Sokoban.wall_channel, man_row - 1, man_col] == 0
+            and state.boxes[man_row - 1, man_col] == 0
+        ):
             actions.append(FourDir.UP)
 
         return actions
@@ -278,18 +290,19 @@ class Sokoban(Domain):
         for row, col in box_coords:
             row = int(row)
             col = int(col)
-            if walls[row - 1, col] == 0:
+            if walls[row - 1, col] == 0 and boxes[row - 1, col] == 0:
                 states.append(SokobanState(row - 1, col, boxes))
 
-            if walls[row + 1, col] == 0:
+            if walls[row + 1, col] == 0 and boxes[row + 1, col] == 0:
                 states.append(SokobanState(row + 1, col, boxes))
 
-            if walls[row, col + 1] == 0:
+            if walls[row, col + 1] == 0 and boxes[row, col + 1] == 0:
                 states.append(SokobanState(row, col + 1, boxes))
 
-            if walls[row, col - 1] == 0:
+            if walls[row, col - 1] == 0 and boxes[row, col - 1] == 0:
                 states.append(SokobanState(row, col - 1, boxes))
 
+        del new_domain._initial_state
         new_domain._initial_state = states
         new_domain.initial_state_t = None
         new_domain.goal_state = self.initial_state
