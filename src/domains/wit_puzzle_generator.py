@@ -15,6 +15,7 @@
 
 import argparse
 from collections import deque
+from copy import deepcopy
 from itertools import product
 import json
 from pathlib import Path
@@ -185,11 +186,14 @@ def main():
                 problems.append(problem)
                 pbar.update()
 
-    problemset = {
+    problemset_dict = {
         "domain_module": "witness",
         "domain_name": "Witness",
         "width": args.width,
+        "num_actions": 4,
         "max_num_colors": args.max_num_colors,
+        "in_channels": args.max_num_colors + 5,
+        "state_t_width": args.width,
     }
 
     for n, suffix in [
@@ -197,12 +201,24 @@ def main():
         (args.n_valid, "valid"),
         (args.n_test, "test"),
     ]:
-        if n > 0:
-            problemset["problems"] = problems[:n]
-            path = args.output_path / f"{n}-{suffix}.json"
-            with path.open("w") as f:
-                json.dump(problemset, f)
-            problems = problems[n:]
+        if n == 0:
+            continue
+        elif suffix == "train":
+            trainset_dict = deepcopy(problemset_dict)
+            trainset_dict["is_curriculum"] = True
+            trainset_dict["bootstrap_problems"] = []
+            trainset_dict["permutation_problems"] = []
+
+            train_problems = problems[:n]
+            trainset_dict["curriculum_problems"] = train_problems
+            trainset_dict["curriculum"] = ["unfiltered"]
+            trainset_dict["problems_per_difficulty"] = len(train_problems)
+        else:
+            problemset_dict["problems"] = problems[:n]
+        path = args.output_path / f"{n}-{suffix}.json"
+        with path.open("w") as f:
+            json.dump(problemset_dict, f)
+        problems = problems[n:]
 
 
 def connected_components(wit, wit_state):

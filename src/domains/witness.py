@@ -70,10 +70,98 @@ class WitnessState(State):
         )
 
 
+def get_merged_trajectory(
+    dir1_domain,
+    dir1_common: SearchNode,
+    dir2_common: SearchNode,
+    node_type: Type[SearchNode],
+    num_expanded: int,
+) -> Trajectory:
+    """
+    Returns a new trajectory going from dir1_start to dir2_start, passing through
+    merge(dir1_common, dir2_common).
+    """
+    dir1_node = dir1_common
+    dir2_parent_node = dir2_common.parent
+    dir2_parent_action = dir2_common.parent_action
+    while dir2_parent_node:
+        action = dir1_domain.reverse_action(dir2_parent_action)
+        new_state = dir1_domain.result(dir1_node.state, action)
+        new_dir1_node = node_type(
+            state=new_state,
+            parent=dir1_node,
+            parent_action=action,
+            g_cost=dir1_node.g_cost + 1,
+        )
+        dir1_node = new_dir1_node
+        dir2_parent_action = dir2_parent_node.parent_action
+        dir2_parent_node = dir2_parent_node.parent
+
+    return Trajectory(dir1_domain, dir1_node, num_expanded)
+
+
+def try_make_solution(
+    this_domain: Witness, node: SearchNode, other_domain: Witness, num_expanded: int
+) -> Optional[tuple[Trajectory, Trajectory]]:
+    """
+    Tries to create a solution from the current node and the nodes visited by the other search
+    direction. Check if the heads coincide, and if so create a single node with its trajectory
+    in the direction specified by self. Check if the merged state is a goal state and create a
+    forward and backward Trajectory if so.
+
+    """
+    state: WitnessState = node.state
+    head_dot = (state.head_row, state.head_col)
+    if head_dot not in other_domain.heads:
+        return None
+    for other_node in other_domain.heads[head_dot]:
+        other_state = other_node.state
+
+        merged_state = WitnessState(
+            this_domain.width,
+            other_domain.start_row,
+            other_domain.start_col,
+            init_structs=False,
+        )
+
+        merged_state.grid = state.grid + other_state.grid
+        merged_state.grid[head_dot] = 1
+        # todo is this sufficient and neccesry to prevent overlaps bessides at head?
+        if np.any(merged_state.grid > 1.5):
+            return None
+
+        merged_state.v_segs = state.v_segs + other_state.v_segs
+        merged_state.h_segs = state.h_segs + other_state.h_segs
+
+        if this_domain.is_goal(merged_state):
+            if this_domain.forward:
+                f_common_node = node
+                b_common_node = other_node
+                f_domain = this_domain
+                b_domain = other_domain
+            else:
+                f_common_node = other_node
+                b_common_node = node
+                f_domain = other_domain
+                b_domain = this_domain
+
+            f_traj = get_merged_trajectory(
+                f_domain, f_common_node, b_common_node, type(node), num_expanded
+            )
+            b_traj = get_merged_trajectory(
+                b_domain, b_common_node, f_common_node, type(node), num_expanded
+            )
+            return (f_traj, b_traj)
+
+    return None
+
+
 class Witness(Domain):
     """
     An executor for a Witness problem.
     """
+
+    _try_make_solution = try_make_solution
 
     def __init__(
         self,
@@ -82,6 +170,7 @@ class Witness(Domain):
         init: list[int],
         goal: list[int],
         colored_cells: list[str] = [],
+        forward: bool = True,
     ):
         """
         Initializes  a witness executor specific to a problem, and creates the initial state.
@@ -116,7 +205,8 @@ class Witness(Domain):
             for j in range(self.width)
             if self.cells[i, j] != 0
         ]
-        self.initial_state = WitnessState(
+
+        self._initial_state = WitnessState(
             self.width,
             self.start_row,
             self.start_col,
@@ -124,14 +214,11 @@ class Witness(Domain):
 
         self.heads = {}
 
-        self.forward = True
-
-    def reset(self) -> WitnessState:
-        self.heads = {}
-        return self.initial_state
+        self._forward = forward
 
     def update(self, node: SearchNode):
-        head = (node.state.head_row, node.state.head_col)
+        state: WitnessState = node.state
+        head = (state.head_row, state.head_col)
         if head in self.heads:
             self.heads[head].append(node)
         else:
@@ -389,90 +476,6 @@ class Witness(Domain):
                     reached.add(neighbor)
         return True
 
-    def get_merged_trajectory(
-        self,
-        dir1_common: SearchNode,
-        dir2_common: SearchNode,
-        node_type: Type[SearchNode],
-        num_expanded: int,
-    ) -> Trajectory:
-        """
-        Returns a new trajectory going from dir1_start to dir2_start, passing through
-        merge(dir1_common, dir2_common).
-        """
-        dir1_node = dir1_common
-        dir2_parent_node = dir2_common.parent
-        dir2_parent_action = dir2_common.parent_action
-        while dir2_parent_node:
-            action = self.reverse_action(dir2_parent_action)
-            new_state = self.result(dir1_node.state, action)
-            new_dir1_node = node_type(
-                state=new_state,
-                parent=dir1_node,
-                parent_action=action,
-                g_cost=dir1_node.g_cost + 1,
-            )
-            dir1_node = new_dir1_node
-            dir2_parent_action = dir2_parent_node.parent_action
-            dir2_parent_node = dir2_parent_node.parent
-
-        return Trajectory(self, dir1_node, num_expanded)
-
-    def try_make_solution(
-        self, node: SearchNode, other_domain: Witness, num_expanded: int
-    ) -> Optional[tuple[Trajectory, Trajectory]]:
-        """
-        Tries to create a solution from the current node and the nodes visited by the other search
-        direction. Check if the heads coincide, and if so create a single node with its trajectory
-        in the direction specified by self. Check if the merged state is a goal state and create a
-        forward and backward Trajectory if so.
-
-        """
-        state = node.state
-        head_dot = (state.head_row, state.head_col)
-        if head_dot not in other_domain.heads:
-            return None
-        for other_node in other_domain.heads[head_dot]:
-            other_state = other_node.state
-
-            merged_state = WitnessState(
-                self.width,
-                other_domain.start_row,
-                other_domain.start_col,
-                init_structs=False,
-            )
-
-            merged_state.grid = state.grid + other_state.grid
-            merged_state.grid[head_dot] = 1
-            # todo is this sufficient and neccesry to prevent overlaps bessides at head?
-            if np.any(merged_state.grid > 1.5):
-                return None
-
-            merged_state.v_segs = state.v_segs + other_state.v_segs
-            merged_state.h_segs = state.h_segs + other_state.h_segs
-
-            if self.is_goal(merged_state):
-                if self.forward:
-                    f_common_node = node
-                    b_common_node = other_node
-                    f_domain = self
-                    b_domain = other_domain
-                else:
-                    f_common_node = other_node
-                    b_common_node = node
-                    f_domain = other_domain
-                    b_domain = self
-
-                f_traj = f_domain.get_merged_trajectory(
-                    f_common_node, b_common_node, type(node), num_expanded
-                )
-                b_traj = b_domain.get_merged_trajectory(
-                    b_common_node, f_common_node, type(node), num_expanded
-                )
-                return (f_traj, b_traj)
-
-        return None
-
     def backward_domain(self) -> Witness:
         """
         Should only be called on a fresh domain (no calls to update). Reverses a witness problem by
@@ -483,11 +486,13 @@ class Witness(Domain):
 
         b_domain = deepcopy(self)
 
-        b_domain.initial_state.grid[self.start_row, self.start_col] = 0
-        b_domain.initial_state.grid[self.goal_row, self.goal_col] = 1
+        state = b_domain.initial_state
+        assert isinstance(state, WitnessState)
+        state.grid[self.start_row, self.start_col] = 0
+        state.grid[self.goal_row, self.goal_col] = 1
 
-        b_domain.initial_state.head_row = self.goal_row
-        b_domain.initial_state.head_col = self.goal_col
+        state.head_row = self.goal_row
+        state.head_col = self.goal_col
 
         b_domain.start_row = self.goal_row
         b_domain.start_col = self.goal_col
@@ -495,7 +500,7 @@ class Witness(Domain):
         b_domain.goal_row = self.start_row
         b_domain.goal_col = self.start_col
 
-        b_domain.forward = False
+        b_domain._forward = False
 
         return b_domain
 
@@ -508,9 +513,11 @@ class Witness(Domain):
         need adjustment as one changes the size of the puzzle. For example, the size of the figure is set to be fixed
         to [5, 5] (see below).
         """
+        state: WitnessState
         if not state:
             state = self.initial_state
 
+        ax: plt.Axes
         fig, ax = plt.subplots(figsize=(5, 5))
         # fig.patch.set_facecolor((1, 1, 1))
 
