@@ -47,8 +47,10 @@ class State(ABC):
 
 
 class Domain(ABC):
-    def __init__(self):
-        self.visited = {}
+    def __init__(self, forward: bool = True):
+        self.visited: dict = {}
+        self.forward = forward
+        self.initial_state: State | list[State]
 
     def reset(self) -> State | list[State]:
         self.visited = {}
@@ -59,21 +61,11 @@ class Domain(ABC):
 
     @property
     @abstractmethod
-    def forward(self) -> bool:
-        pass
-
-    @property
-    @abstractmethod
     def try_make_solution_func(
         cls,
     ) -> Callable[
         [Domain, SearchNode, Domain, int], Optional[tuple[Trajectory, Trajectory]]
     ]:
-        pass
-
-    @property
-    @abstractmethod
-    def initial_state(self) -> State | list[State]:
         pass
 
     @property

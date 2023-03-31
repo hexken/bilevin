@@ -52,8 +52,6 @@ class Sokoban(Domain):
     box_channel = 2
     man_channel = 3
 
-    _try_make_solution = try_make_solution
-
     def __init__(
         self,
         map: np.ndarray,
@@ -62,16 +60,18 @@ class Sokoban(Domain):
         boxes: np.ndarray,
         forward: bool = True,
     ) -> None:
-        super().__init__()
-        self._forward = forward
+        super().__init__(forward=forward)
 
         self.map = map
         self.rows = map.shape[1]
         self.cols = map.shape[2]
 
         self.original_boxes = boxes
-        self._initial_state = SokobanState(man_row, man_col, boxes)
-        self.initial_state_t = self.state_tensor(self._initial_state)
+        self.initial_state = SokobanState(man_row, man_col, boxes)
+        self.initial_state_t = self.state_tensor(self.initial_state)
+
+        self.goal_state: SokobanState
+        self.goal_state_t: to.Tensor
 
     @property
     def try_make_solution_func(
@@ -79,15 +79,7 @@ class Sokoban(Domain):
     ) -> Callable[
         [Domain, SearchNode, Domain, int], Optional[tuple[Trajectory, Trajectory]]
     ]:
-        return Sokoban._try_make_solution
-
-    @property
-    def forward(self) -> bool:
-        return self._forward
-
-    @property
-    def initial_state(self) -> SokobanState | list[SokobanState]:
-        return self._initial_state
+        return try_make_solution
 
     @property
     def state_width(cls) -> int:
@@ -302,8 +294,8 @@ class Sokoban(Domain):
             if walls[row, col - 1] == 0 and boxes[row, col - 1] == 0:
                 states.append(SokobanState(row, col - 1, boxes))
 
-        del new_domain._initial_state
-        new_domain._initial_state = states
+        del new_domain.initial_state
+        new_domain.initial_state = states
         new_domain.initial_state_t = None
         new_domain.goal_state = self.initial_state
         new_domain.goal_state_t = self.initial_state_t

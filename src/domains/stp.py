@@ -52,16 +52,12 @@ class SlidingTilePuzzleState(State):
 
 
 class SlidingTilePuzzle(Domain):
-    _try_make_solution = try_make_solution
-
     def __init__(
         self, init_tiles: np.ndarray, goal_tiles: np.ndarray, forward: bool = True
     ):
-        super().__init__()
+        super().__init__(forward=forward)
         self.width = init_tiles.shape[0]
         self.num_tiles = self.width**2
-
-        self._forward = forward
 
         width_indices = np.arange(self.width)
         self._row_indices = np.repeat(width_indices, self.width)
@@ -71,11 +67,11 @@ class SlidingTilePuzzle(Domain):
         self.blank_row = blank_pos[0].item()
         self.blank_col = blank_pos[1].item()
 
-        self._initial_state = SlidingTilePuzzleState(
+        self.initial_state: SlidingTilePuzzleState = SlidingTilePuzzleState(
             init_tiles, self.blank_row, self.blank_col
         )
 
-        self.initial_state_t = self.state_tensor(self.initial_state)
+        self.initial_state_t: to.Tensor = self.state_tensor(self.initial_state)
 
         self.goal_tiles = goal_tiles
         blank_pos = np.where(goal_tiles == 0)
@@ -93,15 +89,7 @@ class SlidingTilePuzzle(Domain):
     ) -> Callable[
         [Domain, SearchNode, Domain, int], Optional[tuple[Trajectory, Trajectory]]
     ]:
-        return SlidingTilePuzzle._try_make_solution
-
-    @property
-    def forward(self) -> bool:
-        return self._forward
-
-    @property
-    def initial_state(self) -> SlidingTilePuzzleState:
-        return self._initial_state
+        return try_make_solution
 
     @property
     def state_width(self) -> int:

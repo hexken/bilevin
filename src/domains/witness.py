@@ -16,7 +16,7 @@
 from __future__ import annotations
 from collections import deque
 from copy import deepcopy
-from typing import Optional, Type
+from typing import Optional, Type, Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -161,8 +161,6 @@ class Witness(Domain):
     An executor for a Witness problem.
     """
 
-    _try_make_solution = try_make_solution
-
     def __init__(
         self,
         width: int,
@@ -206,7 +204,7 @@ class Witness(Domain):
             if self.cells[i, j] != 0
         ]
 
-        self._initial_state = WitnessState(
+        self.initial_state: WitnessState = WitnessState(
             self.width,
             self.start_row,
             self.start_col,
@@ -223,6 +221,14 @@ class Witness(Domain):
             self.heads[head].append(node)
         else:
             self.heads[head] = [node]
+
+    @property
+    def try_make_solution_func(
+        cls,
+    ) -> Callable[
+        [Witness, SearchNode, Witness, int], Optional[tuple[Trajectory, Trajectory]]
+    ]:
+        return try_make_solution
 
     @property
     def num_actions(cls) -> int:
@@ -507,18 +513,17 @@ class Witness(Domain):
     def __repr__(self) -> str:
         return self.initial_state.__repr__()
 
-    def plot(self, state=None, filename=None):
+    def plot(self, state: Optional[WitnessState] = None, filename=None):
         """
         This method plots the state. Several features in this method are hard-coded and might
         need adjustment as one changes the size of the puzzle. For example, the size of the figure is set to be fixed
         to [5, 5] (see below).
         """
-        state: WitnessState
         if not state:
             state = self.initial_state
 
         ax: plt.Axes
-        fig, ax = plt.subplots(figsize=(5, 5))
+        _, ax = plt.subplots(figsize=(5, 5))
         # fig.patch.set_facecolor((1, 1, 1))
 
         # draw vertical lines of the grid
@@ -643,26 +648,37 @@ class Witness(Domain):
             plt.show()
 
 
-def load_problemset(problemset: dict):
+def parse_problemset(problemset: dict):
     width = problemset["width"]
     max_num_colors = problemset["max_num_colors"]
-    problems = []
-    for p_dict in problemset["problems"]:
-        problem = Problem(
-            id=p_dict["id"],
-            domain=Witness(
-                width=width,
-                max_num_colors=max_num_colors,
-                init=p_dict["init"],
-                goal=p_dict["goal"],
-                colored_cells=p_dict["colored_cells"],
-            ),
-        )
-        problems.append(problem)
 
-    num_actions = problems[0].domain.num_actions
-    in_channels = problems[0].domain.in_channels
-    state_t_width = problems[0].domain.state_width
-    double_backward = False
+    def parse_specs(problem_specs):
+        problems = []
+        for spec in problem_specs:
+            problem = Problem(
+                id=spec["id"],
+                domain=Witness(
+                    width=width,
+                    max_num_colors=max_num_colors,
+                    init=spec["init"],
+                    goal=spec["goal"],
+                    colored_cells=spec["colored_cells"],
+                ),
+            )
+            problems.append(problem)
+        return problems
 
-    return problems, num_actions, in_channels, state_t_width, double_backward
+    model_args = {
+        "num_actions": problemset["num_actions"],
+        "in_channels": problemset["in_channels"],
+        "state_t_width": problemset["state_t_width"],
+    }
+
+    if "is_curriculum" in problemset:
+        problems = parse_specs(problemset["curriculum_problems"])
+        problemset["curriculum_problems"] = problems
+    else:
+        problems = parse_specs(problemset["problems"])
+        problemset["problems"] = problems
+
+    return problemset, model_args
