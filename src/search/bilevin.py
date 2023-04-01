@@ -80,7 +80,11 @@ class BiLevin(Agent):
         b_goal_feats = deepcopy(f_state_feats)
 
         f_action_logits = model.forward_policy(f_state_feats)
-        b_action_logits = model.backward_policy(b_states_feat, b_goal_feats)
+
+        if model.double_backward:
+            b_action_logits = model.backward_policy(b_states_feat, b_goal_feats)
+        else:
+            b_action_logits = model.backward_policy(b_states_feat)
 
         f_log_action_probs = log_softmax(f_action_logits, dim=-1)
         b_log_action_probs = log_softmax(b_action_logits, dim=-1)
@@ -192,7 +196,10 @@ class BiLevin(Agent):
                 batch_states = to.stack(state_t_of_children_to_be_evaluated)
                 batch_feats = model.feature_net(batch_states)
                 if direction == TwoDir.BACKWARD:
-                    action_logits = _policy(batch_feats, b_goal_feats)
+                    if model.double_backward:
+                        action_logits = _policy(batch_feats, b_goal_feats)
+                    else:
+                        action_logits = _policy(batch_feats)
                 else:
                     action_logits = _policy(batch_feats)
                 log_action_probs = log_softmax(action_logits, dim=-1)

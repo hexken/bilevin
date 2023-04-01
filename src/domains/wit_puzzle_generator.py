@@ -186,14 +186,21 @@ def main():
                 problems.append(problem)
                 pbar.update()
 
-    problemset_dict = {
+    assert isinstance(wit, Witness)
+    num_actions = wit.num_actions
+    in_channels = wit.in_channels
+    width = wit.width
+    max_num_colors = wit.max_num_colors
+    state_t_width = wit.state_width
+
+    problemset_dict_template = {
         "domain_module": "witness",
         "domain_name": "Witness",
-        "width": args.width,
-        "num_actions": 4,
-        "max_num_colors": args.max_num_colors,
-        "in_channels": args.max_num_colors + 5,
-        "state_t_width": args.width,
+        "width": width,
+        "num_actions": num_actions,
+        "max_num_colors": max_num_colors,
+        "in_channels": in_channels,
+        "state_t_width": state_t_width,
     }
 
     for n, suffix in [
@@ -201,18 +208,18 @@ def main():
         (args.n_valid, "valid"),
         (args.n_test, "test"),
     ]:
+        problemset_dict = deepcopy(problemset_dict_template)
         if n == 0:
             continue
         elif suffix == "train":
-            trainset_dict = deepcopy(problemset_dict)
-            trainset_dict["is_curriculum"] = True
-            trainset_dict["bootstrap_problems"] = []
-            trainset_dict["permutation_problems"] = []
+            problemset_dict["is_curriculum"] = True
+            problemset_dict["bootstrap_problems"] = []
+            problemset_dict["permutation_problems"] = []
 
             train_problems = problems[:n]
-            trainset_dict["curriculum_problems"] = train_problems
-            trainset_dict["curriculum"] = ["unfiltered"]
-            trainset_dict["problems_per_difficulty"] = len(train_problems)
+            problemset_dict["curriculum_problems"] = train_problems
+            problemset_dict["curriculum"] = ["unfiltered"]
+            problemset_dict["problems_per_difficulty"] = len(train_problems)
         else:
             problemset_dict["problems"] = problems[:n]
         path = args.output_path / f"{n}-{suffix}.json"

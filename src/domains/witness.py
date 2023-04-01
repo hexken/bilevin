@@ -181,6 +181,7 @@ class Witness(Domain):
             Colors, as
             specified in the witness puzzle dataset, or the generator script.
         """
+        super().__init__(forward=forward)
         self.max_num_colors = max_num_colors
         self.width = width
 
@@ -229,6 +230,10 @@ class Witness(Domain):
         [Witness, SearchNode, Witness, int], Optional[tuple[Trajectory, Trajectory]]
     ]:
         return try_make_solution
+
+    @property
+    def double_backward(self):
+        return False
 
     @property
     def num_actions(cls) -> int:
@@ -672,6 +677,7 @@ def parse_problemset(problemset: dict):
         "num_actions": problemset["num_actions"],
         "in_channels": problemset["in_channels"],
         "state_t_width": problemset["state_t_width"],
+        "double_backward": False,
     }
 
     if "is_curriculum" in problemset:

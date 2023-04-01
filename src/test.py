@@ -26,8 +26,8 @@ import tqdm
 
 from domains.domain import Problem
 from loaders import ProblemsBatchLoader
-from search.agent import Agent
-from models.conv_net import AgentModel
+from search import Agent
+from models import AgentModel
 
 
 def test(

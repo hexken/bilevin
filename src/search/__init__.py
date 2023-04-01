@@ -20,3 +20,4 @@ from search.levin import Levin
 from search.bilevin import BiLevin
 from search.bibs import BiBS
 from search.utils import *
+from search.agent import Agent

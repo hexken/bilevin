@@ -34,7 +34,7 @@ import tqdm
 
 from domains.domain import Problem
 from loaders import CurriculumLoader, ProblemsBatchLoader
-from models.conv_net import AgentModel
+from models import AgentModel
 from search import MergedTrajectory
 from search.agent import Agent
 
@@ -74,7 +74,8 @@ def train(
     )
 
     bidirectional = agent.bidirectional
-    model = to.jit.script(model)
+    # model = to.jit.script(model)
+    model = model
     optimizer = to.optim.Adam(optimizer_params)
 
     for param in model.parameters():

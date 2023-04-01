@@ -19,7 +19,7 @@ import torch.nn.functional as F
 import torch_scatter as ts
 
 from search.utils import MergedTrajectory
-from models.conv_net import AgentModel
+from models import AgentModel
 
 
 def levin_loss_avg(trajs: MergedTrajectory, model: nn.Module):
