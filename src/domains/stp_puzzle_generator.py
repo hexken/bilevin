@@ -140,6 +140,7 @@ def main():
         "domain_module": "stp",
         "domain_name": "SlidingTilePuzzle",
         "state_t_width": args.width,
+        "width": args.width,
         "num_actions": 4,
         "in_channels": int(args.width**2),
     }

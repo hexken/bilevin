@@ -101,8 +101,8 @@ def main():
             problem = from_string(problem_string)
             new_spec = {
                 "map": problem.map.tolist(),
-                "man_row": problem.original_man_row,
-                "man_col": problem.original_man_col,
+                "man_row": problem.initial_state.man_row,
+                "man_col": problem.initial_state.man_col,
                 "boxes": problem.original_boxes.tolist(),
                 "id": problem_id,
             }

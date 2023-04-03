@@ -74,8 +74,8 @@ def train(
     )
 
     bidirectional = agent.bidirectional
-    # model = to.jit.script(model)
-    model = model
+    model = to.jit.script(model)
+    # model = model
     optimizer = to.optim.Adam(optimizer_params)
 
     for param in model.parameters():
