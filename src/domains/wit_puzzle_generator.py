@@ -118,7 +118,11 @@ def main():
     total_num_problems = args.n_train + args.n_valid + args.n_test
 
     with tqdm(total=total_num_problems) as pbar:
+        prefix = "tr_"
         while len(problem_specs) < total_num_problems:
+            if len(problem_specs) == args.n_train:
+                prefix = "te_"
+                problem_id = 0
             head_at_goal = False
             goal = random.choice(goals)
             problem = {
@@ -181,7 +185,7 @@ def main():
                 continue
             else:
                 problem_specs.add(problem_str)
-                problem["id"] = problem_id
+                problem["id"] = f"{prefix}{problem_id}"
                 problem_id += 1
                 problems.append(problem)
                 pbar.update()

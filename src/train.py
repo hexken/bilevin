@@ -112,7 +112,7 @@ def train(
         world_num_problems = len(batch_loader.all_ids)
         if world_num_problems == 0:
             continue
-        max_expansions = world_num_problems * budget
+        max_epoch_expansions = world_num_problems * budget
 
         world_batches_this_difficulty = math.ceil(
             world_num_problems / (local_batch_size * world_size)
@@ -268,6 +268,11 @@ def train(
                 num_problems_solved_this_epoch += num_problems_solved_this_batch
                 num_problems_this_batch = len(world_batch_results_arr)
 
+                batch_expansions = world_batch_results_df["NumExpanded"].sum()
+                batch_expansions_ratio = batch_expansions / (
+                    len(world_batch_results_df) * budget
+                )
+
                 if rank == 0:
                     print(
                         tabulate(
@@ -279,6 +284,7 @@ def train(
                     print(
                         f"Solved {num_problems_solved_this_batch}/{num_problems_this_batch}\n"
                     )
+                    print(f"Expansion ratio: {batch_expansions_ratio}\n")
                     total_num_expanded += world_batch_results_df["NumExpanded"].sum()
 
                     writer.add_scalar(
@@ -425,13 +431,14 @@ def train(
                     batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                     # fmt: off
                     writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
+                    writer.add_scalar(f"expansions_vs_batch", batch_expansions_ratio, batches_seen)
                     # writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
                     # fmt: on
                     sys.stdout.flush()
 
             if rank == 0:
-                expansions = world_results_df["NumExpanded"].sum()
-                expansions_ratio = expansions / max_expansions
+                epoch_expansions = world_results_df["NumExpanded"].sum()
+                epoch_expansions_ratio = epoch_expansions / max_epoch_expansions
                 epoch_solved_ratio = num_problems_solved_this_epoch / world_num_problems
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -457,7 +464,7 @@ def train(
                 )
                 print(
                     f"SOLVED {num_problems_solved_this_epoch}/{world_num_problems} {epoch_solved_ratio}\n"
-                    f"EXPANSIONS {expansions}/{max_expansions}  {expansions_ratio:5.3f}\n"
+                    f"EXPANSIONS {epoch_expansions}/{max_epoch_expansions}  {epoch_expansions_ratio:5.3f}\n"
                 )
                 print(f"  Forward        Backward\nLoss    Acc    Loss    Acc")
                 if bidirectional:
@@ -483,7 +490,7 @@ def train(
                     writer.add_scalar(f"acc_vs_epoch/backward", epoch_b_acc, epoch)
 
                 # writer.add_scalar(f"expansions_vs_epoch", expansions, epoch)
-                writer.add_scalar(f"expansions_ratio_vs_epoch", expansions_ratio, epoch)
+                writer.add_scalar(f"expansions_ratio_vs_epoch", epoch_expansions_ratio, epoch)
 
                 world_results_df.to_csv(f"{writer.log_dir}/epoch_{epoch}.csv")
                 # fmt: on

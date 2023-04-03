@@ -61,11 +61,13 @@ class Trajectory:
         final_node: SearchNode,
         num_expanded: int,
         goal_state_t: Optional[to.Tensor] = None,
+        forward: bool = True,
     ):
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
+        self.forward = forward
         self.num_expanded = num_expanded
         self.goal_state_t: Optional[to.Tensor] = (
             goal_state_t.unsqueeze(0) if goal_state_t is not None else None
@@ -109,6 +111,7 @@ class MergedTrajectory:
             )
             self.num_trajs = len(self.nums_expanded)
             self.num_states = len(self.states)
+            self.forward = trajs[0].forward
 
             # if shuffle:
             #     self.shuffle()
@@ -131,7 +134,8 @@ def get_merged_solution(
     dir2_common: SearchNode,
     node_type: Type[SearchNode],
     num_expanded: int,
-    goal_state: Optional[to.Tensor] = None,
+    goal_state_t: Optional[to.Tensor] = None,
+    forward: bool = True,
 ):
     """
     Returns a new trajectory going from dir1_start to dir2_start, passing through
@@ -151,7 +155,7 @@ def get_merged_solution(
         parent_dir2_action = parent_dir2_node.parent_action
         parent_dir2_node = parent_dir2_node.parent
 
-    return Trajectory(dir1_domain, dir1_node, num_expanded, goal_state)
+    return Trajectory(dir1_domain, dir1_node, num_expanded, goal_state_t, forward)
 
 
 def try_make_solution(
@@ -187,6 +191,7 @@ def try_make_solution(
             type(node),
             num_expanded,
             b_domain.goal_state_t,
+            forward=False,
         )
 
         return (f_traj, b_traj)

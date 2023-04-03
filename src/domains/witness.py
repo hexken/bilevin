@@ -76,6 +76,8 @@ def get_merged_trajectory(
     dir2_common: SearchNode,
     node_type: Type[SearchNode],
     num_expanded: int,
+    goal_state_t: Optional[to.Tensor] = None,
+    forward: bool = True,
 ) -> Trajectory:
     """
     Returns a new trajectory going from dir1_start to dir2_start, passing through
@@ -97,7 +99,7 @@ def get_merged_trajectory(
         dir2_parent_action = dir2_parent_node.parent_action
         dir2_parent_node = dir2_parent_node.parent
 
-    return Trajectory(dir1_domain, dir1_node, num_expanded)
+    return Trajectory(dir1_domain, dir1_node, num_expanded, goal_state_t, forward)
 
 
 def try_make_solution(
@@ -112,9 +114,9 @@ def try_make_solution(
     """
     state: WitnessState = node.state
     head_dot = (state.head_row, state.head_col)
-    if head_dot not in other_domain.heads:
+    if head_dot not in other_domain.visited:
         return None
-    for other_node in other_domain.heads[head_dot]:
+    for other_node in other_domain.visited[head_dot]:
         other_state = other_node.state
 
         merged_state = WitnessState(
@@ -149,7 +151,12 @@ def try_make_solution(
                 f_domain, f_common_node, b_common_node, type(node), num_expanded
             )
             b_traj = get_merged_trajectory(
-                b_domain, b_common_node, f_common_node, type(node), num_expanded
+                b_domain,
+                b_common_node,
+                f_common_node,
+                type(node),
+                num_expanded,
+                forward=False,
             )
             return (f_traj, b_traj)
 
@@ -211,17 +218,13 @@ class Witness(Domain):
             self.start_col,
         )
 
-        self.heads = {}
-
-        self._forward = forward
-
     def update(self, node: SearchNode):
         state: WitnessState = node.state
         head = (state.head_row, state.head_col)
-        if head in self.heads:
-            self.heads[head].append(node)
+        if head in self.visited:
+            self.visited[head].append(node)
         else:
-            self.heads[head] = [node]
+            self.visited[head] = [node]
 
     @property
     def try_make_solution_func(
@@ -493,12 +496,14 @@ class Witness(Domain):
         reversing the head and goal (and updating grid to be consistent with this change).
         """
         assert self.forward
-        assert len(self.heads) == 0
+        assert len(self.visited) == 0
 
         b_domain = deepcopy(self)
 
         state = b_domain.initial_state
-        assert isinstance(state, WitnessState)
+        # b_domain.goal_state_t = b_domain.state_tensor(state)
+        b_domain.forward = False
+
         state.grid[self.start_row, self.start_col] = 0
         state.grid[self.goal_row, self.goal_col] = 1
 
@@ -510,8 +515,6 @@ class Witness(Domain):
 
         b_domain.goal_row = self.start_row
         b_domain.goal_col = self.start_col
-
-        b_domain._forward = False
 
         return b_domain
 
