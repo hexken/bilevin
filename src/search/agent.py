@@ -14,20 +14,104 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Optional
+
+import torch as to
+import torch.distributed as dist
+
 from domains.domain import Domain
+import models.loss_functions as loss_fns
+from models.models import AgentModel
 
 
 class Agent(ABC):
+    def __init__(self, rank, run_name, args, model_args):
+        if not self.trainable:
+            return None
+
+        if self.bidirectional:
+            model_args["bidirectional"] = True
+
+        model_save_path = Path(__file__).parents[2] / f"runs/{run_name}"
+        model_save_path.mkdir(parents=True, exist_ok=True)
+        model_args["save_path"] = model_save_path
+        self.save_path: Path = model_args["save_path"]
+        self._model: to.jit.RecursiveScriptModule
+
+        if args.model_path is None:
+            # just use the random initialization from rank 0
+            model = AgentModel(model_args)
+            if args.world_size > 1:
+                for param in model.parameters():
+                    dist.broadcast(param.data, 0)
+            self._model = to.jit.script(model)
+        elif args.model_path.is_dir():
+            load_model_path = args.model_path / f"model_{args.model_suffix}.pt"
+            self._model = to.jit.load(load_model_path)
+
+            if rank == 0:
+                print(f"Loaded model\n  {str(load_model_path)}")
+        else:
+            raise ValueError("model-path argument must be a directory if given")
+
+        if rank == 0:
+            if args.mode == "train":
+                print(f"Saving model\n  to {str(model_save_path)}")
+            elif args.mode == "test" and self.trainable:
+                test_model_path = model_save_path / f"model_init.pt"
+                to.jit.save(self._model, test_model_path)
+                print(f"Copied model to use\n  to {str(test_model_path)}")
+
+        if args.mode == "train":
+            assert self._model
+            self.loss_fn = getattr(loss_fns, args.loss_fn)
+            optimizer_params = [
+                {
+                    "params": self.model.feature_net.parameters(),
+                    "lr": args.feature_net_lr,
+                    "weight_decay": args.weight_decay,
+                },
+                {
+                    "params": self.model.forward_policy.parameters(),
+                    "lr": args.forward_policy_lr,
+                    "weight_decay": args.weight_decay,
+                },
+            ]
+            if self.bidirectional:
+                optimizer_params.append(
+                    {
+                        "params": self.model.backward_policy.parameters(),
+                        "lr": args.backward_policy_lr,
+                        "weight_decay": args.weight_decay,
+                    }
+                )
+            self.optimizer = to.optim.Adam(optimizer_params)
+
+    @property
+    def model(self) -> to.jit.RecursiveScriptModule:
+        return self._model
+
+    def save_model(self, suffix=""):
+        path = self.save_path
+        if suffix:
+            path = path / f"model_{suffix}.pt"
+        else:
+            path = path / "model.pt"
+
+        print(f"Saving model\n  to {str(path)}")
+        to.jit.save(self.model, path)
+
     @property
     @classmethod
     @abstractmethod
-    def bidirectional(cls):
+    def bidirectional(cls) -> bool:
         pass
 
     @property
     @classmethod
     @abstractmethod
-    def trainable(cls):
+    def trainable(cls) -> bool:
         pass
 
     @abstractmethod

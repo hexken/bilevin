@@ -42,7 +42,6 @@ class BiLevin(Agent):
     def search(
         self,
         problem: Problem,
-        model,
         budget,
         update_levin_costs=False,
         train=False,
@@ -56,6 +55,7 @@ class BiLevin(Agent):
 
         problem_id = problem.id
         f_domain = problem.domain
+        model = self.model
 
         try_make_solution = f_domain.try_make_solution_func
 

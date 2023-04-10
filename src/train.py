@@ -42,9 +42,6 @@ from search.agent import Agent
 def train(
     rank: int,
     agent: Agent,
-    model: AgentModel,
-    loss_fn: Callable,
-    optimizer_params: list[dict],
     train_loader: CurriculumLoader,
     writer: SummaryWriter,
     world_size: int,
@@ -74,9 +71,9 @@ def train(
     )
 
     bidirectional = agent.bidirectional
-    model = to.jit.script(model)
-    # model = model
-    optimizer = to.optim.Adam(optimizer_params)
+    model = agent.model
+    optimizer = agent.optimizer
+    loss_fn = agent.loss_fn
 
     for param in model.parameters():
         if not param.grad:
@@ -189,7 +186,6 @@ def train(
                         traj,
                     ) = agent.search(
                         problem,
-                        model,
                         budget,
                         update_levin_costs,
                         train=True,
@@ -505,7 +501,6 @@ def train(
                 valid_results = test(
                     rank,
                     agent,
-                    model,
                     valid_loader,
                     writer,
                     world_size,
@@ -544,7 +539,7 @@ def train(
                         best_valid_total_expanded = valid_total_expanded
                         print("Saving best model...")
                         writer.add_text("best_model", f"epoch {epoch}")
-                        model.save("best")
+                        agent.save_model("best")
 
                 if is_distributed:
                     dist.barrier()
@@ -562,7 +557,7 @@ def train(
 
     # all epochs completed
     if rank == 0:
-        model.save("final")
+        agent.save_model("final")
         print("END TRAINING")
 
 

@@ -41,7 +41,6 @@ class Levin(Agent):
     def search(
         self,
         problem: Problem,
-        model,
         budget,
         update_levin_costs=False,
         train=False,
@@ -51,6 +50,7 @@ class Levin(Agent):
 
         problem_id = problem.id
         domain = problem.domain
+        model = self.model
 
         state = domain.reset()
         state_t = domain.state_tensor(state).unsqueeze(0)
@@ -78,7 +78,6 @@ class Levin(Agent):
         num_expanded = 0
         num_generated = 0
         while len(frontier) > 0:
-
             if (
                 (budget and num_expanded >= budget)
                 or end_time

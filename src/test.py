@@ -33,7 +33,6 @@ from models import AgentModel
 def test(
     rank: int,
     agent: Agent,
-    model: AgentModel,
     problems_loader: ProblemsBatchLoader,
     writer: SummaryWriter,
     world_size: int,
@@ -66,6 +65,7 @@ def test(
     ]
 
     is_bidirectional = agent.bidirectional
+    model = agent.model
 
     to.set_grad_enabled(False)
     if agent.trainable:
@@ -107,9 +107,13 @@ def test(
             # be overwritten
             # print(f"rank {rank} {problem.id}")
             start_time = int(time.time() * 1000)
-            (solution_length, num_expanded, num_generated, traj,) = agent.search(
+            (
+                solution_length,
+                num_expanded,
+                num_generated,
+                traj,
+            ) = agent.search(
                 problem,
-                model,
                 current_budget,
                 update_levin_costs,
             )

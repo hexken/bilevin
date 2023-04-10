@@ -327,79 +327,19 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
         to.backends.cudnn.benchmark = False  # type:ignore
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
-    model = None
     if args.agent == "Levin":
-        agent = Levin()
+        agent = Levin(rank, run_name, args, model_args)
     elif args.agent == "BiLevin":
-        agent = BiLevin()
+        agent = BiLevin(rank, run_name, args, model_args)
     elif args.agent == "BiBS":
-        agent = BiBS()
+        agent = BiBS(rank, run_name, args, model_args)
     else:
         raise ValueError(f"Unknown agent: {args.agent}")
 
-    model_args["bidirectional"] = False
-    if agent.trainable:
-        if agent.bidirectional:
-            model_args["bidirectional"] = True
-
-        model_save_path = Path(__file__).parent.parent / f"runs/{run_name}"
-        model_save_path.mkdir(parents=True, exist_ok=True)
-        model_args["save_path"] = model_save_path
-
-        model = AgentModel(model_args)
-        if args.model_path is None:
-            # just use the random initialization from rank 0
-            if is_distributed:
-                for param in model.parameters():
-                    dist.broadcast(param.data, 0)
-        elif args.model_path.is_dir():
-            load_model_path = args.model_path / f"model_{args.model_suffix}.pt"
-            model.load_state_dict(to.load(load_model_path))
-
-            if rank == 0:
-                print(f"Loaded model\n  {str(load_model_path)}")
-        else:
-            raise ValueError("model-path argument must be a directory if given")
-
-        if rank == 0:
-            if args.mode == "train":
-                print(f"Saving model\n  to {str(model_save_path)}")
-            elif args.mode == "test" and agent.trainable:
-                test_model_path = model_save_path / f"model_init.pt"
-                to.save(model.state_dict(), test_model_path)
-                print(f"Copied model to use\n  to {str(test_model_path)}")
-
     if args.mode == "train":
-        assert model
-        loss_fn = getattr(loss_fns, args.loss_fn)
-
-        optimizer_params = [
-            {
-                "params": model.feature_net.parameters(),
-                "lr": args.feature_net_lr,
-                "weight_decay": args.weight_decay,
-            },
-            {
-                "params": model.forward_policy.parameters(),
-                "lr": args.forward_policy_lr,
-                "weight_decay": args.weight_decay,
-            },
-        ]
-        if agent.bidirectional:
-            optimizer_params.append(
-                {
-                    "params": model.backward_policy.parameters(),
-                    "lr": args.backward_policy_lr,
-                    "weight_decay": args.weight_decay,
-                }
-            )
-
         train(
             rank,
             agent,
-            model,
-            loss_fn,
-            optimizer_params,
             local_loader,
             writer,
             args.world_size,
@@ -417,7 +357,6 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
         test(
             rank,
             agent,
-            model,
             local_loader,
             writer,
             args.world_size,
@@ -564,7 +503,6 @@ if __name__ == "__main__":
 
             loaders = []
             for rank in range(args.world_size):
-
                 loaders.append(
                     CurriculumLoader(
                         bootstrap_problems=bootstrap_problemsets[rank],
