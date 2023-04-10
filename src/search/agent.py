@@ -56,12 +56,9 @@ class Agent(ABC):
             raise ValueError("model-path argument must be a directory if given")
 
         if rank == 0:
-            if args.mode == "train":
-                print(f"Saving model\n  to {str(model_save_path)}")
-            elif args.mode == "test" and self.trainable:
-                test_model_path = model_save_path / f"model_init.pt"
-                to.jit.save(self._model, test_model_path)
-                print(f"Copied model to use\n  to {str(test_model_path)}")
+            init_model = model_save_path / f"model_init.pt"
+            print(f"Saving init model\n  to {str(init_model)}")
+            to.jit.save(self._model, init_model)
 
         if args.mode == "train":
             assert self._model
