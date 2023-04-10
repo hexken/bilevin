@@ -531,6 +531,7 @@ def train(
                     )
                     # writer.add_scalar( f"valid_expanded_vs_epoch", valid_total_expanded, epoch)
 
+                    agent.save_model("latest")
                     if valid_solve_rate > best_valid_solve_rate or (
                         isclose(valid_solve_rate, best_valid_solve_rate)
                         and valid_total_expanded < best_valid_total_expanded
@@ -557,7 +558,6 @@ def train(
 
     # all epochs completed
     if rank == 0:
-        agent.save_model("final")
         print("END TRAINING")
 
 
