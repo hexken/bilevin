@@ -30,7 +30,6 @@ class AgentModel(nn.Module):
         self.kernel_size: tuple[int, int] = model_args["kernel_size"]
         self.num_filters: int = model_args["num_filters"]
         self.bidirectional: bool = model_args["bidirectional"]
-        self.save_path: Path = model_args["save_path"]
         self.double_backward: bool = model_args["double_backward"]
 
         self.feature_net: nn.Module = ConvBlock(
@@ -63,13 +62,6 @@ class AgentModel(nn.Module):
                     model_args["backward_hidden_layers"],
                 )
 
-    def save(self, suffix=""):
-        path = self.save_path
-        if suffix:
-            path = path / f"model_{suffix}.pt"
-        else:
-            path = path / "model.pt"
-        to.save(self.state_dict(), path)
 
 
 class SinglePolicy(nn.Module):

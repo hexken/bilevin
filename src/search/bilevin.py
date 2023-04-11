@@ -19,6 +19,7 @@ import time
 from typing import TYPE_CHECKING
 
 import torch as to
+from torch.jit import RecursiveScriptModule
 from torch.nn.functional import log_softmax
 
 from domains.domain import State
@@ -53,9 +54,14 @@ class BiLevin(Agent):
         f_reached = {}
         b_reached = {}
 
+        model = self.model
+        feature_net: RecursiveScriptModule = model.feature_net
+        forward_policy: RecursiveScriptModule = model.forward_policy
+        backward_policy: RecursiveScriptModule = model.backward_policy
+        double_backward = model.double_backward
+
         problem_id = problem.id
         f_domain = problem.domain
-        model = self.model
 
         try_make_solution = f_domain.try_make_solution_func
 
@@ -73,18 +79,18 @@ class BiLevin(Agent):
             b_state_t = b_state_t.unsqueeze(0)
             b_states = [b_states]
 
-        feats = model.feature_net(to.vstack((f_state_t, b_state_t)))
+        feats = feature_net(to.vstack((f_state_t, b_state_t)))
         f_state_feats = feats[0]
         b_states_feat = feats[1:]
 
         b_goal_feats = deepcopy(f_state_feats)
 
-        f_action_logits = model.forward_policy(f_state_feats)
+        f_action_logits = forward_policy(f_state_feats)
 
-        if model.double_backward:
-            b_action_logits = model.backward_policy(b_states_feat, b_goal_feats)
+        if double_backward:
+            b_action_logits = backward_policy(b_states_feat, b_goal_feats)
         else:
-            b_action_logits = model.backward_policy(b_states_feat)
+            b_action_logits = backward_policy(b_states_feat)
 
         f_log_action_probs = log_softmax(f_action_logits, dim=-1)
         b_log_action_probs = log_softmax(b_action_logits, dim=-1)
@@ -131,14 +137,14 @@ class BiLevin(Agent):
             if f < b:
                 direction = TwoDir.FORWARD
                 _domain = f_domain
-                _policy = model.forward_policy
+                _policy = forward_policy
                 _frontier = f_frontier
                 _reached = f_reached
                 other_domain = b_domain
             else:
                 direction = TwoDir.BACKWARD
                 _domain = b_domain
-                _policy = model.backward_policy
+                _policy = backward_policy
                 _frontier = b_frontier
                 _reached = b_reached
                 other_domain = f_domain
@@ -194,9 +200,9 @@ class BiLevin(Agent):
 
             if children_to_be_evaluated:
                 batch_states = to.stack(state_t_of_children_to_be_evaluated)
-                batch_feats = model.feature_net(batch_states)
+                batch_feats = feature_net(batch_states)
                 if direction == TwoDir.BACKWARD:
-                    if model.double_backward:
+                    if double_backward:
                         action_logits = _policy(batch_feats, b_goal_feats)
                     else:
                         action_logits = _policy(batch_feats)

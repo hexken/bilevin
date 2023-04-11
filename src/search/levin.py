@@ -20,6 +20,7 @@ import time
 from typing import Optional, TYPE_CHECKING
 
 import torch as to
+from torch.jit import RecursiveScriptModule
 from torch.nn.functional import log_softmax
 
 from search.agent import Agent
@@ -51,12 +52,14 @@ class Levin(Agent):
         problem_id = problem.id
         domain = problem.domain
         model = self.model
+        feature_net: RecursiveScriptModule = model.feature_net
+        forward_policy: RecursiveScriptModule = model.forward_policy
 
         state = domain.reset()
         state_t = domain.state_tensor(state).unsqueeze(0)
 
-        state_feats = model.feature_net(state_t)
-        action_logits = model.forward_policy(state_feats)
+        state_feats = feature_net(state_t)
+        action_logits = forward_policy(state_feats)
         log_action_probs = log_softmax(action_logits[0], dim=-1)
 
         node = LevinNode(
@@ -131,8 +134,8 @@ class Levin(Agent):
 
             if children_to_be_evaluated:
                 batch_states = to.stack(state_t_of_children_to_be_evaluated)
-                batch_feats = model.feature_net(batch_states)
-                action_logits = model.forward_policy(batch_feats)
+                batch_feats = feature_net(batch_states)
+                action_logits = forward_policy(batch_feats)
                 log_action_probs = log_softmax(action_logits, dim=-1)
 
                 for child, lap in zip(children_to_be_evaluated, log_action_probs):

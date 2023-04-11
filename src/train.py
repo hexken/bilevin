@@ -552,7 +552,9 @@ def train(
                     print(
                         f"Reducing learning rate from {optimizer.param_groups[0]['lr']} to {new_lr}"
                     )
-                optimizer.param_groups[0]["lr"] = new_lr
+
+                for param_group in optimizer.param_groups:
+                    param_group["lr"] = new_lr
 
             epoch += 1
 

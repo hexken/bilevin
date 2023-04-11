@@ -28,7 +28,7 @@ from models.models import AgentModel
 class Agent(ABC):
     def __init__(self, rank, run_name, args, model_args):
         if not self.trainable:
-            return None
+            return
 
         if self.bidirectional:
             model_args["bidirectional"] = True
@@ -86,7 +86,7 @@ class Agent(ABC):
             self.optimizer = to.optim.Adam(optimizer_params)
 
     @property
-    def model(self) -> to.jit.RecursiveScriptModule:
+    def model(self) -> to.jit.ScriptModule:
         return self._model
 
     def save_model(self, suffix=""):

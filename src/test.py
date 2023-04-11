@@ -74,31 +74,29 @@ def test(
     total_num_expanded = 0
 
     world_solved_problems = set()
-    local_remaining_problems = set(p[0] for p in problems_loader)
+    local_remaining_problems = set()
+    local_remaining_problems = set(p[0] for p in problems_loader if p)
 
     if rank == 0:
         pbar = tqdm.tqdm(total=world_num_problems)
 
     while True:
         # print(f"rank {rank} remaining: {len(local_remaining_problems)}")
-        if rank == 0 and len(world_solved_problems) == world_num_problems:
-            break
-        elif rank != 0 and len(local_remaining_problems) == 0:
+        # solved_t = to.zeros(1, dtype=to.int64)
+        # solved_t[0] = len(world_solved_problems)
+        # num_world_solved_problems = dist.broadcast(solved_t, src=0)
+        num_solved_t = to.zeros(1, dtype=to.int64)
+        num_solved_t[0] = len(world_solved_problems)
+        dist.broadcast(num_solved_t, src=0)
+        if num_solved_t.item() == world_num_problems:
             break
 
-        local_search_results = to.zeros(
-            (len(local_remaining_problems), len(search_result_header)), dtype=to.int64
+        local_search_results = np.zeros(
+            (len(local_remaining_problems), len(search_result_header)), dtype=np.int64
         )
 
-        num_problems_t = to.zeros(world_size, dtype=to.int64)
-        num_problems_t[rank] = len(local_remaining_problems)
-        dist.reduce(num_problems_t, dst=0, op=dist.ReduceOp.SUM)
-
         if rank == 0:
-            world_search_results = [
-                to.zeros(i.item(), len(search_result_header), dtype=to.int64)
-                for i in num_problems_t
-            ]
+            world_search_results = [None] * world_size
         else:
             world_search_results = None
 
@@ -137,10 +135,10 @@ def test(
         if is_distributed:
             dist.barrier()
 
-        dist.gather(local_search_results, world_search_results)
+        dist.gather_object(local_search_results, world_search_results)
 
         if rank == 0:
-            world_search_results_arr = to.vstack(world_search_results).numpy()
+            world_search_results_arr = np.vstack(world_search_results)
 
             world_results_df = pd.DataFrame(
                 world_search_results_arr[:, 1:-3], columns=search_result_header[1:-3]
@@ -180,17 +178,15 @@ def test(
             world_results_df.sort_values("NumExpanded", inplace=True)
             total_num_expanded += world_results_df["NumExpanded"].sum()
 
-            if not validate:
+            if validate:
+                pbar.update(world_num_problems)
+                fname = f"{writer.log_dir}/valid_{epoch}.csv"
+            else:
                 writer.add_scalar(
                     f"cum_unique_solved_vs_expanded",
                     len(world_solved_problems),
                     total_num_expanded,
                 )
-
-            if validate:
-                pbar.update(world_num_problems)
-                fname = f"{writer.log_dir}/valid_{epoch}.csv"
-            else:
                 pbar.update(len(solved_ids))
                 fname = f"{writer.log_dir}/test_{epoch}.csv"
 
