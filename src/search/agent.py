@@ -30,8 +30,7 @@ class Agent(ABC):
         if not self.trainable:
             return
 
-        if self.bidirectional:
-            model_args["bidirectional"] = True
+        model_args["bidirectional"] = self.bidirectional
 
         model_save_path = Path(__file__).parents[2] / f"runs/{run_name}"
         model_save_path.mkdir(parents=True, exist_ok=True)
