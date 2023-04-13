@@ -18,18 +18,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch_scatter as ts
 
-from search.utils import MergedTrajectory
 from models import AgentModel
-
-
-def levin_loss_avg(trajs: MergedTrajectory, model: nn.Module):
-    logits = model(trajs.states)
-    action_nlls = F.cross_entropy(logits, trajs.actions, reduction="none")
-    traj_nlls = ts.scatter_mean(action_nlls, trajs.indices, dim=0)
-    loss = to.dot(traj_nlls, trajs.nums_expanded) / trajs.num_trajs
-    avg_action_nll = action_nlls.detach().mean().item()
-
-    return loss, avg_action_nll, logits.detach()
+from search.utils import MergedTrajectory
 
 
 def levin_loss(trajs: MergedTrajectory, model: AgentModel):
@@ -52,6 +42,55 @@ def levin_loss(trajs: MergedTrajectory, model: AgentModel):
     avg_action_nll = action_nlls.detach().mean().item()
 
     return loss, avg_action_nll, logits.detach()
+
+
+def ub_loss(trajs: MergedTrajectory, model: AgentModel):
+    pass
+    # state_feats = model.feature_net(trajs.states)
+
+    # if trajs.forward:
+    #     logits = model.forward_policy(state_feats)
+    # else:
+    #     if trajs.goal_states is not None:
+    #         goal_feats = model.feature_net(trajs.goal_states)
+    #         goal_feats_expanded = to.repeat_interleave(goal_feats, trajs.lengths, dim=0)
+    #         assert goal_feats_expanded.shape[0] == state_feats.shape[0]
+    #         logits = model.backward_policy(state_feats, goal_feats_expanded)
+    #     else:
+    #         logits = model.backward_policy(state_feats)
+
+    # action_nlls = F.cross_entropy(logits, trajs.actions, reduction="none")
+    # traj_nlls = ts.scatter_add(action_nlls, trajs.indices, dim=0)
+    # probs = to.exp(-1 * traj_nlls.detach())
+    # upperbounds = to.div(trajs.lengths + 1, probs)
+    # loss = to.dot(traj_nlls, upperbounds) / trajs.num_trajs
+    # avg_action_nll = action_nlls.detach().mean().item()
+
+    # return loss, avg_action_nll, logits.detach()
+
+
+def min_num_actions_ub_loss(trajs: MergedTrajectory, model: AgentModel):
+    pass
+    # state_feats = model.feature_net(trajs.states)
+
+    # if trajs.forward:
+    #     logits = model.forward_policy(state_feats)
+    # else:
+    #     if trajs.goal_states is not None:
+    #         goal_feats = model.feature_net(trajs.goal_states)
+    #         goal_feats_expanded = to.repeat_interleave(goal_feats, trajs.lengths, dim=0)
+    #         assert goal_feats_expanded.shape[0] == state_feats.shape[0]
+    #         logits = model.backward_policy(state_feats, goal_feats_expanded)
+    #     else:
+    #         logits = model.backward_policy(state_feats)
+
+    # action_nlls = F.cross_entropy(logits, trajs.actions, reduction="none")
+    # traj_nlls = ts.scatter_add(action_nlls, trajs.indices, dim=0)
+    # upperbounds = to.div(trajs.lengths, trajs.probs)
+    # loss = to.dot(traj_nlls, upperbounds) / trajs.num_trajs
+    # avg_action_nll = action_nlls.detach().mean().item()
+
+    # return loss, avg_action_nll, logits.detach()
 
 
 def cross_entropy_loss(trajs: MergedTrajectory, model: AgentModel):

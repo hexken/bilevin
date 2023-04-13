@@ -71,7 +71,7 @@ def parse_args():
         default="levin_loss",
         choices=[
             "levin_loss",
-            "levin_loss_avg",
+            "ub_loss",
             "cross_entropy_loss",
         ],
         help="loss function",

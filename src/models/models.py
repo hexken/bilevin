@@ -47,7 +47,6 @@ class AgentModel(nn.Module):
             model_args["forward_hidden_layers"],
         )
 
-        self.bidirectional = model_args["bidirectional"]
         if self.bidirectional:
             if self.double_backward:
                 self.backward_policy: nn.Module = DoublePolicy(
@@ -61,7 +60,6 @@ class AgentModel(nn.Module):
                     self.num_actions,
                     model_args["backward_hidden_layers"],
                 )
-
 
 
 class SinglePolicy(nn.Module):

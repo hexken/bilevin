@@ -34,8 +34,8 @@ class Agent(ABC):
 
         model_save_path = Path(__file__).parents[2] / f"runs/{run_name}"
         model_save_path.mkdir(parents=True, exist_ok=True)
-        model_args["save_path"] = model_save_path
-        self.save_path: Path = model_args["save_path"]
+        self.save_path: Path = model_save_path
+
         self._model: to.jit.RecursiveScriptModule
 
         if args.model_path is None:

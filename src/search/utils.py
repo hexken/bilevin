@@ -103,8 +103,9 @@ class MergedTrajectory:
 
             self.states = to.cat(tuple(t.states for t in trajs))
             self.actions = to.cat(tuple(t.actions for t in trajs))
-            indices = to.arange(len(trajs))
             self.lengths = to.tensor(tuple(len(t) for t in trajs))
+
+            indices = to.arange(len(trajs))
             self.indices = to.repeat_interleave(indices, self.lengths)
             self.nums_expanded = to.tensor(
                 tuple(t.num_expanded for t in trajs), dtype=to.float32
