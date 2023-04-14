@@ -50,7 +50,7 @@ def train(
     budget: int,
     seed: int,
     grad_steps: int = 10,
-    epochs_reduce_lr: int = 5,
+    epoch_reduce_lr: int = 5,
     epoch_begin_validate: int = 1,
     valid_loader: Optional[ProblemsBatchLoader] = None,
 ):
@@ -105,7 +105,6 @@ def train(
 
     epoch = 1
     for batch_loader in train_loader:
-        # print(f"rank {rank} {train_loader.stage} NEW BATCH LOADER epoch {epoch}")
         world_num_problems = len(batch_loader.all_ids)
         if world_num_problems == 0:
             continue
@@ -145,6 +144,17 @@ def train(
                 print(
                     f"START | STAGE {train_loader.stage} EPOCH {stage_epoch} | TOTAL EPOCH {epoch}"
                 )
+
+            if epoch == epoch_reduce_lr:
+                new_lr = optimizer.param_groups[0]["lr"] * 0.1
+                if rank == 0:
+                    print(
+                        f"-> Learning rate reduced from {optimizer.param_groups[0]['lr']} to {new_lr}"
+                    )
+
+                for param_group in optimizer.param_groups:
+                    param_group["lr"] = new_lr
+
                 print(
                     "============================================================================\n"
                 )
@@ -157,11 +167,6 @@ def train(
                 problems_loader = batch_loader
 
             for batch_idx, local_batch_problems in enumerate(problems_loader):
-                # if rank != 0:
-                #     print(f"rank {rank} bs {problems_loader.batches_served} {time.time()}")
-                # else:
-                #     print(f"rank {rank} bs {problems_loader.iterable.batches_served} {time.time()}")
-
                 batches_seen += 1
                 local_batch_search_results[
                     :
@@ -194,7 +199,6 @@ def train(
                     if bidirectional:
                         problem.domain.reset()
 
-                    # print(problem.id)
                     local_batch_search_results[i, 0] = problem.id_idx
                     local_batch_search_results[i, 1] = solution_length
                     local_batch_search_results[i, 2] = num_expanded
@@ -236,8 +240,6 @@ def train(
                     world_batch_results_arr[:, 2] > 0
                 ]
 
-                # print(world_batch_results_arr[:,0])
-                # print(batch_loader.all_ids)
                 world_batch_ids = np.array(
                     [batch_loader.all_ids[i] for i in world_batch_results_arr[:, 0]],
                     dtype=np.unicode_,
@@ -411,9 +413,6 @@ def train(
                                     # fmt:on
                         opt_step += 1
 
-                # if rank == 0 and num_procs_found_solution > 0:
-                #     print("")
-
                 world_epoch_f_loss[batch_idx] = f_loss
                 world_epoch_f_acc[batch_idx] = f_acc
                 if bidirectional:
@@ -544,17 +543,6 @@ def train(
 
                 if is_distributed:
                     dist.barrier()
-
-            # todo clean this up
-            if epoch == epochs_reduce_lr:
-                new_lr = optimizer.param_groups[0]["lr"] * 0.1
-                if rank == 0:
-                    print(
-                        f"Reducing learning rate from {optimizer.param_groups[0]['lr']} to {new_lr}"
-                    )
-
-                for param_group in optimizer.param_groups:
-                    param_group["lr"] = new_lr
 
             epoch += 1
 

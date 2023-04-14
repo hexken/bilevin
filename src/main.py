@@ -101,7 +101,7 @@ def parse_args():
     parser.add_argument(
         "--feature-net-lr",
         type=float,
-        default=0.0005,
+        default=0.001,
         help="feature net learning rate",
     )
     parser.add_argument(
@@ -153,7 +153,7 @@ def parse_args():
     )
     parser.add_argument(
         "-r",
-        "--epochs-reduce-lr",
+        "--epoch-reduce-lr",
         type=int,
         default=99999,
         help="reduce learning rate by a factor of 10 after this many epochs",
@@ -344,7 +344,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             budget=args.initial_budget,
             seed=local_seed,
             grad_steps=args.grad_steps,
-            epochs_reduce_lr=args.epochs_reduce_lr,
+            epoch_reduce_lr=args.epoch_reduce_lr,
             epoch_begin_validate=args.epoch_begin_validate,
             valid_loader=local_valid_loader,
         )
