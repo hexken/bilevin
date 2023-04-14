@@ -24,7 +24,7 @@ import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
 
-from domains.domain import Problem
+from domains import Problem
 from loaders import ProblemsBatchLoader
 from search import Agent
 from models import AgentModel

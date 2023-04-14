@@ -16,15 +16,15 @@
 from __future__ import annotations
 from collections import deque
 from copy import deepcopy
-from typing import Optional, Type, Callable
+from typing import Callable, Optional, Type
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch as to
 
-from domains.domain import Domain, State, Problem
+from domains import Domain, Problem, State
 from enums import Color, FourDir
-from search.utils import SearchNode, Trajectory
+from search import SearchNode, Trajectory
 
 
 class WitnessState(State):

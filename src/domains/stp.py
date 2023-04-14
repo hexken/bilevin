@@ -14,14 +14,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import annotations
+from typing import Callable, Optional
 
 import numpy as np
 import torch as to
-from typing import Optional, Callable
 
-from domains.domain import Domain, Problem, State
-from search import try_make_solution, Trajectory, SearchNode
+from domains import Domain, Problem, State
 from enums import FourDir
+from search import SearchNode, Trajectory, try_make_solution
 
 
 class SlidingTilePuzzleState(State):

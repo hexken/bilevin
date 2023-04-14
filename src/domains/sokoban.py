@@ -142,7 +142,6 @@ class Sokoban(Domain):
             self.map[Sokoban.wall_channel, man_row - 1, man_col] == 0
             and state.boxes[man_row - 1, man_col] == 0
         ):
-
             actions.append(FourDir.UP)
         elif (
             state.boxes[man_row - 1, man_col] == 1
@@ -157,7 +156,6 @@ class Sokoban(Domain):
         return self.actions_unpruned(state)
 
     def result(self, state: SokobanState, action: FourDir) -> SokobanState:
-
         boxes = np.array(state.boxes)
         man_row = state.man_row
         man_col = state.man_col
@@ -236,7 +234,6 @@ class Sokoban(Domain):
         return self._backward_actions_unpruned(state)
 
     def _backward_result(self, state: SokobanState, action: FourDir) -> SokobanState:
-
         boxes = np.array(state.boxes)
         man_row = state.man_row
         man_col = state.man_col
