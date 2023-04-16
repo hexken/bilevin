@@ -164,11 +164,6 @@ def parse_args():
         default=1,
         help="reduce learning rate by a factor of 10 after this many epochs",
     )
-    # parser.add_argument(
-    #     "--shuffle-trajectory",
-    #     action="store_true",
-    #     help="shuffle trajectory states",
-    # )
     parser.add_argument(
         "-a",
         "--agent",
@@ -226,16 +221,6 @@ def parse_args():
         "--torch-deterministic",
         action="store_true",
         help="set `torch.backends.cudnn.deterministic=False` and `torch.use_deterministic_agents(True)`",
-    )
-    parser.add_argument(
-        "--update-levin-costs",
-        action="store_true",
-        help="update levin costs when cheaper path found",
-    )
-    parser.add_argument(
-        "--use-shortest-solutions",
-        action="store_true",
-        help="use the shortest solutions found during training",
     )
     parser.add_argument(
         "--wandb-mode",
@@ -333,8 +318,6 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             local_loader,
             writer,
             args.world_size,
-            args.update_levin_costs,
-            args.use_shortest_solutions,
             budget=args.initial_budget,
             seed=local_seed,
             grad_steps=args.grad_steps,
@@ -350,7 +333,6 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             local_loader,
             writer,
             args.world_size,
-            update_levin_costs=args.update_levin_costs,
             initial_budget=args.initial_budget,
             increase_budget=True,
             print_results=True,

@@ -45,8 +45,6 @@ def train(
     train_loader: CurriculumLoader,
     writer: SummaryWriter,
     world_size: int,
-    update_levin_costs: bool,
-    use_shortest_solutions: bool,
     budget: int,
     seed: int,
     grad_steps: int = 10,
@@ -98,11 +96,8 @@ def train(
 
     num_valid_problems = 0 if not valid_loader else len(valid_loader.all_ids)
     max_valid_expanded = num_valid_problems * budget
-    best_valid_solved = num_valid_problems
+    best_valid_solved = 0
     best_valid_total_expanded = max_valid_expanded
-
-    f_shortest_solutions = {}
-    b_shortest_solutions = {}
 
     epoch = 1
     for batch_loader in train_loader:
@@ -175,10 +170,10 @@ def train(
                 if rank == 0:
                     print(f"\n\nBatch {batches_seen}")
 
+                model.eval()
                 to.set_grad_enabled(False)
 
                 forward_trajs = []
-                model.eval()
                 backward_trajs = []
 
                 num_problems_solved_this_batch = 0
@@ -192,7 +187,6 @@ def train(
                     ) = agent.search(
                         problem,
                         budget,
-                        update_levin_costs,
                         train=True,
                     )
                     end_time = time.time()
@@ -208,23 +202,9 @@ def train(
                     )
 
                     if traj:
-                        if problem.id_idx not in f_shortest_solutions or len(
-                            traj[0]
-                        ) < len(f_shortest_solutions[problem.id_idx]):
-                            f_shortest_solutions[problem.id_idx] = traj[0]
-                            if bidirectional:
-                                b_shortest_solutions[problem.id_idx] = traj[1]
-
-                        if use_shortest_solutions:
-                            forward_trajs.append(f_shortest_solutions[problem.id_idx])
-                            if bidirectional:
-                                backward_trajs.append(
-                                    b_shortest_solutions[problem.id_idx]
-                                )
-                        else:
-                            forward_trajs.append(traj[0])
-                            if bidirectional:
-                                backward_trajs.append(traj[1])
+                        forward_trajs.append(traj[0])
+                        if bidirectional:
+                            backward_trajs.append(traj[1])
 
                 if is_distributed:
                     dist.all_gather(
@@ -503,7 +483,6 @@ def train(
                     valid_loader,
                     writer,
                     world_size,
-                    update_levin_costs,
                     budget,
                     increase_budget=False,
                     print_results=False,
@@ -545,7 +524,7 @@ def train(
                             "best_model_solved",
                             f"epoch: {epoch}, solve rate: {valid_solve_rate}",
                         )
-                        agent.save_model("best_solved")
+                        agent.save_model("best_solved", log=False)
 
                     best_valid_solved = max(best_valid_solved, valid_solved)
                     best_valid_total_expanded = max(

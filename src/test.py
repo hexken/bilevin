@@ -36,7 +36,6 @@ def test(
     problems_loader: ProblemsBatchLoader,
     writer: SummaryWriter,
     world_size: int,
-    update_levin_costs: bool,
     initial_budget: int,
     increase_budget: bool = True,
     print_results: bool = True,
@@ -113,7 +112,6 @@ def test(
             ) = agent.search(
                 problem,
                 current_budget,
-                update_levin_costs,
             )
             end_time = int(time.time() * 1000)
 
