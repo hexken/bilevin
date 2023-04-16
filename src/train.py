@@ -92,7 +92,7 @@ def train(
     solved_problems = set()
     total_num_expanded = 0
     opt_step = 1
-    opt_passes = 0
+    opt_passes = 1
 
     num_valid_problems = 0 if not valid_loader else len(valid_loader.all_ids)
     max_valid_expanded = num_valid_problems * budget
@@ -359,7 +359,6 @@ def train(
 
                     if num_procs_found_solution > 0:
                         if rank == 0:
-                            opt_passes += 1
                             if grad_step == 1 or grad_step == grad_steps:
                                 f_loss = (
                                     local_batch_opt_results[0].item()
@@ -392,6 +391,8 @@ def train(
                                         writer.add_scalar( f"acc_vs_opt_pass/backward", b_acc, opt_passes,)
                                     # fmt:on
                         opt_step += 1
+                if num_procs_found_solution > 0:
+                    opt_passes += 1
 
                 world_epoch_f_loss[batch_idx] = f_loss
                 world_epoch_f_acc[batch_idx] = f_acc
@@ -514,7 +515,7 @@ def train(
                         print("Saving best model by expansions")
                         writer.add_text(
                             "best_model_expansions",
-                            f"epoch: {epoch}, expansion ratio: {valid_expansions_ratio}",
+                            f"epoch: {epoch}, solve rate: {valid_solve_rate}, expansion ratio: {valid_expansions_ratio}",
                         )
                         agent.save_model("best_expanded")
 
@@ -522,7 +523,7 @@ def train(
                         print("Saving best model by solved")
                         writer.add_text(
                             "best_model_solved",
-                            f"epoch: {epoch}, solve rate: {valid_solve_rate}",
+                            f"epoch: {epoch}, solve rate: {valid_solve_rate}, expansion ratio: {valid_expansions_ratio}",
                         )
                         agent.save_model("best_solved", log=False)
 
