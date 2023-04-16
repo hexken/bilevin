@@ -196,10 +196,16 @@ def parse_args():
         help="number of problems to batch during",
     )
     parser.add_argument(
-        "--initial-budget",
+        "--expansion-budget",
         type=int,
         default=2**10,
-        help="initial budget (nodes expanded) to solve a problem",
+        help="initial node expansion budget to solve a problem",
+    )
+    parser.add_argument(
+        "--time-budget",
+        type=float,
+        default=300,
+        help="time budget to solve a problem",
     )
     parser.add_argument(
         "--mode",
@@ -318,7 +324,8 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             local_loader,
             writer,
             args.world_size,
-            budget=args.initial_budget,
+            expansion_budget=args.expansion_budget,
+            time_budget=args.time_budget,
             seed=local_seed,
             grad_steps=args.grad_steps,
             epoch_reduce_lr=args.epoch_reduce_lr,
@@ -333,7 +340,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             local_loader,
             writer,
             args.world_size,
-            initial_budget=args.initial_budget,
+            expansion_budget=args.expansion_budget,
             increase_budget=True,
             print_results=True,
             validate=False,
@@ -527,7 +534,7 @@ if __name__ == "__main__":
     problemset_params = (
         f"{args.problemset_path.parent.stem}-{args.problemset_path.stem}"
     )
-    run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-{args.initial_budget}{exp_name}_{args.seed}_{int(start_time)}"
+    run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-e{args.expansion_budget}-t{args.time_budget}{exp_name}_{args.seed}_{int(start_time)}"
     del problemset_dict
 
     model_args.update(

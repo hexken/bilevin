@@ -45,7 +45,8 @@ def train(
     train_loader: CurriculumLoader,
     writer: SummaryWriter,
     world_size: int,
-    budget: int,
+    expansion_budget: int,
+    time_budget: float,
     seed: int,
     grad_steps: int = 10,
     epoch_reduce_lr: int = 5,
@@ -95,7 +96,7 @@ def train(
     opt_passes = 1
 
     num_valid_problems = 0 if not valid_loader else len(valid_loader.all_ids)
-    max_valid_expanded = num_valid_problems * budget
+    max_valid_expanded = num_valid_problems * expansion_budget
     best_valid_solved = 0
     best_valid_total_expanded = max_valid_expanded
 
@@ -104,7 +105,7 @@ def train(
         world_num_problems = len(batch_loader.all_ids)
         if world_num_problems == 0:
             continue
-        max_epoch_expansions = world_num_problems * budget
+        max_epoch_expansions = world_num_problems * expansion_budget
 
         world_batches_this_difficulty = math.ceil(
             world_num_problems / (local_batch_size * world_size)
@@ -186,8 +187,9 @@ def train(
                         traj,
                     ) = agent.search(
                         problem,
-                        budget,
+                        expansion_budget,
                         train=True,
+                        end_time=start_time + time_budget,
                     )
                     end_time = time.time()
                     if bidirectional:
@@ -248,7 +250,7 @@ def train(
 
                 batch_expansions = world_batch_results_df["NumExpanded"].sum()
                 batch_expansions_ratio = batch_expansions / (
-                    len(world_batch_results_df) * budget
+                    len(world_batch_results_df) * expansion_budget
                 )
 
                 if rank == 0:
@@ -484,7 +486,7 @@ def train(
                     valid_loader,
                     writer,
                     world_size,
-                    budget,
+                    expansion_budget,
                     increase_budget=False,
                     print_results=False,
                     validate=True,
