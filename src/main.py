@@ -201,12 +201,6 @@ def parse_args():
         help="number of problems to batch during",
     )
     parser.add_argument(
-        "--batch-size-print",
-        type=int,
-        default=None,
-        help="number of results to print per block during testint",
-    )
-    parser.add_argument(
         "--initial-budget",
         type=int,
         default=2**10,

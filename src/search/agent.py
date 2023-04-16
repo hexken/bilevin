@@ -88,14 +88,20 @@ class Agent(ABC):
     def model(self) -> to.jit.ScriptModule:
         return self._model
 
-    def save_model(self, suffix=""):
+    def save_model(
+        self,
+        suffix="",
+        log=True,
+    ):
         path = self.save_path
         if suffix:
             path = path / f"model_{suffix}.pt"
         else:
             path = path / "model.pt"
 
-        print(f"Saving model\n  to {str(path)}")
+        if log:
+            print(f"Saving model\n  to {str(path)}")
+
         to.jit.save(self.model, path)
 
     @property

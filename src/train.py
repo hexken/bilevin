@@ -79,8 +79,8 @@ def train(
         if not param.grad:
             param.grad = to.zeros_like(param)
 
-    if rank == 0:
-        log_params(writer, model, 0)
+    # if rank == 0:
+    #     log_params(writer, model, 0)
 
     local_batch_opt_results = to.zeros(5, dtype=to.float64)
 
@@ -96,8 +96,9 @@ def train(
     opt_step = 1
     opt_passes = 0
 
-    best_valid_solve_rate = 0.0
-    max_valid_expanded = 0 if not valid_loader else (len(valid_loader.all_ids) * budget)
+    num_valid_problems = 0 if not valid_loader else len(valid_loader.all_ids)
+    max_valid_expanded = num_valid_problems * budget
+    best_valid_solved = num_valid_problems
     best_valid_total_expanded = max_valid_expanded
 
     f_shortest_solutions = {}
@@ -155,11 +156,10 @@ def train(
                 for param_group in optimizer.param_groups:
                     param_group["lr"] = new_lr
 
+            if rank == 0:
                 print(
                     "============================================================================\n"
                 )
-
-            if rank == 0:
                 problems_loader = tqdm.tqdm(
                     batch_loader, total=world_batches_this_difficulty
                 )
@@ -354,26 +354,26 @@ def train(
                         )
 
                     # todo grad clipping? for now inspect norms
-                    if num_procs_found_solution > 0 and rank == 0:
-                        log_grad_norm(
-                            model.feature_net.parameters(),
-                            "feature_net",
-                            writer,
-                            opt_step,
-                        )
-                        log_grad_norm(
-                            model.forward_policy.parameters(),
-                            "forward",
-                            writer,
-                            opt_step,
-                        )
-                        if bidirectional:
-                            log_grad_norm(
-                                model.backward_policy.parameters(),
-                                "backward",
-                                writer,
-                                opt_step,
-                            )
+                    # if num_procs_found_solution > 0 and rank == 0:
+                    #     log_grad_norm(
+                    #         model.feature_net.parameters(),
+                    #         "feature_net",
+                    #         writer,
+                    #         opt_step,
+                    #     )
+                    #     log_grad_norm(
+                    #         model.forward_policy.parameters(),
+                    #         "forward",
+                    #         writer,
+                    #         opt_step,
+                    #     )
+                    #     if bidirectional:
+                    #         log_grad_norm(
+                    #             model.backward_policy.parameters(),
+                    #             "backward",
+                    #             writer,
+                    #             opt_step,
+                    #         )
 
                     optimizer.step()
 
@@ -420,8 +420,8 @@ def train(
                     world_epoch_b_acc[batch_idx] = b_acc
 
                 if rank == 0:
-                    if batches_seen % param_log_interval == 0:
-                        log_params(writer, model, batches_seen)
+                    # if batches_seen % param_log_interval == 0:
+                    #     log_params(writer, model, batches_seen)
 
                     batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                     # fmt: off
@@ -514,9 +514,9 @@ def train(
                 if rank == 0:
                     valid_solved, valid_total_expanded = valid_results
                     valid_expansions_ratio = valid_total_expanded / max_valid_expanded
-                    valid_solve_rate = valid_solved / len(valid_loader.all_ids)
+                    valid_solve_rate = valid_solved / num_valid_problems
                     print(
-                        f"SOLVED:  {valid_solved}/{len(valid_loader.all_ids)} {valid_solve_rate:5.3f}"
+                        f"SOLVED:  {valid_solved}/{num_valid_problems} {valid_solve_rate:5.3f}"
                     )
                     print(
                         f"EXPANSIONS: {valid_total_expanded}/{max_valid_expanded} {valid_expansions_ratio:5.3f}"
@@ -530,16 +530,27 @@ def train(
                     )
                     # writer.add_scalar( f"valid_expanded_vs_epoch", valid_total_expanded, epoch)
 
-                    agent.save_model("latest")
-                    if valid_solve_rate > best_valid_solve_rate or (
-                        isclose(valid_solve_rate, best_valid_solve_rate)
-                        and valid_total_expanded < best_valid_total_expanded
-                    ):
-                        best_valid_solve_rate = valid_solve_rate
-                        best_valid_total_expanded = valid_total_expanded
-                        print("Saving best model...")
-                        writer.add_text("best_model", f"epoch {epoch}")
-                        agent.save_model("best")
+                    agent.save_model("latest", log=False)
+                    if valid_total_expanded < best_valid_total_expanded:
+                        print("Saving best model by expansions")
+                        writer.add_text(
+                            "best_model_expansions",
+                            f"epoch: {epoch}, expansion ratio: {valid_expansions_ratio}",
+                        )
+                        agent.save_model("best_expanded")
+
+                    if valid_solved > best_valid_solved:
+                        print("Saving best model by solved")
+                        writer.add_text(
+                            "best_model_solved",
+                            f"epoch: {epoch}, solve rate: {valid_solve_rate}",
+                        )
+                        agent.save_model("best_solved")
+
+                    best_valid_solved = max(best_valid_solved, valid_solved)
+                    best_valid_total_expanded = max(
+                        best_valid_total_expanded, valid_total_expanded
+                    )
 
                 if is_distributed:
                     dist.barrier()

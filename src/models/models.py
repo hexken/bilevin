@@ -1,5 +1,4 @@
 # Copyright (C) 2021-2022, Ken Tjhia
-# Copyright (C) 2021-2022, Ken Tjhia
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -81,7 +80,9 @@ class SinglePolicy(nn.Module):
             to.nn.init.kaiming_uniform_(
                 self.layers[i].weight, mode="fan_in", nonlinearity="relu"
             )
-        to.nn.init.xavier_uniform_(self.layers[-1].weight)
+            to.nn.init.constant_(self.layers[i].bias, 0.0)
+        to.nn.init.xavier_uniform_(self.output_layer.weight)
+        to.nn.init.constant_(self.output_layer.bias, 0.0)
 
     def forward(self, state_feats):
         for l in self.layers:
@@ -118,7 +119,9 @@ class DoublePolicy(nn.Module):
             to.nn.init.kaiming_uniform_(
                 self.layers[i].weight, mode="fan_in", nonlinearity="relu"
             )
-        to.nn.init.xavier_uniform_(self.layers[-1].weight)
+            to.nn.init.constant_(self.layers[i].bias, 0.0)
+        to.nn.init.xavier_uniform_(self.output_layer.weight)
+        to.nn.init.constant_(self.output_layer.bias, 0.0)
 
     def forward(self, state_feats, goal_feats):
         bs = state_feats.shape[0]
@@ -231,22 +234,3 @@ class ConvNetDouble(nn.Module):
         logits = self.linear3(x)
 
         return logits
-
-
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-import torch as to
-import torch.nn as nn
-import torch.nn.functional as F
