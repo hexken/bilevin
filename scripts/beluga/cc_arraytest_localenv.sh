@@ -2,10 +2,10 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --array=1-8
-#SBATCH --time=1:00:00
+#SBATCH --array=1-6
+#SBATCH --time=00:15:00
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/wit_testsfeb21/%j.txt
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/april2/%j.txt
 #SBATCH --account=rrg-lelis
 
 source $HOME/bilevin-env/bin/activate
@@ -30,7 +30,7 @@ python src/main.py \
     --world-size 40 \
     --mode "test" \
     --agent $agent \
-    --problemset-path problems/witness/4w4c/1000-test.json \
+    --problemset-path problems/sokoban/unfiltered/april/test.json \
     --model-suffix "best" \
     --initial-budget 2000 \
     --seed 1 \
