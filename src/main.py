@@ -152,11 +152,16 @@ def parse_args():
         help="number of permutation epochs to train for",
     )
     parser.add_argument(
-        "-r",
         "--epoch-reduce-lr",
         type=int,
         default=99999,
         help="reduce learning rate by a factor of 10 after this many epochs",
+    )
+    parser.add_argument(
+        "--epoch-reduce-grad-steps",
+        type=int,
+        default=99999,
+        help="reduce number of grad steps by a factor of 2 after this many epochs",
     )
     parser.add_argument(
         "--epoch-begin-validate",
@@ -329,6 +334,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             seed=local_seed,
             grad_steps=args.grad_steps,
             epoch_reduce_lr=args.epoch_reduce_lr,
+            epoch_reduce_grad_steps=args.epoch_reduce_grad_steps,
             epoch_begin_validate=args.epoch_begin_validate,
             valid_loader=local_valid_loader,
         )

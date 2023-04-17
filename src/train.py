@@ -49,7 +49,8 @@ def train(
     time_budget: float,
     seed: int,
     grad_steps: int = 10,
-    epoch_reduce_lr: int = 5,
+    epoch_reduce_lr: int = 99999,
+    epoch_reduce_grad_steps: int = 99999,
     epoch_begin_validate: int = 1,
     valid_loader: Optional[ProblemsBatchLoader] = None,
 ):
@@ -155,6 +156,11 @@ def train(
                 for param_group in optimizer.param_groups:
                     param_group["lr"] = new_lr
 
+            if epoch == epoch_reduce_grad_steps:
+                old_gs = grad_steps
+                grad_steps = grad_steps // 2
+                if rank == 0:
+                    print(f"-> Grad steps reduced from {old_gs} to {grad_steps}")
             if rank == 0:
                 print(
                     "============================================================================\n"
