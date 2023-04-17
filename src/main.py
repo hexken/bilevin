@@ -376,9 +376,9 @@ if __name__ == "__main__":
     domain_module = getattr(domains, problemset_dict["domain_module"])
     problemset, model_args = getattr(domain_module, "parse_problemset")(problemset_dict)
 
-    # problems_per_difficulty = problemset["problems_per_difficulty"]
-    # if problems_per_difficulty % args.world_size != 0:
-    #     raise ValueError("problems_per_difficulty must be a multiple of world_size")
+    problems_per_difficulty = problemset["problems_per_difficulty"]
+    if problems_per_difficulty % args.world_size != 0:
+        raise ValueError("problems_per_difficulty must be a multiple of world_size")
 
     if args.validset_path:
         validset_dict = json.load(args.validset_path.open("r"))
@@ -440,14 +440,14 @@ if __name__ == "__main__":
         if "is_curriculum" in problemset:
             # for now, all training problemsets should be curricula
             bootstrap_problemsets = split(problemset["bootstrap_problems"])
-            all_bootstrap_ids = [p.id for p in problemset["bootstrap_problems"]]
+            world_bootstrap_ids = [p.id for p in problemset["bootstrap_problems"]]
             set_id_idxs(0, problemset["bootstrap_problems"])
 
             curriculum_problems = problemset["curriculum_problems"]
-            all_curr_ids = [p.id for p in problemset["curriculum_problems"]]
+            world_curr_ids = [p.id for p in problemset["curriculum_problems"]]
 
             if include_prev_difficulty:
-                set_id_idxs(len(all_bootstrap_ids), curriculum_problems)
+                set_id_idxs(len(world_bootstrap_ids), curriculum_problems)
             ppd = problemset["problems_per_difficulty"]
             num_difficulty_levels = len(problemset["curriculum"])
 
@@ -463,15 +463,12 @@ if __name__ == "__main__":
             curriculum_problemsets = [[] for _ in range(args.world_size)]
             for i in range(args.world_size):
                 for j in range(num_difficulty_levels):
-                    curriculum_problemsets[i].extend(curriculum_diff_ranks_split[j][i])
-
-            # for pset in curriculum_problemsets:
-            #     print([p.id for p in pset])
+                    curriculum_problemsets[i].append(curriculum_diff_ranks_split[j][i])
 
             permutation_problemsets = split(problemset["permutation_problems"])
-            all_permutation_ids = [p.id for p in problemset["permutation_problems"]]
+            world_permutation_ids = [p.id for p in problemset["permutation_problems"]]
             start_idx = (
-                len(all_bootstrap_ids) + len(all_curr_ids)
+                len(world_bootstrap_ids) + len(world_curr_ids)
                 if (include_prev_difficulty and not args.permutation_focus)
                 else 0
             )
@@ -480,22 +477,26 @@ if __name__ == "__main__":
                 problemset["permutation_problems"],
             )
 
+            world_curr_ids = [
+                world_curr_ids[i : i + ppd] for i in range(0, len(world_curr_ids), ppd)
+            ]
+
             loaders = []
             for rank in range(args.world_size):
                 loaders.append(
                     CurriculumLoader(
-                        bootstrap_problems=bootstrap_problemsets[rank],
-                        all_bootstrap_ids=all_bootstrap_ids,
+                        local_bootstrap_problems=bootstrap_problemsets[rank],
+                        world_bootstrap_ids=world_bootstrap_ids,
                         bootstrap_epochs=args.bootstrap_epochs,
                         curriculum=problemset["curriculum"],
-                        problems_per_difficulty=ppd // args.world_size,
-                        curriculum_problems=curriculum_problemsets[rank],
-                        all_curriculum_ids=all_curr_ids,
+                        world_problems_per_difficulty=ppd,
+                        local_curriculum_problems=curriculum_problemsets[rank],
+                        world_curriculum_ids=world_curr_ids,
                         curriculum_epochs=args.curriculum_epochs,
-                        permutation_problems=permutation_problemsets[rank],
-                        all_permutation_ids=all_permutation_ids,
+                        local_permutation_problems=permutation_problemsets[rank],
+                        world_permutation_ids=world_permutation_ids,
                         permutation_epochs=args.permutation_epochs,
-                        batch_size=local_batch_size,
+                        local_batch_size=local_batch_size,
                         world_size=args.world_size,
                         seed=args.seed + rank,
                         include_prev_difficulty=not args.no_include_prev_difficulty,
@@ -516,7 +517,7 @@ if __name__ == "__main__":
                     ProblemsBatchLoader(
                         problems=problemsets[rank],
                         all_ids=all_ids,
-                        batch_size=1,
+                        local_batch_size=1,
                         world_size=args.world_size,
                         seed=args.seed,
                     )

@@ -26,7 +26,7 @@ class ProblemsBatchLoader:
         self,
         problems: list[Problem],
         all_ids: list[str],
-        batch_size: int,
+        local_batch_size: int,
         world_size: int = 1,
         epochs: int = 1,
         shuffle: bool = True,
@@ -43,12 +43,12 @@ class ProblemsBatchLoader:
         self.problems = np.empty(len(problems), dtype=object)
         self.problems[:] = problems
         self.all_ids = all_ids  # ids of problems accross all ranks
-        self.batch_size = batch_size
+        self.local_batch_size = local_batch_size
         self._len = len(problems)
         self._num_problems_served = 0
 
         self.world_size = world_size
-        self.world_num_batches = ceil(len(all_ids) / (batch_size * world_size))
+        self.world_num_batches = ceil(len(all_ids) / (local_batch_size * world_size))
         self.batches_served = 0
 
     def __len__(self):
@@ -71,10 +71,9 @@ class ProblemsBatchLoader:
                 self.batches_served += 1
                 return []
             raise StopIteration
-        # elif self._num_problems_served + self.batch_size > self._len:
-        #     next_indices = self._indices[self._num_problems_served :]
         next_indices = self._indices[
-            self._num_problems_served : self._num_problems_served + self.batch_size
+            self._num_problems_served : self._num_problems_served
+            + self.local_batch_size
         ]
         self._num_problems_served += len(next_indices)
         self.batches_served += 1
@@ -87,18 +86,18 @@ class ProblemsBatchLoader:
 class CurriculumLoader:
     def __init__(
         self,
-        bootstrap_problems: list[Problem],
-        all_bootstrap_ids: list[str],
+        local_bootstrap_problems: list[Problem],
+        world_bootstrap_ids: list[str],
         bootstrap_epochs: int,
         curriculum: list[int],
-        problems_per_difficulty: int,
-        curriculum_problems: list[Problem],
-        all_curriculum_ids: list[str],
+        world_problems_per_difficulty: int,
+        local_curriculum_problems: list[list[Problem]],
+        world_curriculum_ids: list[list[str]],
         curriculum_epochs: int,
-        permutation_problems: list[Problem],
-        all_permutation_ids: list[str],
+        local_permutation_problems: list[Problem],
+        world_permutation_ids: list[str],
         permutation_epochs: int,
-        batch_size: int,
+        local_batch_size: int,
         world_size: int,
         include_prev_difficulty: bool,
         permutation_focus: bool,
@@ -106,25 +105,25 @@ class CurriculumLoader:
         shuffle: bool = True,
     ):
         self.shuffle = shuffle
-        self.batch_size = batch_size
+        self.local_batch_size = local_batch_size
         self.seed = seed
         self.rng = np.random.default_rng(self.seed)
-        self.all_bootstrap_ids = all_bootstrap_ids
+        self.all_bootstrap_ids = world_bootstrap_ids
 
-        self.bootstrap_problems = bootstrap_problems
+        self.bootstrap_problems = local_bootstrap_problems
         self.bootstrap_epochs = bootstrap_epochs
 
         self.curriculum = curriculum
         self.num_curriculum_stages = len(curriculum)
-        self.curriculum_problems = curriculum_problems
-        self.all_curriculum_ids = all_curriculum_ids
-        self.problems_per_difficulty = problems_per_difficulty
+        self.local_curriculum_problems = local_curriculum_problems
+        self.world_curriculum_ids = world_curriculum_ids
+        self.world_problems_per_difficulty = world_problems_per_difficulty
+        self.local_problems_per_difficulty = len(local_curriculum_problems[0])
         self.curriculum_epochs = curriculum_epochs
 
-        self.permutation_problems = permutation_problems
-        self.all_permutation_ids = all_permutation_ids
+        self.permutation_problems = local_permutation_problems
+        self.all_permutation_ids = world_permutation_ids
         self.permutation_epochs = permutation_epochs
-        self.world_ppd = problems_per_difficulty * world_size
         self.world_size = world_size
 
         self.include_prev_difficulty = include_prev_difficulty
@@ -144,7 +143,7 @@ class CurriculumLoader:
             self.loader = ProblemsBatchLoader(
                 self.problems,
                 self.ids,
-                self.batch_size,
+                self.local_batch_size,
                 self.world_size,
                 self.bootstrap_epochs,
                 False,  # don't shuffle the bootstrap loader on first epoch
@@ -155,16 +154,8 @@ class CurriculumLoader:
             if self.curriculum_stage == self.num_curriculum_stages - 1:
                 self.next_stage = "permutation"
             self.stage = f"curriculum_{self.curriculum_stage}"
-            new_problems = self.curriculum_problems[
-                (self.curriculum_stage * self.problems_per_difficulty) : (
-                    self.curriculum_stage + 1
-                )
-                * self.problems_per_difficulty
-            ]
-            new_ids = self.all_curriculum_ids[
-                (self.curriculum_stage * self.world_ppd) : (self.curriculum_stage + 1)
-                * self.world_ppd
-            ]
+            new_problems = self.local_curriculum_problems[self.curriculum_stage]
+            new_ids = self.world_curriculum_ids[self.curriculum_stage]
             if self.include_prev_difficulty:
                 self.problems.extend(new_problems)
                 self.ids.extend(new_ids)
@@ -175,7 +166,7 @@ class CurriculumLoader:
             self.loader = ProblemsBatchLoader(
                 self.problems,
                 self.ids,
-                self.batch_size,
+                self.local_batch_size,
                 self.world_size,
                 self.curriculum_epochs,
                 self.shuffle,
@@ -193,7 +184,7 @@ class CurriculumLoader:
             self.loader = ProblemsBatchLoader(
                 self.problems,
                 self.ids,
-                self.batch_size,
+                self.local_batch_size,
                 self.world_size,
                 self.permutation_epochs,
                 self.shuffle,

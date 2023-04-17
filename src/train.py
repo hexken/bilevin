@@ -83,7 +83,7 @@ def train(
 
     local_batch_opt_results = to.zeros(5, dtype=to.float64)
 
-    local_batch_size = train_loader.batch_size
+    local_batch_size = train_loader.local_batch_size
     local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int64)
     world_batch_search_results = [
         to.zeros((local_batch_size, 5), dtype=to.int64) for _ in range(world_size)
@@ -102,6 +102,9 @@ def train(
 
     epoch = 1
     for batch_loader in train_loader:
+        # print(f"{train_loader.stage} rank {rank} global batch len {len(batch_loader.all_ids)}")
+        # print(f"{train_loader.stage} {batch_loader.all_ids}")
+        # print(f"{train_loader.stage} rank {rank} rank batch len {len(batch_loader)}")
         world_num_problems = len(batch_loader.all_ids)
         if world_num_problems == 0:
             continue
