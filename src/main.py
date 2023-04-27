@@ -382,10 +382,6 @@ if __name__ == "__main__":
     domain_module = getattr(domains, problemset_dict["domain_module"])
     problemset, model_args = getattr(domain_module, "parse_problemset")(problemset_dict)
 
-    problems_per_difficulty = problemset["problems_per_difficulty"]
-    if problems_per_difficulty % args.world_size != 0:
-        raise ValueError("problems_per_difficulty must be a multiple of world_size")
-
     if args.validset_path:
         validset_dict = json.load(args.validset_path.open("r"))
         validset, _ = getattr(domain_module, "parse_problemset")(validset_dict)
@@ -454,7 +450,12 @@ if __name__ == "__main__":
 
             if include_prev_difficulty:
                 set_id_idxs(len(world_bootstrap_ids), curriculum_problems)
+
             ppd = problemset["problems_per_difficulty"]
+            if ppd % args.world_size != 0:
+                raise ValueError(
+                    "problems_per_difficulty must be a multiple of world_size"
+                )
             num_difficulty_levels = len(problemset["curriculum"])
 
             curriculum_diff_ranks_split = [[] for _ in range(num_difficulty_levels)]
