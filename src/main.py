@@ -154,13 +154,13 @@ def parse_args():
     parser.add_argument(
         "--epoch-reduce-lr",
         type=int,
-        default=99999,
+        default=9999999,
         help="reduce learning rate by a factor of 10 after this many epochs",
     )
     parser.add_argument(
         "--epoch-reduce-grad-steps",
         type=int,
-        default=99999,
+        default=9999999,
         help="reduce number of grad steps by a factor of 2 after this many epochs",
     )
     parser.add_argument(
@@ -208,7 +208,7 @@ def parse_args():
     )
     parser.add_argument(
         "--time-budget",
-        type=float,
+        type=int,
         default=300,
         help="time budget to solve a problem",
     )

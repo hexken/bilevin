@@ -46,7 +46,7 @@ def train(
     writer: SummaryWriter,
     world_size: int,
     expansion_budget: int,
-    time_budget: float,
+    time_budget: int,
     seed: int,
     grad_steps: int = 10,
     epoch_reduce_lr: int = 99999,
