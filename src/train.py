@@ -528,7 +528,7 @@ def train(
                             "best_model_expansions",
                             f"epoch: {epoch}, solve rate: {valid_solve_rate}, expansion ratio: {valid_expansions_ratio}",
                         )
-                        agent.save_model("best_expanded")
+                        agent.save_model("best_expanded", log=False)
 
                     if valid_solved > best_valid_solved:
                         print("Saving best model by solved")

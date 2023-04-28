@@ -2,9 +2,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=8:00:00
+#SBATCH --time=0:10:00
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/march17/%j.txt
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/ap28/%j.txt
 #SBATCH --account=rrg-lelis
 
 source $HOME/bilevin-env/bin/activate
@@ -25,18 +25,20 @@ python src/main.py \
     --mode train \
     --loss levin_loss \
     --grad-steps 10 \
-    --learning-rate 0.001 \
-    --bootstrap-epochs 1 \
+    --feature-net-lr 0.001 \
+    --forward-policy-lr 0.001 \
+    --backward-policy-lr 0.001 \
+    --bootstrap-epochs 0 \
     --curriculum-epochs 1 \
-    --permutation-epochs 10 \
-    --epochs-reduce-lr 1\
+    --permutation-epochs 20 \
+    --permutation-focus \
+    --epoch-reduce-lr 1\
     --epoch-begin-validate 1\
     --batch-size-train 40 \
+    --time-budget 300 \
     --agent $1 \
     --problemset-path $2 \
     --validset-path $3 \
-    --initial-budget $4 \
+    --expansion-budget $4 \
     --seed $5 \
     --wandb-mode offline \
-    --exp-name "dset2"\	
-

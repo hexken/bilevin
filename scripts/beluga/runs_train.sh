@@ -10,12 +10,12 @@ problemset=problems/stp/april/3w/4000-train.json
 validset=problems/stp/april/3w/1000-valid.json
 
 agents="BiLevin Levin"
-initial_budgets="500"
+exp_budgets="500"
 seeds="3"
 #5 7 13 17"
 
 for agent in $agents; do
-	for budget in $initial_budgets; do
+	for budget in $exp_budgets; do
 		for seed in $seeds; do
 #			sbatch scripts/beluga/cc_train.sh $agent $problemset $validset $budget $epoch $seed
 			sbatch scripts/beluga/cc_train_localenv.sh $agent $problemset $validset $budget $seed
