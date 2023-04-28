@@ -36,7 +36,7 @@ def test(
     problems_loader: ProblemsBatchLoader,
     writer: SummaryWriter,
     world_size: int,
-    initial_budget: int,
+    expansion_budget: int,
     increase_budget: bool = True,
     print_results: bool = True,
     validate: bool = False,
@@ -46,7 +46,7 @@ def test(
         epoch = 1
 
     test_start_time = time.time()
-    current_budget = initial_budget
+    current_budget = expansion_budget
 
     is_distributed = world_size > 1
 
@@ -163,6 +163,7 @@ def test(
                 assert problem_id not in world_solved_problems
                 world_solved_problems.add(problem_id)
 
+            world_results_df.sort_values("NumExpanded", inplace=True)
             if print_results:
                 print(
                     tabulate(
@@ -173,7 +174,6 @@ def test(
                 )
                 print(f"Solved {len(solved_ids)}/{world_num_problems}\n")
 
-            world_results_df.sort_values("NumExpanded", inplace=True)
             total_num_expanded += world_results_df["NumExpanded"].sum()
 
             if validate:

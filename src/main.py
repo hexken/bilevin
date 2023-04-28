@@ -207,6 +207,11 @@ def parse_args():
         help="initial node expansion budget to solve a problem",
     )
     parser.add_argument(
+        "--increase-budget",
+        action="store_true",
+        help="during testing (not validation), double the budget for each unsolved problem",
+    )
+    parser.add_argument(
         "--time-budget",
         type=int,
         default=300,
@@ -347,7 +352,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             writer,
             args.world_size,
             expansion_budget=args.expansion_budget,
-            increase_budget=True,
+            increase_budget=args.increase_budget,
             print_results=True,
             validate=False,
             epoch=None,
