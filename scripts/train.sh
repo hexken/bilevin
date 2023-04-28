@@ -18,11 +18,11 @@ python src/main.py \
     --epoch-reduce-grad-steps 2 \
     --epoch-begin-validate 1 \
     --expansion-budget 500 \
-    --time-budget 10 \
+    --time-budget 300 \
     --grad-steps 10 \
     --batch-size-train 4 \
     --seed 1 \
-    --wandb-mode online \
+    --wandb-mode disabled \
     --problemset-path problems/stp/april/3w/5000-train.json \
     --validset-path problems/stp/april/3w/1000-valid.json \
     # --problemset-path problems/stp/april/5w/50000-train.json \
