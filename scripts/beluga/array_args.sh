@@ -1,17 +1,28 @@
 #!/bin/bash
 
+if [ "$1" == "r" ]; then
+	rm args.txt
+fi
+
 touch args.txt
 
-for dirname in ../../runs/wit_valid/*; do
-    tmp=${dirname#*Witness-}
-    expname=${tmp%_167*}
-    modelpath=runs/wit_valid/$(basename $dirname)
+ebudgets="500"
+tbudgets="300"
 
-    if [[ "$modelpath" == *BiLevin* ]]; then
-        agent="BiLevin"
-    else	
-        agent="Levin"
-    fi
-    echo $agent $modelpath $expname >> args.txt
+for dirname in ../../runs/SlidingTile*; do
+	for ebudget in $ebudgets; do
+		for tbudget in $tbudgets; do
+			tmp=${dirname#*SlidingTilePuzzle-}
+	    		expname=${tmp%_167*}_test_e${ebudget}_t${tbudget}
+			modelpath=runs/$(basename $dirname)
+
+			if [[ "$modelpath" == *BiLevin* ]]; then
+				agent="BiLevin"
+			else	
+				agent="Levin"
+			fi
+		        echo $agent $modelpath $expname >> args.txt
+		done
+	done
 done
 
