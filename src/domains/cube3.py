@@ -3,10 +3,11 @@ Modified from https://github.com/forestagostinelli/DeepCubeA/blob/master/environ
 the code for the paper 'Solving the Rubik’s cube with deep reinforcement learning and search'
 """
 
-from typing import List, Dict, Tuple, Union
+from typing import Dict, List, Tuple, Union
+
 import numpy as np
+import torch as to
 from torch import nn
-from random import randrange
 
 from domains import Domain, State
 
@@ -16,19 +17,18 @@ class Cube3State(State):
 
     def __init__(self, colors: np.ndarray):
         self.colors: np.ndarray = colors
-        self.hash = None
 
-    def __hash__(self):
-        if self.hash is None:
-            self.hash = hash(self.colors.tostring())
+    def __str__(self) -> str:
+        return str(self.colors)
 
-        return self.hash
+    def __hash__(self) -> int:
+        return self.colors.tobytes().__hash__()
 
     def __eq__(self, other):
         return np.array_equal(self.colors, other.colors)
 
 
-class Cube3(Environment):
+class Cube3(Domain):
     moves: List[str] = [
         "%s%i" % (f, n) for f in ["U", "D", "L", "R", "B", "F"] for n in [-1, 1]
     ]
@@ -57,132 +57,42 @@ class Cube3(Environment):
             self.cube_len, self.moves
         )
 
-    def next_state(
-        self, states: List[Cube3State], action: int
-    ) -> Tuple[List[Cube3State], List[float]]:
-        states_np = np.stack([x.colors for x in states], axis=0)
-        states_next_np, transition_costs = self._move_np(states_np, action)
+    @property
+    def state_width(self) -> int:
+        pass
 
-        states_next: List[Cube3State] = [Cube3State(x) for x in list(states_next_np)]
+    @property
+    def num_actions(cls) -> int:
+        return 12
 
-        return states_next, transition_costs
+    @property
+    def in_channels(self) -> int:
+        pass
+
+    def result(self, state: Cube3State, action: int) -> Cube3State:
+        next_state_np = self._move_np(state.colors, action)
+        next_state: Cube3State = Cube3State(next_state_np)
+
+        return next_state
+
+    # todo will be used to compute reverse result
+    def get_backward_domain(self) -> Cube3:
+        pass
 
     def prev_state(self, states: List[Cube3State], action: int) -> List[Cube3State]:
         move: str = self.moves[action]
         move_rev_idx: int = np.where(np.array(self.moves_rev) == np.array(move))[0][0]
 
-        return self.next_state(states, move_rev_idx)[0]
+        return self.result(states, move_rev_idx)[0]
 
-    def generate_goal_states(
-        self, num_states: int, np_format: bool = False
-    ) -> Union[List[Cube3State], np.ndarray]:
-        if np_format:
-            goal_np: np.ndarray = np.expand_dims(self.goal_colors.copy(), 0)
-            solved_states: np.ndarray = np.repeat(goal_np, num_states, axis=0)
-        else:
-            solved_states: List[Cube3State] = [
-                Cube3State(self.goal_colors.copy()) for _ in range(num_states)
-            ]
-
-        return solved_states
-
-    def is_solved(self, states: List[Cube3State]) -> np.ndarray:
-        states_np = np.stack([state.colors for state in states], axis=0)
-        is_equal = np.equal(states_np, np.expand_dims(self.goal_colors, 0))
+    def is_goal(self, state: Cube3State) -> np.ndarray:
+        is_equal = np.equal(state.colors, self.goal_colors)
 
         return np.all(is_equal, axis=1)
 
-    def state_to_nnet_input(self, states: List[Cube3State]) -> List[np.ndarray]:
-        states_np = np.stack([state.colors for state in states], axis=0)
-
-        representation_np: np.ndarray = states_np / (self.cube_len**2)
-        representation_np: np.ndarray = representation_np.astype(self.dtype)
-
-        representation: List[np.ndarray] = [representation_np]
-
-        return representation
-
-    def get_num_moves(self) -> int:
-        return len(self.moves)
-
-    def get_nnet_model(self) -> nn.Module:
-        state_dim: int = (self.cube_len**2) * 6
-        nnet = ResnetModel(state_dim, 6, 5000, 1000, 4, 1, True)
-
-        return nnet
-
-    def generate_states(
-        self, num_states: int, backwards_range: Tuple[int, int]
-    ) -> Tuple[List[Cube3State], List[int]]:
-        assert num_states > 0
-        assert backwards_range[0] >= 0
-        assert (
-            self.fixed_actions
-        ), "Environments without fixed actions must implement their own method"
-
-        # Initialize
-        scrambs: List[int] = list(range(backwards_range[0], backwards_range[1] + 1))
-        num_env_moves: int = self.get_num_moves()
-
-        # Get goal states
-        states_np: np.ndarray = self.generate_goal_states(num_states, np_format=True)
-
-        # Scrambles
-        scramble_nums: np.array = np.random.choice(scrambs, num_states)
-        num_back_moves: np.array = np.zeros(num_states)
-
-        # Go backward from goal state
-        moves_lt = num_back_moves < scramble_nums
-        while np.any(moves_lt):
-            idxs: np.ndarray = np.where(moves_lt)[0]
-            subset_size: int = int(max(len(idxs) / num_env_moves, 1))
-            idxs: np.ndarray = np.random.choice(idxs, subset_size)
-
-            move: int = randrange(num_env_moves)
-            states_np[idxs], _ = self._move_np(states_np[idxs], move)
-
-            num_back_moves[idxs] = num_back_moves[idxs] + 1
-            moves_lt[idxs] = num_back_moves[idxs] < scramble_nums[idxs]
-
-        states: List[Cube3State] = [Cube3State(x) for x in list(states_np)]
-
-        return states, scramble_nums.tolist()
-
-    def expand(self, states: List[State]) -> Tuple[List[List[State]], List[np.ndarray]]:
-        assert (
-            self.fixed_actions
-        ), "Environments without fixed actions must implement their own method"
-
-        # initialize
-        num_states: int = len(states)
-        num_env_moves: int = self.get_num_moves()
-
-        states_exp: List[List[State]] = [[] for _ in range(len(states))]
-
-        tc: np.ndarray = np.empty([num_states, num_env_moves])
-
-        # numpy states
-        states_np: np.ndarray = np.stack([state.colors for state in states])
-
-        # for each move, get next states, transition costs, and if solved
-        move_idx: int
-        move: int
-        for move_idx in range(num_env_moves):
-            # next state
-            states_next_np: np.ndarray
-            tc_move: List[float]
-            states_next_np, tc_move = self._move_np(states_np, move_idx)
-
-            # transition cost
-            tc[:, move_idx] = np.array(tc_move)
-
-            for idx in range(len(states)):
-                states_exp[idx].append(Cube3State(states_next_np[idx]))
-
-        # make lists
-        tc_l: List[np.ndarray] = [tc[i] for i in range(num_states)]
-
-        return states_exp, tc_l
+    def state_tensor(self, state: Cube3State) -> to.Tensor:
+        state_t: to.Tensor = to.tensor(state.colors) / (self.cube_len**2)
+        return state_t
 
     def _move_np(self, states_np: np.ndarray, action: int):
         action_str: str = self.moves[action]
@@ -192,9 +102,7 @@ class Cube3(Environment):
             :, self.rotate_idxs_old[action_str]
         ]
 
-        transition_costs: List[float] = [1.0 for _ in range(states_np.shape[0])]
-
-        return states_next_np, transition_costs
+        return states_next_np
 
     def _get_adj(self) -> None:
         # WHITE:0, YELLOW:1, BLUE:2, GREEN:3, ORANGE: 4, RED: 5
