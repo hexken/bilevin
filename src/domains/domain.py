@@ -70,17 +70,17 @@ class Domain(ABC):
 
     @property
     @abstractmethod
-    def num_actions(self):
+    def num_actions(self) -> int:
         pass
 
     @property
     @abstractmethod
-    def in_channels(self):
+    def in_channels(self) -> int:
         pass
 
     @property
     @abstractmethod
-    def state_width(self):
+    def state_width(self) -> int:
         pass
 
     @abstractmethod
