@@ -3,16 +3,15 @@ cd ~/scratch/bilevin
 #problemset=problems/witness/april/7w4c/50000-train.json
 #validset=problems/witness/april/7w4c/4000-valid.json
 
-#problemset=problems/sokoban/unfiltered/april/train.json
-#validset=problems/sokoban/unfiltered/april/valid.json
+problemset=problems/sokoban/unfiltered/april/train.json
+validset=problems/sokoban/unfiltered/april/valid.json
 
-problemset=problems/stp/april/3w/4000-train.json
-validset=problems/stp/april/3w/1000-valid.json
+#problemset=problems/stp/april/3w/4000-train.json
+#validset=problems/stp/april/3w/1000-valid.json
 
 agents="BiLevin Levin"
-exp_budgets="500"
-seeds="3"
-#5 7 13 17"
+exp_budgets="2000"
+seeds="314 847 3232"
 
 for agent in $agents; do
 	for budget in $exp_budgets; do

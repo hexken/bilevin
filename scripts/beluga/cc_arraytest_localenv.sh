@@ -35,6 +35,7 @@ python src/main.py \
     --problemset-path problems/stp/april/3w/1000-test.json \
     --model-suffix "best_expanded" \
     --expansion-budget $ebudget \
+    --increase-budget False \
     --time-budget $tbudget \
     --seed 1 \
     --wandb-mode offline \

@@ -13,7 +13,7 @@ for dirname in ../../runs/SlidingTile*; do
 	for ebudget in $ebudgets; do
 		for tbudget in $tbudgets; do
 			tmp=${dirname#*SlidingTilePuzzle-}
-	    		expname=${tmp%_167*}_test_e${ebudget}_t${tbudget}
+	    		expname=${tmp%_167*}
 			modelpath=runs/$(basename $dirname)
 
 			if [[ "$modelpath" == *BiLevin* ]]; then
@@ -21,7 +21,7 @@ for dirname in ../../runs/SlidingTile*; do
 			else	
 				agent="Levin"
 			fi
-		        echo $agent $modelpath $expname >> args.txt
+		        echo $agent $ebudget $tbudget $modelpath $expname >> args.txt
 		done
 	done
 done
