@@ -137,13 +137,13 @@ def parse_args():
     )
     parser.add_argument(
         "--include-prev-difficulty",
-        type=bool,
+        action="store_true",
         default=False,
         help="do not include previous difficulties in curriculum",
     )
     parser.add_argument(
         "--permutation-focus",
-        type=bool,
+        action="store_true",
         default=False,
         help="just use the permutation problems once the bootstrap/curriculum is done",
     )
@@ -210,7 +210,7 @@ def parse_args():
     )
     parser.add_argument(
         "--increase-budget",
-        type=bool,
+        action="store_true",
         default=False,
         help="during testing (not validation), double the budget for each unsolved problem",
     )
