@@ -522,7 +522,11 @@ def train(
                     # writer.add_scalar( f"valid_expanded_vs_epoch", valid_total_expanded, epoch)
 
                     agent.save_model("latest", log=False)
-                    if valid_total_expanded < best_valid_total_expanded:
+                    if valid_total_expanded < best_valid_total_expanded or (
+                        isclose(valid_total_expanded, best_valid_total_expanded)
+                        and valid_solved > best_valid_solved
+                    ):
+                        best_valid_total_expanded = valid_total_expanded
                         print("Saving best model by expansions")
                         writer.add_text(
                             "best_model_expansions",
@@ -530,18 +534,17 @@ def train(
                         )
                         agent.save_model("best_expanded", log=False)
 
-                    if valid_solved > best_valid_solved:
+                    if valid_solved > best_valid_solved or (
+                        isclose(valid_solved, best_valid_solved)
+                        and valid_total_expanded > best_valid_total_expanded
+                    ):
+                        best_valid_solved = valid_solved
                         print("Saving best model by solved")
                         writer.add_text(
                             "best_model_solved",
                             f"epoch: {epoch}, solve rate: {valid_solve_rate}, expansion ratio: {valid_expansions_ratio}",
                         )
                         agent.save_model("best_solved", log=False)
-
-                    best_valid_solved = max(best_valid_solved, valid_solved)
-                    best_valid_total_expanded = max(
-                        best_valid_total_expanded, valid_total_expanded
-                    )
 
                 if is_distributed:
                     dist.barrier()
