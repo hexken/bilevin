@@ -67,6 +67,7 @@ def main():
         "problems": [],
         "num_actions": 4,
         "in_channels": int(width**2),
+        "width": width,
         "state_t_width": width,
     }
 

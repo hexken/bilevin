@@ -81,6 +81,12 @@ def main():
         help="generate all problems up to (inclusive) this many steps away from the goal",
     )
     parser.add_argument(
+        "--randomize-steps",
+        action="store_true",
+        default=False,
+        help="randomize the number of steps away from the goal for the curriculum",
+    )
+    parser.add_argument(
         "--curriculum",
         nargs="+",
         default=[],
@@ -237,7 +243,11 @@ def main():
     with tqdm.tqdm(total=num_curriculum_problems) as pbar:
         pbar.set_description("Curriculum problems")
         difficulty = 0
-        steps = int(args.curriculum[difficulty])
+        max_steps = int(args.curriculum[difficulty])
+        if args.randomize_steps:
+            steps = np.random.randint(1, max_steps + 1)
+        else:
+            steps = max_steps
         while len(curriculum_problems) < num_curriculum_problems:
             state = stp.reset()
             for _ in range(steps):
