@@ -211,34 +211,3 @@ class PriorityQueue:
 
     def __len__(self):
         return len(self.entry_finder)
-
-
-class LevinNode(SearchNode):
-    def __init__(
-        self,
-        state: State,
-        g_cost: float,
-        parent: Optional[SearchNode] = None,
-        parent_action: Optional[int] = None,
-        log_prob: Optional[float] = None,
-        levin_cost: Optional[float] = None,
-        actions: Optional[list[int]] = None,
-        log_action_probs: Optional[to.Tensor] = None,
-    ):
-        super().__init__(
-            state=state, parent=parent, parent_action=parent_action, g_cost=g_cost
-        )
-        self.log_prob = log_prob
-        self.levin_cost = levin_cost
-        self.actions = actions
-        self.log_action_probs = log_action_probs
-
-    def __lt__(self, other):
-        """
-        used by the heap
-        """
-        return self.levin_cost < other.levin_cost
-
-
-def levin_cost(node: LevinNode):
-    return math.log(node.g_cost + 1) - node.log_prob  # type:ignore

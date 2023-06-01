@@ -25,14 +25,16 @@ class SearchNode:
     def __init__(
         self,
         state: State,
-        g_cost: float,
+        g_cost: int,
         parent: Optional[SearchNode] = None,
         parent_action: Optional[int] = None,
+        log_prob: Optional[float] = None,
     ):
         self.state = state
         self.parent = parent
         self.parent_action = parent_action
         self.g_cost = g_cost
+        self.log_prob = log_prob
 
     def __eq__(self, other):
         """
@@ -54,20 +56,60 @@ class SearchNode:
         return self.state.__hash__()
 
 
+class LevinNode(SearchNode):
+    def __init__(
+        self,
+        state: State,
+        g_cost: int,
+        log_prob: Optional[float] = None,
+        parent: Optional[SearchNode] = None,
+        parent_action: Optional[int] = None,
+        levin_cost: Optional[float] = None,
+        actions: Optional[list[int]] = None,
+        log_action_probs: Optional[to.Tensor] = None,
+    ):
+        super().__init__(
+            state=state,
+            g_cost=g_cost,
+            parent=parent,
+            parent_action=parent_action,
+            log_prob=log_prob,
+        )
+        self.levin_cost = levin_cost
+        self.actions = actions
+        self.log_action_probs = log_action_probs
+
+    def __lt__(self, other):
+        """
+        used by the heap
+        """
+        return self.levin_cost < other.levin_cost
+
+
+def levin_cost(node: LevinNode):
+    return math.log(node.g_cost + 1) - node.log_prob  # type:ignore
+
+
 class Trajectory:
     def __init__(
         self,
         domain: Domain,
         final_node: SearchNode,
         num_expanded: int,
+        forward_steps: int,
+        forward_partial_log_prob: float,
+        forward: bool,
+        backward_partial_log_prob: Optional[float] = None,
         goal_state_t: Optional[to.Tensor] = None,
-        forward: bool = True,
     ):
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
         self.forward = forward
+        self.forward_steps = forward_steps
+        self.forward_partial_prob = forward_partial_log_prob
+        self.backward_partial_prob = backward_partial_log_prob
         self.num_expanded = num_expanded
         self.goal_state_t: Optional[to.Tensor] = (
             goal_state_t.unsqueeze(0) if goal_state_t is not None else None
@@ -143,20 +185,43 @@ def get_merged_solution(
     merge(dir1_common, dir2_common).
     """
     dir1_node = dir1_common
+
+    forward_partial_log_prob = dir1_common.log_prob
+    backward_log_prob = dir2_common.log_prob
+
     parent_dir2_node = dir2_common.parent
     parent_dir2_action = dir2_common.parent_action
+
+    dir1_steps = dir1_common.g_cost - 1
+    steps = dir1_steps
+
     while parent_dir2_node:
+        steps += 1
         new_dir1_node = node_type(
             state=parent_dir2_node.state,
+            g_cost=dir1_node.g_cost + 1,
             parent=dir1_node,
             parent_action=dir1_domain.reverse_action(parent_dir2_action),
-            g_cost=dir1_node.g_cost + 1,
         )
         dir1_node = new_dir1_node
         parent_dir2_action = parent_dir2_node.parent_action
         parent_dir2_node = parent_dir2_node.parent
 
-    return Trajectory(dir1_domain, dir1_node, num_expanded, goal_state_t, forward)
+    if forward:
+        forward_steps = dir1_steps
+    else:
+        forward_steps = steps + 1 - dir1_steps
+
+    return Trajectory(
+        dir1_domain,
+        dir1_node,
+        num_expanded,
+        forward_steps,
+        forward_partial_log_prob,
+        forward,
+        backward_log_prob,
+        goal_state_t,
+    )
 
 
 def try_make_solution(
