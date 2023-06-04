@@ -149,6 +149,7 @@ def main():
         "width": args.width,
         "num_actions": 4,
         "in_channels": int(args.width**2),
+        "seed": args.seed,
     }
 
     def generate_permutation_problems(id_prefix, id_start, num_problems, desc):
