@@ -205,6 +205,7 @@ def main():
         "max_num_colors": max_num_colors,
         "in_channels": in_channels,
         "state_t_width": state_t_width,
+        "seed": args.seed,
     }
 
     for n, suffix in [

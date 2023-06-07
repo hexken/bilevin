@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 from copy import deepcopy
+import random
 import time
 from typing import TYPE_CHECKING
 
@@ -48,6 +49,7 @@ class BiLevin(Agent):
         update_levin_costs=False,
         train=False,
         end_time=None,
+        random_goal=False,
     ):
         """ """
         f_frontier = PriorityQueue()
@@ -125,19 +127,37 @@ class BiLevin(Agent):
         if f_avail_actions:
             f_frontier.enqueue(f_start_node)
 
-        for i, state in enumerate(b_states):
-            start_node = LevinNode(
-                state,
-                g_cost=0,
-                log_prob=0.0,
-                levin_cost=0.0,
-                actions=b_avail_actions[i],
-                log_action_probs=b_log_action_probs[i],
-            )
-            b_reached[start_node] = start_node
-            b_domain.update(start_node)
-            if start_node.actions:
-                b_frontier.enqueue(start_node)
+        if random_goal:
+            while True:
+                i = random.randint(0, len(b_states) - 1)
+                start_node = LevinNode(
+                    b_states[i],
+                    g_cost=0,
+                    log_prob=0.0,
+                    levin_cost=0.0,
+                    actions=b_avail_actions[i],
+                    log_action_probs=b_log_action_probs[i],
+                )
+                b_reached[start_node] = start_node
+                b_domain.update(start_node)
+                if start_node.actions:
+                    b_frontier.enqueue(start_node)
+                    break
+
+        else:
+            for i, state in enumerate(b_states):
+                start_node = LevinNode(
+                    state,
+                    g_cost=0,
+                    log_prob=0.0,
+                    levin_cost=0.0,
+                    actions=b_avail_actions[i],
+                    log_action_probs=b_log_action_probs[i],
+                )
+                b_reached[start_node] = start_node
+                b_domain.update(start_node)
+                if start_node.actions:
+                    b_frontier.enqueue(start_node)
 
         num_expanded = 0
         num_generated = 0

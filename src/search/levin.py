@@ -53,6 +53,7 @@ class Levin(Agent):
         update_levin_costs=False,
         train=False,
         end_time=None,
+        random_goal=False,
     ):
         """ """
 

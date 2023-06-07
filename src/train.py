@@ -54,6 +54,7 @@ def train(
     epoch_begin_validate: int = 1,
     valid_loader: Optional[ProblemsBatchLoader] = None,
     show_solution_probs: bool = False,
+    random_goal: bool = True,
 ):
     is_distributed = world_size > 1
 
@@ -200,6 +201,7 @@ def train(
                         expansion_budget,
                         train=True,
                         end_time=start_time + time_budget,
+                        random_goal=random_goal
                     )
                     end_time = time.time()
                     if bidirectional:

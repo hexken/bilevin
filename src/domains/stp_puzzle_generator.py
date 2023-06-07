@@ -149,6 +149,7 @@ def main():
         "width": args.width,
         "num_actions": 4,
         "in_channels": int(args.width**2),
+        "seed": args.seed,
     }
 
     def generate_permutation_problems(id_prefix, id_start, num_problems, desc):
@@ -238,17 +239,18 @@ def main():
         f"Generating {args.n_problems_per_difficulty} curriculum problems for each of {len(args.curriculum)} steps: {args.curriculum}"
     )
     curriculum_problems = []
+    curr_probs_generated = 0
     id_counter = 0
     num_curriculum_problems = args.n_problems_per_difficulty * len(args.curriculum)
     with tqdm.tqdm(total=num_curriculum_problems) as pbar:
         pbar.set_description("Curriculum problems")
         difficulty = 0
         max_steps = int(args.curriculum[difficulty])
-        if args.randomize_steps:
-            steps = np.random.randint(1, max_steps + 1)
-        else:
-            steps = max_steps
-        while len(curriculum_problems) < num_curriculum_problems:
+        while curr_probs_generated < num_curriculum_problems:
+            if args.randomize_steps:
+                steps = rng.integers(1, max_steps + 1)
+            else:
+                steps = max_steps
             state = stp.reset()
             for _ in range(steps):
                 actions = stp.actions_unpruned(state)
@@ -264,15 +266,17 @@ def main():
                     "id": f"c{difficulty}_{id_counter}",
                 }
                 curriculum_problems.append(problem)
+                curr_probs_generated += 1
                 id_counter += 1
                 pbar.update(1)
                 if (
-                    len(curriculum_problems) < num_curriculum_problems
-                    and len(curriculum_problems) % args.n_problems_per_difficulty == 0
+                    curr_probs_generated > 0
+                    and curr_probs_generated < num_curriculum_problems
+                    and curr_probs_generated % args.n_problems_per_difficulty == 0
                 ):
                     difficulty += 1
                     id_counter = 0
-                    steps = int(args.curriculum[difficulty])
+                    max_steps = int(args.curriculum[difficulty])
 
     permutation_problems = generate_permutation_problems(
         "p",
@@ -283,6 +287,7 @@ def main():
 
     trainset_dict = copy(problemset_dict)
     trainset_dict["is_curriculum"] = True
+    trainset_dict["randomize_steps"] = args.randomize_steps
     trainset_dict["curriculum"] = args.curriculum
     trainset_dict["problems_per_difficulty"] = args.n_problems_per_difficulty
     trainset_dict["bootstrap_problems"] = bootstrap_problems
