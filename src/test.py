@@ -41,6 +41,7 @@ def test(
     print_results: bool = True,
     validate: bool = False,
     epoch: Optional[int] = None,
+    random_goal: bool = False,
 ):
     if not epoch:
         epoch = 1
@@ -112,6 +113,7 @@ def test(
             ) = agent.search(
                 problem,
                 current_budget,
+                random_goal=random_goal,
             )
             end_time = int(time.time() * 1000)
 
