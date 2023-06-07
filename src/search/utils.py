@@ -14,6 +14,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import annotations
+import heapq
+import math
 from typing import Optional, Type
 
 import torch as to
@@ -96,20 +98,18 @@ class Trajectory:
         domain: Domain,
         final_node: SearchNode,
         num_expanded: int,
-        forward_steps: int,
-        forward_partial_log_prob: float,
-        forward: bool,
-        backward_partial_log_prob: Optional[float] = None,
+        steps: int,  # steps until goal/meet point is generated
+        partial_log_prob: float,  # probability of node that generates meet/goal
         goal_state_t: Optional[to.Tensor] = None,
+        forward: bool = True,
     ):
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
         self.forward = forward
-        self.forward_steps = forward_steps
-        self.forward_partial_prob = forward_partial_log_prob
-        self.backward_partial_prob = backward_partial_log_prob
+        self.steps = steps
+        self.partial_prob = partial_log_prob
         self.num_expanded = num_expanded
         self.goal_state_t: Optional[to.Tensor] = (
             goal_state_t.unsqueeze(0) if goal_state_t is not None else None
@@ -138,7 +138,8 @@ class Trajectory:
 class MergedTrajectory:
     def __init__(self, trajs: list[Trajectory]):
         if trajs:
-            if trajs[0].goal_state_t is not None:
+            if trajs[0].forward:
+                self.forward = True
                 self.goal_states = to.cat(tuple(t.goal_state_t for t in trajs))
             else:
                 self.goal_states = None
@@ -146,6 +147,7 @@ class MergedTrajectory:
             self.states = to.cat(tuple(t.states for t in trajs))
             self.actions = to.cat(tuple(t.actions for t in trajs))
             self.lengths = to.tensor(tuple(len(t) for t in trajs))
+            self.steps = tuple(t.steps for t in trajs)
 
             indices = to.arange(len(trajs))
             self.indices = to.repeat_interleave(indices, self.lengths)
@@ -154,7 +156,6 @@ class MergedTrajectory:
             )
             self.num_trajs = len(self.nums_expanded)
             self.num_states = len(self.states)
-            self.forward = trajs[0].forward
 
             # if shuffle:
             #     self.shuffle()
@@ -186,8 +187,7 @@ def get_merged_solution(
     """
     dir1_node = dir1_common
 
-    forward_partial_log_prob = dir1_common.log_prob
-    backward_log_prob = dir2_common.log_prob
+    partial_log_prob = dir1_common.log_prob
 
     parent_dir2_node = dir2_common.parent
     parent_dir2_action = dir2_common.parent_action
@@ -208,19 +208,18 @@ def get_merged_solution(
         parent_dir2_node = parent_dir2_node.parent
 
     if forward:
-        forward_steps = dir1_steps
+        steps = dir1_steps
     else:
-        forward_steps = steps + 1 - dir1_steps
+        steps = steps + 1 - dir1_steps
 
     return Trajectory(
         dir1_domain,
         dir1_node,
         num_expanded,
-        forward_steps,
-        forward_partial_log_prob,
-        forward,
-        backward_log_prob,
+        steps,
+        partial_log_prob,
         goal_state_t,
+        forward,
     )
 
 
@@ -263,3 +262,57 @@ def try_make_solution(
         return (f_traj, b_traj)
     else:
         return None
+
+
+def swap_node_contents(src: LevinNode, dst: LevinNode):
+    dst.g_cost = src.g_cost
+    dst.parent = src.parent
+    dst.parent_action = src.parent_action
+    dst.log_prob = src.log_prob
+    dst.levin_cost = levin_cost(dst)
+
+
+class PQEntry:
+    def __init__(self, node):
+        self.node = node
+        self.removed = False
+
+    def __lt__(self, other):
+        return self.node < other.node
+
+
+class PriorityQueue:
+    def __init__(self) -> None:
+        self.pq = []
+        self.entry_finder = {}
+
+    def top(self):
+        for entry in self.pq:
+            if not entry.removed:
+                return entry.node
+        raise KeyError("top from an empty priority queue")
+
+    def enqueue(self, node):
+        if node in self.entry_finder:
+            self.remove(node)
+        entry = PQEntry(node)
+        heapq.heappush(self.pq, entry)
+        self.entry_finder[node] = entry
+
+    def dequeue(self):
+        while self.pq:
+            entry = heapq.heappop(self.pq)
+            if not entry.removed:
+                del self.entry_finder[entry.node]
+                return entry.node
+        raise KeyError("pop from an empty priority queue")
+
+    def remove(self, node):
+        entry = self.entry_finder.pop(node)
+        entry.removed = True
+
+    def __contains__(self, node):
+        return node in self.entry_finder
+
+    def __len__(self):
+        return len(self.entry_finder)

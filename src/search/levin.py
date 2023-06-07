@@ -14,7 +14,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import annotations
-import heapq
 import math
 import time
 from typing import Optional, TYPE_CHECKING
@@ -26,7 +25,13 @@ from torch.nn.functional import log_softmax
 from domains.domain import State
 from models.loss_functions import masked_log_softmax
 from search.agent import Agent
-from search.utils import SearchNode, Trajectory
+from search.utils import (
+    LevinNode,
+    SearchNode,
+    Trajectory,
+    levin_cost,
+    swap_node_contents,
+)
 
 if TYPE_CHECKING:
     from domains.domain import State, Domain, Problem
@@ -120,7 +125,13 @@ class Levin(Agent):
                 if new_node not in reached:
                     if domain.is_goal(new_state):
                         solution_len = new_node.g_cost
-                        traj = Trajectory(domain, new_node, num_expanded)
+                        traj = Trajectory(
+                            domain=domain,
+                            final_node=new_node,
+                            num_expanded=num_expanded,
+                            steps=new_node.g_cost - 1,
+                            partial_log_prob=new_node.log_prob,
+                        )
                         if train:
                             traj = (traj,)
                         return solution_len, num_expanded, num_generated, traj
@@ -157,57 +168,3 @@ class Levin(Agent):
 
         print(f"Emptied frontier for problem {problem_id}")
         return 0, num_expanded, num_generated, None
-
-
-def swap_node_contents(src: LevinNode, dst: LevinNode):
-    dst.g_cost = src.g_cost
-    dst.parent = src.parent
-    dst.parent_action = src.parent_action
-    dst.log_prob = src.log_prob
-    dst.levin_cost = levin_cost(dst)
-
-
-class PQEntry:
-    def __init__(self, node):
-        self.node = node
-        self.removed = False
-
-    def __lt__(self, other):
-        return self.node < other.node
-
-
-class PriorityQueue:
-    def __init__(self) -> None:
-        self.pq = []
-        self.entry_finder = {}
-
-    def top(self):
-        for entry in self.pq:
-            if not entry.removed:
-                return entry.node
-        raise KeyError("top from an empty priority queue")
-
-    def enqueue(self, node):
-        if node in self.entry_finder:
-            self.remove(node)
-        entry = PQEntry(node)
-        heapq.heappush(self.pq, entry)
-        self.entry_finder[node] = entry
-
-    def dequeue(self):
-        while self.pq:
-            entry = heapq.heappop(self.pq)
-            if not entry.removed:
-                del self.entry_finder[entry.node]
-                return entry.node
-        raise KeyError("pop from an empty priority queue")
-
-    def remove(self, node):
-        entry = self.entry_finder.pop(node)
-        entry.removed = True
-
-    def __contains__(self, node):
-        return node in self.entry_finder
-
-    def __len__(self):
-        return len(self.entry_finder)

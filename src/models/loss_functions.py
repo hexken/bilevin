@@ -37,11 +37,22 @@ def levin_loss(trajs: MergedTrajectory, model: AgentModel):
             logits = model.backward_policy(state_feats)
 
     action_nlls = F.cross_entropy(logits, trajs.actions, reduction="none")
+
     traj_nlls = ts.scatter_add(action_nlls, trajs.indices, dim=0)
+    traj_probs = to.exp(-1 * traj_nlls.detach())
     loss = to.dot(traj_nlls, trajs.nums_expanded) / trajs.num_trajs
     avg_action_nll = action_nlls.detach().mean().item()
 
-    return loss, avg_action_nll, logits.detach()
+    start_idx = 0
+    action_nlls_d = action_nlls.detach()
+    traj_partial_probs = to.zeros(trajs.num_trajs)
+    for i in range(trajs.num_trajs):
+        partial_action_nlls = action_nlls_d[start_idx : trajs.steps[i]]
+        partial_prob = to.exp(-1 * partial_action_nlls.sum())
+        traj_partial_probs[i] = partial_prob
+        start_idx += trajs.lengths[i] - 1
+
+    return loss, avg_action_nll, logits.detach(), traj_probs, traj_partial_probs
 
 
 def ub_loss(trajs: MergedTrajectory, model: AgentModel):

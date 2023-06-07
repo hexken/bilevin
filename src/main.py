@@ -40,6 +40,12 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
+        "--show-solution-probs",
+        action="store_true",
+        default=False,
+        help="log/show solution probabilities",
+    )
+    parser.add_argument(
         "-p",
         "--problemset-path",
         type=lambda p: Path(p).absolute(),

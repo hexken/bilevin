@@ -26,7 +26,7 @@ from domains.domain import State
 from enums import TwoDir
 from models.loss_functions import masked_log_softmax
 from search.agent import Agent
-from search.levin import LevinNode, PriorityQueue, levin_cost, swap_node_contents
+from search.utils import LevinNode, PriorityQueue, levin_cost, swap_node_contents
 
 if TYPE_CHECKING:
     from domains.domain import Domain, Problem

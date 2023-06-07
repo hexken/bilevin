@@ -53,6 +53,7 @@ def train(
     epoch_reduce_grad_steps: int = 99999,
     epoch_begin_validate: int = 1,
     valid_loader: Optional[ProblemsBatchLoader] = None,
+    show_solution_probs: bool = False,
 ):
     is_distributed = world_size > 1
 
@@ -85,9 +86,9 @@ def train(
     local_batch_opt_results = to.zeros(5, dtype=to.float64)
 
     local_batch_size = train_loader.local_batch_size
-    local_batch_search_results = to.zeros(local_batch_size, 5, dtype=to.int64)
+    local_batch_search_results = to.zeros(local_batch_size, 9, dtype=to.float64)
     world_batch_search_results = [
-        to.zeros((local_batch_size, 5), dtype=to.int64) for _ in range(world_size)
+        to.zeros((local_batch_size, 9), dtype=to.float64) for _ in range(world_size)
     ]
 
     batches_seen = 0
@@ -289,6 +290,7 @@ def train(
                 if bidirectional:
                     b_merged_traj = MergedTrajectory(backward_trajs)
 
+                # perform grad steps
                 to.set_grad_enabled(True)
                 model.train()
 
@@ -301,9 +303,13 @@ def train(
                 for grad_step in range(1, grad_steps + 1):
                     optimizer.zero_grad()
                     if forward_trajs:
-                        f_loss, f_avg_action_nll, f_logits = loss_fn(
-                            f_merged_traj, model
-                        )
+                        (
+                            f_loss,
+                            f_avg_action_nll,
+                            f_logits,
+                            f_traj_probs,
+                            f_traj_partial_probs,
+                        ) = loss_fn(f_merged_traj, model)
 
                         f_acc = (
                             f_logits.argmax(dim=1) == f_merged_traj.actions
@@ -314,9 +320,14 @@ def train(
                         local_batch_opt_results[2] = 1
 
                         if bidirectional:
-                            b_loss, b_avg_action_nll, b_logits = loss_fn(
-                                b_merged_traj, model
-                            )
+                            (
+                                b_loss,
+                                b_avg_action_nll,
+                                b_logits,
+                                b_traj_probs,
+                                b_traj_partial_probs,
+                            ) = loss_fn(b_merged_traj, model)
+
                             b_acc = (
                                 b_logits.argmax(dim=1) == b_merged_traj.actions
                             ).sum().item() / len(b_logits)
