@@ -220,74 +220,6 @@ def train(
                         if bidirectional:
                             backward_trajs.append(traj[1])
 
-                if is_distributed:
-                    dist.all_gather(
-                        world_batch_search_results, local_batch_search_results
-                    )
-                    world_batch_results_t = to.cat(world_batch_search_results, dim=0)
-                else:
-                    world_batch_results_t = local_batch_search_results
-
-                world_batch_results_arr = world_batch_results_t.numpy()
-                # hacky way to filter out results from partial batches
-                world_batch_results_arr = world_batch_results_arr[
-                    world_batch_results_arr[:, 2] > 0
-                ]
-
-                world_batch_ids = np.array(
-                    [batch_loader.all_ids[i] for i in world_batch_results_arr[:, 0]],
-                    dtype=np.unicode_,
-                )
-                world_results_df.loc[
-                    world_batch_ids, search_result_header[1:-1]
-                ] = world_batch_results_arr[
-                    :, 1:-1
-                ]  # ProblemId is already index, Time is set in following lines
-                world_results_df.loc[world_batch_ids, "Time"] = (
-                    world_batch_results_arr[:, -1].astype(float) / 1000
-                )
-
-                world_batch_results_df = world_results_df.loc[world_batch_ids]
-                world_batch_results_df.sort_values("NumExpanded", inplace=True)
-
-                batch_solved_ids = world_batch_ids[world_batch_results_arr[:, 1] > 0]
-                for problem_id in batch_solved_ids:
-                    if problem_id not in solved_problems:
-                        num_new_problems_solved_this_epoch += 1
-                        solved_problems.add(problem_id)
-
-                num_problems_solved_this_batch = len(batch_solved_ids)
-                num_problems_solved_this_epoch += num_problems_solved_this_batch
-                num_problems_this_batch = len(world_batch_results_arr)
-
-                batch_expansions = world_batch_results_df["NumExpanded"].sum()
-                batch_expansions_ratio = batch_expansions / (
-                    len(world_batch_results_df) * expansion_budget
-                )
-
-                if rank == 0:
-                    print(
-                        tabulate(
-                            world_batch_results_df,
-                            headers="keys",
-                            tablefmt="psql",
-                        )
-                    )
-                    print(
-                        f"Solved {num_problems_solved_this_batch}/{num_problems_this_batch}\n"
-                    )
-                    print(f"Expansion ratio: {batch_expansions_ratio}\n")
-                    total_num_expanded += world_batch_results_df["NumExpanded"].sum()
-
-                    writer.add_scalar(
-                        "cum_unique_solved_vs_expanded",
-                        len(solved_problems),
-                        total_num_expanded,
-                    )
-
-                if rank == 0:
-                    print(opt_result_header)
-
                 f_merged_traj = MergedTrajectory(forward_trajs)
                 if bidirectional:
                     b_merged_traj = MergedTrajectory(backward_trajs)
@@ -423,6 +355,75 @@ def train(
                 if bidirectional:
                     world_epoch_b_loss[batch_idx] = b_loss
                     world_epoch_b_acc[batch_idx] = b_acc
+
+                # optimize before doing any synchronization
+                if is_distributed:
+                    dist.all_gather(
+                        world_batch_search_results, local_batch_search_results
+                    )
+                    world_batch_results_t = to.cat(world_batch_search_results, dim=0)
+                else:
+                    world_batch_results_t = local_batch_search_results
+
+                world_batch_results_arr = world_batch_results_t.numpy()
+                # hacky way to filter out results from partial batches
+                world_batch_results_arr = world_batch_results_arr[
+                    world_batch_results_arr[:, 2] > 0
+                ]
+
+                world_batch_ids = np.array(
+                    [batch_loader.all_ids[i] for i in world_batch_results_arr[:, 0]],
+                    dtype=np.unicode_,
+                )
+                world_results_df.loc[
+                    world_batch_ids, search_result_header[1:-1]
+                ] = world_batch_results_arr[
+                    :, 1:-1
+                ]  # ProblemId is already index, Time is set in following lines
+                world_results_df.loc[world_batch_ids, "Time"] = (
+                    world_batch_results_arr[:, -1].astype(float) / 1000
+                )
+
+                world_batch_results_df = world_results_df.loc[world_batch_ids]
+                world_batch_results_df.sort_values("NumExpanded", inplace=True)
+
+                batch_solved_ids = world_batch_ids[world_batch_results_arr[:, 1] > 0]
+                for problem_id in batch_solved_ids:
+                    if problem_id not in solved_problems:
+                        num_new_problems_solved_this_epoch += 1
+                        solved_problems.add(problem_id)
+
+                num_problems_solved_this_batch = len(batch_solved_ids)
+                num_problems_solved_this_epoch += num_problems_solved_this_batch
+                num_problems_this_batch = len(world_batch_results_arr)
+
+                batch_expansions = world_batch_results_df["NumExpanded"].sum()
+                batch_expansions_ratio = batch_expansions / (
+                    len(world_batch_results_df) * expansion_budget
+                )
+
+                if rank == 0:
+                    print(
+                        tabulate(
+                            world_batch_results_df,
+                            headers="keys",
+                            tablefmt="psql",
+                        )
+                    )
+                    print(
+                        f"Solved {num_problems_solved_this_batch}/{num_problems_this_batch}\n"
+                    )
+                    print(f"Expansion ratio: {batch_expansions_ratio}\n")
+                    total_num_expanded += world_batch_results_df["NumExpanded"].sum()
+
+                    writer.add_scalar(
+                        "cum_unique_solved_vs_expanded",
+                        len(solved_problems),
+                        total_num_expanded,
+                    )
+
+                if rank == 0:
+                    print(opt_result_header)
 
                 if rank == 0:
                     # if batches_seen % param_log_interval == 0:
