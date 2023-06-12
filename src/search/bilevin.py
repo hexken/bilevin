@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 from copy import deepcopy
+import heapq
 import random
 import time
 from typing import TYPE_CHECKING
@@ -27,7 +28,7 @@ from domains.domain import State
 from enums import TwoDir
 from models.loss_functions import masked_log_softmax
 from search.agent import Agent
-from search.utils import LevinNode, PriorityQueue, levin_cost, swap_node_contents
+from search.utils import LevinNode, levin_cost
 
 if TYPE_CHECKING:
     from domains.domain import Domain, Problem
@@ -52,8 +53,8 @@ class BiLevin(Agent):
         random_goal=False,
     ):
         """ """
-        f_frontier = PriorityQueue()
-        b_frontier = PriorityQueue()
+        f_frontier = []
+        b_frontier = []
         f_reached = {}
         b_reached = {}
 
@@ -125,7 +126,8 @@ class BiLevin(Agent):
         f_reached[f_start_node] = f_start_node
         f_domain.update(f_start_node)
         if f_avail_actions:
-            f_frontier.enqueue(f_start_node)
+            f_frontier.append(f_start_node)
+        heapq.heapify(f_frontier)
 
         if random_goal:
             while True:
@@ -141,7 +143,7 @@ class BiLevin(Agent):
                 b_reached[start_node] = start_node
                 b_domain.update(start_node)
                 if start_node.actions:
-                    b_frontier.enqueue(start_node)
+                    b_frontier.append(start_node)
                     break
 
         else:
@@ -157,8 +159,9 @@ class BiLevin(Agent):
                 b_reached[start_node] = start_node
                 b_domain.update(start_node)
                 if start_node.actions:
-                    b_frontier.enqueue(start_node)
+                    b_frontier.append(start_node)
 
+        heapq.heapify(b_frontier)
         num_expanded = 0
         num_generated = 0
         while len(f_frontier) > 0 and len(b_frontier) > 0:
@@ -169,10 +172,7 @@ class BiLevin(Agent):
             ):
                 return (False, num_expanded, num_generated, None)
 
-            b = b_frontier.top()
-            f = f_frontier.top()
-
-            if f < b:
+            if f_frontier[0] < b_frontier[0]:
                 direction = TwoDir.FORWARD
                 _domain = f_domain
                 _policy = forward_policy
@@ -187,7 +187,7 @@ class BiLevin(Agent):
                 _reached = b_reached
                 other_domain = f_domain
 
-            node = _frontier.dequeue()
+            node = heapq.heappop(_frontier)
             num_expanded += 1
 
             masks = []
@@ -224,7 +224,7 @@ class BiLevin(Agent):
                     _domain.update(new_node)
 
                     if new_state_actions:
-                        _frontier.enqueue(new_node)
+                        heapq.heappush(_frontier, new_node)
                         children_to_be_evaluated.append(new_node)
                         state_t = _domain.state_tensor(new_state)
                         state_t_of_children_to_be_evaluated.append(state_t)
@@ -232,16 +232,6 @@ class BiLevin(Agent):
                         mask = to.zeros(num_actions)
                         mask[new_state_actions] = 1
                         masks.append(mask)
-
-                elif update_levin_costs:
-                    old_node = _reached[new_node]
-                    if new_node.g_cost < old_node.g_cost:
-                        # print("updating")
-                        swap_node_contents(new_node, old_node)
-                        if old_node in _frontier:
-                            # print("updating frontier")
-                            _frontier.remove(old_node)
-                            _frontier.enqueue(old_node)
 
             if children_to_be_evaluated:
                 batch_states = to.stack(state_t_of_children_to_be_evaluated)

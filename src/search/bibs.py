@@ -22,7 +22,7 @@ from torch.nn.functional import log_softmax
 
 from enums import TwoDir
 from search.agent import Agent
-from search.utils import PriorityQueue, SearchNode
+from search.utils import SearchNode
 
 if TYPE_CHECKING:
     from domains.domain import Domain, Problem

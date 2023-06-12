@@ -14,6 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import annotations
+import heapq
 import math
 import time
 from typing import Optional, TYPE_CHECKING
@@ -25,13 +26,7 @@ from torch.nn.functional import log_softmax
 from domains.domain import State
 from models.loss_functions import masked_log_softmax
 from search.agent import Agent
-from search.utils import (
-    LevinNode,
-    SearchNode,
-    Trajectory,
-    levin_cost,
-    swap_node_contents,
-)
+from search.utils import LevinNode, SearchNode, Trajectory, levin_cost
 
 if TYPE_CHECKING:
     from domains.domain import State, Domain, Problem
@@ -85,11 +80,12 @@ class Levin(Agent):
             log_action_probs=log_action_probs,
         )
 
-        frontier = PriorityQueue()
+        frontier = []
         reached = {}
         if avail_actions:
-            frontier.enqueue(node)
+            frontier.append(node)
         reached[node] = node
+        heapq.heapify(frontier)
 
         num_expanded = 0
         num_generated = 0
@@ -101,7 +97,7 @@ class Levin(Agent):
             ):
                 return 0, num_expanded, num_generated, None
 
-            node = frontier.dequeue()
+            node = heapq.heappop(frontier)
             num_expanded += 1
 
             masks = []
@@ -139,7 +135,7 @@ class Levin(Agent):
 
                     reached[new_node] = new_node
                     if new_state_actions:
-                        frontier.enqueue(new_node)
+                        heapq.heappush(frontier, new_node)
 
                         children_to_be_evaluated.append(new_node)
                         state_t = domain.state_tensor(new_state)
@@ -148,14 +144,6 @@ class Levin(Agent):
                         mask = to.zeros(num_actions)
                         mask[new_state_actions] = 1
                         masks.append(mask)
-
-                elif update_levin_costs:
-                    old_node = reached[new_node]
-                    if new_node.g_cost < old_node.g_cost:
-                        swap_node_contents(new_node, old_node)
-                        if old_node in frontier:
-                            frontier.remove(old_node)
-                            frontier.enqueue(old_node)
 
             if children_to_be_evaluated:
                 batch_states = to.stack(state_t_of_children_to_be_evaluated)
