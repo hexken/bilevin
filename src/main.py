@@ -298,11 +298,14 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
         arg_string = "|param|value|\n|-|-|\n%s" % (
             "\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])
         )
-        for arg in arg_string.splitlines()[2:]:
-            arg = arg.replace("|", "", 1)
-            arg = arg.replace("|", ": ", 1)
-            arg = arg.replace("|", "", 1)
-            print(arg)
+        logdir = Path(writer.log_dir)
+        with (logdir / "args.txt").open("w") as f:
+            for arg in arg_string.splitlines()[2:]:
+                arg = arg.replace("|", "", 1)
+                arg = arg.replace("|", ": ", 1)
+                arg = arg.replace("|", "", 1)
+                f.write(f"{arg}\n")
+                print(arg)
         print()
 
         writer.add_text(
