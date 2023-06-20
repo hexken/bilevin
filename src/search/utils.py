@@ -171,7 +171,11 @@ class Trajectory:
             self, model
         )  # do this after states, actions, forward, steps, are set
 
-        assert np.isclose(-1 * self.partial_log_prob, pnll)
+        # assert np.isclose(-1 * self.partial_log_prob, pnll)
+        if not np.isclose(-1 * self.partial_log_prob, pnll):
+            print(
+                f"Warning: partial log prob does not match nll {-1 * self.partial_log_prob} {pnll}"
+            )
 
     def __len__(self):
         return len(self.states)

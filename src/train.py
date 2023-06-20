@@ -135,6 +135,8 @@ def train(
             num_problems_solved_this_epoch = 0
 
             if rank == 0:
+                epoch_logdir = Path(writer.log_dir) / f"epoch-{epoch}"
+                epoch_logdir.mkdir(parents=True, exist_ok=True)
                 print(
                     "============================================================================"
                 )
@@ -286,6 +288,10 @@ def train(
                             # intfmt="",
                         )
                     )
+                    world_batch_results_df.to_pickle(
+                        epoch_logdir / f"batch-{batches_seen}.pkl"
+                    )
+
                     batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                     writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
 
@@ -512,7 +518,7 @@ def train(
                 writer.add_scalar(f"fb_expansions_ratio_vs_epoch", epoch_fb_exp_ratio, epoch)
                 writer.add_scalar(f"fb_g_ratio_vs_epoch", epoch_fb_g_ratio_ratio, epoch)
 
-                world_results_df.to_csv(f"{writer.log_dir}/epoch_{epoch}.csv")
+                world_results_df.to_pickle(epoch_logdir / "epoch.pkl")
                 # fmt: on
                 sys.stdout.flush()
 

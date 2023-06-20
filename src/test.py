@@ -181,7 +181,7 @@ def test(
 
             if validate:
                 pbar.update(world_num_problems)
-                fname = f"{writer.log_dir}/valid_{epoch}.csv"
+                fname = f"{writer.log_dir}/epoch-{epoch}/valid.pkl"
             else:
                 writer.add_scalar(
                     f"cum_unique_solved_vs_expanded",
@@ -189,9 +189,9 @@ def test(
                     total_num_expanded,
                 )
                 pbar.update(len(solved_ids))
-                fname = f"{writer.log_dir}/test_{epoch}.csv"
+                fname = f"{writer.log_dir}/epoch-{epoch}/test.pkl"
 
-            world_results_df.to_csv(fname)
+            world_results_df.to_pickle(fname)
 
         epoch += 1
         if increase_budget:
