@@ -273,13 +273,18 @@ def get_merged_solution(
         parent_dir2_action = parent_dir2_node.parent_action
         parent_dir2_node = parent_dir2_node.parent
 
+    if dir1_common.parent:
+        log_prob = dir1_common.parent.log_prob
+    else:
+        log_prob = 0.0
+
     return Trajectory(
         model=model,
         domain=dir1_domain,
         final_node=dir1_node,
         num_expanded=num_expanded,
         partial_g_cost=dir1_common.g_cost - 1,
-        partial_log_prob=dir1_common.parent.log_prob,
+        partial_log_prob=log_prob,
         goal_state_t=goal_state_t,
         forward=forward,
     )
