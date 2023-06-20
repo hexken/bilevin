@@ -71,6 +71,7 @@ class WitnessState(State):
 
 
 def get_merged_trajectory(
+    model: AgentModel,
     dir1_domain,
     dir1_common: SearchNode,
     dir2_common: SearchNode,
@@ -99,11 +100,25 @@ def get_merged_trajectory(
         dir2_parent_action = dir2_parent_node.parent_action
         dir2_parent_node = dir2_parent_node.parent
 
-    return Trajectory(dir1_domain, dir1_node, num_expanded, goal_state_t, forward)
+    return Trajectory(
+        model=model,
+        domain=dir1_domain,
+        final_node=dir1_node,
+        num_expanded=num_expanded,
+        partial_g_cost=dir1_common.g_cost - 1,
+        partial_log_prob=dir1_common.parent.log_prob,
+        goal_state_t=goal_state_t,
+        forward=forward,
+    )
 
 
 def try_make_solution(
-    this_domain: Witness, node: SearchNode, other_domain: Witness, num_expanded: int
+    model,
+    AgebtModel,
+    this_domain: Witness,
+    node: SearchNode,
+    other_domain: Witness,
+    num_expanded: int,
 ) -> Optional[tuple[Trajectory, Trajectory]]:
     """
     Tries to create a solution from the current node and the nodes visited by the other search
@@ -148,9 +163,10 @@ def try_make_solution(
                 b_domain = this_domain
 
             f_traj = get_merged_trajectory(
-                f_domain, f_common_node, b_common_node, type(node), num_expanded
+                model, f_domain, f_common_node, b_common_node, type(node), num_expanded
             )
             b_traj = get_merged_trajectory(
+                model,
                 b_domain,
                 b_common_node,
                 f_common_node,

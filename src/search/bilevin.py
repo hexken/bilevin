@@ -26,9 +26,8 @@ from torch.nn.functional import log_softmax
 
 from domains.domain import State
 from enums import TwoDir
-from models.loss_functions import masked_log_softmax
 from search.agent import Agent
-from search.utils import LevinNode, levin_cost
+from search.utils import LevinNode, levin_cost, masked_log_softmax
 
 if TYPE_CHECKING:
     from domains.domain import Domain, Problem
@@ -47,10 +46,8 @@ class BiLevin(Agent):
         self,
         problem: Problem,
         budget,
-        update_levin_costs=False,
         train=False,
         end_time=None,
-        random_goal=False,
     ):
         """ """
         f_frontier = []
@@ -129,48 +126,41 @@ class BiLevin(Agent):
             f_frontier.append(f_start_node)
         heapq.heapify(f_frontier)
 
-        if random_goal:
-            while True:
-                i = random.randint(0, len(b_states) - 1)
-                start_node = LevinNode(
-                    b_states[i],
-                    g_cost=0,
-                    log_prob=0.0,
-                    levin_cost=0.0,
-                    actions=b_avail_actions[i],
-                    log_action_probs=b_log_action_probs[i],
-                )
-                b_reached[start_node] = start_node
-                b_domain.update(start_node)
-                if start_node.actions:
-                    b_frontier.append(start_node)
-                    break
-
-        else:
-            for i, state in enumerate(b_states):
-                start_node = LevinNode(
-                    state,
-                    g_cost=0,
-                    log_prob=0.0,
-                    levin_cost=0.0,
-                    actions=b_avail_actions[i],
-                    log_action_probs=b_log_action_probs[i],
-                )
-                b_reached[start_node] = start_node
-                b_domain.update(start_node)
-                if start_node.actions:
-                    b_frontier.append(start_node)
+        for i, state in enumerate(b_states):
+            start_node = LevinNode(
+                state,
+                g_cost=0,
+                log_prob=0.0,
+                levin_cost=0.0,
+                actions=b_avail_actions[i],
+                log_action_probs=b_log_action_probs[i],
+            )
+            b_reached[start_node] = start_node
+            b_domain.update(start_node)
+            if start_node.actions:
+                b_frontier.append(start_node)
 
         heapq.heapify(b_frontier)
-        num_expanded = 0
-        num_generated = 0
+        n_total_expanded = 0
+        n_forw_expanded = 0
+        n_backw_expanded = 0
+        n_forw_generated = 0
+        n_backw_generated = 0
+
         while len(f_frontier) > 0 and len(b_frontier) > 0:
             if (
-                (budget and num_expanded >= budget)
+                (budget and n_total_expanded >= budget)
                 or end_time
                 and time.time() > end_time
             ):
-                return (False, num_expanded, num_generated, None)
+                return (
+                    False,
+                    n_forw_expanded,
+                    n_backw_expanded,
+                    n_forw_generated,
+                    n_backw_generated,
+                    None,
+                )
 
             if f_frontier[0] < b_frontier[0]:
                 direction = TwoDir.FORWARD
@@ -188,7 +178,11 @@ class BiLevin(Agent):
                 other_domain = f_domain
 
             node = heapq.heappop(_frontier)
-            num_expanded += 1
+            if direction == TwoDir.FORWARD:
+                n_forw_expanded += 1
+            else:
+                n_backw_expanded += 1
+            n_total_expanded += 1
 
             masks = []
             children_to_be_evaluated = []
@@ -206,19 +200,31 @@ class BiLevin(Agent):
                     log_prob=node.log_prob + node.log_action_probs[a].item(),
                 )
                 new_node.levin_cost = levin_cost(new_node)
-                num_generated += 1
+
+                if direction == TwoDir.FORWARD:
+                    n_forw_generated += 1
+                else:
+                    n_backw_generated += 1
 
                 if new_node not in _reached:
                     trajs = try_make_solution(
-                        _domain, new_node, other_domain, num_expanded
+                        model,
+                        _domain,
+                        new_node,
+                        other_domain,
+                        n_forw_expanded + n_backw_expanded,
                     )
 
                     if trajs:  # solution found
                         solution_len = len(trajs[0])
-                        assert solution_len == len(trajs[1])
-                        if not train:
-                            trajs = trajs[0]
-                        return solution_len, num_expanded, num_generated, trajs
+                        return (
+                            solution_len,
+                            n_forw_expanded,
+                            n_backw_expanded,
+                            n_forw_generated,
+                            n_backw_generated,
+                            trajs,
+                        )
 
                     _reached[new_node] = new_node
                     _domain.update(new_node)
@@ -251,4 +257,11 @@ class BiLevin(Agent):
                     child.log_action_probs = log_action_probs[i]
 
         print(f"Emptied frontiers for problem {problem_id}")
-        return False, num_expanded, num_generated, None
+        return (
+            False,
+            n_forw_expanded,
+            n_backw_expanded,
+            n_forw_generated,
+            n_backw_generated,
+            None,
+        )

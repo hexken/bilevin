@@ -24,9 +24,14 @@ from torch.jit import RecursiveScriptModule
 from torch.nn.functional import log_softmax
 
 from domains.domain import State
-from models.loss_functions import masked_log_softmax
 from search.agent import Agent
-from search.utils import LevinNode, SearchNode, Trajectory, levin_cost
+from search.utils import (
+    LevinNode,
+    SearchNode,
+    Trajectory,
+    levin_cost,
+    masked_log_softmax,
+)
 
 if TYPE_CHECKING:
     from domains.domain import State, Domain, Problem
@@ -45,10 +50,8 @@ class Levin(Agent):
         self,
         problem: Problem,
         budget,
-        update_levin_costs=False,
         train=False,
         end_time=None,
-        random_goal=False,
     ):
         """ """
 
@@ -95,7 +98,7 @@ class Levin(Agent):
                 or end_time
                 and time.time() > end_time
             ):
-                return 0, num_expanded, num_generated, None
+                return 0, num_expanded, 0, num_generated, 0, None
 
             node = heapq.heappop(frontier)
             num_expanded += 1
@@ -123,15 +126,15 @@ class Levin(Agent):
                     if domain.is_goal(new_state):
                         solution_len = new_node.g_cost
                         traj = Trajectory(
+                            model=model,
                             domain=domain,
                             final_node=new_node,
                             num_expanded=num_expanded,
-                            steps=new_node.g_cost - 1,
-                            partial_log_prob=new_node.log_prob,
+                            partial_g_cost=node.g_cost,
+                            partial_log_prob=node.log_prob,
                         )
-                        if train:
-                            traj = (traj,)
-                        return solution_len, num_expanded, num_generated, traj
+                        traj = (traj,)
+                        return solution_len, num_expanded, 0, num_generated, 0, traj
 
                     reached[new_node] = new_node
                     if new_state_actions:
@@ -156,4 +159,4 @@ class Levin(Agent):
                     child.log_action_probs = lap
 
         print(f"Emptied frontier for problem {problem_id}")
-        return 0, num_expanded, num_generated, None
+        return 0, num_expanded, 0, num_generated, 0, None

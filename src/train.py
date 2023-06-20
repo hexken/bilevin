@@ -37,6 +37,7 @@ from loaders import CurriculumLoader, ProblemsBatchLoader
 from models import AgentModel
 from search import MergedTrajectory
 from search.agent import Agent
+from search.utils import int_columns, search_result_header
 
 
 def train(
@@ -54,19 +55,10 @@ def train(
     epoch_begin_validate: int = 1,
     valid_loader: Optional[ProblemsBatchLoader] = None,
     show_solution_probs: bool = False,
-    random_goal: bool = True,
 ):
     is_distributed = world_size > 1
 
     param_log_interval = 20
-
-    search_result_header = [
-        "ProblemId",
-        "SolutionLength",
-        "NumExpanded",
-        "NumGenerated",
-        "Time",
-    ]
 
     opt_result_header = (
         f"           Forward        Backward\nOptStep   Loss    Acc    Loss    Acc"
@@ -87,9 +79,12 @@ def train(
     local_batch_opt_results = to.zeros(5, dtype=to.float64)
 
     local_batch_size = train_loader.local_batch_size
-    local_batch_search_results = to.zeros(local_batch_size, 9, dtype=to.float64)
+    local_batch_search_results = to.zeros(
+        local_batch_size, len(search_result_header), dtype=to.float64
+    )
     world_batch_search_results = [
-        to.zeros((local_batch_size, 9), dtype=to.float64) for _ in range(world_size)
+        to.zeros((local_batch_size, len(search_result_header)), dtype=to.float64)
+        for _ in range(world_size)
     ]
 
     batches_seen = 0
@@ -127,7 +122,6 @@ def train(
         )
         world_results_df = pd.DataFrame(dummy_data, columns=search_result_header[1:])
         del dummy_data
-        world_results_df["Time"] = world_results_df["Time"].astype(float, copy=False)
         world_results_df["ProblemId"] = batch_loader.all_ids
         world_results_df.set_index("ProblemId", inplace=True)
 
@@ -193,32 +187,154 @@ def train(
                     start_time = time.time()
                     (
                         solution_length,
-                        num_expanded,
-                        num_generated,
+                        n_forw_expanded,
+                        n_backw_expanded,
+                        n_forw_generated,
+                        n_backw_generated,
                         traj,
                     ) = agent.search(
                         problem,
                         expansion_budget,
                         train=True,
                         end_time=start_time + time_budget,
-                        random_goal=random_goal
                     )
                     end_time = time.time()
                     if bidirectional:
                         problem.domain.reset()
 
                     local_batch_search_results[i, 0] = problem.id_idx
-                    local_batch_search_results[i, 1] = solution_length
-                    local_batch_search_results[i, 2] = num_expanded
-                    local_batch_search_results[i, 3] = num_generated
-                    local_batch_search_results[i, 4] = int(
-                        (end_time - start_time) * 1000
+                    local_batch_search_results[i, 1] = end_time - start_time
+                    local_batch_search_results[i, 2] = (
+                        n_forw_expanded + n_backw_expanded
                     )
+                    local_batch_search_results[i, 3] = n_forw_expanded
+                    local_batch_search_results[i, 4] = n_backw_expanded
+                    local_batch_search_results[i, 5] = (
+                        n_forw_generated + n_backw_generated
+                    )
+                    local_batch_search_results[i, 6] = n_forw_generated
+                    local_batch_search_results[i, 7] = n_backw_generated
+                    local_batch_search_results[i, 8] = solution_length
 
                     if traj:
                         forward_trajs.append(traj[0])
+                        local_batch_search_results[i, 9] = traj[0].partial_g_cost
+                        local_batch_search_results[i, 11] = (
+                            -1 * traj[0].partial_log_prob
+                        )
+                        local_batch_search_results[i, 13] = traj[0].log_prob
                         if bidirectional:
                             backward_trajs.append(traj[1])
+                            local_batch_search_results[i, 10] = traj[1].partial_g_cost
+                            local_batch_search_results[i, 12] = (
+                                -1 * traj[1].partial_log_prob
+                            )
+                            local_batch_search_results[i, 14] = traj[1].log_prob
+
+                if is_distributed:
+                    dist.all_gather(
+                        world_batch_search_results, local_batch_search_results
+                    )
+                    world_batch_results_t = to.cat(world_batch_search_results, dim=0)
+                else:
+                    world_batch_results_t = local_batch_search_results
+
+                world_batch_results_arr = world_batch_results_t.numpy()
+                # hacky way to filter out results from partial batches
+                world_batch_results_arr = world_batch_results_arr[
+                    world_batch_results_arr[:, 6] > 0
+                ]
+
+                world_batch_ids = np.array(
+                    [
+                        batch_loader.all_ids[i]
+                        for i in world_batch_results_arr[:, 0].astype(int)
+                    ],
+                    dtype=np.unicode_,
+                )
+                world_results_df.loc[
+                    world_batch_ids, search_result_header[1:]
+                ] = world_batch_results_arr[
+                    :, 1:
+                ]  # ProblemId is already index
+
+                # done updating world_results_df
+                world_batch_results_df = world_results_df.loc[world_batch_ids]
+                for col in int_columns:
+                    world_batch_results_df[col] = world_batch_results_df[col].astype(
+                        int
+                    )
+                world_batch_results_df.sort_values("Exp", inplace=True)
+
+                batch_solved_ids = world_batch_ids[world_batch_results_arr[:, 8] > 0]
+                for problem_id in batch_solved_ids:
+                    if problem_id not in solved_problems:
+                        num_new_problems_solved_this_epoch += 1
+                        solved_problems.add(problem_id)
+
+                num_problems_solved_this_batch = len(batch_solved_ids)
+                num_problems_solved_this_epoch += num_problems_solved_this_batch
+                num_problems_this_batch = len(world_batch_results_arr)
+
+                if rank == 0:
+                    print(
+                        tabulate(
+                            world_batch_results_df,
+                            headers="keys",
+                            tablefmt="psql",
+                            # floatfmt=".2f"
+                            # intfmt="",
+                        )
+                    )
+                    batch_avg = num_problems_solved_this_batch / num_problems_this_batch
+                    writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
+
+                    batch_expansions = world_batch_results_df["Exp"].sum()
+                    batch_expansions_ratio = batch_expansions / (
+                        len(world_batch_results_df) * expansion_budget
+                    )
+
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=RuntimeWarning)
+                        fb_exp_ratio = (
+                            world_batch_results_df["FExp"].sum()
+                            / world_batch_results_df["BExp"].sum()
+                        )
+                        fb_g_ratio = (
+                            world_batch_results_df["Fg"].sum()
+                            / world_batch_results_df["Bg"].sum()
+                        )
+
+                    print(
+                        f"{'Solved':23s}: {num_problems_solved_this_batch}/{num_problems_this_batch}"
+                    )
+                    print(
+                        f"{'Total expansion ratio':23s}: {batch_expansions_ratio:.3f}"
+                    )
+                    print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:.3f}")
+                    print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:.3f}\n")
+
+                    writer.add_scalar(
+                        f"expansions_vs_batch", batch_expansions_ratio, batches_seen
+                    )
+                    writer.add_scalar(
+                        f"fb_expansions_ratio_vs_batch", fb_exp_ratio, batches_seen
+                    )
+                    writer.add_scalar(f"fb_g_ratio_vs_batch", fb_g_ratio, batches_seen)
+
+                    total_num_expanded += world_batch_results_df["Exp"].sum()
+                    writer.add_scalar(
+                        "cum_unique_solved_vs_expanded",
+                        len(solved_problems),
+                        total_num_expanded,
+                    )
+                    # if batches_seen % param_log_interval == 0:
+                    #     log_params(writer, model, batches_seen)
+                    # writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
+                    sys.stdout.flush()
+
+                if rank == 0:
+                    print(opt_result_header)
 
                 f_merged_traj = MergedTrajectory(forward_trajs)
                 if bidirectional:
@@ -241,8 +357,6 @@ def train(
                             f_loss,
                             f_avg_action_nll,
                             f_logits,
-                            f_traj_probs,
-                            f_traj_partial_probs,
                         ) = loss_fn(f_merged_traj, model)
 
                         f_acc = (
@@ -258,8 +372,6 @@ def train(
                                 b_loss,
                                 b_avg_action_nll,
                                 b_logits,
-                                b_traj_probs,
-                                b_traj_partial_probs,
                             ) = loss_fn(b_merged_traj, model)
 
                             b_acc = (
@@ -288,28 +400,6 @@ def train(
                         num_procs_found_solution = int(
                             local_batch_opt_results[2].item()
                         )
-
-                    # todo grad clipping? for now inspect norms
-                    # if num_procs_found_solution > 0 and rank == 0:
-                    #     log_grad_norm(
-                    #         model.feature_net.parameters(),
-                    #         "feature_net",
-                    #         writer,
-                    #         opt_step,
-                    #     )
-                    #     log_grad_norm(
-                    #         model.forward_policy.parameters(),
-                    #         "forward",
-                    #         writer,
-                    #         opt_step,
-                    #     )
-                    #     if bidirectional:
-                    #         log_grad_norm(
-                    #             model.backward_policy.parameters(),
-                    #             "backward",
-                    #             writer,
-                    #             opt_step,
-                    #         )
 
                     optimizer.step()
 
@@ -356,93 +446,18 @@ def train(
                     world_epoch_b_loss[batch_idx] = b_loss
                     world_epoch_b_acc[batch_idx] = b_acc
 
-                # optimize before doing any synchronization
-                if is_distributed:
-                    dist.all_gather(
-                        world_batch_search_results, local_batch_search_results
-                    )
-                    world_batch_results_t = to.cat(world_batch_search_results, dim=0)
-                else:
-                    world_batch_results_t = local_batch_search_results
-
-                world_batch_results_arr = world_batch_results_t.numpy()
-                # hacky way to filter out results from partial batches
-                world_batch_results_arr = world_batch_results_arr[
-                    world_batch_results_arr[:, 2] > 0
-                ]
-
-                world_batch_ids = np.array(
-                    [batch_loader.all_ids[i] for i in world_batch_results_arr[:, 0]],
-                    dtype=np.unicode_,
-                )
-                world_results_df.loc[
-                    world_batch_ids, search_result_header[1:-1]
-                ] = world_batch_results_arr[
-                    :, 1:-1
-                ]  # ProblemId is already index, Time is set in following lines
-                world_results_df.loc[world_batch_ids, "Time"] = (
-                    world_batch_results_arr[:, -1].astype(float) / 1000
-                )
-
-                world_batch_results_df = world_results_df.loc[world_batch_ids]
-                world_batch_results_df.sort_values("NumExpanded", inplace=True)
-
-                batch_solved_ids = world_batch_ids[world_batch_results_arr[:, 1] > 0]
-                for problem_id in batch_solved_ids:
-                    if problem_id not in solved_problems:
-                        num_new_problems_solved_this_epoch += 1
-                        solved_problems.add(problem_id)
-
-                num_problems_solved_this_batch = len(batch_solved_ids)
-                num_problems_solved_this_epoch += num_problems_solved_this_batch
-                num_problems_this_batch = len(world_batch_results_arr)
-
-                batch_expansions = world_batch_results_df["NumExpanded"].sum()
-                batch_expansions_ratio = batch_expansions / (
-                    len(world_batch_results_df) * expansion_budget
-                )
-
-                if rank == 0:
-                    print(
-                        tabulate(
-                            world_batch_results_df,
-                            headers="keys",
-                            tablefmt="psql",
-                        )
-                    )
-                    print(
-                        f"Solved {num_problems_solved_this_batch}/{num_problems_this_batch}\n"
-                    )
-                    print(f"Expansion ratio: {batch_expansions_ratio}\n")
-                    total_num_expanded += world_batch_results_df["NumExpanded"].sum()
-
-                    writer.add_scalar(
-                        "cum_unique_solved_vs_expanded",
-                        len(solved_problems),
-                        total_num_expanded,
-                    )
-
-                if rank == 0:
-                    print(opt_result_header)
-
-                if rank == 0:
-                    # if batches_seen % param_log_interval == 0:
-                    #     log_params(writer, model, batches_seen)
-
-                    batch_avg = num_problems_solved_this_batch / num_problems_this_batch
-                    # fmt: off
-                    writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
-                    writer.add_scalar(f"expansions_vs_batch", batch_expansions_ratio, batches_seen)
-                    # writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
-                    # fmt: on
-                    sys.stdout.flush()
-
             if rank == 0:
-                epoch_expansions = world_results_df["NumExpanded"].sum()
+                epoch_expansions = world_results_df["Exp"].sum()
                 epoch_expansions_ratio = epoch_expansions / max_epoch_expansions
                 epoch_solved_ratio = num_problems_solved_this_epoch / world_num_problems
+                epoch_fb_exp_ratio = (
+                    world_results_df["FExp"].sum() / world_results_df["BExp"].sum()
+                )
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
+                    epoch_fb_g_ratio_ratio = (
+                        world_results_df["Fg"].sum() / world_results_df["Bg"].sum()
+                    )
                     epoch_f_loss = world_epoch_f_loss.mean(
                         where=(world_epoch_f_loss >= 0)
                     )
@@ -464,8 +479,10 @@ def train(
                     "----------------------------------------------------------------------------"
                 )
                 print(
-                    f"SOLVED {num_problems_solved_this_epoch}/{world_num_problems} {epoch_solved_ratio}\n"
-                    f"EXPANSIONS {epoch_expansions}/{max_epoch_expansions}  {epoch_expansions_ratio:5.3f}\n"
+                    f"{'Solved':20s}: {num_problems_solved_this_epoch}/{world_num_problems} {epoch_solved_ratio}\n"
+                    f"{'Expansions':20s}: {int(epoch_expansions)}/{max_epoch_expansions}  {epoch_expansions_ratio:5.3f}\n"
+                    f"{'FB Exp Ratio':20s}: {epoch_fb_exp_ratio:5.3f}\n"
+                    f"{'FB G-Cost Ratio':20s}: {epoch_fb_g_ratio_ratio:5.3f}\n"
                 )
                 print(f"  Forward        Backward\nLoss    Acc    Loss    Acc")
                 if bidirectional:
@@ -492,6 +509,8 @@ def train(
 
                 # writer.add_scalar(f"expansions_vs_epoch", expansions, epoch)
                 writer.add_scalar(f"expansions_ratio_vs_epoch", epoch_expansions_ratio, epoch)
+                writer.add_scalar(f"fb_expansions_ratio_vs_epoch", epoch_fb_exp_ratio, epoch)
+                writer.add_scalar(f"fb_g_ratio_vs_epoch", epoch_fb_g_ratio_ratio, epoch)
 
                 world_results_df.to_csv(f"{writer.log_dir}/epoch_{epoch}.csv")
                 # fmt: on
@@ -517,15 +536,22 @@ def train(
                 )
 
                 if rank == 0:
-                    valid_solved, valid_total_expanded = valid_results
+                    (
+                        valid_solved,
+                        valid_total_expanded,
+                        valid_fb_exp_ratio,
+                        valid_fb_g_ratio,
+                    ) = valid_results
                     valid_expansions_ratio = valid_total_expanded / max_valid_expanded
                     valid_solve_rate = valid_solved / num_valid_problems
                     print(
-                        f"SOLVED:  {valid_solved}/{num_valid_problems} {valid_solve_rate:5.3f}"
+                        f"{'Solved':20s}:  {valid_solved}/{num_valid_problems} {valid_solve_rate:5.3f}"
                     )
                     print(
-                        f"EXPANSIONS: {valid_total_expanded}/{max_valid_expanded} {valid_expansions_ratio:5.3f}"
+                        f"{'Expansions':20s}: {int(valid_total_expanded)}/{max_valid_expanded} {valid_expansions_ratio:5.3f}"
                     )
+                    print(f"{'FB Exp Ratio':20s}: {valid_fb_exp_ratio:5.3f}")
+                    print(f"{'FB G-Cost Ratio':20s}: {valid_fb_g_ratio:5.3f}")
                     # writer.add_scalar(f"budget_{budget}/valid_solve_rate", valid_solve_rate, epoch)
                     writer.add_scalar(f"valid_solved_vs_epoch", valid_solve_rate, epoch)
                     writer.add_scalar(
@@ -533,6 +559,10 @@ def train(
                         valid_expansions_ratio,
                         epoch,
                     )
+                    writer.add_scalar(
+                        f"valid_fb_exp_ratio_vs_epoch", valid_fb_exp_ratio, epoch
+                    )
+                    writer.add_scalar(f"valid_fb_g_ratio", valid_fb_g_ratio, epoch)
                     # writer.add_scalar( f"valid_expanded_vs_epoch", valid_total_expanded, epoch)
 
                     agent.save_model("latest", log=False)

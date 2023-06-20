@@ -46,12 +46,6 @@ def parse_args():
         help="log/show solution probabilities",
     )
     parser.add_argument(
-        "--random-goal",
-        action="store_true",
-        default=False,
-        help="",
-    )
-    parser.add_argument(
         "-p",
         "--problemset-path",
         type=lambda p: Path(p).absolute(),
@@ -348,7 +342,6 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             epoch_reduce_grad_steps=args.epoch_reduce_grad_steps,
             epoch_begin_validate=args.epoch_begin_validate,
             valid_loader=local_valid_loader,
-            random_goal=args.random_goal,
         )
 
     elif args.mode == "test":
@@ -363,7 +356,6 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             print_results=True,
             validate=False,
             epoch=None,
-            random_goal=args.random_goal,
         )
 
     if rank == 0:

@@ -15,6 +15,7 @@
 
 import time
 from typing import Optional, Union
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -26,8 +27,9 @@ import tqdm
 
 from domains import Problem
 from loaders import ProblemsBatchLoader
-from search import Agent
 from models import AgentModel
+from search import Agent
+from search.utils import int_columns, search_result_header
 
 
 def test(
@@ -41,30 +43,17 @@ def test(
     print_results: bool = True,
     validate: bool = False,
     epoch: Optional[int] = None,
-    random_goal: bool = False,
 ):
     if not epoch:
         epoch = 1
 
-    test_start_time = time.time()
     current_budget = expansion_budget
 
     is_distributed = world_size > 1
 
     world_num_problems = len(problems_loader.all_ids)
 
-    search_result_header = [
-        "ProblemId",
-        "SolutionLength",
-        "Budget",
-        "NumExpanded",
-        "NumGenerated",
-        "StartTime",
-        "EndTime",
-        "Time",
-    ]
-
-    is_bidirectional = agent.bidirectional
+    bidirectional = agent.bidirectional
     model = agent.model
 
     to.set_grad_enabled(False)
@@ -80,6 +69,9 @@ def test(
     if rank == 0:
         pbar = tqdm.tqdm(total=world_num_problems)
 
+    fb_exp_ratio = -1
+    fb_g_ratio = -1
+
     while True:
         # print(f"rank {rank} remaining: {len(local_remaining_problems)}")
         # solved_t = to.zeros(1, dtype=to.int64)
@@ -92,7 +84,7 @@ def test(
             break
 
         local_search_results = np.zeros(
-            (len(local_remaining_problems), len(search_result_header)), dtype=np.int64
+            (len(local_remaining_problems), len(search_result_header)), dtype=np.float64
         )
 
         if rank == 0:
@@ -107,30 +99,38 @@ def test(
             start_time = int(time.time() * 1000)
             (
                 solution_length,
-                num_expanded,
-                num_generated,
+                n_forw_expanded,
+                n_backw_expanded,
+                n_forw_generated,
+                n_backw_generated,
                 traj,
             ) = agent.search(
                 problem,
                 current_budget,
-                random_goal=random_goal,
             )
             end_time = int(time.time() * 1000)
 
-            if is_bidirectional:
+            if bidirectional:
                 problem.domain.reset()
 
             local_search_results[i, 0] = problem.id_idx
-            local_search_results[i, 1] = solution_length
-            local_search_results[i, 2] = current_budget
-            local_search_results[i, 3] = num_expanded
-            local_search_results[i, 4] = num_generated
-            local_search_results[i, 5] = start_time
-            local_search_results[i, 6] = end_time
-            local_search_results[i, 7] = end_time - start_time
+            local_search_results[i, 1] = end_time - start_time
+            local_search_results[i, 2] = n_forw_expanded + n_backw_expanded
+            local_search_results[i, 3] = n_forw_expanded
+            local_search_results[i, 4] = n_backw_expanded
+            local_search_results[i, 5] = n_forw_generated + n_backw_generated
+            local_search_results[i, 6] = n_forw_generated
+            local_search_results[i, 7] = n_backw_generated
+            local_search_results[i, 8] = solution_length
 
             if traj:
-                local_remaining_problems.remove(problem)
+                local_search_results[i, 9] = traj[0].partial_g_cost
+                local_search_results[i, 11] = -1 * traj[0].partial_log_prob
+                local_search_results[i, 13] = traj[0].log_prob
+                if bidirectional:
+                    local_search_results[i, 10] = traj[1].partial_g_cost
+                    local_search_results[i, 12] = -1 * traj[1].partial_log_prob
+                    local_search_results[i, 14] = traj[1].log_prob
 
         if is_distributed:
             dist.barrier()
@@ -141,31 +141,30 @@ def test(
             world_search_results_arr = np.vstack(world_search_results)
 
             world_results_df = pd.DataFrame(
-                world_search_results_arr[:, 1:-3], columns=search_result_header[1:-3]
+                world_search_results_arr[:, 1:], columns=search_result_header[1:]
             )
+            for col in int_columns:
+                world_results_df[col] = world_results_df[col].astype(int)
 
             world_results_df["ProblemId"] = [
-                problems_loader.all_ids[i] for i in world_search_results_arr[:, 0]
+                problems_loader.all_ids[i]
+                for i in world_search_results_arr[:, 0].astype(int)
             ]
             world_results_df.set_index("ProblemId", inplace=True)
 
-            world_results_df["StartTime"] = (
-                (world_search_results_arr[:, -3].astype(float) / 1000) - test_start_time
-            ).round(3)
-            world_results_df["EndTime"] = (
-                (world_search_results_arr[:, -2].astype(float).round(3) / 1000)
-                - test_start_time
-            ).round(3)
-            world_results_df["Time"] = (
-                world_search_results_arr[:, -1].astype(float) / 1000
-            )
-
-            solved_ids = world_results_df[world_results_df["SolutionLength"] > 0].index
+            solved_ids = world_results_df[world_results_df["Len"] > 0].index
             for problem_id in solved_ids:
                 assert problem_id not in world_solved_problems
                 world_solved_problems.add(problem_id)
 
-            world_results_df.sort_values("NumExpanded", inplace=True)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                fb_exp_ratio = (
+                    world_results_df["FExp"].sum() / world_results_df["BExp"].sum()
+                )
+                fb_g_ratio = world_results_df["Fg"].sum() / world_results_df["Bg"].sum()
+
+            world_results_df.sort_values("Exp", inplace=True)
             if print_results:
                 print(
                     tabulate(
@@ -174,9 +173,11 @@ def test(
                         tablefmt="psql",
                     )
                 )
-                print(f"Solved {len(solved_ids)}/{world_num_problems}\n")
+                print(f"{'Solved':23s}: {len(solved_ids)}/{world_num_problems}\n")
+                print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:.3f}")
+                print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:.3f}\n")
 
-            total_num_expanded += world_results_df["NumExpanded"].sum()
+            total_num_expanded += world_results_df["Exp"].sum()
 
             if validate:
                 pbar.update(world_num_problems)
@@ -199,6 +200,6 @@ def test(
             break
 
     if rank == 0:
-        return len(world_solved_problems), total_num_expanded
+        return len(world_solved_problems), total_num_expanded, fb_exp_ratio, fb_g_ratio
 
-    return None
+    return None, None, None, None
