@@ -2,19 +2,17 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --array=1-2
-#SBATCH --time=00:15:00
+#SBATCH --array=1-3
+#SBATCH --time=00:20:00
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/ap28/%j.txt
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/sok_randt/%j.txt
 #SBATCH --account=rrg-lelis
 
 source $HOME/bilevin-env/bin/activate
 cd $SLURM_TMPDIR
 pip freeze > requirements.txt
 python -m venv env
-deactivate
-source env/bin/activate
-pip install --no-index --upgrade pip
+deactivate source env/bin/activate pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
 
 argfile=/scratch/tjhia/bilevin/scripts/beluga/args.txt
@@ -32,10 +30,9 @@ python src/main.py \
     --world-size 40 \
     --mode "test" \
     --agent $agent \
-    --problemset-path problems/stp/april/3w/1000-test.json \
+    --problemset-path "problems/sokoban/unfiltered/april/test.json" \
     --model-suffix "best_expanded" \
     --expansion-budget $ebudget \
-    --increase-budget False \
     --time-budget $tbudget \
     --seed 1 \
     --wandb-mode offline \

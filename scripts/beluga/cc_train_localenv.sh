@@ -4,7 +4,7 @@
 #SBATCH --mem=186G
 #SBATCH --time=12:00:00
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/ap28/%j.txt
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/sok_rand/%j.txt
 #SBATCH --account=rrg-lelis
 
 source $HOME/bilevin-env/bin/activate
@@ -22,6 +22,7 @@ export OMP_NUM_THREADS=1
 
 python src/main.py \
     --world-size 40 \
+    --batch-size-train 40 \
     --mode train \
     --loss levin_loss \
     --grad-steps 10 \
@@ -29,14 +30,11 @@ python src/main.py \
     --forward-policy-lr 0.001 \
     --backward-policy-lr 0.001 \
     --bootstrap-epochs 0 \
-    --curriculum-epochs 20 \
+    --curriculum-epochs 200 \
     --permutation-epochs 0 \
-    --include-prev-difficulty False \
-    --permutation-focus False \
-    --epoch-reduce-lr 1 \
-    --epoch-reduce-grad-steps 99 \
-    --epoch-begin-validate 1\
-    --batch-size-train 40 \
+    --epoch-reduce-lr 1000 \
+    --epoch-reduce-grad-steps 1000 \
+    --epoch-begin-validate 1 \
     --time-budget 300 \
     --agent $1 \
     --problemset-path $2 \
@@ -44,4 +42,3 @@ python src/main.py \
     --expansion-budget $4 \
     --seed $5 \
     --wandb-mode offline \
-    --exp-name nomask

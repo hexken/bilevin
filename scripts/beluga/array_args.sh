@@ -6,15 +6,17 @@ fi
 
 touch args.txt
 
-ebudgets="500"
+ebudgets="2000"
 tbudgets="300"
+dir=runs/sok_rand
+puzzle=Sokoban
 
-for dirname in ../../runs/SlidingTile*; do
+for dirname in ../../$dir/${puzzle}*; do
 	for ebudget in $ebudgets; do
 		for tbudget in $tbudgets; do
-			tmp=${dirname#*SlidingTilePuzzle-}
+			tmp=${dirname#*${puzzle}-}
 	    		expname=${tmp%_167*}
-			modelpath=runs/$(basename $dirname)
+			modelpath=$dir/$(basename $dirname)
 
 			if [[ "$modelpath" == *BiLevin* ]]; then
 				agent="BiLevin"
