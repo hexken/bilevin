@@ -73,10 +73,6 @@ def test(
     fb_g_ratio = -1
 
     while True:
-        # print(f"rank {rank} remaining: {len(local_remaining_problems)}")
-        # solved_t = to.zeros(1, dtype=to.int64)
-        # solved_t[0] = len(world_solved_problems)
-        # num_world_solved_problems = dist.broadcast(solved_t, src=0)
         num_solved_t = to.zeros(1, dtype=to.int64)
         num_solved_t[0] = len(world_solved_problems)
         dist.broadcast(num_solved_t, src=0)
@@ -93,9 +89,6 @@ def test(
             world_search_results = None
 
         for i, problem in enumerate(tuple(local_remaining_problems)):
-            # need to create a new results array, or else data could
-            # be overwritten
-            # print(f"rank {rank} {problem.id}")
             start_time = int(time.time() * 1000)
             (
                 solution_length,
@@ -150,7 +143,7 @@ def test(
                 problems_loader.all_ids[i]
                 for i in world_search_results_arr[:, 0].astype(int)
             ]
-            world_results_df.set_index("ProblemId", inplace=True)
+            world_results_df.set_index("ProblemId")
 
             solved_ids = world_results_df[world_results_df["Len"] > 0].index
             for problem_id in solved_ids:
@@ -164,7 +157,7 @@ def test(
                 )
                 fb_g_ratio = world_results_df["Fg"].sum() / world_results_df["Bg"].sum()
 
-            world_results_df.sort_values("Exp", inplace=True)
+            world_results_df.sort_values("Exp")
             if print_results:
                 print(
                     tabulate(
@@ -189,7 +182,7 @@ def test(
                     total_num_expanded,
                 )
                 pbar.update(len(solved_ids))
-                fname = f"{writer.log_dir}/epoch-{epoch}/test.pkl"
+                fname = f"{writer.log_dir}/test.pkl"
 
             world_results_df.to_pickle(fname)
 

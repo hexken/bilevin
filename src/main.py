@@ -46,6 +46,12 @@ def parse_args():
         help="log/show solution probabilities",
     )
     parser.add_argument(
+        "--runsdir-path",
+        default="runs",
+        type=lambda p: Path(p).absolute(),
+        help="path of directory to save run results to",
+    )
+    parser.add_argument(
         "-p",
         "--problemset-path",
         type=lambda p: Path(p).absolute(),
@@ -276,6 +282,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
     if args.mode == "test":
         run_name = f"test_{run_name}"
 
+    logdir = args.runsdir_path / run_name
     if rank == 0:
         wandb.init(
             mode=args.wandb_mode,
@@ -294,11 +301,10 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
 
         print(f"Logging with tensorboard\n  to runs/{run_name}\n")
 
-        writer = SummaryWriter(f"runs/{run_name}")
+        writer = SummaryWriter(logdir)
         arg_string = "|param|value|\n|-|-|\n%s" % (
             "\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])
         )
-        logdir = Path(writer.log_dir)
         with (logdir / "args.txt").open("w") as f:
             for arg in arg_string.splitlines()[2:]:
                 arg = arg.replace("|", "", 1)
@@ -322,11 +328,11 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
     to.manual_seed(local_seed)
 
     if args.agent == "Levin":
-        agent = Levin(rank, run_name, args, model_args)
+        agent = Levin(rank, logdir, args, model_args)
     elif args.agent == "BiLevin":
-        agent = BiLevin(rank, run_name, args, model_args)
+        agent = BiLevin(rank, logdir, args, model_args)
     elif args.agent == "BiBS":
-        agent = BiBS(rank, run_name, args, model_args)
+        agent = BiBS(rank, logdir, args, model_args)
     else:
         raise ValueError(f"Unknown agent: {args.agent}")
 

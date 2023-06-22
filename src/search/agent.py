@@ -26,15 +26,13 @@ from models.models import AgentModel
 
 
 class Agent(ABC):
-    def __init__(self, rank, run_name, args, model_args):
+    def __init__(self, rank, logdir, args, model_args):
         if not self.trainable:
             return
 
         model_args["bidirectional"] = self.bidirectional
 
-        model_save_path = Path(__file__).parents[2] / f"runs/{run_name}"
-        model_save_path.mkdir(parents=True, exist_ok=True)
-        self.save_path: Path = model_save_path
+        self.logdir: Path = logdir
 
         self._model: to.jit.RecursiveScriptModule
 
@@ -55,7 +53,7 @@ class Agent(ABC):
             raise ValueError("model-path argument must be a directory if given")
 
         if rank == 0:
-            init_model = model_save_path / f"model_init.pt"
+            init_model = self.logdir / f"model_init.pt"
             print(f"Saving init model\n  to {str(init_model)}")
             to.jit.save(self._model, init_model)
 
@@ -92,8 +90,13 @@ class Agent(ABC):
         self,
         suffix="",
         log=True,
+        path=None,
     ):
-        path = self.save_path
+        if path:
+            path = self.logdir / path
+        else:
+            path = self.logdir
+
         if suffix:
             path = path / f"model_{suffix}.pt"
         else:

@@ -16,6 +16,7 @@
 import math
 from math import isclose
 from pathlib import Path
+from shutil import copyfile
 import sys
 import time
 from typing import Callable, Type, Union
@@ -54,11 +55,11 @@ def train(
     epoch_reduce_grad_steps: int = 99999,
     epoch_begin_validate: int = 1,
     valid_loader: Optional[ProblemsBatchLoader] = None,
-    show_solution_probs: bool = False,
 ):
     is_distributed = world_size > 1
 
-    param_log_interval = 20
+    if rank == 0:
+        logdir = Path(writer.log_dir)
 
     opt_result_header = (
         f"           Forward        Backward\nOptStep   Loss    Acc    Loss    Acc"
@@ -95,15 +96,13 @@ def train(
 
     num_valid_problems = 0 if not valid_loader else len(valid_loader.all_ids)
     max_valid_expanded = num_valid_problems * expansion_budget
-    best_valid_solved = 0
-    best_valid_total_expanded = max_valid_expanded
+    best_valid_solved = -1
+    best_valid_total_expanded = max_valid_expanded + 1
 
     epoch = 1
     for batch_loader in train_loader:
-        # print(f"{train_loader.stage} rank {rank} global batch len {len(batch_loader.all_ids)}")
-        # print(f"{train_loader.stage} {batch_loader.all_ids}")
-        # print(f"{train_loader.stage} rank {rank} rank batch len {len(batch_loader)}")
-        world_num_problems = len(batch_loader.all_ids)
+        all_ids = batch_loader.all_ids
+        world_num_problems = len(all_ids)
         if world_num_problems == 0:
             continue
         max_epoch_expansions = world_num_problems * expansion_budget
@@ -122,8 +121,9 @@ def train(
         )
         world_results_df = pd.DataFrame(dummy_data, columns=search_result_header[1:])
         del dummy_data
-        world_results_df["ProblemId"] = batch_loader.all_ids
+        world_results_df["ProblemId"] = all_ids
         world_results_df.set_index("ProblemId", inplace=True)
+        world_results_df["Stage"] = train_loader.stage
 
         world_epoch_f_loss = np.zeros(world_batches_this_difficulty)
         world_epoch_f_acc = np.zeros(world_batches_this_difficulty)
@@ -133,6 +133,9 @@ def train(
         for stage_epoch in range(1, batch_loader.epochs + 1):
             num_new_problems_solved_this_epoch = 0
             num_problems_solved_this_epoch = 0
+            world_results_df["Epoch"] = epoch
+            world_results_df["StageEpoch"] = stage_epoch
+            world_results_df["Batch"] = 0
 
             if rank == 0:
                 epoch_logdir = Path(writer.log_dir) / f"epoch-{epoch}"
@@ -163,13 +166,11 @@ def train(
                 print(
                     "============================================================================\n"
                 )
-                problems_loader = tqdm.tqdm(
+                batch_loader = tqdm.tqdm(
                     batch_loader, total=world_batches_this_difficulty
                 )
-            else:
-                problems_loader = batch_loader
 
-            for batch_idx, local_batch_problems in enumerate(problems_loader):
+            for batch_idx, local_batch_problems in enumerate(batch_loader):
                 batches_seen += 1
                 local_batch_search_results[
                     :
@@ -248,10 +249,7 @@ def train(
                 ]
 
                 world_batch_ids = np.array(
-                    [
-                        batch_loader.all_ids[i]
-                        for i in world_batch_results_arr[:, 0].astype(int)
-                    ],
+                    [all_ids[i] for i in world_batch_results_arr[:, 0].astype(int)],
                     dtype=np.unicode_,
                 )
                 world_results_df.loc[
@@ -259,14 +257,17 @@ def train(
                 ] = world_batch_results_arr[
                     :, 1:
                 ]  # ProblemId is already index
-
+                world_results_df.loc[world_batch_ids, "Batch"] = batches_seen
                 # done updating world_results_df
-                world_batch_results_df = world_results_df.loc[world_batch_ids]
+
+                #
+                world_batch_print_df = world_results_df.loc[
+                    world_batch_ids, search_result_header[1:]
+                ]
+
                 for col in int_columns:
-                    world_batch_results_df[col] = world_batch_results_df[col].astype(
-                        int
-                    )
-                world_batch_results_df.sort_values("Exp", inplace=True)
+                    world_batch_print_df[col] = world_batch_print_df[col].astype(int)
+                world_batch_print_df.sort_values("Exp")
 
                 batch_solved_ids = world_batch_ids[world_batch_results_arr[:, 8] > 0]
                 for problem_id in batch_solved_ids:
@@ -281,34 +282,31 @@ def train(
                 if rank == 0:
                     print(
                         tabulate(
-                            world_batch_results_df,
+                            world_batch_print_df,
                             headers="keys",
                             tablefmt="psql",
                             # floatfmt=".2f"
                             # intfmt="",
                         )
                     )
-                    world_batch_results_df.to_pickle(
-                        epoch_logdir / f"batch-{batches_seen}.pkl"
-                    )
 
                     batch_avg = num_problems_solved_this_batch / num_problems_this_batch
                     writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
 
-                    batch_expansions = world_batch_results_df["Exp"].sum()
+                    batch_expansions = world_batch_print_df["Exp"].sum()
                     batch_expansions_ratio = batch_expansions / (
-                        len(world_batch_results_df) * expansion_budget
+                        len(world_batch_print_df) * expansion_budget
                     )
 
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=RuntimeWarning)
                         fb_exp_ratio = (
-                            world_batch_results_df["FExp"].sum()
-                            / world_batch_results_df["BExp"].sum()
+                            world_batch_print_df["FExp"].sum()
+                            / world_batch_print_df["BExp"].sum()
                         )
                         fb_g_ratio = (
-                            world_batch_results_df["Fg"].sum()
-                            / world_batch_results_df["Bg"].sum()
+                            world_batch_print_df["Fg"].sum()
+                            / world_batch_print_df["Bg"].sum()
                         )
 
                     print(
@@ -328,7 +326,7 @@ def train(
                     )
                     writer.add_scalar(f"fb_g_ratio_vs_batch", fb_g_ratio, batches_seen)
 
-                    total_num_expanded += world_batch_results_df["Exp"].sum()
+                    total_num_expanded += world_batch_print_df["Exp"].sum()
                     writer.add_scalar(
                         "cum_unique_solved_vs_expanded",
                         len(solved_problems),
@@ -338,9 +336,6 @@ def train(
                     #     log_params(writer, model, batches_seen)
                     # writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
                     sys.stdout.flush()
-
-                if rank == 0:
-                    print(opt_result_header)
 
                 f_merged_traj = MergedTrajectory(forward_trajs)
                 if bidirectional:
@@ -412,6 +407,9 @@ def train(
                     if num_procs_found_solution > 0:
                         if rank == 0:
                             if grad_step == 1 or grad_step == grad_steps:
+                                if grad_step == 1:
+                                    print(opt_result_header)
+
                                 f_loss = (
                                     local_batch_opt_results[0].item()
                                     / num_procs_found_solution
@@ -456,11 +454,11 @@ def train(
                 epoch_expansions = world_results_df["Exp"].sum()
                 epoch_expansions_ratio = epoch_expansions / max_epoch_expansions
                 epoch_solved_ratio = num_problems_solved_this_epoch / world_num_problems
-                epoch_fb_exp_ratio = (
-                    world_results_df["FExp"].sum() / world_results_df["BExp"].sum()
-                )
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
+                    epoch_fb_exp_ratio = (
+                        world_results_df["FExp"].sum() / world_results_df["BExp"].sum()
+                    )
                     epoch_fb_g_ratio_ratio = (
                         world_results_df["Fg"].sum() / world_results_df["Bg"].sum()
                     )
@@ -518,12 +516,11 @@ def train(
                 writer.add_scalar(f"fb_expansions_ratio_vs_epoch", epoch_fb_exp_ratio, epoch)
                 writer.add_scalar(f"fb_g_ratio_vs_epoch", epoch_fb_g_ratio_ratio, epoch)
 
-                world_results_df.to_pickle(epoch_logdir / "epoch.pkl")
+                world_results_df.to_pickle(epoch_logdir / "train.pkl")
                 # fmt: on
                 sys.stdout.flush()
 
             if valid_loader and epoch >= epoch_begin_validate:
-                # print(f"rank {rank}")
                 if rank == 0:
                     print("VALIDATION")
                 if is_distributed:
@@ -572,10 +569,7 @@ def train(
                     # writer.add_scalar( f"valid_expanded_vs_epoch", valid_total_expanded, epoch)
 
                     agent.save_model("latest", log=False)
-                    if valid_total_expanded < best_valid_total_expanded or (
-                        isclose(valid_total_expanded, best_valid_total_expanded)
-                        and valid_solved > best_valid_solved
-                    ):
+                    if valid_total_expanded <= best_valid_total_expanded:
                         best_valid_total_expanded = valid_total_expanded
                         print("Saving best model by expansions")
                         writer.add_text(
@@ -584,10 +578,7 @@ def train(
                         )
                         agent.save_model("best_expanded", log=False)
 
-                    if valid_solved > best_valid_solved or (
-                        isclose(valid_solved, best_valid_solved)
-                        and valid_total_expanded > best_valid_total_expanded
-                    ):
+                    if valid_solved >= best_valid_solved:
                         best_valid_solved = valid_solved
                         print("Saving best model by solved")
                         writer.add_text(
@@ -595,6 +586,18 @@ def train(
                             f"epoch: {epoch}, solve rate: {valid_solve_rate}, expansion ratio: {valid_expansions_ratio}",
                         )
                         agent.save_model("best_solved", log=False)
+
+                    copyfile(
+                        logdir / "model_latest.pt", epoch_logdir / "model_latest.pt"
+                    )
+                    copyfile(
+                        logdir / "model_best_solved.pt",
+                        epoch_logdir / "model_best_solved.pt",
+                    )
+                    copyfile(
+                        logdir / "model_best_expanded.pt",
+                        epoch_logdir / "model_best_expanded.pt",
+                    )
 
                 if is_distributed:
                     dist.barrier()
