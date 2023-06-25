@@ -26,6 +26,7 @@ from domains import Domain, Problem, State
 from enums import Color, FourDir
 from search import SearchNode, Trajectory
 
+# TODO UPDATE for the nll and pnll stuff!
 
 class WitnessState(State):
     """
@@ -251,7 +252,7 @@ class Witness(Domain):
         return try_make_solution
 
     @property
-    def double_backward(self):
+    def requires_backward_goal(self):
         return False
 
     @property
@@ -332,7 +333,7 @@ class Witness(Domain):
         elif action == FourDir.RIGHT:
             return FourDir.LEFT
 
-    def actions(self, parent_action: FourDir, state: WitnessState) -> list[FourDir]:
+    def _actions(self, parent_action: FourDir, state: WitnessState) -> list[FourDir]:
         """
         Successor function used by planners trying to solve the puzzle. The method returns
         a list with legal actions for the state. The valid actions for the domain are {U, D, L, R}.
@@ -381,7 +382,7 @@ class Witness(Domain):
 
         return actions
 
-    def actions_unpruned(self, state: WitnessState) -> list[FourDir]:
+    def _actions_unpruned(self, state: WitnessState) -> list[FourDir]:
         actions = []
         # moving up
         if (
@@ -696,7 +697,7 @@ def parse_problemset(problemset: dict):
         "num_actions": problemset["num_actions"],
         "in_channels": problemset["in_channels"],
         "state_t_width": problemset["state_t_width"],
-        "double_backward": False,
+        "requires_backward_goal": False,
     }
 
     if "is_curriculum" in problemset:

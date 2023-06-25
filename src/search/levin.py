@@ -30,7 +30,6 @@ from search.utils import (
     SearchNode,
     Trajectory,
     levin_cost,
-    masked_log_softmax,
 )
 
 if TYPE_CHECKING:
@@ -38,6 +37,9 @@ if TYPE_CHECKING:
 
 
 class Levin(Agent):
+    def __init__(self, args, **kwargs):
+        super().__init__(args, **kwargs)
+
     @property
     def bidirectional(cls):
         return False

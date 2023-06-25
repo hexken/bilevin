@@ -96,6 +96,10 @@ class SlidingTilePuzzle(Domain):
         return self.width
 
     @property
+    def requires_backward_goal(self):
+        return True
+
+    @property
     def num_actions(cls) -> int:
         return 4
 
@@ -134,7 +138,7 @@ class SlidingTilePuzzle(Domain):
 
         return domain
 
-    def actions(
+    def _actions(
         self, parent_action: FourDir, state: SlidingTilePuzzleState
     ) -> list[FourDir]:
         actions = []
@@ -153,7 +157,7 @@ class SlidingTilePuzzle(Domain):
 
         return actions
 
-    def actions_unpruned(self, state: SlidingTilePuzzleState):
+    def _actions_unpruned(self, state: SlidingTilePuzzleState):
         actions = []
 
         if state.blank_col != self.width - 1:
@@ -231,7 +235,7 @@ def parse_problemset(problemset: dict):
         "num_actions": problemset["num_actions"],
         "in_channels": problemset["in_channels"],
         "state_t_width": problemset["state_t_width"],
-        "double_backward": True,
+        "requires_backward_goal": True,
     }
 
     if "is_curriculum" in problemset:

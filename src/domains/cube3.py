@@ -3,13 +3,15 @@ Modified from https://github.com/forestagostinelli/DeepCubeA/blob/master/environ
 the code for the paper 'Solving the Rubik’s cube with deep reinforcement learning and search'
 """
 
-from typing import Dict, List, Tuple, Union
+from __future__ import annotations
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch as to
 from torch import nn
 
 from domains import Domain, State
+from search import SearchNode, Trajectory, try_make_solution
 
 
 class Cube3State(State):
@@ -29,15 +31,14 @@ class Cube3State(State):
 
 
 class Cube3(Domain):
-    moves: List[str] = [
-        "%s%i" % (f, n) for f in ["U", "D", "L", "R", "B", "F"] for n in [-1, 1]
-    ]
-    moves_rev: List[str] = [
-        "%s%i" % (f, n) for f in ["U", "D", "L", "R", "B", "F"] for n in [1, -1]
-    ]
-
-    def __init__(self):
-        super().__init__()
+    def __init__(self, forward=True):
+        super().__init__(forward=forward)
+        self.moves: List[str] = [
+            "%s%i" % (f, n) for f in ["U", "D", "L", "R", "B", "F"] for n in [-1, 1]
+        ]
+        self.moves_rev: List[str] = [
+            "%s%i" % (f, n) for f in ["U", "D", "L", "R", "B", "F"] for n in [1, -1]
+        ]
         self.dtype = np.uint8
         self.cube_len = 3
 
@@ -50,12 +51,27 @@ class Cube3(Domain):
         self.rotate_idxs_new: Dict[str, np.ndarray]
         self.rotate_idxs_old: Dict[str, np.ndarray]
 
-        self.adj_faces: Dict[int, np.ndarray]
-        self._get_adj()
+        # WHITE:0, YELLOW:1, BLUE:2, GREEN:3, ORANGE: 4, RED: 5
+        self.adj_faces: Dict[int, np.ndarray] = {
+            0: np.array([2, 5, 3, 4]),
+            1: np.array([2, 4, 3, 5]),
+            2: np.array([0, 4, 1, 5]),
+            3: np.array([0, 5, 1, 4]),
+            4: np.array([0, 3, 1, 2]),
+            5: np.array([0, 2, 1, 3]),
+        }
 
         self.rotate_idxs_new, self.rotate_idxs_old = self._compute_rotation_idxs(
             self.cube_len, self.moves
         )
+
+    @property
+    def try_make_solution_func(
+        cls,
+    ) -> Callable[
+        [Domain, SearchNode, Domain, int], Optional[tuple[Trajectory, Trajectory]]
+    ]:
+        return try_make_solution
 
     @property
     def state_width(self) -> int:
@@ -104,17 +120,6 @@ class Cube3(Domain):
 
         return states_next_np
 
-    def _get_adj(self) -> None:
-        # WHITE:0, YELLOW:1, BLUE:2, GREEN:3, ORANGE: 4, RED: 5
-        self.adj_faces: Dict[int, np.ndarray] = {
-            0: np.array([2, 5, 3, 4]),
-            1: np.array([2, 4, 3, 5]),
-            2: np.array([0, 4, 1, 5]),
-            3: np.array([0, 5, 1, 4]),
-            4: np.array([0, 3, 1, 2]),
-            5: np.array([0, 2, 1, 3]),
-        }
-
     def _compute_rotation_idxs(
         self, cube_len: int, moves: List[str]
     ) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
@@ -130,8 +135,6 @@ class Cube3(Domain):
 
             colors = np.zeros((6, cube_len, cube_len), dtype=np.int64)
             colors_new = np.copy(colors)
-
-            # WHITE:0, YELLOW:1, BLUE:2, GREEN:3, ORANGE: 4, RED: 5
 
             adj_idxs = {
                 0: {

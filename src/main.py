@@ -32,7 +32,7 @@ import wandb
 
 import domains
 from loaders import CurriculumLoader, ProblemsBatchLoader
-from search import BiBS, BiLevin, Levin
+from search import BiLevin, Levin
 from train import train
 
 
@@ -109,6 +109,12 @@ def parse_args():
         type=float,
         default=0.001,
         help="l2 regularization weight",
+    )
+    parser.add_argument(
+        "--share-feature-net",
+        action="store_true",
+        default=False,
+        help="use the same feature netword for forward and backward policies",
     )
     parser.add_argument(
         "--feature-net-lr",
@@ -562,6 +568,7 @@ if __name__ == "__main__":
         {
             "kernel_size": (2, 2),
             "num_filters": 32,
+            "share_feature_net": args.share_feature_net,
             "forward_hidden_layers": args.forward_hidden_layers,
             "backward_hidden_layers": args.backward_hidden_layers,
         }

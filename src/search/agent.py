@@ -34,7 +34,7 @@ class Agent(ABC):
 
         self.logdir: Path = logdir
 
-        self._model: to.jit.RecursiveScriptModule
+        self._model: AgentModel
 
         if args.model_path is None:
             # just use the random initialization from rank 0
@@ -83,7 +83,7 @@ class Agent(ABC):
             self.optimizer = to.optim.Adam(optimizer_params)
 
     @property
-    def model(self) -> to.jit.ScriptModule:
+    def model(self) -> AgentModel:
         return self._model
 
     def save_model(

@@ -86,6 +86,10 @@ class Sokoban(Domain):
         return 10
 
     @property
+    def requires_backward_goal(self):
+        return True
+
+    @property
     def num_actions(cls) -> int:
         return 4
 
@@ -93,7 +97,7 @@ class Sokoban(Domain):
     def in_channels(self) -> int:
         return 4
 
-    def actions_unpruned(self, state: SokobanState) -> list[FourDir]:
+    def _actions_unpruned(self, state: SokobanState) -> list[FourDir]:
         """
         Can move in each direction where either there is no wall or box, or there is a box that can
         be pushed (i.e. no wall or box behind it)
@@ -152,7 +156,7 @@ class Sokoban(Domain):
 
         return actions
 
-    def actions(self, parent_action: FourDir, state: SokobanState) -> list[FourDir]:
+    def _actions(self, parent_action: FourDir, state: SokobanState) -> list[FourDir]:
         return self.actions_unpruned(state)
 
     def result(self, state: SokobanState, action: FourDir) -> SokobanState:
@@ -381,7 +385,7 @@ def parse_problemset(problemset: dict):
         "num_actions": problemset["num_actions"],
         "in_channels": problemset["in_channels"],
         "state_t_width": problemset["state_t_width"],
-        "double_backward": True,
+        "requires_backward_goal": True,
     }
 
     if "is_curriculum" in problemset:

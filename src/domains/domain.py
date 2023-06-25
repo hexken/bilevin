@@ -16,9 +16,11 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from typing import Optional, TYPE_CHECKING, Callable
+from typing import Callable, Optional, TYPE_CHECKING
 
 import torch as to
+from torch import full
+from models import AgentModel
 
 if TYPE_CHECKING:
     from search.utils import SearchNode, Trajectory
@@ -59,12 +61,25 @@ class Domain(ABC):
     def update(self, node: SearchNode):
         self.visited[node.state.__hash__()] = node
 
+    def actions(self, parent_action, state: State) -> tuple[list, to.Tensor]:
+        actions = self._actions(parent_action, state)
+        mask = full((self.num_actions,), True, dtype=to.bool)
+        mask[actions] = False
+        return actions, mask
+
+    def actions_unpruned(self, state: State) -> tuple[list, to.Tensor]:
+        actions = self._actions_unpruned(state)
+        mask = full((self.num_actions,), True, dtype=to.bool)
+        mask[actions] = False
+        return actions, mask
+
     @property
     @abstractmethod
     def try_make_solution_func(
         cls,
     ) -> Callable[
-        [Domain, SearchNode, Domain, int], Optional[tuple[Trajectory, Trajectory]]
+        [AgentModel, Domain, SearchNode, Domain, int],
+        Optional[tuple[Trajectory, Trajectory]],
     ]:
         pass
 
@@ -81,6 +96,11 @@ class Domain(ABC):
     @property
     @abstractmethod
     def state_width(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def requires_backward_goal(self) -> bool:
         pass
 
     @abstractmethod
@@ -100,11 +120,11 @@ class Domain(ABC):
         pass
 
     @abstractmethod
-    def actions(self, action, state: State) -> list:
+    def _actions(self, parent_action, state: State) -> list:
         pass
 
     @abstractmethod
-    def actions_unpruned(self, state: State) -> list:
+    def _actions_unpruned(self, state: State) -> list:
         pass
 
     @abstractmethod

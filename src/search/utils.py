@@ -333,29 +333,3 @@ def try_make_solution(
         return None
 
 
-"""
-Originally from https://github.com/allenai/allennlp/blob/b6cc9d39651273e8ec2a7e334908ffa9de5c2026/allennlp/nn/util.py#L272-L303
-"""
-
-
-def masked_log_softmax(vector: to.Tensor, mask: to.Tensor, dim: int = -1) -> to.Tensor:
-    """
-    ``torch.nn.functional.log_softmax(vector)`` does not work if some elements of ``vector`` should be
-    masked.  This performs a log_softmax on just the non-masked portions of ``vector``.  Passing
-    ``None`` in for the mask is also acceptable; you'll just get a regular log_softmax.
-    ``vector`` can have an arbitrary number of dimensions; the only requirement is that ``mask`` is
-    broadcastable to ``vector's`` shape.  If ``mask`` has fewer dimensions than ``vector``, we will
-    unsqueeze on dimension 1 until they match.  If you need a different unsqueezing of your mask,
-    do it yourself before passing the mask into this function.
-    In the case that the input vector is completely masked, the return value of this function is
-    arbitrary, but not ``nan``.  You should be masking the result of whatever computation comes out
-    of this in that case, anyway, so the specific values returned shouldn't matter.  Also, the way
-    that we deal with this case relies on having single-precision floats; mixing half-precision
-    floats with fully-masked vectors will likely give you ``nans``.
-    If your logits are all extremely negative (i.e., the max value in your logit vector is -50 or
-    lower), the way we handle masking here could mess you up.  But if you've got logit values that
-    extreme, you've got bigger problems than this.
-    """
-    if mask is not None:
-        vector = vector + (mask + 1e-45).log()
-    return to.nn.functional.log_softmax(vector, dim=dim)

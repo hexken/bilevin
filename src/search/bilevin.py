@@ -27,13 +27,16 @@ from torch.nn.functional import log_softmax
 from domains.domain import State
 from enums import TwoDir
 from search.agent import Agent
-from search.utils import LevinNode, levin_cost, masked_log_softmax
+from search.utils import LevinNode, levin_cost
 
 if TYPE_CHECKING:
     from domains.domain import Domain, Problem
 
 
 class BiLevin(Agent):
+    def __init__(self, args, **kwargs):
+        super().__init__(args, **kwargs)
+
     @property
     def bidirectional(cls):
         return True
@@ -56,10 +59,6 @@ class BiLevin(Agent):
         b_reached = {}
 
         model = self.model
-        feature_net: RecursiveScriptModule = model.feature_net
-        forward_policy: RecursiveScriptModule = model.forward_policy
-        backward_policy: RecursiveScriptModule = model.backward_policy
-        double_backward = model.double_backward
 
         problem_id = problem.id
         f_domain = problem.domain
@@ -67,80 +66,65 @@ class BiLevin(Agent):
 
         try_make_solution = f_domain.try_make_solution_func
 
-        b_domain = f_domain.backward_domain()
-
         f_state = f_domain.reset()
         assert isinstance(f_state, State)
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
-
-        f_avail_actions = f_domain.actions_unpruned(f_state)
-        f_mask = to.zeros(num_actions)
-        f_mask[f_avail_actions] = 1
-
-        b_states = b_domain.reset()
-        if isinstance(b_states, list):
-            b_state_t = []
-            b_avail_actions = []
-            b_mask = to.zeros((len(b_states), num_actions))
-            for i, s in enumerate(b_states):
-                b_state_t.append(b_domain.state_tensor(s))
-                b_avail_actions.append(b_domain.actions_unpruned(s))
-                b_mask[i, b_avail_actions[-1]] = 1
-            b_state_t = to.stack(b_state_t)
-        else:
-            b_state_t = b_domain.state_tensor(b_states)
-            b_state_t = b_state_t.unsqueeze(0)
-            b_avail_actions = b_domain.actions_unpruned(b_states)
-            b_mask = to.zeros(num_actions)
-            b_mask[b_avail_actions] = 1
-            b_states = [b_states]
-            b_avail_actions = [b_avail_actions]
-
-        feats = feature_net(to.vstack((f_state_t, b_state_t)))
-        f_state_feats = feats[0]
-        b_states_feat = feats[1:]
-
-        b_goal_feats = deepcopy(f_state_feats)
-
-        f_action_logits = forward_policy(f_state_feats)
-
-        if double_backward:
-            b_action_logits = backward_policy(b_states_feat, b_goal_feats)
-        else:
-            b_action_logits = backward_policy(b_states_feat)
-
-        f_log_action_probs = masked_log_softmax(f_action_logits, f_mask, dim=-1)
-        b_log_action_probs = masked_log_softmax(b_action_logits, b_mask, dim=-1)
-
+        f_actions, f_mask = f_domain.actions_unpruned(f_state)
+        f_log_probs = model(f_state_t, mask=f_mask)
         f_start_node = LevinNode(
             f_state,
             g_cost=0,
             log_prob=0.0,
             levin_cost=0.0,
-            actions=f_avail_actions,
-            log_action_probs=f_log_action_probs,
+            actions=f_actions,
+            log_action_probs=f_log_probs,
         )
         f_reached[f_start_node] = f_start_node
         f_domain.update(f_start_node)
-        if f_avail_actions:
+        if f_actions:
             f_frontier.append(f_start_node)
         heapq.heapify(f_frontier)
 
+        b_domain = f_domain.backward_domain()
+        if b_domain.requires_backward_goal:
+            b_goal_feats = model.backward_feature_net(f_state_t)
+        else:
+            b_goal_feats = None
+
+        b_states = b_domain.reset()
+        if isinstance(b_states, list):
+            b_state_t = []
+            b_actions = []
+            b_mask = []
+            for i, s in enumerate(b_states):
+                b_state_t.append(b_domain.state_tensor(s))
+                actions, mask = b_domain.actions_unpruned(s)
+                b_actions.append(actions)
+                b_mask.append(mask)
+            b_state_t = to.stack(b_state_t)
+        else:
+            b_state_t = b_domain.state_tensor(b_states)
+            b_state_t = b_state_t.unsqueeze(0)
+            b_actions, b_mask = b_domain.actions_unpruned(b_states)
+            b_states = [b_states]
+            b_actions = [b_actions]
+
+        b_log_probs = model(b_state_t, forward=False, goal_feats=f_state_t, mask=b_mask)
         for i, state in enumerate(b_states):
             start_node = LevinNode(
                 state,
                 g_cost=0,
                 log_prob=0.0,
                 levin_cost=0.0,
-                actions=b_avail_actions[i],
-                log_action_probs=b_log_action_probs[i],
+                actions=b_actions[i],
+                log_action_probs=b_log_probs[i],
             )
             b_reached[start_node] = start_node
             b_domain.update(start_node)
             if start_node.actions:
                 b_frontier.append(start_node)
-
         heapq.heapify(b_frontier)
+
         n_total_expanded = 0
         n_forw_expanded = 0
         n_backw_expanded = 0
@@ -164,15 +148,15 @@ class BiLevin(Agent):
 
             if f_frontier[0] < b_frontier[0]:
                 direction = TwoDir.FORWARD
+                _goal_feats = None
                 _domain = f_domain
-                _policy = forward_policy
                 _frontier = f_frontier
                 _reached = f_reached
                 other_domain = b_domain
             else:
                 direction = TwoDir.BACKWARD
                 _domain = b_domain
-                _policy = backward_policy
+                _goal_feats = b_goal_feats
                 _frontier = b_frontier
                 _reached = b_reached
                 other_domain = f_domain
@@ -189,7 +173,7 @@ class BiLevin(Agent):
             state_t_of_children_to_be_evaluated = []
             for a in node.actions:
                 new_state = _domain.result(node.state, a)
-                new_state_actions = _domain.actions(a, new_state)
+                new_state_actions, mask = _domain.actions(a, new_state)
 
                 new_node = LevinNode(
                     new_state,
@@ -216,9 +200,8 @@ class BiLevin(Agent):
                     )
 
                     if trajs:  # solution found
-                        solution_len = len(trajs[0])
                         return (
-                            solution_len,
+                            len(trajs[0]),
                             n_forw_expanded,
                             n_backw_expanded,
                             n_forw_generated,
@@ -234,27 +217,20 @@ class BiLevin(Agent):
                         children_to_be_evaluated.append(new_node)
                         state_t = _domain.state_tensor(new_state)
                         state_t_of_children_to_be_evaluated.append(state_t)
-
-                        mask = to.zeros(num_actions)
-                        mask[new_state_actions] = 1
                         masks.append(mask)
 
             if children_to_be_evaluated:
-                batch_states = to.stack(state_t_of_children_to_be_evaluated)
-                batch_feats = feature_net(batch_states)
-                if direction == TwoDir.BACKWARD:
-                    if double_backward:
-                        action_logits = _policy(batch_feats, b_goal_feats)
-                    else:
-                        action_logits = _policy(batch_feats)
-                else:
-                    action_logits = _policy(batch_feats)
-
+                children_state_t = to.stack(state_t_of_children_to_be_evaluated)
                 masks = to.stack(masks)
-                log_action_probs = masked_log_softmax(action_logits, masks, dim=-1)
+                log_probs = model(
+                    children_state_t,
+                    forward=direction == TwoDir.FORWARD,
+                    goal_feats=_goal_feats,
+                    masks=masks,
+                )
 
                 for i, child in enumerate(children_to_be_evaluated):
-                    child.log_action_probs = log_action_probs[i]
+                    child.log_action_probs = log_probs[i]
 
         print(f"Emptied frontiers for problem {problem_id}")
         return (
