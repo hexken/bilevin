@@ -32,10 +32,10 @@ class AgentModel(nn.Module):
         self.num_filters: int = model_args["num_filters"]
         self.share_feature_net: bool = model_args["share_feature_net"]
 
-        self.num_features: int = self.num_filters * ((self.state_t_width - 2) ** 2)
-        self.requires_backward_goal: bool = model_args["requires_backward_goal"]
         self.state_t_width: int = model_args["state_t_width"]
+        self.num_features: int = self.num_filters * ((self.state_t_width - 2) ** 2)
         self.num_actions: int = model_args["num_actions"]
+        self.requires_backward_goal: bool = model_args["requires_backward_goal"]
 
         self.forward_policy: nn.Module = StatePolicy(
             self.num_features,
@@ -76,27 +76,35 @@ class AgentModel(nn.Module):
                     model_args["backward_hidden_layers"],
                 )
 
+        self.dummy_goal_feats: to.Tensor = to.zeros((1))
+
     def forward(
-        self, state_t, mask=None, forward=None, goal_feats=None, goal_state_t=None
+        self,
+        state_t,
+        mask: Optional[to.Tensor] = None,
+        forward: bool = True,
+        goal_feats: Optional[to.Tensor] = None,
+        goal_state_t: Optional[to.Tensor] = None,
     ):
         if forward:
             feats = self.forward_feature_net(state_t)
             logits = self.forward_policy(feats)
         else:
             feats = self.backward_feature_net(state_t)
-            if goal_feats:
+            if goal_feats is not None:
                 logits = self.backward_policy(feats, goal_feats)
-            elif goal_state_t:
+            elif goal_state_t is not None:
                 goal_feats = self.backward_feature_net(goal_state_t)
                 logits = self.backward_policy(feats, goal_feats)
             else:
-                logits = self.backward_policy(feats)
+                # todo seems torchscript requires a dummy argument to compile the model
+                logits = self.backward_policy(feats, self.dummy_goal_feats)
 
-        if mask:
+        if mask is not None:
             # mask[i] should be True if the action i is invalid, False otherwise
             logits = logits.masked_fill(mask, -1e9)
 
-        log_probs = log_softmax(logits)
+        log_probs = log_softmax(logits, dim=-1)
 
         return log_probs, logits
 
@@ -110,10 +118,10 @@ class AgentModel(nn.Module):
 
 
 class StatePolicy(nn.Module):
-    def __init__(self, num_features, num_actions, hidden_layer_sizes=[128]):
+    def __init__(self, num_features: int, num_actions: int, hidden_layer_sizes=[128]):
         super().__init__()
-        self.num_features = num_features
-        self.num_actions = num_actions
+        self.num_features: int = num_features
+        self.num_actions: int = num_actions
 
         self.layers = nn.ModuleList([nn.Linear(num_features, hidden_layer_sizes[0])])
         self.layers.extend(
@@ -132,7 +140,7 @@ class StatePolicy(nn.Module):
         to.nn.init.xavier_uniform_(self.output_layer.weight)
         to.nn.init.constant_(self.output_layer.bias, 0.0)
 
-    def forward(self, state_feats):
+    def forward(self, state_feats: to.Tensor, goal_feats: Optional[to.Tensor] = None):
         for l in self.layers:
             state_feats = F.relu(l(state_feats))
 
@@ -144,13 +152,13 @@ class StatePolicy(nn.Module):
 class StateGoalPolicy(nn.Module):
     def __init__(
         self,
-        num_features,
-        num_actions,
+        num_features: int,
+        num_actions: int,
         hidden_layer_sizes=[256, 192, 128],
     ):
         super().__init__()
-        self.num_features = num_features * 2
-        self.num_actions = num_actions
+        self.num_features: int = num_features * 2
+        self.num_actions: int = num_actions
 
         self.layers = nn.ModuleList(
             [nn.Linear(self.num_features, hidden_layer_sizes[0])]
@@ -171,7 +179,7 @@ class StateGoalPolicy(nn.Module):
         to.nn.init.xavier_uniform_(self.output_layer.weight)
         to.nn.init.constant_(self.output_layer.bias, 0.0)
 
-    def forward(self, state_feats, goal_feats):
+    def forward(self, state_feats: to.Tensor, goal_feats: to.Tensor):
         bs = state_feats.shape[0]
         if goal_feats.shape[0] != bs:
             goal_feats = goal_feats.expand(bs, -1)

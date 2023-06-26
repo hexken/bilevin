@@ -193,7 +193,7 @@ def main():
             if step > max_step:
                 return
             stp = SlidingTilePuzzle(state.tiles, goal_tiles)
-            actions = stp.actions_unpruned(state)
+            actions, _ = stp.actions_unpruned(state)
             for action in actions:
                 new_state = stp.result(state, action)
                 if new_state in exclude_problemspecs or stp.is_goal(new_state):

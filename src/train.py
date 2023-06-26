@@ -18,7 +18,7 @@ from math import isclose
 from pathlib import Path
 from shutil import copyfile
 import sys
-import time
+from timeit import default_timer as timer
 from typing import Callable, Type, Union
 from typing import Optional
 import warnings
@@ -100,6 +100,7 @@ def train(
     best_valid_total_expanded = max_valid_expanded + 1
 
     epoch = 1
+    train_start_time = timer()
     for batch_loader in train_loader:
         all_ids = batch_loader.all_ids
         world_num_problems = len(all_ids)
@@ -187,7 +188,7 @@ def train(
 
                 num_problems_solved_this_batch = 0
                 for i, problem in enumerate(local_batch_problems):
-                    start_time = time.time()
+                    start_time = timer()
                     (
                         solution_length,
                         n_forw_expanded,
@@ -198,10 +199,12 @@ def train(
                     ) = agent.search(
                         problem,
                         expansion_budget,
+                        time_budget=time_budget,
                         train=True,
-                        end_time=start_time + time_budget,
                     )
-                    end_time = time.time()
+                    end_time = timer()
+                    solution_length = 0 if not traj else traj[0].cost
+
                     if bidirectional:
                         problem.domain.reset()
 
@@ -234,6 +237,8 @@ def train(
                             )
                             local_batch_search_results[i, 14] = traj[1].log_prob
 
+                    local_batch_search_results[i, 15] = end_time - train_start_time
+
                 if is_distributed:
                     dist.all_gather(
                         world_batch_search_results, local_batch_search_results
@@ -260,11 +265,9 @@ def train(
                 world_results_df.loc[world_batch_ids, "Batch"] = batches_seen
                 # done updating world_results_df
 
-                #
                 world_batch_print_df = world_results_df.loc[
-                    world_batch_ids, search_result_header[1:]
+                    world_batch_ids, search_result_header[1:-1]
                 ]
-
                 for col in int_columns:
                     world_batch_print_df[col] = world_batch_print_df[col].astype(int)
                 world_batch_print_df.sort_values("Exp")

@@ -40,6 +40,7 @@ search_result_header = [
     "BPnll",
     "Fnll",
     "Bnll",
+    "EndTime",
 ]
 int_columns = ["Exp", "FExp", "BExp", "Gen", "FGen", "BGen"]
 
@@ -53,7 +54,8 @@ class SearchNode:
         parent_action: Optional[int] = None,
         log_prob: Optional[float] = None,
         actions: Optional[list[int]] = None,
-        log_action_probs: Optional[to.Tensor] = None,
+        actions_mask: Optional[to.BoolTensor] = None,
+        log_action_probs: Optional[to.FloatTensor] = None,
     ):
         self.state = state
         self.parent = parent
@@ -61,6 +63,7 @@ class SearchNode:
         self.g_cost = g_cost
         self.log_prob = log_prob
         self.actions = actions
+        self.actions_mask = actions_mask
         self.log_action_probs = log_action_probs
 
     def __eq__(self, other):
@@ -92,7 +95,8 @@ class LevinNode(SearchNode):
         parent_action: Optional[int] = None,
         log_prob: Optional[float] = None,
         actions: Optional[list[int]] = None,
-        log_action_probs: Optional[to.Tensor] = None,
+        actions_mask: Optional[to.BoolTensor] = None,
+        log_action_probs: Optional[to.FloatTensor] = None,
         levin_cost: Optional[float] = None,
     ):
         super().__init__(
@@ -102,6 +106,7 @@ class LevinNode(SearchNode):
             parent_action=parent_action,
             log_prob=log_prob,
             actions=actions,
+            actions_mask=actions_mask,
             log_action_probs=log_action_probs,
         )
         self.levin_cost = levin_cost
@@ -151,25 +156,19 @@ class Trajectory:
             state_t = domain.state_tensor(node.state)
             states.append(state_t)
             actions.append(action)
-            masks.append(node.actions)
+            masks.append(node.actions_mask)
             action = node.parent_action
             node = node.parent
 
         self.states = to.stack(tuple(reversed(states)))
         self.actions = to.tensor(tuple(reversed(actions)))
-        # print([len(m) for m in masks[::-1]])
-        rows = to.repeat_interleave(
-            to.arange(len(masks)),
-            to.tensor(tuple(len(m) for m in reversed(masks))),
-        )
-        cols = to.tensor(tuple(j for m in reversed(masks) for j in m))
-        self.masks = to.zeros(len(masks), domain.num_actions)
-        self.masks[rows, cols] = 1
-        self.cost_to_gos = to.arange(len(self.states), 0, -1)
+        self.masks = to.stack(tuple(reversed(masks)))
+        self.cost = len(self.states)
+        self.costs_to_go = to.arange(self.cost, 0, -1)
 
-        self.log_prob, pnll = traj_nll(
-            self, model
-        )  # do this after states, actions, forward, steps, are set
+        # self.log_prob, pnll = traj_nll(
+        #     self, model
+        # )  # do this after states, actions, forward, steps, are set
 
         # todo log these? they seem to usually be very close (within 5 decimals)
         # if not np.isclose(-1 * self.partial_log_prob, pnll, atol=1e-2):
@@ -262,12 +261,14 @@ def get_merged_solution(
 
     while parent_dir2_node:
         state = parent_dir2_node.state
+        actions, mask = dir1_domain.actions_unpruned(state)
         new_dir1_node = node_type(
             state=state,
             g_cost=dir1_node.g_cost + 1,
             parent=dir1_node,
             parent_action=dir1_domain.reverse_action(parent_dir2_action),
-            actions=dir1_domain.actions_unpruned(state),
+            actions=actions,
+            actions_mask=mask,
         )
         dir1_node = new_dir1_node
         parent_dir2_action = parent_dir2_node.parent_action
@@ -331,5 +332,3 @@ def try_make_solution(
         return (f_traj, b_traj)
     else:
         return None
-
-

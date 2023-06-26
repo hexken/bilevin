@@ -15,30 +15,23 @@
 
 from __future__ import annotations
 import heapq
-import math
-import time
+from timeit import default_timer as timer
 from typing import Optional, TYPE_CHECKING
 
 import torch as to
 from torch.jit import RecursiveScriptModule
-from torch.nn.functional import log_softmax
 
 from domains.domain import State
 from search.agent import Agent
-from search.utils import (
-    LevinNode,
-    SearchNode,
-    Trajectory,
-    levin_cost,
-)
+from search.utils import LevinNode, Trajectory, levin_cost
 
 if TYPE_CHECKING:
     from domains.domain import State, Domain, Problem
 
 
 class Levin(Agent):
-    def __init__(self, args, **kwargs):
-        super().__init__(args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     @property
     def bidirectional(cls):
@@ -51,43 +44,36 @@ class Levin(Agent):
     def search(
         self,
         problem: Problem,
-        budget,
+        exp_budget: int,
+        time_budget=None,
         train=False,
-        end_time=None,
     ):
         """ """
+        start_time = timer()
 
         problem_id = problem.id
         domain = problem.domain
         model = self.model
-        num_actions = domain.num_actions
-        feature_net: RecursiveScriptModule = model.feature_net
-        forward_policy: RecursiveScriptModule = model.forward_policy
 
         state = domain.reset()
         assert isinstance(state, State)
         state_t = domain.state_tensor(state).unsqueeze(0)
-
-        state_feats = feature_net(state_t)
-        action_logits = forward_policy(state_feats)
-
-        avail_actions = domain.actions_unpruned(state)
-        mask = to.zeros(num_actions)
-        mask[avail_actions] = 1
-        log_action_probs = masked_log_softmax(action_logits[0], mask, dim=-1)
+        actions, mask = domain.actions_unpruned(state)
+        log_probs = model(state_t, mask=mask)
 
         node = LevinNode(
             state,
             g_cost=0,
             log_prob=0.0,
             levin_cost=0.0,
-            actions=avail_actions,
-            log_action_probs=log_action_probs,
+            actions=actions,
+            actions_mask=mask,
+            log_action_probs=log_probs[0],
         )
 
         frontier = []
         reached = {}
-        if avail_actions:
+        if actions:
             frontier.append(node)
         reached[node] = node
         heapq.heapify(frontier)
@@ -96,11 +82,11 @@ class Levin(Agent):
         num_generated = 0
         while len(frontier) > 0:
             if (
-                (budget and num_expanded >= budget)
-                or end_time
-                and time.time() > end_time
+                (exp_budget and num_expanded >= exp_budget)
+                or time_budget
+                and timer() - start_time >= time_budget
             ):
-                return 0, num_expanded, 0, num_generated, 0, None
+                return num_expanded, 0, num_generated, 0, None
 
             node = heapq.heappop(frontier)
             num_expanded += 1
@@ -110,7 +96,7 @@ class Levin(Agent):
             state_t_of_children_to_be_evaluated = []
             for a in node.actions:
                 new_state = domain.result(node.state, a)
-                new_state_actions = domain.actions(a, new_state)
+                new_state_actions, mask = domain.actions(a, new_state)
 
                 new_node = LevinNode(
                     new_state,
@@ -118,6 +104,7 @@ class Levin(Agent):
                     parent=node,
                     parent_action=a,
                     actions=new_state_actions,
+                    actions_mask=mask,
                     log_prob=node.log_prob + node.log_action_probs[a].item(),
                 )
                 new_node.levin_cost = levin_cost(new_node)
@@ -126,7 +113,6 @@ class Levin(Agent):
 
                 if new_node not in reached:
                     if domain.is_goal(new_state):
-                        solution_len = new_node.g_cost
                         traj = Trajectory(
                             model=model,
                             domain=domain,
@@ -136,29 +122,26 @@ class Levin(Agent):
                             partial_log_prob=node.log_prob,
                         )
                         traj = (traj,)
-                        return solution_len, num_expanded, 0, num_generated, 0, traj
+                        return num_expanded, 0, num_generated, 0, traj
 
                     reached[new_node] = new_node
                     if new_state_actions:
                         heapq.heappush(frontier, new_node)
-
                         children_to_be_evaluated.append(new_node)
                         state_t = domain.state_tensor(new_state)
                         state_t_of_children_to_be_evaluated.append(state_t)
-
-                        mask = to.zeros(num_actions)
-                        mask[new_state_actions] = 1
                         masks.append(mask)
 
             if children_to_be_evaluated:
-                batch_states = to.stack(state_t_of_children_to_be_evaluated)
-                batch_feats = feature_net(batch_states)
-                action_logits = forward_policy(batch_feats)
+                children_state_t = to.stack(state_t_of_children_to_be_evaluated)
                 masks = to.stack(masks)
-                log_action_probs = masked_log_softmax(action_logits, masks, dim=-1)
+                log_probs, _ = model(
+                    children_state_t,
+                    mask=masks,
+                )
 
-                for child, lap in zip(children_to_be_evaluated, log_action_probs):
+                for child, lap in zip(children_to_be_evaluated, log_probs):
                     child.log_action_probs = lap
 
         print(f"Emptied frontier for problem {problem_id}")
-        return 0, num_expanded, 0, num_generated, 0, None
+        return num_expanded, 0, num_generated, 0, None

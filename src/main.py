@@ -20,6 +20,7 @@ from pathlib import Path
 import random
 import socket
 import time
+from timeit import default_timer as timer
 from typing import Optional
 
 import numpy as np
@@ -374,7 +375,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
         )
 
     if rank == 0:
-        total_time = time.time() - start_time
+        total_time = timer() - rel_start_time
         print(f"Total time: {total_time:.2f} seconds")
         writer.add_text("total_time", f"{total_time:.2f} seconds")
         writer.close()
@@ -396,7 +397,8 @@ if __name__ == "__main__":
                 f"batch-size-train '{args.batch_size_train}' must be a multiple of world_size {args.world_size}"
             )
 
-    start_time = time.time()
+    abs_start_time = time.time()
+    rel_start_time = timer()
 
     problemset_dict = json.load(args.problemset_path.open("r"))
     domain_module = getattr(domains, problemset_dict["domain_module"])
@@ -406,7 +408,7 @@ if __name__ == "__main__":
         validset_dict = json.load(args.validset_path.open("r"))
         validset, _ = getattr(domain_module, "parse_problemset")(validset_dict)
 
-    print(time.ctime(start_time))
+    print(time.ctime(abs_start_time))
 
     def get_loaders(problemset):
         def split(problems):
@@ -561,7 +563,7 @@ if __name__ == "__main__":
     problemset_params = (
         f"{args.problemset_path.parent.stem}-{args.problemset_path.stem}"
     )
-    run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-e{args.expansion_budget}-t{args.time_budget}{exp_name}_{args.seed}_{int(start_time)}"
+    run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-e{args.expansion_budget}-t{args.time_budget}{exp_name}_{args.seed}_{int(abs_start_time)}"
     del problemset_dict
 
     model_args.update(

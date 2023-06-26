@@ -24,6 +24,7 @@ import torch as to
 import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
+from timeit import default_timer as timer
 
 from domains import Problem
 from loaders import ProblemsBatchLoader
@@ -39,6 +40,7 @@ def test(
     writer: SummaryWriter,
     world_size: int,
     expansion_budget: int,
+    time_budget: int,
     increase_budget: bool = True,
     print_results: bool = True,
     validate: bool = False,
@@ -72,6 +74,7 @@ def test(
     fb_exp_ratio = -1
     fb_g_ratio = -1
 
+    test_start_time = timer()
     while True:
         num_solved_t = to.zeros(1, dtype=to.int64)
         num_solved_t[0] = len(world_solved_problems)
@@ -89,9 +92,8 @@ def test(
             world_search_results = None
 
         for i, problem in enumerate(tuple(local_remaining_problems)):
-            start_time = int(time.time() * 1000)
+            start_time = timer()
             (
-                solution_length,
                 n_forw_expanded,
                 n_backw_expanded,
                 n_forw_generated,
@@ -100,8 +102,11 @@ def test(
             ) = agent.search(
                 problem,
                 current_budget,
+                time_budget=time_budget,
             )
-            end_time = int(time.time() * 1000)
+            end_time = timer()
+
+            solution_length = 0 if not traj else traj[0].cost
 
             if bidirectional:
                 problem.domain.reset()
@@ -124,6 +129,7 @@ def test(
                     local_search_results[i, 10] = traj[1].partial_g_cost
                     local_search_results[i, 12] = -1 * traj[1].partial_log_prob
                     local_search_results[i, 14] = traj[1].log_prob
+            local_search_results[i, 15] = end_time - test_start_time
 
         if is_distributed:
             dist.barrier()

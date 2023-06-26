@@ -14,15 +14,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import annotations
-from copy import deepcopy
 import heapq
-import random
-import time
+from timeit import default_timer as timer
 from typing import TYPE_CHECKING
 
 import torch as to
 from torch.jit import RecursiveScriptModule
-from torch.nn.functional import log_softmax
 
 from domains.domain import State
 from enums import TwoDir
@@ -30,12 +27,12 @@ from search.agent import Agent
 from search.utils import LevinNode, levin_cost
 
 if TYPE_CHECKING:
-    from domains.domain import Domain, Problem
+    from domains.domain import Problem
 
 
 class BiLevin(Agent):
-    def __init__(self, args, **kwargs):
-        super().__init__(args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     @property
     def bidirectional(cls):
@@ -48,11 +45,13 @@ class BiLevin(Agent):
     def search(
         self,
         problem: Problem,
-        budget,
+        exp_budget: int,
+        time_budget=None,
         train=False,
-        end_time=None,
     ):
         """ """
+        start_time = timer()
+
         f_frontier = []
         b_frontier = []
         f_reached = {}
@@ -62,7 +61,6 @@ class BiLevin(Agent):
 
         problem_id = problem.id
         f_domain = problem.domain
-        num_actions = f_domain.num_actions
 
         try_make_solution = f_domain.try_make_solution_func
 
@@ -70,14 +68,15 @@ class BiLevin(Agent):
         assert isinstance(f_state, State)
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
         f_actions, f_mask = f_domain.actions_unpruned(f_state)
-        f_log_probs = model(f_state_t, mask=f_mask)
+        f_log_probs, _ = model(f_state_t, mask=f_mask)
         f_start_node = LevinNode(
             f_state,
             g_cost=0,
             log_prob=0.0,
             levin_cost=0.0,
             actions=f_actions,
-            log_action_probs=f_log_probs,
+            actions_mask=f_mask,
+            log_action_probs=f_log_probs[0],
         )
         f_reached[f_start_node] = f_start_node
         f_domain.update(f_start_node)
@@ -101,6 +100,7 @@ class BiLevin(Agent):
                 actions, mask = b_domain.actions_unpruned(s)
                 b_actions.append(actions)
                 b_mask.append(mask)
+            b_mask = to.stack(b_mask)
             b_state_t = to.stack(b_state_t)
         else:
             b_state_t = b_domain.state_tensor(b_states)
@@ -108,8 +108,11 @@ class BiLevin(Agent):
             b_actions, b_mask = b_domain.actions_unpruned(b_states)
             b_states = [b_states]
             b_actions = [b_actions]
+            b_mask = b_mask.unsqueeze(0)
 
-        b_log_probs = model(b_state_t, forward=False, goal_feats=f_state_t, mask=b_mask)
+        b_log_probs, _ = model(
+            b_state_t, forward=False, goal_feats=b_goal_feats, mask=b_mask
+        )
         for i, state in enumerate(b_states):
             start_node = LevinNode(
                 state,
@@ -117,6 +120,7 @@ class BiLevin(Agent):
                 log_prob=0.0,
                 levin_cost=0.0,
                 actions=b_actions[i],
+                actions_mask=b_mask[i],
                 log_action_probs=b_log_probs[i],
             )
             b_reached[start_node] = start_node
@@ -133,12 +137,11 @@ class BiLevin(Agent):
 
         while len(f_frontier) > 0 and len(b_frontier) > 0:
             if (
-                (budget and n_total_expanded >= budget)
-                or end_time
-                and time.time() > end_time
+                (exp_budget and n_total_expanded >= exp_budget)
+                or time_budget
+                and timer() - start_time >= time_budget
             ):
                 return (
-                    False,
                     n_forw_expanded,
                     n_backw_expanded,
                     n_forw_generated,
@@ -181,6 +184,7 @@ class BiLevin(Agent):
                     parent=node,
                     parent_action=a,
                     actions=new_state_actions,
+                    actions_mask=mask,
                     log_prob=node.log_prob + node.log_action_probs[a].item(),
                 )
                 new_node.levin_cost = levin_cost(new_node)
@@ -201,7 +205,6 @@ class BiLevin(Agent):
 
                     if trajs:  # solution found
                         return (
-                            len(trajs[0]),
                             n_forw_expanded,
                             n_backw_expanded,
                             n_forw_generated,
@@ -222,19 +225,18 @@ class BiLevin(Agent):
             if children_to_be_evaluated:
                 children_state_t = to.stack(state_t_of_children_to_be_evaluated)
                 masks = to.stack(masks)
-                log_probs = model(
+                log_probs, _ = model(
                     children_state_t,
                     forward=direction == TwoDir.FORWARD,
                     goal_feats=_goal_feats,
-                    masks=masks,
+                    mask=masks,
                 )
 
-                for i, child in enumerate(children_to_be_evaluated):
-                    child.log_action_probs = log_probs[i]
+                for child, lap in zip(children_to_be_evaluated, log_probs):
+                    child.log_action_probs = lap
 
         print(f"Emptied frontiers for problem {problem_id}")
         return (
-            False,
             n_forw_expanded,
             n_backw_expanded,
             n_forw_generated,

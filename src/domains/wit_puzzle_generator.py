@@ -134,7 +134,10 @@ def main():
             )
             # generate a path from start to goal
             state = wit.reset()
-            while actions := wit.actions_unpruned(state):
+            while True:
+                actions, _ = wit.actions_unpruned(state)
+                if not actions:
+                    break
                 action = random.choice(actions)
                 state = wit.result(state, action)
                 if wit.is_head_at_goal(state):
