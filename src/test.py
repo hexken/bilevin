@@ -105,7 +105,6 @@ def test(
                 time_budget=time_budget,
             )
             end_time = timer()
-
             solution_length = 0 if not traj else traj[0].cost
 
             if bidirectional:

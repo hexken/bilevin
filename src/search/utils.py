@@ -166,15 +166,17 @@ class Trajectory:
         self.cost = len(self.states)
         self.costs_to_go = to.arange(self.cost, 0, -1)
 
-        # self.log_prob, pnll = traj_nll(
-        #     self, model
-        # )  # do this after states, actions, forward, steps, are set
+        nll, pnll = traj_nll(
+            self, model
+        )  # do this after states, actions, forward, steps, are set
+
+        self.log_prob = -nll
 
         # todo log these? they seem to usually be very close (within 5 decimals)
-        # if not np.isclose(-1 * self.partial_log_prob, pnll, atol=1e-2):
-        #     print(
-        #         f"Warning: partial log prob does not match nll {-1 * self.partial_log_prob} {pnll}"
-        #     )
+        if not np.isclose(self.partial_log_prob, -pnll):
+            print(
+                f"Warning: partial log prob does not match pnll {-1 * self.partial_log_prob} {pnll}"
+            )
 
     def __len__(self):
         return len(self.states)
@@ -182,27 +184,24 @@ class Trajectory:
 
 def traj_nll(traj: Trajectory, model: AgentModel):
     with to.no_grad():
-        state_feats = model.feature_net(traj.states)
+        k = traj.partial_g_cost
+        log_probs, logits = model(
+            traj.states,
+            mask=traj.masks,
+            forward=traj.forward,
+            goal_state_t=traj.goal_state_t,
+        )
+        partial_nll = nll_loss(log_probs[:k], traj.actions[:k], reduction="sum").item()
+        nll = (
+            partial_nll
+            + nll_loss(log_probs[k:], traj.actions[k:], reduction="sum").item()
+        )
 
-        if traj.forward:
-            logits = model.forward_policy(state_feats)
-        else:
-            if traj.goal_state_t is not None:
-                goal_feat = model.feature_net(traj.goal_state_t)
-                logits = model.backward_policy(state_feats, goal_feat)
-            else:
-                logits = model.backward_policy(state_feats)
-
-        action_log_probs = masked_log_softmax(logits, traj.masks)
-        action_nlls = nll_loss(action_log_probs, traj.actions, reduction="none")
-        traj_nll = action_nlls.sum().item()
-        traj_partial_nll = action_nlls[: traj.partial_g_cost].sum().item()
-
-    # might be shifted? masking causing issues?
-    return traj_nll, traj_partial_nll
+    return nll, partial_nll
 
 
 class MergedTrajectory:
+    # todo costs_to_go
     def __init__(self, trajs: list[Trajectory]):
         self.forward = False
         if trajs:

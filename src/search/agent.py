@@ -21,8 +21,8 @@ import torch as to
 import torch.distributed as dist
 
 from domains.domain import Domain
-import models.loss_functions as loss_fns
 from models.models import AgentModel
+import models.utils as model_utils
 
 
 class Agent(ABC):
@@ -53,13 +53,17 @@ class Agent(ABC):
             raise ValueError("model-path argument must be a directory if given")
 
         if rank == 0:
-            init_model = self.logdir / f"model_init.pt"
-            print(f"Saving init model\n  to {str(init_model)}")
-            to.jit.save(self._model, init_model)
+            if isinstance(self._model, to.jit.ScriptModule):
+                init_model = self.logdir / f"model_init.ts"
+                to.jit.save(self._model, init_model)
+            else:
+                init_model = self.logdir / f"model_init.pt"
+                to.save(self._model, init_model)
+            print(f"Saved init model\n  to {str(init_model)}")
 
         if args.mode == "train":
             assert self._model
-            self.loss_fn = getattr(loss_fns, args.loss_fn)
+            self.loss_fn = getattr(model_utils, args.loss_fn)
             optimizer_params = [
                 {
                     "params": self.model.forward_feature_net.parameters(),
@@ -97,23 +101,21 @@ class Agent(ABC):
     def save_model(
         self,
         suffix="",
+        subpath="",
         log=True,
-        path=None,
     ):
-        if path:
-            path = self.logdir / path
+        if isinstance(self.model, to.jit.ScriptModule):
+            save_func = to.jit.save
+            ext = ".ts"
         else:
-            path = self.logdir
+            save_func = to.save
+            ext = ".pt"
 
-        if suffix:
-            path = path / f"model_{suffix}.pt"
-        else:
-            path = path / "model.pt"
+        path = self.logdir / subpath / f"model_{suffix}{ext}"
+        save_func(self.model, path)
 
         if log:
-            print(f"Saving model\n  to {str(path)}")
-
-        to.jit.save(self.model, path)
+            print(f"Saved model\n  to {str(path)}")
 
     @property
     @classmethod

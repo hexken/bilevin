@@ -183,14 +183,13 @@ def train(
                 model.eval()
                 to.set_grad_enabled(False)
 
-                forward_trajs = []
-                backward_trajs = []
+                f_trajs = []
+                b_trajs = []
 
                 num_problems_solved_this_batch = 0
                 for i, problem in enumerate(local_batch_problems):
                     start_time = timer()
                     (
-                        solution_length,
                         n_forw_expanded,
                         n_backw_expanded,
                         n_forw_generated,
@@ -223,19 +222,19 @@ def train(
                     local_batch_search_results[i, 8] = solution_length
 
                     if traj:
-                        forward_trajs.append(traj[0])
+                        f_trajs.append(traj[0])
                         local_batch_search_results[i, 9] = traj[0].partial_g_cost
                         local_batch_search_results[i, 11] = (
                             -1 * traj[0].partial_log_prob
                         )
-                        local_batch_search_results[i, 13] = traj[0].log_prob
+                        local_batch_search_results[i, 13] = -1 * traj[0].log_prob
                         if bidirectional:
-                            backward_trajs.append(traj[1])
+                            b_trajs.append(traj[1])
                             local_batch_search_results[i, 10] = traj[1].partial_g_cost
                             local_batch_search_results[i, 12] = (
                                 -1 * traj[1].partial_log_prob
                             )
-                            local_batch_search_results[i, 14] = traj[1].log_prob
+                            local_batch_search_results[i, 14] = -1 * traj[1].log_prob
 
                     local_batch_search_results[i, 15] = end_time - train_start_time
 
@@ -340,10 +339,6 @@ def train(
                     # writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
                     sys.stdout.flush()
 
-                f_merged_traj = MergedTrajectory(forward_trajs)
-                if bidirectional:
-                    b_merged_traj = MergedTrajectory(backward_trajs)
-
                 # perform grad steps
                 to.set_grad_enabled(True)
                 model.train()
@@ -356,16 +351,12 @@ def train(
 
                 for grad_step in range(1, grad_steps + 1):
                     optimizer.zero_grad()
-                    if forward_trajs:
+                    if f_trajs:
                         (
                             f_loss,
                             f_avg_action_nll,
-                            f_logits,
-                        ) = loss_fn(f_merged_traj, model)
-
-                        f_acc = (
-                            f_logits.argmax(dim=1) == f_merged_traj.actions
-                        ).sum().item() / len(f_logits)
+                            f_acc,
+                        ) = loss_fn(f_trajs, model)
 
                         local_batch_opt_results[0] = f_avg_action_nll
                         local_batch_opt_results[1] = f_acc
@@ -375,12 +366,8 @@ def train(
                             (
                                 b_loss,
                                 b_avg_action_nll,
-                                b_logits,
-                            ) = loss_fn(b_merged_traj, model)
-
-                            b_acc = (
-                                b_logits.argmax(dim=1) == b_merged_traj.actions
-                            ).sum().item() / len(b_logits)
+                                b_acc,
+                            ) = loss_fn(b_trajs, model)
 
                             local_batch_opt_results[3] = b_avg_action_nll
                             local_batch_opt_results[4] = b_acc
@@ -535,6 +522,7 @@ def train(
                     writer,
                     world_size,
                     expansion_budget,
+                    time_budget,
                     increase_budget=False,
                     print_results=False,
                     validate=True,
@@ -590,16 +578,21 @@ def train(
                         )
                         agent.save_model("best_solved", log=False)
 
+                    if isinstance(model, to.jit.ScriptModule):
+                        ext = ".ts"
+                    else:
+                        ext = ".pt"
                     copyfile(
-                        logdir / "model_latest.pt", epoch_logdir / "model_latest.pt"
+                        logdir / f"model_latest{ext}",
+                        epoch_logdir / f"model_latest{ext}",
                     )
                     copyfile(
-                        logdir / "model_best_solved.pt",
-                        epoch_logdir / "model_best_solved.pt",
+                        logdir / f"model_best_solved{ext}",
+                        epoch_logdir / f"model_best_solved{ext}",
                     )
                     copyfile(
-                        logdir / "model_best_expanded.pt",
-                        epoch_logdir / "model_best_expanded.pt",
+                        logdir / f"model_best_expanded{ext}",
+                        epoch_logdir / f"model_best_expanded{ext}",
                     )
 
                 if is_distributed:
