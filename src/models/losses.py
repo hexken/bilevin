@@ -19,7 +19,7 @@ import torch.nn.functional as F
 from torch.nn.functional import cross_entropy, nll_loss
 
 from models import AgentModel
-from search.utils import MergedTrajectory, Trajectory
+from search.utils import Trajectory
 
 
 def levin_loss(trajs: list[Trajectory], model: AgentModel):

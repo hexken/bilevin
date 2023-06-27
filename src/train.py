@@ -32,7 +32,7 @@ import tqdm
 
 from loaders import CurriculumLoader, ProblemsBatchLoader
 from search.agent import Agent
-from search.utils import int_columns, search_result_header
+from search.utils import int_columns, search_result_header, get_subgoal_trajs
 
 
 def train(
@@ -45,6 +45,7 @@ def train(
     time_budget: int,
     seed: int,
     grad_steps: int = 10,
+    use_subgoal_trajs: bool = False,
     epoch_reduce_lr: int = 99999,
     epoch_reduce_grad_steps: int = 99999,
     epoch_begin_validate: int = 1,
@@ -216,19 +217,21 @@ def train(
                     local_batch_search_results[i, 8] = solution_length
 
                     if traj:
-                        f_trajs.append(traj[0])
-                        local_batch_search_results[i, 9] = traj[0].partial_g_cost
-                        local_batch_search_results[i, 11] = (
-                            -1 * traj[0].partial_log_prob
-                        )
-                        local_batch_search_results[i, 13] = -1 * traj[0].log_prob
+                        f_traj, b_traj = traj
+                        f_trajs.append(f_traj)
+                        local_batch_search_results[i, 9] = f_traj.partial_g_cost
+                        local_batch_search_results[i, 11] = -1 * f_traj.partial_log_prob
+                        local_batch_search_results[i, 13] = -1 * f_traj.log_prob
                         if bidirectional:
                             b_trajs.append(traj[1])
-                            local_batch_search_results[i, 10] = traj[1].partial_g_cost
+                            local_batch_search_results[i, 10] = b_traj.partial_g_cost
                             local_batch_search_results[i, 12] = (
-                                -1 * traj[1].partial_log_prob
+                                -1 * b_traj.partial_log_prob
                             )
-                            local_batch_search_results[i, 14] = -1 * traj[1].log_prob
+                            local_batch_search_results[i, 14] = -1 * b_traj.log_prob
+
+                            if use_subgoal_trajs:
+                                b_trajs.extend(get_subgoal_trajs(b_traj))
 
                     local_batch_search_results[i, 15] = end_time - train_start_time
 

@@ -41,10 +41,10 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--show-solution-probs",
+        "--use-subgoal-trajs",
         action="store_true",
         default=False,
-        help="log/show solution probabilities",
+        help="generate subgoal trajectories for backward policy training",
     )
     parser.add_argument(
         "--runsdir-path",
@@ -354,6 +354,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             time_budget=args.time_budget,
             seed=local_seed,
             grad_steps=args.grad_steps,
+            use_subgoal_trajs=args.use_subgoal_trajs,
             epoch_reduce_lr=args.epoch_reduce_lr,
             epoch_reduce_grad_steps=args.epoch_reduce_grad_steps,
             epoch_begin_validate=args.epoch_begin_validate,

@@ -112,13 +112,13 @@ class Levin(Agent):
 
                 if new_node not in reached:
                     if domain.is_goal(new_state):
-                        traj = Trajectory(
-                            model=model,
+                        traj = Trajectory.from_goal_node(
                             domain=domain,
                             final_node=new_node,
                             num_expanded=num_expanded,
                             partial_g_cost=node.g_cost,
                             partial_log_prob=node.log_prob,
+                            model=model,
                         )
                         traj = (traj,)
                         return num_expanded, 0, num_generated, 0, traj

@@ -24,9 +24,11 @@ import torch as to
 
 from domains import Domain, Problem, State
 from enums import Color, FourDir
+from models import AgentModel
 from search import SearchNode, Trajectory
 
 # TODO UPDATE for the nll and pnll stuff!
+
 
 class WitnessState(State):
     """
@@ -73,7 +75,7 @@ class WitnessState(State):
 
 def get_merged_trajectory(
     model: AgentModel,
-    dir1_domain,
+    dir1_domain: Domain,
     dir1_common: SearchNode,
     dir2_common: SearchNode,
     node_type: Type[SearchNode],
@@ -101,21 +103,25 @@ def get_merged_trajectory(
         dir2_parent_action = dir2_parent_node.parent_action
         dir2_parent_node = dir2_parent_node.parent
 
-    return Trajectory(
-        model=model,
+    if dir1_common.parent:
+        log_prob = dir1_common.parent.log_prob
+    else:
+        log_prob = 0.0
+
+    return Trajectory.from_goal_node(
         domain=dir1_domain,
         final_node=dir1_node,
         num_expanded=num_expanded,
         partial_g_cost=dir1_common.g_cost - 1,
-        partial_log_prob=dir1_common.parent.log_prob,
+        partial_log_prob=log_prob,
+        model=model,
         goal_state_t=goal_state_t,
         forward=forward,
     )
 
 
 def try_make_solution(
-    model,
-    AgebtModel,
+    model: AgentModel,
     this_domain: Witness,
     node: SearchNode,
     other_domain: Witness,

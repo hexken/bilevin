@@ -123,13 +123,43 @@ def levin_cost(node: LevinNode):
 
 
 class Trajectory:
+    def __init__(
+        self,
+        states: to.Tensor,
+        actions: to.Tensor,
+        num_expanded: int,
+        partial_g_cost: Optional[int] = None,  # g_cost of node that generated sol.
+        partial_log_prob: Optional[
+            float
+        ] = None,  # probability of node that generates sol.
+        log_prob: Optional[float] = None,
+        masks: Optional[to.Tensor] = None,
+        goal_state_t: Optional[to.Tensor] = None,
+        forward: bool = True,
+    ):
+        self.states = states
+        self.actions = actions
+        self.num_expanded = num_expanded
+        self.partial_g_cost = partial_g_cost
+        self.partial_log_prob = partial_log_prob
+        self.log_prob = log_prob
+        self.masks = masks
+        self.goal_state_t = goal_state_t
+        self.forward = forward
+
+        self.cost = len(self.actions)
+        self.costs_to_go = to.arange(self.cost, 0, -1)
+        self._len = len(self.actions)
+
     @classmethod
     def from_goal_node(
+        cls,
         domain: Domain,
         final_node: SearchNode,
         num_expanded: int,
-        partial_g_cost: int,  # g_cost of node that generated sol.
-        partial_log_prob: float,  # probability of node that generates sol.
+        partial_g_cost: int,  # g_cost of node that generated meet point.
+        partial_log_prob: float,  # probability of node that generates meet point.
+        log_prob: Optional[float] = None,
         model: Optional[AgentModel] = None,
         goal_state_t: Optional[to.Tensor] = None,
         forward: bool = True,
@@ -138,16 +168,10 @@ class Trajectory:
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
-        self.forward = forward
-        self.partial_g_cost = partial_g_cost
-        self.partial_log_prob = partial_log_prob
-        self.num_expanded = num_expanded
-        self.goal_state_t: Optional[to.Tensor] = (
-            goal_state_t.unsqueeze(0) if goal_state_t is not None else None
-        )
-
+        goal_state_t = goal_state_t.unsqueeze(0) if goal_state_t is not None else None
         action = final_node.parent_action
         node = final_node.parent
+
         states = []
         actions = []
         masks = []
@@ -160,101 +184,80 @@ class Trajectory:
             action = node.parent_action
             node = node.parent
 
-        self.states = to.stack(tuple(reversed(states)))
-        self.actions = to.tensor(tuple(reversed(actions)))
-        self.masks = to.stack(tuple(reversed(masks)))
-        self.cost = len(self.states)
-        self.costs_to_go = to.arange(self.cost, 0, -1)
+        states = to.stack(tuple(reversed(states)))
+        actions = to.tensor(tuple(reversed(actions)))
+        masks = to.stack(tuple(reversed(masks)))
 
-        nll, pnll = traj_nll(
-            self, model
-        )  # do this after states, actions, forward, steps, are set
+        if not log_prob and model:
+            with to.no_grad():
+                k = partial_g_cost
+                log_probs, _ = model(
+                    states,
+                    mask=masks,
+                    forward=forward,
+                    goal_state_t=goal_state_t,
+                )
+                partial_nll = nll_loss(
+                    log_probs[:k], actions[:k], reduction="sum"
+                ).item()
+                nll = (
+                    partial_nll
+                    + nll_loss(log_probs[k:], actions[k:], reduction="sum").item()
+                )
 
-        self.log_prob = -nll
+            log_prob = -nll
+            plp = -partial_nll
 
-        # todo log these? they seem to usually be very close (within 5 decimals)
-        if not np.isclose(self.partial_log_prob, -pnll):
-            print(
-                f"Warning: partial log prob does not match pnll {-1 * self.partial_log_prob} {pnll}"
-            )
+            # todo log these? they seem to usually be very close (within 5 decimals)
+            if not np.isclose(partial_log_prob, plp):
+                print(
+                    f"Warning: cum partial_log_prob != single partial_log_prob {-1 * partial_log_prob} {plp}"
+                )
+
+        return cls(
+            states=states,
+            actions=actions,
+            num_expanded=num_expanded,
+            partial_g_cost=partial_g_cost,
+            partial_log_prob=partial_log_prob,
+            log_prob=log_prob,
+            masks=masks,
+            goal_state_t=goal_state_t,
+            forward=forward,
+        )
 
     def __len__(self):
-        return len(self.states)
+        return self._len
 
 
-def traj_nll(traj: Trajectory, model: AgentModel):
-    with to.no_grad():
-        k = traj.partial_g_cost
-        log_probs, logits = model(
-            traj.states,
-            mask=traj.masks,
-            forward=traj.forward,
-            goal_state_t=traj.goal_state_t,
-        )
-        partial_nll = nll_loss(log_probs[:k], traj.actions[:k], reduction="sum").item()
-        nll = (
-            partial_nll
-            + nll_loss(log_probs[k:], traj.actions[k:], reduction="sum").item()
-        )
-
-    return nll, partial_nll
-
-
-def get_subgoal_trajs(traj: Trajectory, domain: Domain):
+def get_subgoal_trajs(traj: Trajectory):
     """
     Generates all sub-trajectories of a trajectory.
     """
-    for i in range(1, len(traj)):
-        yield Trajectory(
-            traj.states[i:],
-            traj.actions[i:],
-            traj.masks[i:],
-            traj.forward,
-            traj.steps[i:],
-            traj.goal_state_t,
-        )
+    # todo we can probably be more clever about setting num_expanded,
+    # say by subtracting the # of expanded by the opposite direction when reaching each subgoal
+    sub_trajs = []
+    forward = traj.forward
+    for i in range(len(traj) - 1, 0, -1):
+        masks = None
+        if traj.masks is not None:
+            masks = traj.masks[:i]
 
-
-class MergedTrajectory:
-    # todo costs_to_go
-    def __init__(self, trajs: list[Trajectory]):
-        self.forward = False
-        if trajs:
-            if trajs[0].forward:
-                self.forward = True
-                self.goal_states = None
-            else:
-                self.goal_states = to.cat(tuple(t.goal_state_t for t in trajs))
-
-            self.states = to.cat(tuple(t.states for t in trajs))
-            self.actions = to.cat(tuple(t.actions for t in trajs))
-            self.lengths = to.tensor(tuple(len(t) for t in trajs))
-            self.steps = tuple(t.partial_g_cost for t in trajs)
-
-            indices = to.arange(len(trajs))
-            self.indices = to.repeat_interleave(indices, self.lengths)
-            self.nums_expanded = to.tensor(
-                tuple(t.num_expanded for t in trajs), dtype=to.float32
+        est_num_exp = int(traj.num_expanded / (len(traj) - i + 1))
+        sub_trajs.append(
+            Trajectory(
+                traj.states[i:],
+                traj.actions[i:],
+                est_num_exp,
+                masks=masks,
+                forward=forward,
+                goal_state_t=traj.states[i],
             )
-            self.num_trajs = len(self.nums_expanded)
-            self.num_states = len(self.states)
-
-            # if shuffle:
-            #     self.shuffle()
-        else:
-            return None
-
-    def __len__(self):
-        raise NotImplementedError
-
-    # def shuffle(self):
-    #     perm = to.randperm(self.num_states)
-    #     self.states = self.states[perm]
-    #     self.actions = self.actions[perm]
-    #     self.indices = self.indices[perm]
+        )
+    return sub_trajs
 
 
-def get_merged_solution(
+def get_merged_trajectory(
     model: AgentModel,
     dir1_domain: Domain,
     dir1_common: SearchNode,
@@ -293,13 +296,13 @@ def get_merged_solution(
     else:
         log_prob = 0.0
 
-    return Trajectory(
-        model=model,
+    return Trajectory.from_goal_node(
         domain=dir1_domain,
         final_node=dir1_node,
         num_expanded=num_expanded,
         partial_g_cost=dir1_common.g_cost - 1,
         partial_log_prob=log_prob,
+        model=model,
         goal_state_t=goal_state_t,
         forward=forward,
     )
@@ -329,10 +332,10 @@ def try_make_solution(
             f_domain = other_domain
             b_domain = this_domain
 
-        f_traj = get_merged_solution(
+        f_traj = get_merged_trajectory(
             model, f_domain, f_common_node, b_common_node, type(node), num_expanded
         )
-        b_traj = get_merged_solution(
+        b_traj = get_merged_trajectory(
             model,
             b_domain,
             b_common_node,
