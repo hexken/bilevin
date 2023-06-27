@@ -59,7 +59,7 @@ class Levin(Agent):
         assert isinstance(state, State)
         state_t = domain.state_tensor(state).unsqueeze(0)
         actions, mask = domain.actions_unpruned(state)
-        log_probs = model(state_t, mask=mask)
+        log_probs, _ = model(state_t, mask=mask)
 
         node = LevinNode(
             state,
@@ -71,11 +71,10 @@ class Levin(Agent):
             log_action_probs=log_probs[0],
         )
 
+        reached = {node: node}
         frontier = []
-        reached = {}
         if actions:
             frontier.append(node)
-        reached[node] = node
         heapq.heapify(frontier)
 
         num_expanded = 0
