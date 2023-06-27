@@ -13,13 +13,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import math
-from math import isclose
+from math import ceil
 from pathlib import Path
 from shutil import copyfile
 import sys
 from timeit import default_timer as timer
-from typing import Callable, Type, Union
 from typing import Optional
 import warnings
 
@@ -29,14 +27,10 @@ from tabulate import tabulate
 from test import test
 import torch as to
 import torch.distributed as dist
-from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard.writer import SummaryWriter
 import tqdm
 
-from domains.domain import Problem
 from loaders import CurriculumLoader, ProblemsBatchLoader
-from models import AgentModel
-from search import MergedTrajectory
 from search.agent import Agent
 from search.utils import int_columns, search_result_header
 
@@ -108,7 +102,7 @@ def train(
             continue
         max_epoch_expansions = world_num_problems * expansion_budget
 
-        world_batches_this_difficulty = math.ceil(
+        world_batches_this_difficulty = ceil(
             world_num_problems / (local_batch_size * world_size)
         )
 
@@ -135,7 +129,7 @@ def train(
             num_new_problems_solved_this_epoch = 0
             num_problems_solved_this_epoch = 0
             # world_results_df["Epoch"] = epoch
-            # world_results_df["StageEpoch"] = stage_epoch
+            world_results_df["StageEpoch"] = stage_epoch
             world_results_df["Batch"] = 0
 
             if rank == 0:

@@ -19,7 +19,6 @@ from timeit import default_timer as timer
 from typing import TYPE_CHECKING
 
 import torch as to
-from torch.jit import RecursiveScriptModule
 
 from domains.domain import State
 from enums import TwoDir

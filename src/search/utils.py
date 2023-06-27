@@ -123,14 +123,14 @@ def levin_cost(node: LevinNode):
 
 
 class Trajectory:
-    def __init__(
-        self,
-        model: AgentModel,
+    @classmethod
+    def from_goal_node(
         domain: Domain,
         final_node: SearchNode,
         num_expanded: int,
         partial_g_cost: int,  # g_cost of node that generated sol.
         partial_log_prob: float,  # probability of node that generates sol.
+        model: Optional[AgentModel] = None,
         goal_state_t: Optional[to.Tensor] = None,
         forward: bool = True,
     ):
@@ -198,6 +198,21 @@ def traj_nll(traj: Trajectory, model: AgentModel):
         )
 
     return nll, partial_nll
+
+
+def get_subgoal_trajs(traj: Trajectory, domain: Domain):
+    """
+    Generates all sub-trajectories of a trajectory.
+    """
+    for i in range(1, len(traj)):
+        yield Trajectory(
+            traj.states[i:],
+            traj.actions[i:],
+            traj.masks[i:],
+            traj.forward,
+            traj.steps[i:],
+            traj.goal_state_t,
+        )
 
 
 class MergedTrajectory:

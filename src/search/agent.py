@@ -22,7 +22,7 @@ import torch.distributed as dist
 
 from domains.domain import Domain
 from models.models import AgentModel
-import models.utils as model_utils
+import models.losses as losses
 
 
 class Agent(ABC):
@@ -65,7 +65,7 @@ class Agent(ABC):
 
         if args.mode == "train":
             assert self._model
-            self.loss_fn = getattr(model_utils, args.loss_fn)
+            self.loss_fn = getattr(losses, args.loss_fn)
             optimizer_params = [
                 {
                     "params": self.model.forward_feature_net.parameters(),
