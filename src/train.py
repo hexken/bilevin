@@ -247,9 +247,9 @@ def train(
                     world_batch_results_t = local_batch_search_results
 
                 world_batch_results_arr = world_batch_results_t.numpy()
-                # hacky way to filter out results from partial batches
+                # results with no expanded nodes are not valid (from a partial batch)
                 world_batch_results_arr = world_batch_results_arr[
-                    world_batch_results_arr[:, 6] > 0
+                    world_batch_results_arr[:, 2] > 0
                 ]
 
                 world_batch_ids = np.array(
