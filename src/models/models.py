@@ -75,8 +75,10 @@ class AgentModel(nn.Module):
                     self.num_actions,
                     model_args["backward_hidden_layers"],
                 )
+        else:
+            self.backward_policy = DummyPolicy()
 
-        self.dummy_goal_feats: to.Tensor = to.zeros((1))
+        self.dummy_goal_feats: to.Tensor = to.zeros(1)
 
     def forward(
         self,
@@ -230,3 +232,14 @@ class ConvFeatureNet(nn.Module):
         x = x.flatten(1)
 
         return x
+
+
+class DummyPolicy(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.dummy_out: to.Tensor = to.zeros(1)
+
+    def forward(
+        self, state_feats: to.Tensor, goal_feats: Optional[to.Tensor] = None
+    ) -> to.Tensor:
+        return self.dummy_out
