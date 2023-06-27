@@ -134,8 +134,8 @@ def train(
         for stage_epoch in range(1, batch_loader.epochs + 1):
             num_new_problems_solved_this_epoch = 0
             num_problems_solved_this_epoch = 0
-            world_results_df["Epoch"] = epoch
-            world_results_df["StageEpoch"] = stage_epoch
+            # world_results_df["Epoch"] = epoch
+            # world_results_df["StageEpoch"] = stage_epoch
             world_results_df["Batch"] = 0
 
             if rank == 0:
@@ -350,7 +350,7 @@ def train(
                 b_acc = -1
 
                 for grad_step in range(1, grad_steps + 1):
-                    optimizer.zero_grad()
+                    optimizer.zero_grad(set_to_none=False)
                     if f_trajs:
                         (
                             f_loss,

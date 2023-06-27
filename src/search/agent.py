@@ -34,7 +34,7 @@ class Agent(ABC):
 
         self.logdir: Path = logdir
 
-        self._model: AgentModel
+        self._model: AgentModel | to.jit.ScriptModule
 
         if args.model_path is None:
             # just use the random initialization from rank 0

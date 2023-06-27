@@ -78,7 +78,8 @@ def test(
     while True:
         num_solved_t = to.zeros(1, dtype=to.int64)
         num_solved_t[0] = len(world_solved_problems)
-        dist.broadcast(num_solved_t, src=0)
+        if is_distributed:
+            dist.broadcast(num_solved_t, src=0)
         if num_solved_t.item() == world_num_problems:
             break
 
@@ -133,7 +134,10 @@ def test(
         if is_distributed:
             dist.barrier()
 
-        dist.gather_object(local_search_results, world_search_results)
+        if is_distributed:
+            dist.gather_object(local_search_results, world_search_results)
+        else:
+            world_search_results = [local_search_results]
 
         if rank == 0:
             world_search_results_arr = np.vstack(world_search_results)

@@ -80,7 +80,7 @@ class AgentModel(nn.Module):
 
     def forward(
         self,
-        state_t,
+        state_t: to.Tensor,
         mask: Optional[to.Tensor] = None,
         forward: bool = True,
         goal_feats: Optional[to.Tensor] = None,
@@ -108,7 +108,7 @@ class AgentModel(nn.Module):
 
         return log_probs, logits
 
-    def get_feats(self, state_t: to.Tensor, forward=True):
+    def get_feats(self, state_t: to.Tensor, forward: bool = True):
         if forward:
             feats = self.forward_feature_net(state_t)
         else:
@@ -118,7 +118,9 @@ class AgentModel(nn.Module):
 
 
 class StatePolicy(nn.Module):
-    def __init__(self, num_features: int, num_actions: int, hidden_layer_sizes=[128]):
+    def __init__(
+        self, num_features: int, num_actions: int, hidden_layer_sizes: list[int] = [128]
+    ):
         super().__init__()
         self.num_features: int = num_features
         self.num_actions: int = num_actions
@@ -197,12 +199,17 @@ class ConvFeatureNet(nn.Module):
     """Assumes a square sized input with state_t_width side length"""
 
     def __init__(
-        self, in_channels, state_t_width, kernel_size, num_filters, num_actions
+        self,
+        in_channels: int,
+        state_t_width: int,
+        kernel_size: tuple[int, int],
+        num_filters: int,
+        num_actions: int,
     ):
         super().__init__()
-        self._kernel_size = kernel_size
-        self._filters = num_filters
-        self.num_actions = num_actions
+        self._kernel_size: tuple[int, int] = kernel_size
+        self._filters: int = num_filters
+        self.num_actions: int = num_actions
 
         self.conv1 = nn.Conv2d(in_channels, num_filters, kernel_size, padding="valid")
         to.nn.init.kaiming_uniform_(
@@ -216,7 +223,7 @@ class ConvFeatureNet(nn.Module):
 
         self.reduced_size = (state_t_width - 2) ** 2
 
-    def forward(self, x):
+    def forward(self, x: to.Tensor):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
 
