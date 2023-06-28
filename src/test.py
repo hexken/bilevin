@@ -23,7 +23,7 @@ from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
-import tqdm
+from tqdm import tqdm
 from timeit import default_timer as timer
 
 from domains import Problem
@@ -69,7 +69,7 @@ def test(
     local_remaining_problems = set(p[0] for p in problems_loader if p)
 
     if rank == 0:
-        pbar = tqdm.tqdm(total=world_num_problems)
+        pbar = tqdm(total=world_num_problems)
 
     fb_exp_ratio = -1
     fb_g_ratio = -1
@@ -168,16 +168,16 @@ def test(
 
             world_results_df.sort_values("Exp")
             if print_results:
-                print(
+                tqdm.write(
                     tabulate(
                         world_results_df,
                         headers="keys",
                         tablefmt="psql",
                     )
                 )
-                print(f"{'Solved':23s}: {len(solved_ids)}/{world_num_problems}\n")
-                print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:.3f}")
-                print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:.3f}\n")
+                tqdm.write(f"{'Solved':23s}: {len(solved_ids)}/{world_num_problems}\n")
+                tqdm.write(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:.3f}")
+                tqdm.write(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:.3f}\n")
 
             total_num_expanded += world_results_df["Exp"].sum()
 

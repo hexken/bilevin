@@ -211,7 +211,7 @@ class Trajectory:
             # todo log these? they seem to usually be very close (within 5 decimals)
             if not np.isclose(partial_log_prob, plp):
                 print(
-                    f"Warning: cum partial_log_prob != single partial_log_prob {-1 * partial_log_prob} {plp}"
+                    f"Warning: cum partial_log_prob != single partial_log_prob {partial_log_prob} {plp}"
                 )
 
         return cls(
