@@ -152,7 +152,7 @@ def test(
                 problems_loader.all_ids[i]
                 for i in world_search_results_arr[:, 0].astype(int)
             ]
-            world_results_df.set_index("ProblemId")
+            world_results_df = world_results_df.set_index("ProblemId")
 
             solved_ids = world_results_df[world_results_df["Len"] > 0].index
             for problem_id in solved_ids:

@@ -369,6 +369,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             writer,
             args.world_size,
             expansion_budget=args.expansion_budget,
+            time_budget=args.time_budget,
             increase_budget=args.increase_budget,
             print_results=True,
             validate=False,

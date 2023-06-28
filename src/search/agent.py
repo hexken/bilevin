@@ -44,7 +44,7 @@ class Agent(ABC):
                     dist.broadcast(param.data, 0)
             self._model = to.jit.script(model)
         elif args.model_path.is_dir():
-            load_model_path = list(args.model_path.glob(f"model_{args.model_suffix}"))[
+            load_model_path = list(args.model_path.glob(f"model_{args.model_suffix}*"))[
                 0
             ]
             self._model = to.jit.load(load_model_path)
