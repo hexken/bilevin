@@ -79,10 +79,10 @@ class Agent(ABC):
                 },
             ]
             if self.bidirectional:
-                if args.share_feature_net:
+                if not args.share_feature_net:
                     optimizer_params.append(
                         {
-                            "params": self.model.forward_feature_net.parameters(),
+                            "params": self.model.backward_feature_net.parameters(),
                             "lr": args.feature_net_lr,
                             "weight_decay": args.weight_decay,
                         }
