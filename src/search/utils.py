@@ -229,32 +229,29 @@ class Trajectory:
     def __len__(self):
         return self._len
 
-
-def get_subgoal_trajs(traj: Trajectory):
-    """
-    Generates all sub-trajectories of a trajectory.
-    """
-    # todo we can probably be more clever about setting num_expanded,
-    # say by subtracting the # of expanded by the opposite direction when reaching each subgoal
-    sub_trajs = []
-    forward = traj.forward
-    for i in range(len(traj) - 1, 0, -1):
+    def get_subgoal_trajs(self: Trajectory):
+        """
+        Generates all sub-trajectories of a trajectory.
+        """
+        # todo we can probably be more clever about setting num_expanded,
+        sub_trajs = []
         masks = None
-        if traj.masks is not None:
-            masks = traj.masks[:i]
+        for i in range(len(self) - 1, 0, -1):
+            if self.masks is not None:
+                masks = self.masks[:i]
 
-        est_num_exp = int(traj.num_expanded / (len(traj) - i + 1))
-        sub_trajs.append(
-            Trajectory(
-                traj.states[i:],
-                traj.actions[i:],
-                est_num_exp,
-                masks=masks,
-                forward=forward,
-                goal_state_t=traj.states[i],
+            est_num_exp = int(self.num_expanded / (len(self) - i + 1))
+            sub_trajs.append(
+                Trajectory(
+                    self.states[:i],
+                    self.actions[:i],
+                    est_num_exp,
+                    masks=masks,
+                    forward=False,
+                    goal_state_t=self.states[i].unsqueeze(0),
+                )
             )
-        )
-    return sub_trajs
+        return sub_trajs
 
 
 def get_merged_trajectory(
@@ -292,16 +289,16 @@ def get_merged_trajectory(
         parent_dir2_node = parent_dir2_node.parent
 
     if dir1_common.parent:
-        log_prob = dir1_common.parent.log_prob
+        partial_log_prob = dir1_common.parent.log_prob
     else:
-        log_prob = 0.0
+        partial_log_prob = 0.0
 
     return Trajectory.from_goal_node(
         domain=dir1_domain,
         final_node=dir1_node,
         num_expanded=num_expanded,
         partial_g_cost=dir1_common.g_cost - 1,
-        partial_log_prob=log_prob,
+        partial_log_prob=partial_log_prob,
         model=model,
         goal_state_t=goal_state_t,
         forward=forward,

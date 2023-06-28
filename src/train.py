@@ -32,7 +32,7 @@ import tqdm
 
 from loaders import CurriculumLoader, ProblemsBatchLoader
 from search.agent import Agent
-from search.utils import int_columns, search_result_header, get_subgoal_trajs
+from search.utils import int_columns, search_result_header
 
 
 def train(
@@ -223,7 +223,7 @@ def train(
                         local_batch_search_results[i, 11] = -1 * f_traj.partial_log_prob
                         local_batch_search_results[i, 13] = -1 * f_traj.log_prob
                         if bidirectional:
-                            b_trajs.append(traj[1])
+                            b_trajs.append(b_traj)
                             local_batch_search_results[i, 10] = b_traj.partial_g_cost
                             local_batch_search_results[i, 12] = (
                                 -1 * b_traj.partial_log_prob
@@ -231,7 +231,7 @@ def train(
                             local_batch_search_results[i, 14] = -1 * b_traj.log_prob
 
                             if use_subgoal_trajs:
-                                b_trajs.extend(get_subgoal_trajs(b_traj))
+                                b_trajs.extend(b_traj.get_subgoal_trajs())
 
                     local_batch_search_results[i, 15] = end_time - train_start_time
 
