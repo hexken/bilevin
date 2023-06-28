@@ -124,11 +124,11 @@ def test(
             if traj:
                 local_search_results[i, 9] = traj[0].partial_g_cost
                 local_search_results[i, 11] = -1 * traj[0].partial_log_prob
-                local_search_results[i, 13] = traj[0].log_prob
+                local_search_results[i, 13] = -1 * traj[0].log_prob
                 if bidirectional:
                     local_search_results[i, 10] = traj[1].partial_g_cost
                     local_search_results[i, 12] = -1 * traj[1].partial_log_prob
-                    local_search_results[i, 14] = traj[1].log_prob
+                    local_search_results[i, 14] = -1 * traj[1].log_prob
             local_search_results[i, 15] = end_time - test_start_time
 
         if is_distributed:

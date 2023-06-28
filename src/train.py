@@ -118,7 +118,7 @@ def train(
         world_results_df = pd.DataFrame(dummy_data, columns=search_result_header[1:])
         del dummy_data
         world_results_df["ProblemId"] = all_ids
-        world_results_df.set_index("ProblemId", inplace=True)
+        world_results_df = world_results_df.set_index("ProblemId", inplace=True)
         world_results_df["Stage"] = train_loader.stage
 
         world_epoch_f_loss = np.zeros(world_batches_this_difficulty)
