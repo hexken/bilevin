@@ -28,7 +28,7 @@ from test import test
 import torch as to
 import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
-import tqdm
+from tqdm import tqdm
 
 from loaders import CurriculumLoader, ProblemsBatchLoader
 from search.agent import Agent
@@ -162,9 +162,8 @@ def train(
                 print(
                     "============================================================================\n"
                 )
-                batch_loader = tqdm.tqdm(
-                    batch_loader, total=world_batches_this_difficulty
-                )
+                sys.stdout.flush()
+                batch_loader = tqdm(batch_loader, total=world_batches_this_difficulty)
 
             for batch_idx, local_batch_problems in enumerate(batch_loader):
                 batches_seen += 1
@@ -173,7 +172,7 @@ def train(
                 ] = 0  # since final batch might contain <= local_batch_size problems
 
                 if rank == 0:
-                    print(f"\n\nBatch {batches_seen}")
+                    tqdm.write(f"\n\nBatch {batches_seen}/{world_batches_this_difficulty}")
 
                 model.eval()
                 to.set_grad_enabled(False)
@@ -279,7 +278,7 @@ def train(
                 num_problems_this_batch = len(world_batch_results_arr)
 
                 if rank == 0:
-                    print(
+                    tqdm.write(
                         tabulate(
                             world_batch_print_df,
                             headers="keys",
@@ -308,14 +307,14 @@ def train(
                             / world_batch_print_df["Bg"].sum()
                         )
 
-                    print(
+                    tqdm.write(
                         f"{'Solved':23s}: {num_problems_solved_this_batch}/{num_problems_this_batch}"
                     )
-                    print(
+                    tqdm.write(
                         f"{'Total expansion ratio':23s}: {batch_expansions_ratio:.3f}"
                     )
-                    print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:.3f}")
-                    print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:.3f}\n")
+                    tqdm.write(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:.3f}")
+                    tqdm.write(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:.3f}\n")
 
                     writer.add_scalar(
                         f"expansions_vs_batch", batch_expansions_ratio, batches_seen
@@ -334,7 +333,6 @@ def train(
                     # if batches_seen % param_log_interval == 0:
                     #     log_params(writer, model, batches_seen)
                     # writer.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
-                    sys.stdout.flush()
 
                 # perform grad steps
                 to.set_grad_enabled(True)
@@ -395,8 +393,7 @@ def train(
                         if rank == 0:
                             if grad_step == 1 or grad_step == grad_steps:
                                 if grad_step == 1:
-                                    print(opt_result_header)
-                                    sys.stdout.flush()
+                                    tqdm.write(opt_result_header)
 
                                 f_loss = (
                                     local_batch_opt_results[0].item()
@@ -415,11 +412,13 @@ def train(
                                     / num_procs_found_solution
                                 )
                                 if bidirectional:
-                                    print(
+                                    tqdm.write(
                                         f"{opt_step:7}  {f_loss:5.3f}  {f_acc:5.3f}    {b_loss:5.3f}  {b_acc:5.3f}"
                                     )
                                 else:
-                                    print(f"{opt_step:7}  {f_loss:5.3f}  {f_acc:5.3f}")
+                                    tqdm.write(
+                                        f"{opt_step:7}  {f_loss:5.3f}  {f_acc:5.3f}"
+                                    )
                                 if grad_step == grad_steps:
                                     # fmt: off
                                     writer.add_scalar( f"loss_vs_opt_pass/forward", f_loss, opt_passes,)
@@ -506,7 +505,6 @@ def train(
 
                 world_results_df.to_pickle(epoch_logdir / "train.pkl")
                 # fmt: on
-                sys.stdout.flush()
 
             if valid_loader and epoch >= epoch_begin_validate:
                 if rank == 0:
@@ -576,6 +574,7 @@ def train(
                         )
                         agent.save_model("best_solved", log=False)
 
+                    sys.stdout.flush()
                     if isinstance(model, to.jit.ScriptModule):
                         ext = ".ts"
                     else:
