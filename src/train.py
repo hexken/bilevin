@@ -266,7 +266,7 @@ def train(
                 ]
                 for col in int_columns:
                     world_batch_print_df[col] = world_batch_print_df[col].astype(int)
-                world_batch_print_df.sort_values("Exp")
+                world_batch_print_df = world_batch_print_df.sort_values("Exp")
 
                 batch_solved_ids = world_batch_ids[world_batch_results_arr[:, 8] > 0]
                 for problem_id in batch_solved_ids:
@@ -396,6 +396,7 @@ def train(
                             if grad_step == 1 or grad_step == grad_steps:
                                 if grad_step == 1:
                                     print(opt_result_header)
+                                    sys.stdout.flush()
 
                                 f_loss = (
                                     local_batch_opt_results[0].item()
