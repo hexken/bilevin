@@ -118,7 +118,7 @@ def train(
         world_results_df = pd.DataFrame(dummy_data, columns=search_result_header[1:])
         del dummy_data
         world_results_df["ProblemId"] = all_ids
-        world_results_df = world_results_df.set_index("ProblemId", inplace=True)
+        world_results_df = world_results_df.set_index("ProblemId")
         world_results_df["Stage"] = train_loader.stage
 
         world_epoch_f_loss = np.zeros(world_batches_this_difficulty)
@@ -172,7 +172,9 @@ def train(
                 ] = 0  # since final batch might contain <= local_batch_size problems
 
                 if rank == 0:
-                    tqdm.write(f"\n\nBatch {batches_seen}/{world_batches_this_difficulty}")
+                    tqdm.write(
+                        f"\n\nBatch {batches_seen}/{world_batches_this_difficulty}"
+                    )
 
                 model.eval()
                 to.set_grad_enabled(False)
@@ -193,7 +195,6 @@ def train(
                         problem,
                         expansion_budget,
                         time_budget=time_budget,
-                        train=True,
                     )
                     end_time = timer()
                     solution_length = 0 if not traj else traj[0].cost
@@ -221,7 +222,7 @@ def train(
                         local_batch_search_results[i, 9] = f_traj.partial_g_cost
                         local_batch_search_results[i, 11] = -1 * f_traj.partial_log_prob
                         local_batch_search_results[i, 13] = -1 * f_traj.log_prob
-                        if bidirectional:
+                        if b_traj:
                             b_trajs.append(b_traj)
                             local_batch_search_results[i, 10] = b_traj.partial_g_cost
                             local_batch_search_results[i, 12] = (

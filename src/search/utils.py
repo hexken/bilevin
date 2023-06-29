@@ -19,7 +19,8 @@ from typing import Optional, Type
 
 import numpy as np
 import torch as to
-from torch.nn.functional import cross_entropy, nll_loss
+from torch import Tensor
+from torch.nn.functional import nll_loss
 
 from domains.domain import Domain, State
 from models.models import AgentModel
@@ -54,8 +55,8 @@ class SearchNode:
         parent_action: Optional[int] = None,
         log_prob: Optional[float] = None,
         actions: Optional[list[int]] = None,
-        actions_mask: Optional[to.BoolTensor] = None,
-        log_action_probs: Optional[to.FloatTensor] = None,
+        actions_mask: Optional[Tensor] = None,
+        log_action_probs: Optional[Tensor] = None,
     ):
         self.state = state
         self.parent = parent
@@ -95,8 +96,8 @@ class LevinNode(SearchNode):
         parent_action: Optional[int] = None,
         log_prob: Optional[float] = None,
         actions: Optional[list[int]] = None,
-        actions_mask: Optional[to.BoolTensor] = None,
-        log_action_probs: Optional[to.FloatTensor] = None,
+        actions_mask: Optional[Tensor] = None,
+        log_action_probs: Optional[Tensor] = None,
         levin_cost: Optional[float] = None,
     ):
         super().__init__(
@@ -125,16 +126,16 @@ def levin_cost(node: LevinNode):
 class Trajectory:
     def __init__(
         self,
-        states: to.Tensor,
-        actions: to.Tensor,
+        states: Tensor,
+        actions: Tensor,
         num_expanded: int,
         partial_g_cost: Optional[int] = None,  # g_cost of node that generated sol.
         partial_log_prob: Optional[
             float
         ] = None,  # probability of node that generates sol.
         log_prob: Optional[float] = None,
-        masks: Optional[to.Tensor] = None,
-        goal_state_t: Optional[to.Tensor] = None,
+        masks: Optional[Tensor] = None,
+        goal_state_t: Optional[Tensor] = None,
         forward: bool = True,
     ):
         self.states = states
@@ -157,11 +158,11 @@ class Trajectory:
         domain: Domain,
         final_node: SearchNode,
         num_expanded: int,
-        partial_g_cost: int,  # g_cost of node that generated meet point.
-        partial_log_prob: float,  # probability of node that generates meet point.
+        partial_g_cost: int,
+        partial_log_prob: Optional[float] = None,
         log_prob: Optional[float] = None,
         model: Optional[AgentModel] = None,
-        goal_state_t: Optional[to.Tensor] = None,
+        goal_state_t: Optional[Tensor] = None,
         forward: bool = True,
     ):
         """
@@ -188,7 +189,7 @@ class Trajectory:
         actions = to.tensor(tuple(reversed(actions)))
         masks = to.stack(tuple(reversed(masks)))
 
-        if not log_prob and model:
+        if model:
             with to.no_grad():
                 k = partial_g_cost
                 log_probs, _ = model(
@@ -205,14 +206,20 @@ class Trajectory:
                     + nll_loss(log_probs[k:], actions[k:], reduction="sum").item()
                 )
 
-            log_prob = -nll
+            lp = -nll
             plp = -partial_nll
 
-            # todo log these? they seem to usually be very close (within 5 decimals)
-            if not np.isclose(partial_log_prob, plp):
+            # todo remove this once we're sure it's working
+            if log_prob and not np.isclose(log_prob, lp):
+                print(f"Warning: search log_prob != model log_prob {log_prob} {lp}")
+            else:
+                log_prob = lp
+            if partial_log_prob and not np.isclose(partial_log_prob, plp):
                 print(
-                    f"Warning: cum partial_log_prob != single partial_log_prob {partial_log_prob} {plp}"
+                    f"Warning: search partial_log_prob != model partial_log_prob {partial_log_prob} {plp}"
                 )
+            else:
+                partial_log_prob = plp
 
         return cls(
             states=states,
@@ -261,7 +268,7 @@ def get_merged_trajectory(
     dir2_common: SearchNode,
     node_type: Type[SearchNode],
     num_expanded: int,
-    goal_state_t: Optional[to.Tensor] = None,
+    goal_state_t: Optional[Tensor] = None,
     forward: bool = True,
 ):
     """
@@ -288,18 +295,13 @@ def get_merged_trajectory(
         parent_dir2_action = parent_dir2_node.parent_action
         parent_dir2_node = parent_dir2_node.parent
 
-    if dir1_common.parent:
-        partial_log_prob = dir1_common.parent.log_prob
-    else:
-        partial_log_prob = 0.0
-
     return Trajectory.from_goal_node(
         domain=dir1_domain,
         final_node=dir1_node,
         num_expanded=num_expanded,
-        partial_g_cost=dir1_common.g_cost - 1,
-        partial_log_prob=partial_log_prob,
-        model=model,
+        partial_g_cost=dir1_common.g_cost,
+        partial_log_prob=dir1_common.log_prob,
+        model=model,  # todo remove this after debugging ?
         goal_state_t=goal_state_t,
         forward=forward,
     )

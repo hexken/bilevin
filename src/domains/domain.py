@@ -53,6 +53,7 @@ class Domain(ABC):
         self.visited: dict = {}
         self.forward = forward
         self.initial_state: State | list[State]
+        self.goal_state_t: Optional[to.Tensor] = None
 
     def reset(self) -> State | list[State]:
         self.visited = {}
@@ -61,13 +62,13 @@ class Domain(ABC):
     def update(self, node: SearchNode):
         self.visited[node.state.__hash__()] = node
 
-    def actions(self, parent_action, state: State) -> tuple[list, to.BoolTensor]:
+    def actions(self, parent_action, state: State) -> tuple[list, to.Tensor]:
         actions = self._actions(parent_action, state)
         mask = full((self.num_actions,), True, dtype=to.bool)
         mask[actions] = False
         return actions, mask
 
-    def actions_unpruned(self, state: State) -> tuple[list, to.BoolTensor]:
+    def actions_unpruned(self, state: State) -> tuple[list, to.Tensor]:
         actions = self._actions_unpruned(state)
         mask = full((self.num_actions,), True, dtype=to.bool)
         mask[actions] = False

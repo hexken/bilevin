@@ -46,7 +46,6 @@ class Levin(Agent):
         problem: Problem,
         exp_budget: int,
         time_budget=None,
-        train=False,
     ):
         """ """
         start_time = timer()
@@ -116,9 +115,10 @@ class Levin(Agent):
                             domain=domain,
                             final_node=new_node,
                             num_expanded=num_expanded,
-                            partial_g_cost=node.g_cost,
-                            partial_log_prob=node.log_prob,
+                            partial_g_cost=new_node.g_cost,
+                            partial_log_prob=new_node.log_prob,
                             log_prob=new_node.log_prob,
+                            model=model,
                         )
                         traj = (traj, None)
                         return num_expanded, 0, num_generated, 0, traj

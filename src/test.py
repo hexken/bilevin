@@ -13,8 +13,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import time
-from typing import Optional, Union
+from timeit import default_timer as timer
+from typing import Optional
 import warnings
 
 import numpy as np
@@ -24,11 +24,8 @@ import torch as to
 import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
-from timeit import default_timer as timer
 
-from domains import Problem
 from loaders import ProblemsBatchLoader
-from models import AgentModel
 from search import Agent
 from search.utils import int_columns, search_result_header
 

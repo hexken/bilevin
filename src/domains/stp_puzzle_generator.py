@@ -253,7 +253,7 @@ def main():
                 steps = max_steps
             state = stp.reset()
             for _ in range(steps):
-                actions = stp.actions_unpruned(state)
+                actions, _ = stp.actions_unpruned(state)
                 random_action = rng.choice(actions)
                 state = stp.result(state, random_action)
 

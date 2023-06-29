@@ -46,7 +46,6 @@ class BiLevin(Agent):
         problem: Problem,
         exp_budget: int,
         time_budget=None,
-        train=False,
     ):
         """ """
         start_time = timer()

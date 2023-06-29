@@ -20,9 +20,10 @@ from typing import Optional
 import torch as to
 import torch.distributed as dist
 
-from domains.domain import Domain
-from models.models import AgentModel
+from domains.domain import Problem
 import models.losses as losses
+from models.models import AgentModel
+from search.utils import Trajectory
 
 
 class Agent(ABC):
@@ -102,9 +103,9 @@ class Agent(ABC):
 
     def save_model(
         self,
-        suffix="",
-        subpath="",
-        log=True,
+        suffix: str = "",
+        subpath: str = "",
+        log: bool = True,
     ):
         if isinstance(self.model, to.jit.ScriptModule):
             save_func = to.jit.save
@@ -132,5 +133,7 @@ class Agent(ABC):
         pass
 
     @abstractmethod
-    def search(self):
+    def search(
+        self, problem: Problem, expansion_budget: int, time_budget: int
+    ) -> tuple[int, int, int, int, tuple[Trajectory, Optional[Trajectory]]]:
         pass
