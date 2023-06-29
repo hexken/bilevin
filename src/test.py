@@ -65,12 +65,11 @@ def test(
     local_remaining_problems = set()
     local_remaining_problems = set(p[0] for p in problems_loader if p)
 
-    if rank == 0:
-        pbar = tqdm(total=world_num_problems)
-
     fb_exp_ratio = -1
     fb_g_ratio = -1
 
+    if rank == 0:
+        print("Testing...")
     test_start_time = timer()
     while True:
         num_solved_t = to.zeros(1, dtype=to.int64)
@@ -165,21 +164,23 @@ def test(
 
             world_results_df.sort_values("Exp")
             if print_results:
-                tqdm.write(
+                print(
                     tabulate(
                         world_results_df,
                         headers="keys",
                         tablefmt="psql",
                     )
                 )
-                tqdm.write(f"{'Solved':23s}: {len(solved_ids)}/{world_num_problems}\n")
-                tqdm.write(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:.3f}")
-                tqdm.write(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:.3f}\n")
+                print(f"{'Solved':23s}: {len(solved_ids)}/{world_num_problems}\n")
+                print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:.3f}")
+                print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:.3f}\n")
 
             total_num_expanded += world_results_df["Exp"].sum()
 
+            print(
+                f"Solved: {len(solved_ids)}/{world_num_problems} in {timer() - test_start_time:.2f}s"
+            )
             if validate:
-                pbar.update(world_num_problems)
                 fname = f"{writer.log_dir}/epoch-{epoch}/valid.pkl"
             else:
                 writer.add_scalar(
@@ -187,7 +188,6 @@ def test(
                     len(world_solved_problems),
                     total_num_expanded,
                 )
-                pbar.update(len(solved_ids))
                 fname = f"{writer.log_dir}/test.pkl"
 
             world_results_df.to_pickle(fname)
@@ -195,6 +195,10 @@ def test(
         epoch += 1
         if increase_budget:
             current_budget *= 2
+            if rank == 0:
+                print(
+                    f"Budget increased from {current_budget / 2} to {current_budget} "
+                )
         else:
             break
 
