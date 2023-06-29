@@ -23,7 +23,6 @@ from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
-from tqdm import tqdm
 
 from loaders import ProblemsBatchLoader
 from search import Agent

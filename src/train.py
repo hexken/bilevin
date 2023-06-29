@@ -331,14 +331,6 @@ def train(
                     # if batches_seen % param_log_interval == 0:
                     #     log_params(writer, model, batches_seen)
                     # riter.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
-                    print(
-                        tqdm.format_meter(
-                            n=batch_idx + 1,
-                            total=world_batches_this_difficulty,
-                            elapsed=timer() - train_start_time,
-                        )
-                    )
-                    # BATCH END
 
                 # perform grad steps
                 to.set_grad_enabled(True)
@@ -440,6 +432,15 @@ def train(
                 if bidirectional:
                     world_epoch_b_loss[batch_idx] = b_loss
                     world_epoch_b_acc[batch_idx] = b_acc
+                print(
+                    tqdm.format_meter(
+                        n=batch_idx + 1,
+                        total=world_batches_this_difficulty,
+                        elapsed=timer() - train_start_time,
+                    )
+                )
+                sys.stdout.flush()
+                # BATCH END
 
             if rank == 0:
                 epoch_expansions = world_results_df["Exp"].sum()
