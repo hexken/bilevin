@@ -128,13 +128,13 @@ class Trajectory:
         self,
         states: Tensor,
         actions: Tensor,
+        masks: Tensor,
         num_expanded: int,
         partial_g_cost: Optional[int] = None,  # g_cost of node that generated sol.
         partial_log_prob: Optional[
             float
         ] = None,  # probability of node that generates sol.
         log_prob: Optional[float] = None,
-        masks: Optional[Tensor] = None,
         goal_state_t: Optional[Tensor] = None,
         forward: bool = True,
     ):
@@ -224,11 +224,11 @@ class Trajectory:
         return cls(
             states=states,
             actions=actions,
+            masks=masks,
             num_expanded=num_expanded,
             partial_g_cost=partial_g_cost,
             partial_log_prob=partial_log_prob,
             log_prob=log_prob,
-            masks=masks,
             goal_state_t=goal_state_t,
             forward=forward,
         )
@@ -240,20 +240,17 @@ class Trajectory:
         """
         Generates all sub-trajectories of a trajectory.
         """
-        # todo we can probably be more clever about setting num_expanded,
         sub_trajs = []
-        masks = None
         for i in range(len(self) - 1, 0, -1):
-            if self.masks is not None:
-                masks = self.masks[:i]
+            masks = self.masks[:i]
 
             est_num_exp = int(self.num_expanded / (len(self) - i + 1))
             sub_trajs.append(
                 Trajectory(
                     self.states[:i],
                     self.actions[:i],
-                    est_num_exp,
                     masks=masks,
+                    num_expanded=est_num_exp,
                     forward=False,
                     goal_state_t=self.states[i].unsqueeze(0),
                 )

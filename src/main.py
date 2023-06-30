@@ -81,11 +81,10 @@ def parse_args():
         "-l",
         "--loss-fn",
         type=str,
-        default="levin_loss",
+        default="merge_cross_entropy",
         choices=[
-            "levin_loss",
-            "ub_loss",
-            "cross_entropy_loss",
+            "loop_levin_loss",
+            "merge_cross_entropy",
         ],
         help="loss function",
     )
@@ -194,7 +193,7 @@ def parse_args():
         "-a",
         "--agent",
         type=str,
-        choices=["Levin", "BiLevin", "BiBS"],
+        choices=["Levin", "BiLevin"],
         help="name of the search agent",
     )
     parser.add_argument(
