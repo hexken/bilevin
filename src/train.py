@@ -432,14 +432,15 @@ def train(
                 if bidirectional:
                     world_epoch_b_loss[batch_idx] = b_loss
                     world_epoch_b_acc[batch_idx] = b_acc
-                print(
-                    tqdm.format_meter(
-                        n=batch_idx + 1,
-                        total=world_batches_this_difficulty,
-                        elapsed=timer() - train_start_time,
+                if rank == 0:
+                    print(
+                        tqdm.format_meter(
+                            n=batch_idx + 1,
+                            total=world_batches_this_difficulty,
+                            elapsed=timer() - train_start_time,
+                        )
                     )
-                )
-                sys.stdout.flush()
+                    sys.stdout.flush()
                 # BATCH END
 
             if rank == 0:
