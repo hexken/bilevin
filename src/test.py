@@ -64,8 +64,9 @@ def test(
     local_remaining_problems = set()
     local_remaining_problems = set(p[0] for p in problems_loader if p)
 
-    fb_exp_ratio = -1
-    fb_g_ratio = -1
+    fb_exp_ratio = float("nan")
+    fb_g_ratio = float("nan")
+    avg_sol_len = float("nan")
 
     if rank == 0:
         print("Testing...")
@@ -160,6 +161,9 @@ def test(
                     world_results_df["FExp"].sum() / world_results_df["BExp"].sum()
                 )
                 fb_g_ratio = world_results_df["Fg"].sum() / world_results_df["Bg"].sum()
+                avg_sol_len = world_results_df[world_results_df["Len"] > 0][
+                    "Len"
+                ].mean()
 
             world_results_df.sort_values("Exp")
             if print_results:
@@ -171,8 +175,9 @@ def test(
                     )
                 )
                 print(f"{'Solved':23s}: {len(solved_ids)}/{world_num_problems}\n")
-                print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:.3f}")
-                print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:.3f}\n")
+                print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:5.3f}")
+                print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:5.3f}\n")
+                print(f"{'Avg solution length':20s}: {avg_sol_len:5.3f}\n")
 
             total_num_expanded += world_results_df["Exp"].sum()
 
@@ -202,6 +207,12 @@ def test(
             break
 
     if rank == 0:
-        return len(world_solved_problems), total_num_expanded, fb_exp_ratio, fb_g_ratio
+        return (
+            len(world_solved_problems),
+            total_num_expanded,
+            fb_exp_ratio,
+            fb_g_ratio,
+            avg_sol_len,
+        )
 
-    return None, None, None, None
+    return None, None, None, None, None

@@ -449,6 +449,9 @@ def train(
                 epoch_solved_ratio = num_problems_solved_this_epoch / world_num_problems
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
+                    epoch_avg_sol_len = world_results_df[world_results_df["Len"] > 0][
+                        "Len"
+                    ].mean()
                     epoch_fb_exp_ratio = (
                         world_results_df["FExp"].sum() / world_results_df["BExp"].sum()
                     )
@@ -480,6 +483,7 @@ def train(
                     f"{'Expansions':20s}: {int(epoch_expansions)}/{max_epoch_expansions}  {epoch_expansions_ratio:5.3f}\n"
                     f"{'FB Exp Ratio':20s}: {epoch_fb_exp_ratio:5.3f}\n"
                     f"{'FB G-Cost Ratio':20s}: {epoch_fb_g_ratio_ratio:5.3f}\n"
+                    f"{'Avg solution length':20s}: {epoch_avg_sol_len:5.3f}\n"
                 )
                 print(f"  Forward        Backward\nLoss    Acc    Loss    Acc")
                 if bidirectional:
@@ -508,6 +512,7 @@ def train(
                 writer.add_scalar(f"expansions_ratio_vs_epoch", epoch_expansions_ratio, epoch)
                 writer.add_scalar(f"fb_expansions_ratio_vs_epoch", epoch_fb_exp_ratio, epoch)
                 writer.add_scalar(f"fb_g_ratio_vs_epoch", epoch_fb_g_ratio_ratio, epoch)
+                writer.add_scalar(f"avg_sol_len_vs_epoch", epoch_avg_sol_len, epoch)
 
                 world_results_df.to_pickle(epoch_logdir / "train.pkl")
                 # fmt: on
@@ -537,6 +542,7 @@ def train(
                         valid_total_expanded,
                         valid_fb_exp_ratio,
                         valid_fb_g_ratio,
+                        valid_avg_sol_len,
                     ) = valid_results
                     valid_expansions_ratio = valid_total_expanded / max_valid_expanded
                     valid_solve_rate = valid_solved / num_valid_problems
@@ -559,6 +565,7 @@ def train(
                         f"valid_fb_exp_ratio_vs_epoch", valid_fb_exp_ratio, epoch
                     )
                     writer.add_scalar(f"valid_fb_g_ratio", valid_fb_g_ratio, epoch)
+                    writer.add_scalar(f"valid_avg_sol_len", valid_avg_sol_len, epoch)
                     # writer.add_scalar( f"valid_expanded_vs_epoch", valid_total_expanded, epoch)
 
                     agent.save_model("latest", log=False)
