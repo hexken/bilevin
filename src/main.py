@@ -15,6 +15,7 @@
 
 import argparse
 import json
+import json
 import os
 from pathlib import Path
 import random
@@ -308,16 +309,21 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
         print(f"Logging with tensorboard\n  to runs/{run_name}\n")
 
         writer = SummaryWriter(logdir)
+
+        arg_dict = {
+            k: (v if not isinstance(v, Path) else str(v)) for k, v in vars(args).items()
+        }
+        with (logdir / "args.json").open("w") as f:
+            json.dump(arg_dict, f, indent=2)
+
         arg_string = "|param|value|\n|-|-|\n%s" % (
             "\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])
         )
-        with (logdir / "args.txt").open("w") as f:
-            for arg in arg_string.splitlines()[2:]:
-                arg = arg.replace("|", "", 1)
-                arg = arg.replace("|", ": ", 1)
-                arg = arg.replace("|", "", 1)
-                f.write(f"{arg}\n")
-                print(arg)
+        for arg in arg_string.splitlines()[2:]:
+            arg = arg.replace("|", "", 1)
+            arg = arg.replace("|", ": ", 1)
+            arg = arg.replace("|", "", 1)
+            print(arg)
         print()
 
         writer.add_text(
@@ -337,8 +343,6 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
         agent = Levin(rank, logdir, args, model_args)
     elif args.agent == "BiLevin":
         agent = BiLevin(rank, logdir, args, model_args)
-    elif args.agent == "BiBS":
-        agent = BiBS(rank, logdir, args, model_args)
     else:
         raise ValueError(f"Unknown agent: {args.agent}")
 
