@@ -241,18 +241,18 @@ class Trajectory:
         Generates all sub-trajectories of a trajectory.
         """
         sub_trajs = []
-        for i in range(len(self) - 1, 0, -1):
-            masks = self.masks[:i]
+        for goal_idx in range(len(self) - 1, 0, -1):
+            masks = self.masks[:goal_idx]
 
-            est_num_exp = int(self.num_expanded / (len(self) - i + 1))
+            est_num_exp = int(self.num_expanded / (len(self) - goal_idx + 1))
             sub_trajs.append(
                 Trajectory(
-                    self.states[:i],
-                    self.actions[:i],
+                    self.states[:goal_idx],
+                    self.actions[:goal_idx],
                     masks=masks,
                     num_expanded=est_num_exp,
                     forward=False,
-                    goal_state_t=self.states[i].unsqueeze(0),
+                    goal_state_t=self.states[goal_idx].unsqueeze(0),
                 )
             )
         return sub_trajs

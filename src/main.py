@@ -124,6 +124,18 @@ def parse_args():
         help="feature net learning rate",
     )
     parser.add_argument(
+        "--forward-feature-net-lr",
+        type=float,
+        default=0.001,
+        help="forward feature net learning rate, if not sharing feature net",
+    )
+    parser.add_argument(
+        "--backward-feature-net-lr",
+        type=float,
+        default=0.001,
+        help="backward feature net learning rate, if not sharing feature net",
+    )
+    parser.add_argument(
         "--forward-policy-lr",
         type=float,
         default=0.001,

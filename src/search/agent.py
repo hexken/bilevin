@@ -19,6 +19,7 @@ from typing import Optional
 
 import torch as to
 import torch.distributed as dist
+from torch.jit import ScriptModule
 
 from domains.domain import Problem
 import models.losses as losses
@@ -35,7 +36,7 @@ class Agent(ABC):
 
         self.logdir: Path = logdir
 
-        self._model: AgentModel | to.jit.ScriptModule
+        self._model: AgentModel | ScriptModule
 
         if args.model_path is None:
             # just use the random initialization from rank 0
@@ -56,7 +57,7 @@ class Agent(ABC):
             raise ValueError("model-path argument must be a directory if given")
 
         if rank == 0:
-            if isinstance(self._model, to.jit.ScriptModule):
+            if isinstance(self._model, ScriptModule):
                 init_model = self.logdir / f"model_init.ts"
                 to.jit.save(self._model, init_model)
             else:
@@ -67,10 +68,17 @@ class Agent(ABC):
         if args.mode == "train":
             assert self._model
             self.loss_fn = getattr(losses, args.loss_fn)
+            if not args.share_feature_net:
+                flr = args.forward_feature_net_lr
+                blr = args.backward_feature_net_lr
+            else:
+                flr = args.feature_net_lr
+                blr = args.feature_net_lr
+
             optimizer_params = [
                 {
                     "params": self.model.forward_feature_net.parameters(),
-                    "lr": args.feature_net_lr,
+                    "lr": flr,
                     "weight_decay": args.weight_decay,
                 },
                 {
@@ -84,7 +92,7 @@ class Agent(ABC):
                     optimizer_params.append(
                         {
                             "params": self.model.backward_feature_net.parameters(),
-                            "lr": args.feature_net_lr,
+                            "lr": blr,
                             "weight_decay": args.weight_decay,
                         }
                     )
@@ -98,7 +106,7 @@ class Agent(ABC):
             self.optimizer = to.optim.Adam(optimizer_params)
 
     @property
-    def model(self) -> AgentModel:
+    def model(self) -> AgentModel | ScriptModule:
         return self._model
 
     def save_model(
