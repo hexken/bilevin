@@ -46,24 +46,19 @@ def loop_levin_loss(trajs: list[Trajectory], model: AgentModel):
 
 
 def merge_cross_entropy(trajs: list[Trajectory], model: AgentModel):
-    n_trajs = len(trajs)
     forward = trajs[0].forward
-
     merged_states = to.cat(tuple(t.states for t in trajs))
     merged_actions = to.cat(tuple(t.actions for t in trajs))
     merged_masks = to.cat(tuple(t.masks for t in trajs))
 
-    lengths = to.tensor(tuple(len(t) for t in trajs))
-    sum_indices = to.repeat_interleave(to.arange(n_trajs), lengths)
-
-    if not forward:
+    if forward:
+        merged_goal_states_t = None
+    else:
         repeats = to.tensor(tuple(len(t) for t in trajs))
         goal_states_t = to.cat(tuple(t.goal_state_t for t in trajs))
         merged_goal_states_t = to.repeat_interleave(
             goal_states_t, repeats=repeats, dim=0
         )
-    else:
-        merged_goal_states_t = None
 
     log_probs, _ = model(
         merged_states,
