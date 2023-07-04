@@ -45,7 +45,7 @@ def train(
     time_budget: int,
     seed: int,
     grad_steps: int = 10,
-    use_subgoal_trajs: bool = False,
+    n_subgoals: int = 0,
     epoch_reduce_lr: int = 99999,
     epoch_reduce_grad_steps: int = 99999,
     epoch_begin_validate: int = 1,
@@ -227,9 +227,6 @@ def train(
                             )
                             local_batch_search_results[i, 14] = -1 * b_traj.log_prob
 
-                            if use_subgoal_trajs:
-                                b_trajs.extend(b_traj.get_subgoal_trajs())
-
                     local_batch_search_results[i, 15] = end_time - train_start_time
 
                 if is_distributed:
@@ -360,7 +357,7 @@ def train(
                                 b_loss,
                                 b_avg_action_nll,
                                 b_acc,
-                            ) = loss_fn(b_trajs, model)
+                            ) = loss_fn(b_trajs, model, n_subgoals=n_subgoals)
 
                             local_batch_opt_results[3] = b_avg_action_nll
                             local_batch_opt_results[4] = b_acc

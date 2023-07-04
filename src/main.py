@@ -41,11 +41,17 @@ from train import train
 def parse_args():
     parser = argparse.ArgumentParser()
 
+    # parser.add_argument(
+    #     "--use-subgoal-trajs",
+    #     action="store_true",
+    #     default=False,
+    #     help="generate subgoal trajectories for backward policy training (generates all unless --n-subgoals is specified)",
+    # )
     parser.add_argument(
-        "--use-subgoal-trajs",
-        action="store_true",
-        default=False,
-        help="generate subgoal trajectories for backward policy training",
+        "--n-subgoals",
+        type=int,
+        default=10,
+        help="use a maximum of this many subgoals per trajectory",
     )
     parser.add_argument(
         "--runsdir-path",
@@ -86,6 +92,7 @@ def parse_args():
         choices=[
             "loop_levin_loss",
             "merge_cross_entropy",
+            "cross_entropy_loss",
         ],
         help="loss function",
     )
@@ -369,7 +376,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             time_budget=args.time_budget,
             seed=local_seed,
             grad_steps=args.grad_steps,
-            use_subgoal_trajs=args.use_subgoal_trajs,
+            n_subgoals=args.n_subgoals,
             epoch_reduce_lr=args.epoch_reduce_lr,
             epoch_reduce_grad_steps=args.epoch_reduce_grad_steps,
             epoch_begin_validate=args.epoch_begin_validate,

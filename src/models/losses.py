@@ -13,10 +13,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from typing import Optional
+
 import torch as to
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn.functional import cross_entropy, nll_loss
+from torch.nn.functional import cross_entropy, log_softmax, nll_loss
 
 from models import AgentModel
 from search.utils import Trajectory
@@ -39,6 +40,73 @@ def loop_levin_loss(trajs: list[Trajectory], model: AgentModel):
         total_actions += len(t)
 
     loss /= len(trajs)
+    avg_action_nll /= total_actions
+    acc /= total_actions
+
+    return loss, avg_action_nll, acc
+
+
+def cross_entropy_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: int = 0):
+    """
+    It's messy but we need speed here, I think looping and repeating calculations is quicker than
+    creating the batches and more functions.
+    """
+    loss = 0
+    acc = 0
+    avg_action_nll = 0
+    total_actions = 0
+    forward = trajs[0].forward
+    for t in trajs:
+        t_len = len(t)
+        if forward:
+            log_probs, _ = model(
+                t.states, forward=t.forward, goal_state_t=t.goal_state_t, mask=t.masks
+            )
+            nll = nll_loss(log_probs, t.actions, reduction="sum")
+            loss += nll
+            avg_action_nll += nll.item()
+            acc += (log_probs.detach().argmax(dim=1) == t.actions).sum().item()
+            total_actions += t_len
+        else:
+            goal_feat = model.backward_feature_net(t.goal_state_t)
+            feats = model.backward_feature_net(t.states)
+            logits = model.backward_policy(feats, goal_feat)
+
+            if t.masks is not None:
+                logits = logits.masked_fill(t.masks, -1e9)
+
+            log_probs = log_softmax(logits, dim=-1)
+            nll = nll_loss(log_probs, t.actions, reduction="sum")
+            loss += nll
+            avg_action_nll += nll.item()
+            acc += (log_probs.detach().argmax(dim=1) == t.actions).sum().item()
+            total_actions += t_len
+
+            if n_subgoals > 0:
+                k = max(n_subgoals, t_len - 1)
+                subgoal_indices = to.randperm(t_len - 1)[
+                    :k
+                ]  # need to add 1 to get the correct index
+                feats = model.backward_feature_net(t.states)
+                for idx in subgoal_indices:
+                    idx += 1
+                    subg_actions = t.actions[:idx]
+                    logits = model.backward_policy(
+                        feats[:idx], goal_feats=feats[idx].unsqueeze(0)
+                    )
+                    if t.masks is not None:
+                        logits = logits.masked_fill(t.masks[:idx], -1e9)
+
+                    log_probs = log_softmax(logits, dim=-1)
+                    nll = nll_loss(log_probs, subg_actions, reduction="sum")
+                    loss += nll
+                    avg_action_nll += nll.item()
+                    acc += (
+                        (log_probs.detach().argmax(dim=1) == subg_actions).sum().item()
+                    )
+                    total_actions += t_len
+
+    loss /= total_actions
     avg_action_nll /= total_actions
     acc /= total_actions
 
