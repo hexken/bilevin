@@ -95,7 +95,6 @@ def train(
     best_valid_total_expanded = max_valid_expanded + 1
 
     epoch = 1
-    train_start_time = timer()
     for batch_loader in train_loader:
         all_ids = batch_loader.all_ids
         world_num_problems = len(all_ids)
@@ -163,6 +162,7 @@ def train(
                 print(
                     "============================================================================\n"
                 )
+            epoch_start_time = timer()
             for batch_idx, local_batch_problems in enumerate(batch_loader):
                 # BATCH START
                 batches_seen += 1
@@ -227,7 +227,7 @@ def train(
                             )
                             local_batch_search_results[i, 14] = -1 * b_traj.log_prob
 
-                    local_batch_search_results[i, 15] = end_time - train_start_time
+                    local_batch_search_results[i, 15] = end_time - epoch_start_time
 
                 if is_distributed:
                     dist.all_gather(
@@ -434,7 +434,7 @@ def train(
                         tqdm.format_meter(
                             n=batch_idx + 1,
                             total=world_batches_this_difficulty,
-                            elapsed=timer() - train_start_time,
+                            elapsed=timer() - epoch_start_time,
                         )
                     )
                     sys.stdout.flush()
