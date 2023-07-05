@@ -49,7 +49,7 @@ def loop_levin_loss(trajs: list[Trajectory], model: AgentModel):
 def cross_entropy_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: int = 0):
     """
     It's messy but we need speed here, I think looping and repeating calculations is quicker than
-    creating the batches and more functions.
+    creating the batches and calling functions.
     """
     loss = 0
     acc = 0
@@ -58,6 +58,7 @@ def cross_entropy_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: i
     forward = trajs[0].forward
     for t in trajs:
         t_len = len(t)
+        total_actions += t_len
         if forward:
             log_probs, _ = model(
                 t.states, forward=t.forward, goal_state_t=t.goal_state_t, mask=t.masks
@@ -66,7 +67,6 @@ def cross_entropy_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: i
             loss += nll
             avg_action_nll += nll.item()
             acc += (log_probs.detach().argmax(dim=1) == t.actions).sum().item()
-            total_actions += t_len
         else:
             goal_feat = model.backward_feature_net(t.goal_state_t)
             feats = model.backward_feature_net(t.states)
@@ -80,20 +80,16 @@ def cross_entropy_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: i
             loss += nll
             avg_action_nll += nll.item()
             acc += (log_probs.detach().argmax(dim=1) == t.actions).sum().item()
-            total_actions += t_len
 
             if n_subgoals > 0:
                 k = max(n_subgoals, t_len - 1)
                 subgoal_indices = to.randperm(t_len - 1)[
                     :k
                 ]  # need to add 1 to get the correct index
-                feats = model.backward_feature_net(t.states)
                 for idx in subgoal_indices:
                     idx += 1
                     subg_actions = t.actions[:idx]
-                    logits = model.backward_policy(
-                        feats[:idx], goal_feats=feats[idx].unsqueeze(0)
-                    )
+                    logits = model.backward_policy(feats[:idx], feats[idx].unsqueeze(0))
                     if t.masks is not None:
                         logits = logits.masked_fill(t.masks[:idx], -1e9)
 
@@ -104,7 +100,7 @@ def cross_entropy_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: i
                     acc += (
                         (log_probs.detach().argmax(dim=1) == subg_actions).sum().item()
                     )
-                    total_actions += t_len
+                    total_actions += idx
 
     loss /= total_actions
     avg_action_nll /= total_actions
