@@ -1,30 +1,54 @@
 """
-Modified from https://github.com/forestagostinelli/DeepCubeA/blob/master/environments/cube3.py,
-the code for the paper 'Solving the Rubik’s cube with deep reinforcement learning and search'
+Adapted from this nice blog post:
+    https://blog.dorianbolivar.com/2021/01/solving-rubik-cycle-programming.html
+    https://github.com/dbolivar/programming_challenges_exercises/blob/main/URI_Online_Judge/1232-Rubik_Cycle/1232_numpy.py
 """
-
 from __future__ import annotations
-from typing import Callable, Dict, List, Optional, Tuple, Union
 
+from numba import jit, njit
 import numpy as np
 import torch as to
-from torch import nn
 
 from domains import Domain, State
-from search import SearchNode, Trajectory, try_make_solution
 
 
 class Cube3State(State):
-    __slots__ = ["colors", "hash"]
-
-    def __init__(self, colors: np.ndarray):
-        self.colors: np.ndarray = colors
+    def __init__(
+        self,
+        front: np.ndarray,
+        up: np.ndarray,
+        down: np.ndarray,
+        left: np.ndarray,
+        right: np.ndarray,
+        back: np.ndarray,
+    ):
+        """
+        0 FRONT GREEN
+        1 UP WHITE
+        2 DOWN YELLOW
+        3 LEFT ORANGE
+        4 RIGHT RED
+        5 BACK BLUE
+        """
+        self.front: np.ndarray = front
+        self.up: np.ndarray = up
+        self.down: np.ndarray = down
+        self.left: np.ndarray = left
+        self.right: np.ndarray = right
+        self.back: np.ndarray = back
 
     def __str__(self) -> str:
-        return str(self.colors)
+        return ""
 
     def __hash__(self) -> int:
-        return self.colors.tobytes().__hash__()
+        return (
+            self.front.tobytes().__hash__(),
+            self.up.tobytes().__hash__(),
+            self.down.tobytes().__hash__(),
+            self.left.tobytes().__hash__(),
+            self.right.tobytes().__hash__(),
+            self.back.tobytes().__hash__(),
+        ).__hash__()
 
     def __eq__(self, other):
         return np.array_equal(self.colors, other.colors)
@@ -33,49 +57,12 @@ class Cube3State(State):
 class Cube3(Domain):
     def __init__(self, forward=True):
         super().__init__(forward=forward)
-        self.moves: List[str] = [
-            "%s%i" % (f, n) for f in ["U", "D", "L", "R", "B", "F"] for n in [-1, 1]
-        ]
-        self.moves_rev: List[str] = [
-            "%s%i" % (f, n) for f in ["U", "D", "L", "R", "B", "F"] for n in [1, -1]
-        ]
-        self.dtype = np.uint8
-        self.cube_len = 3
-
-        # solved state
-        self.goal_colors: np.ndarray = np.arange(
-            0, (self.cube_len**2) * 6, 1, dtype=self.dtype
-        )
-
-        # get idxs changed for moves
-        self.rotate_idxs_new: Dict[str, np.ndarray]
-        self.rotate_idxs_old: Dict[str, np.ndarray]
-
-        # WHITE:0, YELLOW:1, BLUE:2, GREEN:3, ORANGE: 4, RED: 5
-        self.adj_faces: Dict[int, np.ndarray] = {
-            0: np.array([2, 5, 3, 4]),
-            1: np.array([2, 4, 3, 5]),
-            2: np.array([0, 4, 1, 5]),
-            3: np.array([0, 5, 1, 4]),
-            4: np.array([0, 3, 1, 2]),
-            5: np.array([0, 2, 1, 3]),
-        }
-
-        self.rotate_idxs_new, self.rotate_idxs_old = self._compute_rotation_idxs(
-            self.cube_len, self.moves
-        )
-
-    @property
-    def try_make_solution_func(
-        cls,
-    ) -> Callable[
-        [Domain, SearchNode, Domain, int], Optional[tuple[Trajectory, Trajectory]]
-    ]:
-        return try_make_solution
+        self.cube_width: int = 3
+        self._actions_list: list[int] = [i for i in range(self.num_actions)]
 
     @property
     def state_width(self) -> int:
-        pass
+        return 3
 
     @property
     def num_actions(cls) -> int:
@@ -83,176 +70,215 @@ class Cube3(Domain):
 
     @property
     def in_channels(self) -> int:
-        pass
+        return 6
 
-    def result(self, state: Cube3State, action: int) -> Cube3State:
-        next_state_np = self._move_np(state.colors, action)
-        next_state: Cube3State = Cube3State(next_state_np)
+    def set_to_goal(self, state: Cube3State) -> None:
+        state.front = np.full((3, 3), 0, dtype=int)
+        state.up = np.full((3, 3), 1, dtype=int)
+        state.down = np.full((3, 3), 2, dtype=int)
+        state.left = np.full((3, 3), 3, dtype=int)
+        state.right = np.full((3, 3), 4, dtype=int)
+        state.back = np.full((3, 3), 5, dtype=int)
 
-        return next_state
+    def _actions(self) -> list[int]:
+        """
+        0 FRONT GREEN
+        1 UP WHITE
+        2 DOWN YELLOW
+        3 LEFT ORANGE
+        4 RIGHT RED
+        5 BACK BLUE
+        """
+        return self._actions_list
 
-    # todo will be used to compute reverse result
+    def _actions_unpruned(self) -> list[int]:
+        return self._actions_list
+
     def get_backward_domain(self) -> Cube3:
         pass
 
-    def prev_state(self, states: List[Cube3State], action: int) -> List[Cube3State]:
-        move: str = self.moves[action]
-        move_rev_idx: int = np.where(np.array(self.moves_rev) == np.array(move))[0][0]
+    def is_goal(self, state: Cube3State) -> bool:
+        return face_check(
+            state.front, state.up, state.down, state.left, state.right, state.back
+        )
 
-        return self.result(states, move_rev_idx)[0]
-
-    def is_goal(self, state: Cube3State) -> np.ndarray:
-        is_equal = np.equal(state.colors, self.goal_colors)
-
-        return np.all(is_equal, axis=1)
+    # def is_goal(self, state: Cube3State) -> bool:
+    #     for i in range(3):
+    #         for j in range(3):
+    #             if (
+    #                 state.front[i, j] != 0
+    #                 or state.up[i, j] != 1
+    #                 or state.down[i, j] != 2
+    #                 or state.left[i, j] != 3
+    #                 or state.right[i, j] != 4
+    #                 or state.back[i, j] != 5
+    #             ):
+    #                 return False
+    #     return True
 
     def state_tensor(self, state: Cube3State) -> to.Tensor:
-        state_t: to.Tensor = to.tensor(state.colors) / (self.cube_len**2)
-        return state_t
+        pass
 
-    def _move_np(self, states_np: np.ndarray, action: int):
-        action_str: str = self.moves[action]
 
-        states_next_np: np.ndarray = states_np.copy()
-        states_next_np[:, self.rotate_idxs_new[action_str]] = states_np[
-            :, self.rotate_idxs_old[action_str]
-        ]
+def show(faces: str = "f,u,d,l,r,b"):
+    for face in faces.split(","):
+        print(f"{face.strip()}:\n{eval(face)}")
 
-        return states_next_np
 
-    def _compute_rotation_idxs(
-        self, cube_len: int, moves: List[str]
-    ) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
-        rotate_idxs_new: Dict[str, np.ndarray] = dict()
-        rotate_idxs_old: Dict[str, np.ndarray] = dict()
+@njit
+def faces_result(
+    move: int,
+    front: np.ndarray,
+    up: np.ndarray,
+    down: np.ndarray,
+    left: np.ndarray,
+    right: np.ndarray,
+    back: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    # Uppercase: clockwise. Lowercase: counterclockwise.
+    f = front.copy()
+    u = up.copy()
+    d = down.copy()
+    l = left.copy()
+    r = right.copy()
+    b = back.copy()
 
-        for move in moves:
-            f: str = move[0]
-            sign: int = int(move[1:])
+    if move == 0:
+        f = np.rot90(f, -1)
+    elif move == 1:
+        f = np.rot90(f, 1)
+        # Edges rotation.
+        if move.isupper():
+            u[2, :], l[:, 2], d[0, :], r[:, 0] = (
+                np.flip(l[:, 2]).copy(),
+                d[0, :].copy(),
+                np.flip(r[:, 0]).copy(),
+                u[2, :].copy(),
+            )
+        else:
+            u[2, :], r[:, 0], d[0, :], l[:, 2] = (
+                r[:, 0].copy(),
+                np.flip(d[0, :]).copy(),
+                l[:, 2].copy(),
+                np.flip(u[2, :]).copy(),
+            )
+    elif move in "Uu":
+        # Face rotate.
+        u = np.rot90(u, -1 if move.isupper() else 1)
 
-            rotate_idxs_new[move] = np.array([], dtype=int)
-            rotate_idxs_old[move] = np.array([], dtype=int)
+        # Edges rotation.
+        if move.isupper():
+            b[2, :], l[0, :], f[0, :], r[0, :] = (
+                np.flip(l[0, :]).copy(),
+                f[0, :].copy(),
+                r[0, :].copy(),
+                np.flip(b[2, :]).copy(),
+            )
+        else:
+            b[2, :], r[0, :], f[0, :], l[0, :] = (
+                np.flip(r[0, :]).copy(),
+                f[0, :].copy(),
+                l[0, :].copy(),
+                np.flip(b[2, :]).copy(),
+            )
+    elif move in "Dd":
+        # Face rotate.
+        d = np.rot90(d, -1 if move.isupper() else 1)
 
-            colors = np.zeros((6, cube_len, cube_len), dtype=np.int64)
-            colors_new = np.copy(colors)
+        # Edges rotation.
+        if move.isupper():
+            f[2, :], l[2, :], b[0, :], r[2, :] = (
+                l[2, :].copy(),
+                np.flip(b[0, :]).copy(),
+                np.flip(r[2, :]).copy(),
+                f[2, :].copy(),
+            )
+        else:
+            f[2, :], r[2, :], b[0, :], l[2, :] = (
+                r[2, :].copy(),
+                np.flip(b[0, :]).copy(),
+                np.flip(l[2, :]).copy(),
+                f[2, :].copy(),
+            )
+    elif move in "Ll":
+        # Face rotate.
+        l = np.rot90(l, -1 if move.isupper() else 1)
 
-            adj_idxs = {
-                0: {
-                    2: [range(0, cube_len), cube_len - 1],
-                    3: [range(0, cube_len), cube_len - 1],
-                    4: [range(0, cube_len), cube_len - 1],
-                    5: [range(0, cube_len), cube_len - 1],
-                },
-                1: {
-                    2: [range(0, cube_len), 0],
-                    3: [range(0, cube_len), 0],
-                    4: [range(0, cube_len), 0],
-                    5: [range(0, cube_len), 0],
-                },
-                2: {
-                    0: [0, range(0, cube_len)],
-                    1: [0, range(0, cube_len)],
-                    4: [cube_len - 1, range(cube_len - 1, -1, -1)],
-                    5: [0, range(0, cube_len)],
-                },
-                3: {
-                    0: [cube_len - 1, range(0, cube_len)],
-                    1: [cube_len - 1, range(0, cube_len)],
-                    4: [0, range(cube_len - 1, -1, -1)],
-                    5: [cube_len - 1, range(0, cube_len)],
-                },
-                4: {
-                    0: [range(0, cube_len), cube_len - 1],
-                    1: [range(cube_len - 1, -1, -1), 0],
-                    2: [0, range(0, cube_len)],
-                    3: [cube_len - 1, range(cube_len - 1, -1, -1)],
-                },
-                5: {
-                    0: [range(0, cube_len), 0],
-                    1: [range(cube_len - 1, -1, -1), cube_len - 1],
-                    2: [cube_len - 1, range(0, cube_len)],
-                    3: [0, range(cube_len - 1, -1, -1)],
-                },
-            }
-            face_dict = {"U": 0, "D": 1, "L": 2, "R": 3, "B": 4, "F": 5}
-            face = face_dict[f]
+        # Edges rotation.
+        if move.isupper():
+            u[:, 0], b[:, 0], d[:, 0], f[:, 0] = (
+                b[:, 0].copy(),
+                d[:, 0].copy(),
+                f[:, 0].copy(),
+                u[:, 0].copy(),
+            )
+        else:
+            u[:, 0], f[:, 0], d[:, 0], b[:, 0] = (
+                f[:, 0].copy(),
+                d[:, 0].copy(),
+                b[:, 0].copy(),
+                u[:, 0].copy(),
+            )
+    elif move in "Rr":
+        # Face rotate.
+        r = np.rot90(r, -1 if move.isupper() else 1)
 
-            faces_to = self.adj_faces[face]
-            if sign == 1:
-                faces_from = faces_to[(np.arange(0, len(faces_to)) + 1) % len(faces_to)]
-            else:
-                faces_from = faces_to[
-                    (np.arange(len(faces_to) - 1, len(faces_to) - 1 + len(faces_to)))
-                    % len(faces_to)
-                ]
+        # Edges rotation.
+        if move.isupper():
+            u[:, 2], f[:, 2], d[:, 2], b[:, 2] = (
+                f[:, 2].copy(),
+                d[:, 2].copy(),
+                b[:, 2].copy(),
+                u[:, 2].copy(),
+            )
+        else:
+            u[:, 2], b[:, 2], d[:, 2], f[:, 2] = (
+                b[:, 2].copy(),
+                d[:, 2].copy(),
+                f[:, 2].copy(),
+                u[:, 2].copy(),
+            )
+    elif move in "Bb":
+        # Face rotate.
+        b = np.rot90(b, -1 if move.isupper() else 1)
 
-            cubes_idxs = [
-                [0, range(0, cube_len)],
-                [range(0, cube_len), cube_len - 1],
-                [cube_len - 1, range(cube_len - 1, -1, -1)],
-                [range(cube_len - 1, -1, -1), 0],
-            ]
-            cubes_to = np.array([0, 1, 2, 3])
-            if sign == 1:
-                cubes_from = cubes_to[
-                    (np.arange(len(cubes_to) - 1, len(cubes_to) - 1 + len(cubes_to)))
-                    % len(cubes_to)
-                ]
-            else:
-                cubes_from = cubes_to[(np.arange(0, len(cubes_to)) + 1) % len(cubes_to)]
+        # Edges rotation.
+        if move.isupper():
+            u[0, :], r[:, 2], d[2, :], l[:, 0] = (
+                r[:, 2].copy(),
+                np.flip(d[2, :]).copy(),
+                l[:, 0].copy(),
+                np.flip(u[0, :]).copy(),
+            )
+        else:
+            u[0, :], l[:, 0], d[2, :], r[:, 2] = (
+                np.flip(l[:, 0]).copy(),
+                d[2, :].copy(),
+                np.flip(r[:, 2]).copy(),
+                u[0, :].copy(),
+            )
 
-            for i in range(4):
-                idxs_new = [
-                    [idx1, idx2]
-                    for idx1 in np.array([cubes_idxs[cubes_to[i]][0]]).flatten()
-                    for idx2 in np.array([cubes_idxs[cubes_to[i]][1]]).flatten()
-                ]
-                idxs_old = [
-                    [idx1, idx2]
-                    for idx1 in np.array([cubes_idxs[cubes_from[i]][0]]).flatten()
-                    for idx2 in np.array([cubes_idxs[cubes_from[i]][1]]).flatten()
-                ]
-                for idxNew, idxOld in zip(idxs_new, idxs_old):
-                    flat_idx_new = np.ravel_multi_index(
-                        (face, idxNew[0], idxNew[1]), colors_new.shape
-                    )
-                    flat_idx_old = np.ravel_multi_index(
-                        (face, idxOld[0], idxOld[1]), colors.shape
-                    )
-                    rotate_idxs_new[move] = np.concatenate(
-                        (rotate_idxs_new[move], [flat_idx_new])
-                    )
-                    rotate_idxs_old[move] = np.concatenate(
-                        (rotate_idxs_old[move], [flat_idx_old])
-                    )
+    return f, u, d, l, r, b
 
-            # Rotate adjacent faces
-            face_idxs = adj_idxs[face]
-            for i in range(0, len(faces_to)):
-                face_to = faces_to[i]
-                face_from = faces_from[i]
-                idxs_new = [
-                    [idx1, idx2]
-                    for idx1 in np.array([face_idxs[face_to][0]]).flatten()
-                    for idx2 in np.array([face_idxs[face_to][1]]).flatten()
-                ]
-                idxs_old = [
-                    [idx1, idx2]
-                    for idx1 in np.array([face_idxs[face_from][0]]).flatten()
-                    for idx2 in np.array([face_idxs[face_from][1]]).flatten()
-                ]
-                for idxNew, idxOld in zip(idxs_new, idxs_old):
-                    flat_idx_new = np.ravel_multi_index(
-                        (face_to, idxNew[0], idxNew[1]), colors_new.shape
-                    )
-                    flat_idx_old = np.ravel_multi_index(
-                        (face_from, idxOld[0], idxOld[1]), colors.shape
-                    )
-                    rotate_idxs_new[move] = np.concatenate(
-                        (rotate_idxs_new[move], [flat_idx_new])
-                    )
-                    rotate_idxs_old[move] = np.concatenate(
-                        (rotate_idxs_old[move], [flat_idx_old])
-                    )
 
-        return rotate_idxs_new, rotate_idxs_old
+@njit
+def face_check(
+    front: np.ndarray,
+    up: np.ndarray,
+    down: np.ndarray,
+    left: np.ndarray,
+    right: np.ndarray,
+    back: np.ndarray,
+) -> bool:
+    for i in range(3):
+        for j in range(3):
+            if (
+                front[i, j] != 0
+                or up[i, j] != 1
+                or down[i, j] != 2
+                or left[i, j] != 3
+                or right[i, j] != 4
+                or back[i, j] != 5
+            ):
+                return False
+    return True

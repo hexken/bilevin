@@ -14,14 +14,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import annotations
-from typing import Callable, Optional
 
+from numba import jit, njit
 import numpy as np
 import torch as to
 
 from domains import Domain, Problem, State
 from enums import FourDir
-from search import SearchNode, Trajectory, try_make_solution
 
 
 class SlidingTilePuzzleState(State):
@@ -31,9 +30,10 @@ class SlidingTilePuzzleState(State):
         blank_row: int,
         blank_col: int,
     ):
-        self.tiles = tiles
-        self.blank_row = blank_row
-        self.blank_col = blank_col
+        self.tiles: np.ndarray = tiles
+        self.blank_row: int = blank_row
+        self.blank_col: int = blank_col
+        self.width = len(tiles)
 
     def __repr__(self) -> str:
         mlw = self.tiles.shape[0] ** 2
@@ -47,8 +47,19 @@ class SlidingTilePuzzleState(State):
     def __hash__(self) -> int:
         return self.tiles.tobytes().__hash__()
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: SlidingTilePuzzleState) -> bool:
         return np.array_equal(self.tiles, other.tiles)
+        # return tiles_eq(self.tiles, other.tiles)
+
+
+@njit
+def tiles_eq(tiles: np.ndarray, other_tiles: np.ndarray) -> bool:
+    n = len(tiles)
+    for i in range(n):
+        for j in range(n):
+            if tiles[i, j] != other_tiles[i, j]:
+                return False
+    return True
 
 
 class SlidingTilePuzzle(Domain):
@@ -82,14 +93,6 @@ class SlidingTilePuzzle(Domain):
             goal_tiles, goal_blank_row, goal_blank_col
         )
         self.goal_state_t = self.state_tensor(self.goal_state)
-
-    @property
-    def try_make_solution_func(
-        cls,
-    ) -> Callable[
-        [Domain, SearchNode, Domain, int], Optional[tuple[Trajectory, Trajectory]]
-    ]:
-        return try_make_solution
 
     @property
     def state_width(self) -> int:

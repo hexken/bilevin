@@ -14,14 +14,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import annotations
-from typing import Callable, Optional
 
 import numpy as np
 import torch as to
 
 from domains.domain import Domain, Problem, State
 from enums import FourDir
-from search import SearchNode, Trajectory, try_make_solution
 
 
 class SokobanState(State):
@@ -72,14 +70,6 @@ class Sokoban(Domain):
 
         self.goal_state: SokobanState
         self.goal_state_t: to.Tensor
-
-    @property
-    def try_make_solution_func(
-        cls,
-    ) -> Callable[
-        [Domain, SearchNode, Domain, int], Optional[tuple[Trajectory, Trajectory]]
-    ]:
-        return try_make_solution
 
     @property
     def state_width(cls) -> int:
@@ -157,7 +147,7 @@ class Sokoban(Domain):
         return actions
 
     def _actions(self, parent_action: FourDir, state: SokobanState) -> list[FourDir]:
-        return self.actions_unpruned(state)
+        return self._actions_unpruned(state)
 
     def result(self, state: SokobanState, action: FourDir) -> SokobanState:
         boxes = np.array(state.boxes)

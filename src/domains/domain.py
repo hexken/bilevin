@@ -20,10 +20,11 @@ from typing import Callable, Optional, TYPE_CHECKING
 
 import torch as to
 from torch import full
+
 from models import AgentModel
 
 if TYPE_CHECKING:
-    from search.utils import SearchNode, Trajectory
+    from search.utils import SearchNode, Trajectory, try_make_solution
 
 
 class Problem:
@@ -51,9 +52,19 @@ class State(ABC):
 class Domain(ABC):
     def __init__(self, forward: bool = True):
         self.visited: dict = {}
-        self.forward = forward
+        self.forward: bool = forward
         self.initial_state: State | list[State]
         self.goal_state_t: Optional[to.Tensor] = None
+        self.try_make_solution: Callable[
+            [
+                AgentModel,
+                Domain,
+                SearchNode,
+                Domain,
+                int,
+            ],
+            Optional[tuple[Trajectory, Trajectory]],
+        ] = try_make_solution
 
     def reset(self) -> State | list[State]:
         self.visited = {}
@@ -73,16 +84,6 @@ class Domain(ABC):
         mask = full((self.num_actions,), True, dtype=to.bool)
         mask[actions] = False
         return actions, mask
-
-    @property
-    @abstractmethod
-    def try_make_solution_func(
-        cls,
-    ) -> Callable[
-        [AgentModel, Domain, SearchNode, Domain, int],
-        Optional[tuple[Trajectory, Trajectory]],
-    ]:
-        pass
 
     @property
     @abstractmethod

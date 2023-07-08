@@ -61,7 +61,7 @@ def cross_entropy_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: i
         total_actions += t_len
         if forward:
             log_probs, _ = model(
-                t.states, forward=t.forward, goal_state_t=t.goal_state_t, mask=t.masks
+                t.states, forward=forward, goal_state_t=t.goal_state_t, mask=t.masks
             )
             nll = nll_loss(log_probs, t.actions, reduction="sum")
             loss += nll
@@ -71,11 +71,10 @@ def cross_entropy_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: i
             goal_feat = model.backward_feature_net(t.goal_state_t)
             feats = model.backward_feature_net(t.states)
             logits = model.backward_policy(feats, goal_feat)
-
             if t.masks is not None:
                 logits = logits.masked_fill(t.masks, -1e9)
-
             log_probs = log_softmax(logits, dim=-1)
+
             nll = nll_loss(log_probs, t.actions, reduction="sum")
             loss += nll
             avg_action_nll += nll.item()
@@ -92,8 +91,8 @@ def cross_entropy_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: i
                     logits = model.backward_policy(feats[:idx], feats[idx].unsqueeze(0))
                     if t.masks is not None:
                         logits = logits.masked_fill(t.masks[:idx], -1e9)
-
                     log_probs = log_softmax(logits, dim=-1)
+
                     nll = nll_loss(log_probs, subg_actions, reduction="sum")
                     loss += nll
                     avg_action_nll += nll.item()

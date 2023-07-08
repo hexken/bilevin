@@ -241,6 +241,8 @@ class Witness(Domain):
             self.start_col,
         )
 
+        self.try_make_solution = try_make_solution
+
     def update(self, node: SearchNode):
         state: WitnessState = node.state
         head = (state.head_row, state.head_col)
@@ -248,14 +250,6 @@ class Witness(Domain):
             self.visited[head].append(node)
         else:
             self.visited[head] = [node]
-
-    @property
-    def try_make_solution_func(
-        cls,
-    ) -> Callable[
-        [Witness, SearchNode, Witness, int], Optional[tuple[Trajectory, Trajectory]]
-    ]:
-        return try_make_solution
 
     @property
     def requires_backward_goal(self):
