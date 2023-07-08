@@ -50,8 +50,8 @@ class Cube3State(State):
             self.back.tobytes().__hash__(),
         ).__hash__()
 
-    def __eq__(self, other):
-        return np.array_equal(self.colors, other.colors)
+    def __eq__(self, other: Cube3State) -> bool:
+        pass
 
 
 class Cube3(Domain):
@@ -94,6 +94,13 @@ class Cube3(Domain):
     def _actions_unpruned(self) -> list[int]:
         return self._actions_list
 
+    @njit
+    def reverse_action(self, action: int) -> int:
+        if action & 1 == 1:  # odd
+            return action - 1
+        else:
+            return action + 1
+
     def get_backward_domain(self) -> Cube3:
         pass
 
@@ -120,11 +127,6 @@ class Cube3(Domain):
         pass
 
 
-def show(faces: str = "f,u,d,l,r,b"):
-    for face in faces.split(","):
-        print(f"{face.strip()}:\n{eval(face)}")
-
-
 @njit
 def faces_result(
     move: int,
@@ -135,7 +137,6 @@ def faces_result(
     right: np.ndarray,
     back: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    # Uppercase: clockwise. Lowercase: counterclockwise.
     f = front.copy()
     u = up.copy()
     d = down.copy()
@@ -145,118 +146,101 @@ def faces_result(
 
     if move == 0:
         f = np.rot90(f, -1)
+        u[2, :], l[:, 2], d[0, :], r[:, 0] = (
+            np.flip(l[:, 2]),
+            d[0, :],
+            np.flip(r[:, 0]),
+            u[2, :],
+        )
     elif move == 1:
         f = np.rot90(f, 1)
-        # Edges rotation.
-        if move.isupper():
-            u[2, :], l[:, 2], d[0, :], r[:, 0] = (
-                np.flip(l[:, 2]).copy(),
-                d[0, :].copy(),
-                np.flip(r[:, 0]).copy(),
-                u[2, :].copy(),
-            )
-        else:
-            u[2, :], r[:, 0], d[0, :], l[:, 2] = (
-                r[:, 0].copy(),
-                np.flip(d[0, :]).copy(),
-                l[:, 2].copy(),
-                np.flip(u[2, :]).copy(),
-            )
-    elif move in "Uu":
+        u[2, :], r[:, 0], d[0, :], l[:, 2] = (
+            r[:, 0],
+            np.flip(d[0, :]),
+            l[:, 2],
+            np.flip(u[2, :]),
+        )
+    elif move == 2:
         # Face rotate.
-        u = np.rot90(u, -1 if move.isupper() else 1)
-
-        # Edges rotation.
-        if move.isupper():
-            b[2, :], l[0, :], f[0, :], r[0, :] = (
-                np.flip(l[0, :]).copy(),
-                f[0, :].copy(),
-                r[0, :].copy(),
-                np.flip(b[2, :]).copy(),
-            )
-        else:
-            b[2, :], r[0, :], f[0, :], l[0, :] = (
-                np.flip(r[0, :]).copy(),
-                f[0, :].copy(),
-                l[0, :].copy(),
-                np.flip(b[2, :]).copy(),
-            )
-    elif move in "Dd":
-        # Face rotate.
-        d = np.rot90(d, -1 if move.isupper() else 1)
-
-        # Edges rotation.
-        if move.isupper():
-            f[2, :], l[2, :], b[0, :], r[2, :] = (
-                l[2, :].copy(),
-                np.flip(b[0, :]).copy(),
-                np.flip(r[2, :]).copy(),
-                f[2, :].copy(),
-            )
-        else:
-            f[2, :], r[2, :], b[0, :], l[2, :] = (
-                r[2, :].copy(),
-                np.flip(b[0, :]).copy(),
-                np.flip(l[2, :]).copy(),
-                f[2, :].copy(),
-            )
-    elif move in "Ll":
-        # Face rotate.
-        l = np.rot90(l, -1 if move.isupper() else 1)
-
-        # Edges rotation.
-        if move.isupper():
-            u[:, 0], b[:, 0], d[:, 0], f[:, 0] = (
-                b[:, 0].copy(),
-                d[:, 0].copy(),
-                f[:, 0].copy(),
-                u[:, 0].copy(),
-            )
-        else:
-            u[:, 0], f[:, 0], d[:, 0], b[:, 0] = (
-                f[:, 0].copy(),
-                d[:, 0].copy(),
-                b[:, 0].copy(),
-                u[:, 0].copy(),
-            )
-    elif move in "Rr":
-        # Face rotate.
-        r = np.rot90(r, -1 if move.isupper() else 1)
-
-        # Edges rotation.
-        if move.isupper():
-            u[:, 2], f[:, 2], d[:, 2], b[:, 2] = (
-                f[:, 2].copy(),
-                d[:, 2].copy(),
-                b[:, 2].copy(),
-                u[:, 2].copy(),
-            )
-        else:
-            u[:, 2], b[:, 2], d[:, 2], f[:, 2] = (
-                b[:, 2].copy(),
-                d[:, 2].copy(),
-                f[:, 2].copy(),
-                u[:, 2].copy(),
-            )
-    elif move in "Bb":
-        # Face rotate.
-        b = np.rot90(b, -1 if move.isupper() else 1)
-
-        # Edges rotation.
-        if move.isupper():
-            u[0, :], r[:, 2], d[2, :], l[:, 0] = (
-                r[:, 2].copy(),
-                np.flip(d[2, :]).copy(),
-                l[:, 0].copy(),
-                np.flip(u[0, :]).copy(),
-            )
-        else:
-            u[0, :], l[:, 0], d[2, :], r[:, 2] = (
-                np.flip(l[:, 0]).copy(),
-                d[2, :].copy(),
-                np.flip(r[:, 2]).copy(),
-                u[0, :].copy(),
-            )
+        u = np.rot90(u, -1)
+        b[2, :], l[0, :], f[0, :], r[0, :] = (
+            np.flip(l[0, :]),
+            f[0, :],
+            r[0, :],
+            np.flip(b[2, :]),
+        )
+    elif move == 3:
+        u = np.rot90(u, 1)
+        b[2, :], r[0, :], f[0, :], l[0, :] = (
+            np.flip(r[0, :]),
+            f[0, :],
+            l[0, :],
+            np.flip(b[2, :]),
+        )
+    elif move == 4:
+        d = np.rot90(d, -1)
+        f[2, :], l[2, :], b[0, :], r[2, :] = (
+            l[2, :],
+            np.flip(b[0, :]),
+            np.flip(r[2, :]),
+            f[2, :],
+        )
+    elif move == 5:
+        d = np.rot90(d, 1)
+        f[2, :], r[2, :], b[0, :], l[2, :] = (
+            r[2, :],
+            np.flip(b[0, :]),
+            np.flip(l[2, :]),
+            f[2, :],
+        )
+    elif move == 6:
+        l = np.rot90(l, -1)
+        u[:, 0], b[:, 0], d[:, 0], f[:, 0] = (
+            b[:, 0],
+            d[:, 0],
+            f[:, 0],
+            u[:, 0],
+        )
+    elif move == 7:
+        l = np.rot90(l, 1)
+        u[:, 0], f[:, 0], d[:, 0], b[:, 0] = (
+            f[:, 0],
+            d[:, 0],
+            b[:, 0],
+            u[:, 0],
+        )
+    elif move == 8:
+        r = np.rot90(r, -1)
+        u[:, 2], f[:, 2], d[:, 2], b[:, 2] = (
+            f[:, 2],
+            d[:, 2],
+            b[:, 2],
+            u[:, 2],
+        )
+    elif move == 9:
+        r = np.rot90(r, 1)
+        u[:, 2], b[:, 2], d[:, 2], f[:, 2] = (
+            b[:, 2],
+            d[:, 2],
+            f[:, 2],
+            u[:, 2],
+        )
+    elif move == 10:
+        b = np.rot90(b, -10)
+        u[0, :], r[:, 2], d[2, :], l[:, 0] = (
+            r[:, 2],
+            np.flip(d[2, :]),
+            l[:, 0],
+            np.flip(u[0, :]),
+        )
+    else:
+        b = np.rot90(b, -1)
+        u[0, :], l[:, 0], d[2, :], r[:, 2] = (
+            np.flip(l[:, 0]),
+            d[2, :],
+            np.flip(r[:, 2]),
+            u[0, :],
+        )
 
     return f, u, d, l, r, b
 
