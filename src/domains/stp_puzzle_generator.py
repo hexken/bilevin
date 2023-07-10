@@ -14,16 +14,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+from copy import copy
 import json
 from pathlib import Path
 
-from copy import copy
 import numpy as np
 import tqdm
 
 import domains
 from domains import SlidingTilePuzzle
-from src.train import train
 
 
 def is_valid(tiles):

@@ -21,10 +21,7 @@ from pathlib import Path
 import numpy as np
 import tqdm
 
-import domains
-from domains import SlidingTilePuzzle
 from domains.cube3 import Cube3, Cube3State
-from src.train import train
 
 
 def main():
@@ -57,6 +54,12 @@ def main():
         type=int,
         default=10,
         help="generate all problems up to (inclusive) this many steps away from the goal",
+    )
+    parser.add_argument(
+        "--randomize-steps",
+        action="store_true",
+        default=False,
+        help="randomize the number of steps away from the goal for the curriculum",
     )
     parser.add_argument(
         "--curriculum",
@@ -100,45 +103,6 @@ def main():
 
     args.output_path.mkdir(parents=True, exist_ok=True)
 
-    problem
-
-    def generate_states(
-        self, num_states: int, backwards_range: Tuple[int, int]
-    ) -> tuple[List[Cube3State], List[int]]:
-        assert num_states > 0
-        assert backwards_range[0] >= 0
-        assert (
-            self.fixed_actions
-        ), "Environments without fixed actions must implement their own method"
-
-        # Initialize
-        scrambs: List[int] = list(range(backwards_range[0], backwards_range[1] + 1))
-        num_env_moves: int = self.get_num_moves()
-
-        # Get goal states
-        states_np: np.ndarray = self.generate_goal_states(num_states, np_format=True)
-
-        # Scrambles
-        scramble_nums: np.array = np.random.choice(scrambs, num_states)
-        num_back_moves: np.array = np.zeros(num_states)
-
-        # Go backward from goal state
-        moves_lt = num_back_moves < scramble_nums
-        while np.any(moves_lt):
-            idxs: np.ndarray = np.where(moves_lt)[0]
-            subset_size: int = int(max(len(idxs) / num_env_moves, 1))
-            idxs: np.ndarray = np.random.choice(idxs, subset_size)
-
-            move: int = randrange(num_env_moves)
-            states_np[idxs], _ = self._move_np(states_np[idxs], move)
-
-            num_back_moves[idxs] = num_back_moves[idxs] + 1
-            moves_lt[idxs] = num_back_moves[idxs] < scramble_nums[idxs]
-
-        states: List[Cube3State] = [Cube3State(x) for x in list(states_np)]
-
-        return states, scramble_nums.tolist()
-
     exclude_problemspecs = set()
     if args.exclude_problemset:
         for pset_path in args.exclude_problemset:
@@ -160,6 +124,7 @@ def main():
         "width": args.width,
         "num_actions": 4,
         "in_channels": int(args.width**2),
+        "seed": args.seed,
     }
 
     def generate_permutation_problems(id_prefix, id_start, num_problems, desc):
@@ -192,6 +157,35 @@ def main():
                     local_pbar.update(1)
         return problems
 
+    def get_all_reachable_states(
+        id_prefix, id_start, state, max_step, exclude_problemspecs
+    ):
+        problems = []
+        id_counter = id_start
+
+        def helper(state, step, max_step):
+            nonlocal id_counter
+            if step > max_step:
+                return
+            stp = SlidingTilePuzzle(state.tiles, goal_tiles)
+            actions, _ = stp.actions_unpruned(state)
+            for action in actions:
+                new_state = stp.result(state, action)
+                if new_state in exclude_problemspecs or stp.is_goal(new_state):
+                    continue
+                else:
+                    exclude_problemspecs.add(new_state)
+                    problem = {
+                        "tiles": new_state.tiles.tolist(),
+                        "id": f"{id_prefix}_{id_counter}",
+                    }
+                    id_counter += 1
+                    problems.append(problem)
+                    helper(new_state, step + 1, max_step)
+
+        helper(state, 1, max_step)
+        return problems
+
     def save_problemset(problemset_dict, suffix, is_curriculum=False):
         n_problems = 0
         if "problems" in problemset_dict:
@@ -220,16 +214,21 @@ def main():
         f"Generating {args.n_problems_per_difficulty} curriculum problems for each of {len(args.curriculum)} steps: {args.curriculum}"
     )
     curriculum_problems = []
+    curr_probs_generated = 0
     id_counter = 0
     num_curriculum_problems = args.n_problems_per_difficulty * len(args.curriculum)
     with tqdm.tqdm(total=num_curriculum_problems) as pbar:
         pbar.set_description("Curriculum problems")
         difficulty = 0
-        steps = int(args.curriculum[difficulty])
-        while len(curriculum_problems) < num_curriculum_problems:
+        max_steps = int(args.curriculum[difficulty])
+        while curr_probs_generated < num_curriculum_problems:
+            if args.randomize_steps:
+                steps = rng.integers(1, max_steps + 1)
+            else:
+                steps = max_steps
             state = stp.reset()
             for _ in range(steps):
-                actions = stp.actions_unpruned(state)
+                actions, _ = stp.actions_unpruned(state)
                 random_action = rng.choice(actions)
                 state = stp.result(state, random_action)
 
@@ -242,15 +241,17 @@ def main():
                     "id": f"c{difficulty}_{id_counter}",
                 }
                 curriculum_problems.append(problem)
+                curr_probs_generated += 1
                 id_counter += 1
                 pbar.update(1)
                 if (
-                    len(curriculum_problems) < num_curriculum_problems
-                    and len(curriculum_problems) % args.n_problems_per_difficulty == 0
+                    curr_probs_generated > 0
+                    and curr_probs_generated < num_curriculum_problems
+                    and curr_probs_generated % args.n_problems_per_difficulty == 0
                 ):
                     difficulty += 1
                     id_counter = 0
-                    steps = int(args.curriculum[difficulty])
+                    max_steps = int(args.curriculum[difficulty])
 
     permutation_problems = generate_permutation_problems(
         "p",
@@ -261,6 +262,7 @@ def main():
 
     trainset_dict = copy(problemset_dict)
     trainset_dict["is_curriculum"] = True
+    trainset_dict["randomize_steps"] = args.randomize_steps
     trainset_dict["curriculum"] = args.curriculum
     trainset_dict["problems_per_difficulty"] = args.n_problems_per_difficulty
     trainset_dict["bootstrap_problems"] = bootstrap_problems

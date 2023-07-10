@@ -8,6 +8,7 @@ from __future__ import annotations
 from numba import jit, njit
 import numpy as np
 import torch as to
+from torch.nn.functional import one_hot
 
 from domains import Domain, State
 
@@ -38,7 +39,7 @@ class Cube3State(State):
         self.back: np.ndarray = back
 
     def __str__(self) -> str:
-        return ""
+        return "NotImplemented"
 
     def __hash__(self) -> int:
         return (
@@ -51,18 +52,43 @@ class Cube3State(State):
         ).__hash__()
 
     def __eq__(self, other: Cube3State) -> bool:
-        pass
+        return equal_check(
+            self.front,
+            self.up,
+            self.down,
+            self.left,
+            self.right,
+            self.back,
+            other.front,
+            other.up,
+            other.down,
+            other.left,
+            other.right,
+            other.back,
+        )
 
 
 class Cube3(Domain):
-    def __init__(self, forward=True):
+    def __init__(
+        self,
+        initial_state: Cube3State,
+        forward: bool = True,
+    ):
         super().__init__(forward=forward)
         self.cube_width: int = 3
         self._actions_list: list[int] = [i for i in range(self.num_actions)]
+        self.initial_state: Cube3State = initial_state
+
+        self.goal_state: Cube3State
+        self.goal_state_t: to.Tensor
 
     @property
     def state_width(self) -> int:
         return 3
+
+    @property
+    def requires_backward_goal(self) -> bool:
+        return True
 
     @property
     def num_actions(cls) -> int:
@@ -72,15 +98,7 @@ class Cube3(Domain):
     def in_channels(self) -> int:
         return 6
 
-    def set_to_goal(self, state: Cube3State) -> None:
-        state.front = np.full((3, 3), 0, dtype=int)
-        state.up = np.full((3, 3), 1, dtype=int)
-        state.down = np.full((3, 3), 2, dtype=int)
-        state.left = np.full((3, 3), 3, dtype=int)
-        state.right = np.full((3, 3), 4, dtype=int)
-        state.back = np.full((3, 3), 5, dtype=int)
-
-    def _actions(self) -> list[int]:
+    def _actions(self, parent_action: int, state: Cube3State) -> list[int]:
         """
         0 FRONT GREEN
         1 UP WHITE
@@ -89,9 +107,9 @@ class Cube3(Domain):
         4 RIGHT RED
         5 BACK BLUE
         """
-        return self._actions_list
+        return [i for i in range(self.num_actions) if i != parent_action]
 
-    def _actions_unpruned(self) -> list[int]:
+    def _actions_unpruned(self, state: Cube3State) -> list[int]:
         return self._actions_list
 
     @njit
@@ -101,12 +119,43 @@ class Cube3(Domain):
         else:
             return action + 1
 
-    def get_backward_domain(self) -> Cube3:
-        pass
+    def backward_domain(self) -> Cube3:
+        assert self.forward
+        domain = Cube3(get_goal_state(), forward=False)
+        domain.result = domain._backwards_result
+        domain.goal_state = self.initial_state
+        domain.goal_state_t = self.state_tensor(self.initial_state)
+        return domain
 
     def is_goal(self, state: Cube3State) -> bool:
-        return face_check(
+        return goal_check(
             state.front, state.up, state.down, state.left, state.right, state.back
+        )
+
+    def result(self, state: Cube3State, action: int) -> Cube3State:
+        return Cube3State(
+            *faces_result(
+                state.front,
+                state.up,
+                state.down,
+                state.left,
+                state.right,
+                state.back,
+                action,
+            )
+        )
+
+    def _backwards_result(self, state: Cube3State, action: int) -> Cube3State:
+        return Cube3State(
+            *faces_result(
+                state.front,
+                state.up,
+                state.down,
+                state.left,
+                state.right,
+                state.back,
+                self.reverse_action(action),
+            )
         )
 
     # def is_goal(self, state: Cube3State) -> bool:
@@ -124,18 +173,27 @@ class Cube3(Domain):
     #     return True
 
     def state_tensor(self, state: Cube3State) -> to.Tensor:
-        pass
+        return to.cat(
+            tuple(
+                one_hot(state.front, 6),
+                one_hot(state.up, 6),
+                one_hot(state.down, 6),
+                one_hot(state.left, 6),
+                one_hot(state.right, 6),
+                one_hot(state.back, 6),
+            )
+        )
 
 
 @njit
 def faces_result(
-    move: int,
     front: np.ndarray,
     up: np.ndarray,
     down: np.ndarray,
     left: np.ndarray,
     right: np.ndarray,
     back: np.ndarray,
+    action: int,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     f = front.copy()
     u = up.copy()
@@ -144,7 +202,7 @@ def faces_result(
     r = right.copy()
     b = back.copy()
 
-    if move == 0:
+    if action == 0:
         f = np.rot90(f, -1)
         u[2, :], l[:, 2], d[0, :], r[:, 0] = (
             np.flip(l[:, 2]),
@@ -152,7 +210,7 @@ def faces_result(
             np.flip(r[:, 0]),
             u[2, :],
         )
-    elif move == 1:
+    elif action == 1:
         f = np.rot90(f, 1)
         u[2, :], r[:, 0], d[0, :], l[:, 2] = (
             r[:, 0],
@@ -160,7 +218,7 @@ def faces_result(
             l[:, 2],
             np.flip(u[2, :]),
         )
-    elif move == 2:
+    elif action == 2:
         # Face rotate.
         u = np.rot90(u, -1)
         b[2, :], l[0, :], f[0, :], r[0, :] = (
@@ -169,7 +227,7 @@ def faces_result(
             r[0, :],
             np.flip(b[2, :]),
         )
-    elif move == 3:
+    elif action == 3:
         u = np.rot90(u, 1)
         b[2, :], r[0, :], f[0, :], l[0, :] = (
             np.flip(r[0, :]),
@@ -177,7 +235,7 @@ def faces_result(
             l[0, :],
             np.flip(b[2, :]),
         )
-    elif move == 4:
+    elif action == 4:
         d = np.rot90(d, -1)
         f[2, :], l[2, :], b[0, :], r[2, :] = (
             l[2, :],
@@ -185,7 +243,7 @@ def faces_result(
             np.flip(r[2, :]),
             f[2, :],
         )
-    elif move == 5:
+    elif action == 5:
         d = np.rot90(d, 1)
         f[2, :], r[2, :], b[0, :], l[2, :] = (
             r[2, :],
@@ -193,7 +251,7 @@ def faces_result(
             np.flip(l[2, :]),
             f[2, :],
         )
-    elif move == 6:
+    elif action == 6:
         l = np.rot90(l, -1)
         u[:, 0], b[:, 0], d[:, 0], f[:, 0] = (
             b[:, 0],
@@ -201,7 +259,7 @@ def faces_result(
             f[:, 0],
             u[:, 0],
         )
-    elif move == 7:
+    elif action == 7:
         l = np.rot90(l, 1)
         u[:, 0], f[:, 0], d[:, 0], b[:, 0] = (
             f[:, 0],
@@ -209,7 +267,7 @@ def faces_result(
             b[:, 0],
             u[:, 0],
         )
-    elif move == 8:
+    elif action == 8:
         r = np.rot90(r, -1)
         u[:, 2], f[:, 2], d[:, 2], b[:, 2] = (
             f[:, 2],
@@ -217,7 +275,7 @@ def faces_result(
             b[:, 2],
             u[:, 2],
         )
-    elif move == 9:
+    elif action == 9:
         r = np.rot90(r, 1)
         u[:, 2], b[:, 2], d[:, 2], f[:, 2] = (
             b[:, 2],
@@ -225,7 +283,7 @@ def faces_result(
             f[:, 2],
             u[:, 2],
         )
-    elif move == 10:
+    elif action == 10:
         b = np.rot90(b, -10)
         u[0, :], r[:, 2], d[2, :], l[:, 0] = (
             r[:, 2],
@@ -245,8 +303,19 @@ def faces_result(
     return f, u, d, l, r, b
 
 
+def get_goal_state() -> Cube3State:
+    front = np.full((3, 3), 0, dtype=int)
+    up = np.full((3, 3), 1, dtype=int)
+    down = np.full((3, 3), 2, dtype=int)
+    left = np.full((3, 3), 3, dtype=int)
+    right = np.full((3, 3), 4, dtype=int)
+    back = np.full((3, 3), 5, dtype=int)
+    state = Cube3State(front, up, down, left, right, back)
+    return state
+
+
 @njit
-def face_check(
+def goal_check(
     front: np.ndarray,
     up: np.ndarray,
     down: np.ndarray,
@@ -263,6 +332,35 @@ def face_check(
                 or left[i, j] != 3
                 or right[i, j] != 4
                 or back[i, j] != 5
+            ):
+                return False
+    return True
+
+
+@njit
+def equal_check(
+    front: np.ndarray,
+    up: np.ndarray,
+    down: np.ndarray,
+    left: np.ndarray,
+    right: np.ndarray,
+    back: np.ndarray,
+    front2: np.ndarray,
+    up2: np.ndarray,
+    down2: np.ndarray,
+    left2: np.ndarray,
+    right2: np.ndarray,
+    back2: np.ndarray,
+) -> bool:
+    for i in range(3):
+        for j in range(3):
+            if (
+                front[i, j] != front2[i, j]
+                or up[i, j] != up2[i, j]
+                or down[i, j] != down2[i, j]
+                or left[i, j] != left2[i, j]
+                or right[i, j] != right2[i, j]
+                or back[i, j] != back2[i, j]
             ):
                 return False
     return True
