@@ -25,8 +25,6 @@ from models import AgentModel
 from search.utils import SearchNode, Trajectory
 
 
-
-
 class State(ABC):
     @abstractmethod
     def __eq__(self) -> bool:
@@ -43,16 +41,6 @@ class Domain(ABC):
         self.forward: bool = forward
         self.initial_state: State | list[State]
         self.goal_state_t: Optional[Tensor] = None
-        # self.try_make_solution: Callable[
-        #     [
-        #         AgentModel,
-        #         Domain,
-        #         SearchNode,
-        #         Domain,
-        #         int,
-        #     ],
-        #     Optional[tuple[Trajectory, Trajectory]],
-        # ] = try_make_solution
 
     def reset(self) -> State | list[State]:
         self.visited = {}

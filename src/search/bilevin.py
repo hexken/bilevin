@@ -188,7 +188,7 @@ class BiLevin(Agent):
                     n_backw_generated += 1
 
                 if new_node not in _reached:
-                    trajs = f_domain.try_make_solution(
+                    trajs = _domain.try_make_solution(
                         model,
                         new_node,
                         other_domain,

@@ -120,72 +120,6 @@ def get_merged_trajectory(
     )
 
 
-def try_make_solution(
-    model: AgentModel,
-    this_domain: Witness,
-    node: SearchNode,
-    other_domain: Witness,
-    num_expanded: int,
-) -> Optional[tuple[Trajectory, Trajectory]]:
-    """
-    Tries to create a solution from the current node and the nodes visited by the other search
-    direction. Check if the heads coincide, and if so create a single node with its trajectory
-    in the direction specified by self. Check if the merged state is a goal state and create a
-    forward and backward Trajectory if so.
-
-    """
-    state: WitnessState = node.state
-    head_dot = (state.head_row, state.head_col)
-    if head_dot not in other_domain.visited:
-        return None
-    for other_node in other_domain.visited[head_dot]:
-        other_state = other_node.state
-
-        merged_state = WitnessState(
-            this_domain.width,
-            other_domain.start_row,
-            other_domain.start_col,
-            init_structs=False,
-        )
-
-        merged_state.grid = state.grid + other_state.grid
-        merged_state.grid[head_dot] = 1
-        # todo is this sufficient and neccesry to prevent overlaps bessides at head?
-        if np.any(merged_state.grid > 1.5):
-            return None
-
-        merged_state.v_segs = state.v_segs + other_state.v_segs
-        merged_state.h_segs = state.h_segs + other_state.h_segs
-
-        if this_domain.is_goal(merged_state):
-            if this_domain.forward:
-                f_common_node = node
-                b_common_node = other_node
-                f_domain = this_domain
-                b_domain = other_domain
-            else:
-                f_common_node = other_node
-                b_common_node = node
-                f_domain = other_domain
-                b_domain = this_domain
-
-            f_traj = get_merged_trajectory(
-                model, f_domain, f_common_node, b_common_node, type(node), num_expanded
-            )
-            b_traj = get_merged_trajectory(
-                model,
-                b_domain,
-                b_common_node,
-                f_common_node,
-                type(node),
-                num_expanded,
-                forward=False,
-            )
-            return (f_traj, b_traj)
-
-    return None
-
-
 class Witness(Domain):
     """
     An executor for a Witness problem.
@@ -240,8 +174,6 @@ class Witness(Domain):
             self.start_row,
             self.start_col,
         )
-
-        self.try_make_solution = try_make_solution
 
     def update(self, node: SearchNode):
         state: WitnessState = node.state
@@ -671,6 +603,76 @@ class Witness(Domain):
             plt.close()
         else:
             plt.show()
+
+    def try_make_solution(
+        self,
+        model: AgentModel,
+        node: SearchNode,
+        other_domain: Witness,
+        num_expanded: int,
+    ) -> Optional[tuple[Trajectory, Trajectory]]:
+        """
+        Tries to create a solution from the current node and the nodes visited by the other search
+        direction. Check if the heads coincide, and if so create a single node with its trajectory
+        in the direction specified by self. Check if the merged state is a goal state and create a
+        forward and backward Trajectory if so.
+
+        """
+        state: WitnessState = node.state
+        head_dot = (state.head_row, state.head_col)
+        if head_dot not in other_domain.visited:
+            return None
+        for other_node in other_domain.visited[head_dot]:
+            other_state = other_node.state
+
+            merged_state = WitnessState(
+                self.width,
+                other_domain.start_row,
+                other_domain.start_col,
+                init_structs=False,
+            )
+
+            merged_state.grid = state.grid + other_state.grid
+            merged_state.grid[head_dot] = 1
+            # todo is this sufficient and neccesry to prevent overlaps bessides at head?
+            if np.any(merged_state.grid > 1.5):
+                return None
+
+            merged_state.v_segs = state.v_segs + other_state.v_segs
+            merged_state.h_segs = state.h_segs + other_state.h_segs
+
+            if self.is_goal(merged_state):
+                if self.forward:
+                    f_common_node = node
+                    b_common_node = other_node
+                    f_domain = self
+                    b_domain = other_domain
+                else:
+                    f_common_node = other_node
+                    b_common_node = node
+                    f_domain = other_domain
+                    b_domain = self
+
+                f_traj = get_merged_trajectory(
+                    model,
+                    f_domain,
+                    f_common_node,
+                    b_common_node,
+                    type(node),
+                    num_expanded,
+                )
+                b_traj = get_merged_trajectory(
+                    model,
+                    b_domain,
+                    b_common_node,
+                    f_common_node,
+                    type(node),
+                    num_expanded,
+                    forward=False,
+                )
+                return (f_traj, b_traj)
+
+        return None
 
 
 def parse_problemset(problemset: dict):
