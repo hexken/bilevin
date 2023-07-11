@@ -81,7 +81,7 @@ def cross_entropy_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: i
             acc += (log_probs.detach().argmax(dim=1) == t.actions).sum().item()
 
             if n_subgoals > 0:
-                k = max(n_subgoals, t_len - 1)
+                k = min(n_subgoals, t_len - 1)
                 subgoal_indices = to.randperm(t_len - 1)[
                     :k
                 ]  # need to add 1 to get the correct index
