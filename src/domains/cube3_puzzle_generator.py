@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 import tqdm
 
-from domains.cube3 import Cube3, Cube3State
+from domains.cube3 import Cube3, Cube3State, get_goal_state, goal_check
 
 
 def main():
@@ -32,22 +32,6 @@ def main():
         "--output-path",
         type=lambda p: Path(p).absolute(),
         help="path to save problem instances",
-    )
-    parser.add_argument(
-        "-x",
-        "--exclude-problemset",
-        action="extend",
-        nargs="+",
-        type=lambda p: Path(p).absolute(),
-        help="path to save problem instances",
-    )
-
-    parser.add_argument(
-        "-w",
-        "--width",
-        type=int,
-        default=4,
-        help="width of puzzles to be generated",
     )
     parser.add_argument(
         "--bootstrap-steps",
@@ -74,10 +58,10 @@ def main():
         help="number of training puzzles to be generated",
     )
     parser.add_argument(
-        "--n-permutation-problems",
+        "--test-steps",
         type=int,
-        default=3200,
-        help="number of validation puzzles to be generated",
+        default=1000,
+        help="number of steps from goal for testing puzzles",
     )
     parser.add_argument(
         "--n-valid",
@@ -104,58 +88,20 @@ def main():
     args.output_path.mkdir(parents=True, exist_ok=True)
 
     exclude_problemspecs = set()
-    if args.exclude_problemset:
-        for pset_path in args.exclude_problemset:
-            problemset_dict = json.load(pset_path.open("r"))
-            domain_module = getattr(domains, problemset_dict["domain_module"])
-            problemset, _ = getattr(domain_module, "parse_problemset")(problemset_dict)
-
-            for problem in problemset["problems"]:
-                exclude_problemspecs.add(problem.domain.initial_state)
 
     rng = np.random.default_rng(args.seed)
-    goal_tiles = np.arange(args.width**2).reshape(args.width, args.width)
-    stp = SlidingTilePuzzle(goal_tiles, goal_tiles)
+    goal_state = get_goal_state()
+    cube3 = Cube3(goal_state)
 
     problemset_dict = {
-        "domain_module": "stp",
-        "domain_name": "SlidingTilePuzzle",
+        "domain_module": "cube3",
+        "domain_name": "Cube3",
         "state_t_width": args.width,
         "width": args.width,
         "num_actions": 4,
         "in_channels": int(args.width**2),
         "seed": args.seed,
     }
-
-    def generate_permutation_problems(id_prefix, id_start, num_problems, desc):
-        problems = []
-        id_counter = id_start
-        with tqdm.tqdm(total=num_problems) as local_pbar:
-            local_pbar.set_description(desc)
-            generated = 0
-            while generated < num_problems:
-                tiles = rng.permutation(args.width**2).reshape(
-                    (args.width, args.width)
-                )
-                stp = SlidingTilePuzzle(tiles, goal_tiles)
-                state = stp.initial_state
-                if (
-                    state in exclude_problemspecs
-                    or stp.is_goal(state)
-                    or not is_valid(state.tiles)
-                ):
-                    continue
-                else:
-                    exclude_problemspecs.add(state)
-                    problem = {
-                        "tiles": state.tiles.tolist(),
-                        "id": f"{id_prefix}_{id_counter}",
-                    }
-                    problems.append(problem)
-                    id_counter += 1
-                    generated += 1
-                    local_pbar.update(1)
-        return problems
 
     def get_all_reachable_states(
         id_prefix, id_start, state, max_step, exclude_problemspecs
@@ -167,16 +113,21 @@ def main():
             nonlocal id_counter
             if step > max_step:
                 return
-            stp = SlidingTilePuzzle(state.tiles, goal_tiles)
-            actions, _ = stp.actions_unpruned(state)
+            cube3 = Cube3(goal_state)
+            actions, _ = cube3.actions_unpruned(state)
             for action in actions:
-                new_state = stp.result(state, action)
-                if new_state in exclude_problemspecs or stp.is_goal(new_state):
+                new_state = cube3.result(state, action)
+                if new_state in exclude_problemspecs or cube3.is_goal(new_state):
                     continue
                 else:
                     exclude_problemspecs.add(new_state)
                     problem = {
-                        "tiles": new_state.tiles.tolist(),
+                        "front": new_state.front.tolist(),
+                        "up": new_state.up.tolist(),
+                        "down": new_state.down.tolist(),
+                        "left": new_state.left.tolist(),
+                        "right": new_state.right.tolist(),
+                        "back": new_state.back.tolist(),
                         "id": f"{id_prefix}_{id_counter}",
                     }
                     id_counter += 1
@@ -206,7 +157,7 @@ def main():
         f"Generating bootstrap problems up to {args.bootstrap_steps} steps away from goal.."
     )
     bootstrap_problems = get_all_reachable_states(
-        "b", 0, stp.initial_state, args.bootstrap_steps, exclude_problemspecs
+        "b", 0, cube3.initial_state, args.bootstrap_steps, exclude_problemspecs
     )
     print(f"Generated {len(bootstrap_problems)} problems.")
 
@@ -226,13 +177,13 @@ def main():
                 steps = rng.integers(1, max_steps + 1)
             else:
                 steps = max_steps
-            state = stp.reset()
+            state = cube3.reset()
             for _ in range(steps):
-                actions, _ = stp.actions_unpruned(state)
+                actions, _ = cube3.actions_unpruned(state)
                 random_action = rng.choice(actions)
-                state = stp.result(state, random_action)
+                state = cube3.result(state, random_action)
 
-            if state in exclude_problemspecs or stp.is_goal(state):
+            if state in exclude_problemspecs or cube3.is_goal(state):
                 continue
             else:
                 exclude_problemspecs.add(state)
@@ -253,13 +204,6 @@ def main():
                     id_counter = 0
                     max_steps = int(args.curriculum[difficulty])
 
-    permutation_problems = generate_permutation_problems(
-        "p",
-        0,
-        args.n_permutation_problems,
-        "Permutation problems",
-    )
-
     trainset_dict = copy(problemset_dict)
     trainset_dict["is_curriculum"] = True
     trainset_dict["randomize_steps"] = args.randomize_steps
@@ -267,7 +211,7 @@ def main():
     trainset_dict["problems_per_difficulty"] = args.n_problems_per_difficulty
     trainset_dict["bootstrap_problems"] = bootstrap_problems
     trainset_dict["curriculum_problems"] = curriculum_problems
-    trainset_dict["permutation_problems"] = permutation_problems
+    trainset_dict["permutation_problems"] = []
     save_problemset(trainset_dict, "train")
 
     if args.n_valid > 0:

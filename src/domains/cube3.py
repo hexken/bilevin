@@ -10,7 +10,7 @@ import numpy as np
 import torch as to
 from torch.nn.functional import one_hot
 
-from domains import Domain, State
+from domains.domain import Domain, State
 
 
 class Cube3State(State):
