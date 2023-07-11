@@ -16,27 +16,15 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import Callable, Optional, Type
 
 import torch as to
-from torch import full
+from torch import Tensor, full
 
 from models import AgentModel
-
-if TYPE_CHECKING:
-    from search.utils import SearchNode, Trajectory, try_make_solution
+from search.utils import SearchNode, Trajectory
 
 
-class Problem:
-    def __init__(self, id: str, domain: Domain):
-        self.id = id
-        self.domain = domain
-
-    def __hash__(self):
-        return self.id.__hash__()
-
-    def __eq__(self, other):
-        return self.id == other.id
 
 
 class State(ABC):
@@ -54,17 +42,17 @@ class Domain(ABC):
         self.visited: dict = {}
         self.forward: bool = forward
         self.initial_state: State | list[State]
-        self.goal_state_t: Optional[to.Tensor] = None
-        self.try_make_solution: Callable[
-            [
-                AgentModel,
-                Domain,
-                SearchNode,
-                Domain,
-                int,
-            ],
-            Optional[tuple[Trajectory, Trajectory]],
-        ] = try_make_solution
+        self.goal_state_t: Optional[Tensor] = None
+        # self.try_make_solution: Callable[
+        #     [
+        #         AgentModel,
+        #         Domain,
+        #         SearchNode,
+        #         Domain,
+        #         int,
+        #     ],
+        #     Optional[tuple[Trajectory, Trajectory]],
+        # ] = try_make_solution
 
     def reset(self) -> State | list[State]:
         self.visited = {}
@@ -73,17 +61,59 @@ class Domain(ABC):
     def update(self, node: SearchNode):
         self.visited[node.state.__hash__()] = node
 
-    def actions(self, parent_action, state: State) -> tuple[list, to.Tensor]:
+    def actions(self, parent_action, state: State) -> tuple[list, Tensor]:
         actions = self._actions(parent_action, state)
         mask = full((self.num_actions,), True, dtype=to.bool)
         mask[actions] = False
         return actions, mask
 
-    def actions_unpruned(self, state: State) -> tuple[list, to.Tensor]:
+    def actions_unpruned(self, state: State) -> tuple[list, Tensor]:
         actions = self._actions_unpruned(state)
         mask = full((self.num_actions,), True, dtype=to.bool)
         mask[actions] = False
         return actions, mask
+
+    def try_make_solution(
+        self,
+        model: AgentModel,
+        node: SearchNode,
+        other_domain: Domain,
+        num_expanded: int,
+    ) -> Optional[tuple[Trajectory, Trajectory]]:
+        """
+        Returns a trajectory if state is a solution to this problem, None otherwise.
+        """
+        hsh = node.state.__hash__()
+        if hsh in other_domain.visited:  # solution found
+            other_node = other_domain.visited[hsh]
+            if self.forward:
+                f_common_node = node
+                b_common_node = other_node
+                f_domain = self
+                b_domain = other_domain
+            else:
+                f_common_node = other_node
+                b_common_node = node
+                f_domain = other_domain
+                b_domain = self
+
+            f_traj = get_merged_trajectory(
+                model, f_domain, f_common_node, b_common_node, type(node), num_expanded
+            )
+            b_traj = get_merged_trajectory(
+                model,
+                b_domain,
+                b_common_node,
+                f_common_node,
+                type(node),
+                num_expanded,
+                b_domain.goal_state_t,
+                forward=False,
+            )
+
+            return (f_traj, b_traj)
+        else:
+            return None
 
     @property
     @abstractmethod
@@ -118,7 +148,7 @@ class Domain(ABC):
         pass
 
     @abstractmethod
-    def state_tensor(self, state: State) -> to.Tensor:
+    def state_tensor(self, state: State) -> Tensor:
         pass
 
     @abstractmethod
@@ -132,3 +162,49 @@ class Domain(ABC):
     @abstractmethod
     def result(self, state: State, action) -> State:
         pass
+
+
+def get_merged_trajectory(
+    model: AgentModel,
+    dir1_domain: Domain,
+    dir1_common: SearchNode,
+    dir2_common: SearchNode,
+    node_type: Type[SearchNode],
+    num_expanded: int,
+    goal_state_t: Optional[Tensor] = None,
+    forward: bool = True,
+):
+    """
+    Returns a new trajectory going from dir1_start to dir2_start, passing through
+    merge(dir1_common, dir2_common).
+    """
+    dir1_node = dir1_common
+
+    parent_dir2_node = dir2_common.parent
+    parent_dir2_action = dir2_common.parent_action
+
+    while parent_dir2_node:
+        state = parent_dir2_node.state
+        actions, mask = dir1_domain.actions_unpruned(state)
+        new_dir1_node = node_type(
+            state=state,
+            g_cost=dir1_node.g_cost + 1,
+            parent=dir1_node,
+            parent_action=dir1_domain.reverse_action(parent_dir2_action),
+            actions=actions,
+            actions_mask=mask,
+        )
+        dir1_node = new_dir1_node
+        parent_dir2_action = parent_dir2_node.parent_action
+        parent_dir2_node = parent_dir2_node.parent
+
+    return Trajectory.from_goal_node(
+        domain=dir1_domain,
+        final_node=dir1_node,
+        num_expanded=num_expanded,
+        partial_g_cost=dir1_common.g_cost,
+        partial_log_prob=dir1_common.log_prob,
+        model=model,  # todo remove this after debugging ?
+        goal_state_t=goal_state_t,
+        forward=forward,
+    )

@@ -25,7 +25,7 @@ import torch.distributed as dist
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from loaders import ProblemsBatchLoader
-from search import Agent
+from search.agent import Agent
 from search.utils import int_columns, search_result_header
 
 

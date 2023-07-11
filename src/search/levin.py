@@ -16,17 +16,17 @@
 from __future__ import annotations
 import heapq
 from timeit import default_timer as timer
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import torch as to
 from torch.jit import RecursiveScriptModule
 
-from domains.domain import State
 from search.agent import Agent
-from search.utils import LevinNode, Trajectory, levin_cost
+from search.utils import levin_cost as cost_fn
+from search.utils import LevinNode, Trajectory, Problem
 
 if TYPE_CHECKING:
-    from domains.domain import State, Domain, Problem
+    from domains.domain import State
 
 
 class Levin(Agent):
@@ -105,7 +105,7 @@ class Levin(Agent):
                     actions_mask=mask,
                     log_prob=node.log_prob + node.log_action_probs[a].item(),
                 )
-                new_node.levin_cost = levin_cost(new_node)
+                new_node.levin_cost = cost_fn(new_node)
 
                 num_generated += 1
 

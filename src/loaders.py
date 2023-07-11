@@ -18,7 +18,7 @@ from math import ceil
 
 import numpy as np
 
-from domains.domain import Problem
+from search.utils import Problem
 
 
 class ProblemsBatchLoader:

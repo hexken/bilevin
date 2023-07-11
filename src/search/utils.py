@@ -15,15 +15,30 @@
 
 from __future__ import annotations
 import math
-from typing import Optional, Type
+from typing import Optional, TYPE_CHECKING
 
 import numpy as np
 import torch as to
 from torch import Tensor
 from torch.nn.functional import nll_loss
 
-from domains.domain import Domain, State
 from models.models import AgentModel
+
+if TYPE_CHECKING:
+    from domains.domain import Domain, State
+
+
+class Problem:
+    def __init__(self, id: str, domain: Domain):
+        self.id = id
+        self.domain = domain
+
+    def __hash__(self):
+        return self.id.__hash__()
+
+    def __eq__(self, other):
+        return self.id == other.id
+
 
 search_result_header = [
     "ProblemId",
@@ -121,6 +136,12 @@ class LevinNode(SearchNode):
 
 def levin_cost(node: LevinNode):
     return math.log(node.g_cost) - node.log_prob  # type:ignore
+
+
+def opt_levin_cost(node: LevinNode):
+    return (
+        math.log(node.g_cost) - node.parent.log_action_probs[node.parent_action]
+    )  # type:ignore
 
 
 class Trajectory:
@@ -256,92 +277,3 @@ class Trajectory:
                 )
             )
         return sub_trajs
-
-
-def get_merged_trajectory(
-    model: AgentModel,
-    dir1_domain: Domain,
-    dir1_common: SearchNode,
-    dir2_common: SearchNode,
-    node_type: Type[SearchNode],
-    num_expanded: int,
-    goal_state_t: Optional[Tensor] = None,
-    forward: bool = True,
-):
-    """
-    Returns a new trajectory going from dir1_start to dir2_start, passing through
-    merge(dir1_common, dir2_common).
-    """
-    dir1_node = dir1_common
-
-    parent_dir2_node = dir2_common.parent
-    parent_dir2_action = dir2_common.parent_action
-
-    while parent_dir2_node:
-        state = parent_dir2_node.state
-        actions, mask = dir1_domain.actions_unpruned(state)
-        new_dir1_node = node_type(
-            state=state,
-            g_cost=dir1_node.g_cost + 1,
-            parent=dir1_node,
-            parent_action=dir1_domain.reverse_action(parent_dir2_action),
-            actions=actions,
-            actions_mask=mask,
-        )
-        dir1_node = new_dir1_node
-        parent_dir2_action = parent_dir2_node.parent_action
-        parent_dir2_node = parent_dir2_node.parent
-
-    return Trajectory.from_goal_node(
-        domain=dir1_domain,
-        final_node=dir1_node,
-        num_expanded=num_expanded,
-        partial_g_cost=dir1_common.g_cost,
-        partial_log_prob=dir1_common.log_prob,
-        model=model,  # todo remove this after debugging ?
-        goal_state_t=goal_state_t,
-        forward=forward,
-    )
-
-
-def try_make_solution(
-    model: AgentModel,
-    this_domain: Domain,
-    node: SearchNode,
-    other_domain: Domain,
-    num_expanded: int,
-) -> Optional[tuple[Trajectory, Trajectory]]:
-    """
-    Returns a trajectory if state is a solution to this problem, None otherwise.
-    """
-    hsh = node.state.__hash__()
-    if hsh in other_domain.visited:  # solution found
-        other_node = other_domain.visited[hsh]
-        if this_domain.forward:
-            f_common_node = node
-            b_common_node = other_node
-            f_domain = this_domain
-            b_domain = other_domain
-        else:
-            f_common_node = other_node
-            b_common_node = node
-            f_domain = other_domain
-            b_domain = this_domain
-
-        f_traj = get_merged_trajectory(
-            model, f_domain, f_common_node, b_common_node, type(node), num_expanded
-        )
-        b_traj = get_merged_trajectory(
-            model,
-            b_domain,
-            b_common_node,
-            f_common_node,
-            type(node),
-            num_expanded,
-            b_domain.goal_state_t,
-            forward=False,
-        )
-
-        return (f_traj, b_traj)
-    else:
-        return None

@@ -18,8 +18,9 @@ from __future__ import annotations
 import numpy as np
 import torch as to
 
-from domains.domain import Domain, Problem, State
+from domains.domain import Domain, State
 from enums import FourDir
+from search.utils import Problem
 
 
 class SokobanState(State):

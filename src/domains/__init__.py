@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from domains.domain import Domain, State, Problem
+# from domains.domain import Domain, State, Problem
 
 from domains.stp import SlidingTilePuzzle
 from domains.sokoban import Sokoban

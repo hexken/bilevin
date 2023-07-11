@@ -21,10 +21,9 @@ import torch as to
 import torch.distributed as dist
 from torch.jit import ScriptModule
 
-from domains.domain import Problem
+from models import AgentModel
 import models.losses as losses
-from models.models import AgentModel
-from search.utils import Trajectory
+from search.utils import Problem, Trajectory
 
 
 class Agent(ABC):

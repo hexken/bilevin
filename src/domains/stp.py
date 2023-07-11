@@ -19,8 +19,9 @@ from numba import jit, njit
 import numpy as np
 import torch as to
 
-from domains import Domain, Problem, State
+from domains.domain import Domain, State
 from enums import FourDir
+from search.utils import Problem
 
 
 class SlidingTilePuzzleState(State):

@@ -16,17 +16,14 @@
 from __future__ import annotations
 import heapq
 from timeit import default_timer as timer
-from typing import TYPE_CHECKING
 
 import torch as to
 
 from domains.domain import State
 from enums import TwoDir
 from search.agent import Agent
-from search.utils import LevinNode, levin_cost
-
-if TYPE_CHECKING:
-    from domains.domain import Problem
+from search.utils import LevinNode, Problem
+from search.utils import levin_cost as cost_fn
 
 
 class BiLevin(Agent):
@@ -59,8 +56,6 @@ class BiLevin(Agent):
 
         problem_id = problem.id
         f_domain = problem.domain
-
-        try_make_solution = f_domain.try_make_solution_func
 
         f_state = f_domain.reset()
         assert isinstance(f_state, State)
@@ -185,7 +180,7 @@ class BiLevin(Agent):
                     actions_mask=mask,
                     log_prob=node.log_prob + node.log_action_probs[a].item(),
                 )
-                new_node.levin_cost = levin_cost(new_node)
+                new_node.levin_cost = cost_fn(new_node)
 
                 if direction == TwoDir.FORWARD:
                     n_forw_generated += 1
@@ -193,9 +188,8 @@ class BiLevin(Agent):
                     n_backw_generated += 1
 
                 if new_node not in _reached:
-                    trajs = try_make_solution(
+                    trajs = f_domain.try_make_solution(
                         model,
-                        _domain,
                         new_node,
                         other_domain,
                         n_forw_expanded + n_backw_expanded,

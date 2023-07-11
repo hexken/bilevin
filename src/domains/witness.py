@@ -22,10 +22,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch as to
 
-from domains import Domain, Problem, State
+from domains.domain import Domain, State
 from enums import Color, FourDir
 from models import AgentModel
-from search import SearchNode, Trajectory
+from search.utils import Problem, SearchNode, Trajectory
 
 # TODO UPDATE for the nll and pnll stuff!
 
