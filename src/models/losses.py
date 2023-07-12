@@ -23,7 +23,7 @@ from models import AgentModel
 from search.utils import Trajectory
 
 
-def loop_levin_loss(trajs: list[Trajectory], model: AgentModel):
+def loop_levin_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: int = 0):
     loss = 0
     acc = 0
     total_actions = 0

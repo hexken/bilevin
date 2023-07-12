@@ -86,13 +86,11 @@ def parse_args():
         help="suffix of model to load, i.e. model_[suffix].pt",
     )
     parser.add_argument(
-        "-l",
         "--loss-fn",
         type=str,
-        default="merge_cross_entropy",
+        default="cross_entropy_loss",
         choices=[
             "loop_levin_loss",
-            "merge_cross_entropy",
             "cross_entropy_loss",
         ],
         help="loss function",

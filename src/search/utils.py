@@ -102,6 +102,7 @@ class SearchNode:
         return self.state.__hash__()
 
 
+# todo LevinNode class is redundant
 class LevinNode(SearchNode):
     def __init__(
         self,
