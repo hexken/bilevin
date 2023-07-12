@@ -21,12 +21,9 @@ from typing import TYPE_CHECKING
 import torch as to
 from torch.jit import RecursiveScriptModule
 
+from domains.domain import State
 from search.agent import Agent
-from search.utils import levin_cost as cost_fn
-from search.utils import LevinNode, Trajectory, Problem
-
-if TYPE_CHECKING:
-    from domains.domain import State
+from search.utils import LevinNode, Problem, Trajectory
 
 
 class Levin(Agent):
@@ -53,6 +50,7 @@ class Levin(Agent):
         problem_id = problem.id
         domain = problem.domain
         model = self.model
+        cost_fn = self.cost_fn
 
         state = domain.reset()
         assert isinstance(state, State)

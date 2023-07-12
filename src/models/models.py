@@ -35,7 +35,7 @@ class AgentModel(nn.Module):
         self.state_t_width: int = model_args["state_t_width"]
         self.num_features: int = self.num_filters * ((self.state_t_width - 2) ** 2)
         self.num_actions: int = model_args["num_actions"]
-        self.requires_backward_goal: bool = model_args["requires_backward_goal"]
+        self.backward_goal: bool = model_args["backward_goal"]
 
         self.forward_policy: nn.Module = StatePolicy(
             self.num_features,
@@ -51,19 +51,19 @@ class AgentModel(nn.Module):
             self.num_actions,
         )
 
-        if self.share_feature_net:
-            self.backward_feature_net: nn.Module = self.forward_feature_net
-        else:
-            self.backward_feature_net: nn.Module = ConvFeatureNet(
-                self.in_channels,
-                self.state_t_width,
-                self.kernel_size,
-                self.num_filters,
-                self.num_actions,
-            )
-
         if self.bidirectional:
-            if self.requires_backward_goal:
+            if self.share_feature_net:
+                self.backward_feature_net: nn.Module = self.forward_feature_net
+            else:
+                self.backward_feature_net: nn.Module = ConvFeatureNet(
+                    self.in_channels,
+                    self.state_t_width,
+                    self.kernel_size,
+                    self.num_filters,
+                    self.num_actions,
+                )
+
+            if self.backward_goal:
                 self.backward_policy: nn.Module = StateGoalPolicy(
                     self.num_features,
                     self.num_actions,
@@ -77,6 +77,7 @@ class AgentModel(nn.Module):
                 )
         else:
             self.backward_policy = DummyPolicy()
+            self.backward_feature_net = DummyFeatureNet()
 
         self.dummy_goal_feats: to.Tensor = to.zeros(1)
 
@@ -232,6 +233,15 @@ class ConvFeatureNet(nn.Module):
         x = x.flatten(1)
 
         return x
+
+
+class DummyFeatureNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.dummy_out: to.Tensor = to.zeros(1)
+
+    def forward(self, x: to.Tensor) -> to.Tensor:
+        return self.dummy_out
 
 
 class DummyPolicy(nn.Module):

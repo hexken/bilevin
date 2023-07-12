@@ -9,6 +9,7 @@ python src/main.py \
     --mode train \
     --agent BiLevin \
     --loss cross_entropy_loss \
+    --cost-fn opt_levin_cost \
     --feature-net-lr 0.001 \
     --forward-feature-net-lr 0.001 \
     --backward-feature-net-lr 0.001 \
@@ -23,7 +24,7 @@ python src/main.py \
     --expansion-budget 24000 \
     --time-budget 300 \
     --grad-steps 10 \
-    --n-subgoals 5 \
+    --n-subgoals 0 \
     --batch-size-train 4 \
     --seed 1 \
     --wandb-mode disabled \

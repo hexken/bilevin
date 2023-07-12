@@ -15,15 +15,17 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import torch as to
 import torch.distributed as dist
 from torch.jit import ScriptModule
 
 from models import AgentModel
+import models
 import models.losses as losses
-from search.utils import Problem, Trajectory
+import search.utils as sutils
+from search.utils import Problem, SearchNode, Trajectory
 
 
 class Agent(ABC):
@@ -36,6 +38,7 @@ class Agent(ABC):
         self.logdir: Path = logdir
 
         self._model: AgentModel | ScriptModule
+        self.cost_fn: Callable[[SearchNode], float] = getattr(sutils, args.cost_fn)
 
         if args.model_path is None:
             # just use the random initialization from rank 0

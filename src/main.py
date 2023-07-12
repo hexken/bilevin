@@ -38,15 +38,16 @@ from search import BiLevin, Levin
 from train import train
 
 
+# todo add cost_fn arg, whether to use goal state or not
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    # parser.add_argument(
-    #     "--use-subgoal-trajs",
-    #     action="store_true",
-    #     default=False,
-    #     help="generate subgoal trajectories for backward policy training (generates all unless --n-subgoals is specified)",
-    # )
+    parser.add_argument(
+        "--no-backward-goal",
+        action="store_true",
+        default=False,
+        help="do not use backward goal state for policy input",
+    )
     parser.add_argument(
         "--n-subgoals",
         type=int,
@@ -217,6 +218,16 @@ def parse_args():
         help="name of the search agent",
     )
     parser.add_argument(
+        "--cost-fn",
+        type=str,
+        default="levin_cost",
+        choices=[
+            "levin_cost",
+            "opt_levin_cost",
+        ],
+        help="loss function",
+    )
+    parser.add_argument(
         "--world-size",
         type=int,
         default=1,
@@ -338,7 +349,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
         arg_string = "|param|value|\n|-|-|\n%s" % (
             "\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])
         )
-        for arg in arg_string.splitlines()[2:]:
+        for arg in sorted(arg_string.splitlines()[2:]):
             arg = arg.replace("|", "", 1)
             arg = arg.replace("|", ": ", 1)
             arg = arg.replace("|", "", 1)
@@ -598,6 +609,9 @@ if __name__ == "__main__":
             "forward_hidden_layers": args.forward_hidden_layers,
             "backward_hidden_layers": args.backward_hidden_layers,
         }
+    )
+    model_args["backward_goal"] = (
+        model_args["requires_backward_goal"] and not args.no_backward_goal
     )
 
     if is_distributed:

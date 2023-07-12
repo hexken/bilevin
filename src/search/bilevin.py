@@ -23,7 +23,6 @@ from domains.domain import State
 from enums import TwoDir
 from search.agent import Agent
 from search.utils import LevinNode, Problem
-from search.utils import levin_cost as cost_fn
 
 
 class BiLevin(Agent):
@@ -53,6 +52,7 @@ class BiLevin(Agent):
         b_reached = {}
 
         model = self.model
+        cost_fn = self.cost_fn
 
         problem_id = problem.id
         f_domain = problem.domain
@@ -78,7 +78,7 @@ class BiLevin(Agent):
         heapq.heapify(f_frontier)
 
         b_domain = f_domain.backward_domain()
-        if b_domain.requires_backward_goal:
+        if model.backward_goal:
             b_goal_feats = model.backward_feature_net(f_state_t)
         else:
             b_goal_feats = None
