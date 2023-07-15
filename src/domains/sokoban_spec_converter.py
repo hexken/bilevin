@@ -111,7 +111,6 @@ def main():
     width = problem.cols
     in_channels = problem.in_channels
 
-    # todo these aren't really a curriculum
     problemset_dict = {
         "domain_name": "Sokoban",
         "domain_module": "sokoban",

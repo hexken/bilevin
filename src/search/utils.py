@@ -231,7 +231,6 @@ class Trajectory:
             lp = -nll
             plp = -partial_nll
 
-            # todo remove this once we're sure it's working
             if log_prob and not np.isclose(log_prob, lp):
                 print(f"Warning: search log_prob != model log_prob {log_prob} {lp}")
             else:

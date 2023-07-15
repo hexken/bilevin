@@ -73,53 +73,6 @@ class WitnessState(State):
         )
 
 
-def get_merged_trajectory(
-    model: AgentModel,
-    dir1_domain: Domain,
-    dir1_common: SearchNode,
-    dir2_common: SearchNode,
-    node_type: Type[SearchNode],
-    num_expanded: int,
-    goal_state_t: Optional[to.Tensor] = None,
-    forward: bool = True,
-) -> Trajectory:
-    """
-    Returns a new trajectory going from dir1_start to dir2_start, passing through
-    merge(dir1_common, dir2_common).
-    """
-    dir1_node = dir1_common
-    dir2_parent_node = dir2_common.parent
-    dir2_parent_action = dir2_common.parent_action
-    while dir2_parent_node:
-        action = dir1_domain.reverse_action(dir2_parent_action)
-        new_state = dir1_domain.result(dir1_node.state, action)
-        new_dir1_node = node_type(
-            state=new_state,
-            parent=dir1_node,
-            parent_action=action,
-            g_cost=dir1_node.g_cost + 1,
-        )
-        dir1_node = new_dir1_node
-        dir2_parent_action = dir2_parent_node.parent_action
-        dir2_parent_node = dir2_parent_node.parent
-
-    if dir1_common.parent:
-        partial_log_prob = dir1_common.parent.log_prob
-    else:
-        partial_log_prob = 0.0
-
-    return Trajectory.from_goal_node(
-        domain=dir1_domain,
-        final_node=dir1_node,
-        num_expanded=num_expanded,
-        partial_g_cost=dir1_common.g_cost - 1,
-        partial_log_prob=partial_log_prob,
-        model=model,
-        goal_state_t=goal_state_t,
-        forward=forward,
-    )
-
-
 class Witness(Domain):
     """
     An executor for a Witness problem.
@@ -133,6 +86,7 @@ class Witness(Domain):
         goal: list[int],
         colored_cells: list[str] = [],
         forward: bool = True,
+        puzzle: str = "colors",
     ):
         """
         Initializes  a witness executor specific to a problem, and creates the initial state.
@@ -148,6 +102,10 @@ class Witness(Domain):
         super().__init__(forward=forward)
         self.max_num_colors = max_num_colors
         self.width = width
+        self.puzzle = puzzle
+
+        if puzzle == "triangle" and self.max_num_colors > 3:
+            raise ValueError("Triangle puzzles can only have 3 colors")
 
         self.start_row = init[0]
         self.start_col = init[1]
@@ -162,12 +120,22 @@ class Witness(Domain):
             values = [int(x) for x in cell.split()]
             self.cells[values[0], values[1]] = values[2]
 
-        self._colored_idxs = [
-            (i, j)
-            for i in range(self.width)
-            for j in range(self.width)
-            if self.cells[i, j] != 0
-        ]
+        if puzzle == "colors":
+            self.is_goal = self.colors_is_goal
+            self._colored_idxs = [
+                (i, j)
+                for i in range(self.width)
+                for j in range(self.width)
+                if self.cells[i, j] != 0
+            ]
+        elif puzzle == "triangles":
+            self.is_goal = self.triangles_is_goal
+            self._triangles = [
+                (self.cells[i, j], i, j)
+                for i in range(self.width)
+                for j in range(self.width)
+                if self.cells[i, j] != 0
+            ]
 
         self.initial_state: WitnessState = WitnessState(
             self.width,
@@ -377,7 +345,22 @@ class Witness(Domain):
     def is_head_at_goal(self, state: WitnessState) -> bool:
         return self.goal_row == state.head_row and self.goal_col == state.head_col
 
-    def is_goal(self, state: WitnessState) -> bool:
+    def triangles_is_goal(self, state: WitnessState) -> bool:
+        if not self.is_head_at_goal(state):
+            return False
+
+        for n, i, j in self._triangles:
+            if (
+                state.v_segs[i, j]
+                + state.v_segs[i, j + 1]
+                + state.h_segs[i, j]
+                + state.h_segs[i + 1, j]
+                != n
+            ):
+                return False
+        return True
+
+    def colors_is_goal(self, state: WitnessState) -> bool:
         """
         Verifies whether the state's path represents a valid solution. This is performed by verifying the following
         (1) the tip of the snake is at the goal position
@@ -673,6 +656,53 @@ class Witness(Domain):
                 return (f_traj, b_traj)
 
         return None
+
+
+def get_merged_trajectory(
+    model: AgentModel,
+    dir1_domain: Domain,
+    dir1_common: SearchNode,
+    dir2_common: SearchNode,
+    node_type: Type[SearchNode],
+    num_expanded: int,
+    goal_state_t: Optional[to.Tensor] = None,
+    forward: bool = True,
+) -> Trajectory:
+    """
+    Returns a new trajectory going from dir1_start to dir2_start, passing through
+    merge(dir1_common, dir2_common).
+    """
+    dir1_node = dir1_common
+    dir2_parent_node = dir2_common.parent
+    dir2_parent_action = dir2_common.parent_action
+    while dir2_parent_node:
+        action = dir1_domain.reverse_action(dir2_parent_action)
+        new_state = dir1_domain.result(dir1_node.state, action)
+        new_dir1_node = node_type(
+            state=new_state,
+            parent=dir1_node,
+            parent_action=action,
+            g_cost=dir1_node.g_cost + 1,
+        )
+        dir1_node = new_dir1_node
+        dir2_parent_action = dir2_parent_node.parent_action
+        dir2_parent_node = dir2_parent_node.parent
+
+    if dir1_common.parent:
+        partial_log_prob = dir1_common.parent.log_prob
+    else:
+        partial_log_prob = 0.0
+
+    return Trajectory.from_goal_node(
+        domain=dir1_domain,
+        final_node=dir1_node,
+        num_expanded=num_expanded,
+        partial_g_cost=dir1_common.g_cost - 1,
+        partial_log_prob=partial_log_prob,
+        model=model,
+        goal_state_t=goal_state_t,
+        forward=forward,
+    )
 
 
 def parse_problemset(problemset: dict):

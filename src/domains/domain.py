@@ -192,7 +192,7 @@ def get_merged_trajectory(
         num_expanded=num_expanded,
         partial_g_cost=dir1_common.g_cost,
         partial_log_prob=dir1_common.log_prob,
-        model=model,  # todo remove this after debugging ?
+        model=model,
         goal_state_t=goal_state_t,
         forward=forward,
     )

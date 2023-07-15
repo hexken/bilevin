@@ -38,7 +38,6 @@ from search import BiLevin, Levin
 from train import train
 
 
-# todo add cost_fn arg, whether to use goal state or not
 def parse_args():
     parser = argparse.ArgumentParser()
 

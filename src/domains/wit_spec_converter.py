@@ -26,9 +26,8 @@ def main():
         "-i",
         "--input-path",
         type=lambda p: Path(p).absolute(),
-        help="path of file with problem instances to read (old spec)",
+        help="path of file with all problem instances to read (old spec), or directory containing a single problem per file",
     )
-
     parser.add_argument(
         "-o",
         "--output-path",
@@ -38,21 +37,27 @@ def main():
 
     args = parser.parse_args()
 
-    problem_specs_old = [
-        line_list
-        for lines in args.input_path.read_text().split("\n\n")
-        if len(line_list := lines.splitlines()) == 4
-    ]
+    if args.input_path.is_file():
+        problem_specs_old = [
+            (args.input_path.name, line_list)
+            for lines in args.input_path.read_text().split("\n\n")
+            if len(line_list := lines.splitlines()) == 4
+        ]
+    elif args.input_path.is_dir():
+        problem_specs_old = []
+        for problem_file in args.input_path.iterdir():
+            if problem_file.is_file():
+                problem_specs_old.extend(
+                    [
+                        (problem_file.name, line_list)
+                        for lines in problem_file.read_text().split("\n\n")
+                        if len(line_list := lines.splitlines()) == 4
+                    ]
+                )
+    else:
+        raise ValueError(f"Input path {args.input_path} is not a file or directory")
 
-    problemset = {
-        "domain_name": "Witness",
-        "domain_module": "witness",
-        "max_num_colors": 4,
-        "width": 4,
-        "problems": [],
-    }
-
-    for i, old_spec in tqdm.tqdm(enumerate(problem_specs_old)):
+    for i, (prefix, old_spec) in tqdm.tqdm(enumerate(problem_specs_old)):
         new_spec = {}
 
         init = old_spec[1].replace("Init: ", "").split(" ")
@@ -60,7 +65,7 @@ def main():
         new_spec = {
             "init": [int(init[0]), int(init[1])],
             "goal": [int(goal[0]), int(goal[1])],
-            "id": i,
+            "id": f"{prefix}_{i}",
         }
         colored_cells = []
         values = old_spec[3].replace("Colors: |", "").split("|")
