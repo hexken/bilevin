@@ -6,10 +6,10 @@ fi
 
 touch args.txt
 
-ebudgets="2000"
+ebudgets="24000"
 tbudgets="300"
-dir=runs/sok_rand
-puzzle=Sokoban
+dir=runs/stpw4
+puzzle=SlidingTilePuzzle
 
 for dirname in ../../$dir/${puzzle}*; do
 	for ebudget in $ebudgets; do
