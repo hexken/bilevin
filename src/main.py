@@ -91,6 +91,7 @@ def parse_args():
         choices=[
             "loop_levin_loss",
             "cross_entropy_loss",
+            "loop_levin_loss_real",
         ],
         help="loss function",
     )

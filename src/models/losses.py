@@ -23,6 +23,31 @@ from models import AgentModel
 from search.utils import Trajectory
 
 
+def loop_levin_loss_real(
+    trajs: list[Trajectory], model: AgentModel, n_subgoals: int = 0
+):
+    loss = 0
+    acc = 0
+    total_actions = 0
+    avg_action_nll = 0
+    for t in trajs:
+        log_probs, _ = model(
+            t.states, forward=t.forward, goal_state_t=t.goal_state_t, mask=t.masks
+        )
+        nll = nll_loss(log_probs, t.actions, reduction="sum")
+        loss += nll * (t.cost / to.exp(-1 * nll))
+
+        avg_action_nll += nll.item()
+        acc += (log_probs.detach().argmax(dim=1) == t.actions).sum().item()
+        total_actions += len(t)
+
+    loss /= len(trajs)
+    avg_action_nll /= total_actions
+    acc /= total_actions
+
+    return loss, avg_action_nll, acc
+
+
 def loop_levin_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: int = 0):
     loss = 0
     acc = 0
