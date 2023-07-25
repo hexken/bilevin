@@ -56,6 +56,7 @@ class BiLevin(Agent):
 
         problem_id = problem.id
         f_domain = problem.domain
+        b_domain = f_domain.backward_domain()
 
         f_state = f_domain.reset()
         assert isinstance(f_state, State)
@@ -77,7 +78,6 @@ class BiLevin(Agent):
             f_frontier.append(f_start_node)
         heapq.heapify(f_frontier)
 
-        b_domain = f_domain.backward_domain()
         if model.backward_goal:
             b_goal_feats = model.backward_feature_net(f_state_t)
         else:

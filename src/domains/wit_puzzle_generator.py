@@ -24,7 +24,7 @@ import random
 import numpy as np
 from tqdm import tqdm
 
-from domains.witness import Witness
+from domains import Witness
 
 
 def main():
@@ -130,7 +130,10 @@ def main():
                 "goal": goal,
             }
             wit = Witness(
-                width=args.width, max_num_colors=args.max_num_colors, **problem
+                puzzle="colors",
+                width=args.width,
+                max_num_colors=args.max_num_colors,
+                **problem,
             )
             # generate a path from start to goal
             state = wit.reset()
@@ -209,6 +212,7 @@ def main():
         "in_channels": in_channels,
         "state_t_width": state_t_width,
         "seed": args.seed,
+        "puzzle": "colors",
     }
 
     for n, suffix in [

@@ -80,13 +80,13 @@ class Witness(Domain):
 
     def __init__(
         self,
+        puzzle: str,
         width: int,
         max_num_colors: int,
         init: list[int],
         goal: list[int],
         colored_cells: list[str] = [],
         forward: bool = True,
-        puzzle: str = "colors",
     ):
         """
         Initializes  a witness executor specific to a problem, and creates the initial state.
@@ -136,6 +136,8 @@ class Witness(Domain):
                 for j in range(self.width)
                 if self.cells[i, j] != 0
             ]
+        else:
+            raise ValueError("Invalid puzzle type")
 
         self.initial_state: WitnessState = WitnessState(
             self.width,
@@ -165,6 +167,12 @@ class Witness(Domain):
         The max num of colors any problem in a particular problem set may have.
         """
         return self.max_num_colors + 5
+
+    def is_goal(self, state: WitnessState) -> bool:
+        """
+        Checks if the current state is a goal state.
+        """
+        raise NotImplementedError
 
     @property
     def state_width(self) -> int:
@@ -708,6 +716,7 @@ def get_merged_trajectory(
 def parse_problemset(problemset: dict):
     width = problemset["width"]
     max_num_colors = problemset["max_num_colors"]
+    puzzle = problemset["puzzle"]
 
     def parse_specs(problem_specs):
         problems = []
@@ -715,6 +724,7 @@ def parse_problemset(problemset: dict):
             problem = Problem(
                 id=spec["id"],
                 domain=Witness(
+                    puzzle=puzzle,
                     width=width,
                     max_num_colors=max_num_colors,
                     init=spec["init"],

@@ -16,13 +16,15 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from typing import Callable, Optional, Type
+from typing import Callable, Optional, Type, TYPE_CHECKING
 
 import torch as to
 from torch import Tensor, full
 
 from models import AgentModel
-from search.utils import SearchNode, Trajectory
+
+if TYPE_CHECKING:
+    from search.utils import SearchNode, Trajectory
 
 
 class State(ABC):
