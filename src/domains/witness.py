@@ -673,40 +673,41 @@ def get_merged_trajectory(
     dir2_common: SearchNode,
     node_type: Type[SearchNode],
     num_expanded: int,
-    goal_state_t: Optional[to.Tensor] = None,
+    goal_state_t: Optional[Tensor] = None,
     forward: bool = True,
-) -> Trajectory:
+):
     """
     Returns a new trajectory going from dir1_start to dir2_start, passing through
     merge(dir1_common, dir2_common).
+    NOTE only differs from Domain.get_merged_trajectory in how we construct the new state
     """
     dir1_node = dir1_common
+
     dir2_parent_node = dir2_common.parent
     dir2_parent_action = dir2_common.parent_action
+
     while dir2_parent_node:
         action = dir1_domain.reverse_action(dir2_parent_action)
         new_state = dir1_domain.result(dir1_node.state, action)
+        actions, mask = dir1_domain.actions_unpruned(new_state)
         new_dir1_node = node_type(
             state=new_state,
+            g_cost=dir1_node.g_cost + 1,
             parent=dir1_node,
             parent_action=action,
-            g_cost=dir1_node.g_cost + 1,
+            actions=actions,
+            actions_mask=mask,
         )
         dir1_node = new_dir1_node
         dir2_parent_action = dir2_parent_node.parent_action
         dir2_parent_node = dir2_parent_node.parent
 
-    if dir1_common.parent:
-        partial_log_prob = dir1_common.parent.log_prob
-    else:
-        partial_log_prob = 0.0
-
     return Trajectory.from_goal_node(
         domain=dir1_domain,
         final_node=dir1_node,
         num_expanded=num_expanded,
-        partial_g_cost=dir1_common.g_cost - 1,
-        partial_log_prob=partial_log_prob,
+        partial_g_cost=dir1_common.g_cost,
+        partial_log_prob=dir1_common.log_prob,
         model=model,
         goal_state_t=goal_state_t,
         forward=forward,

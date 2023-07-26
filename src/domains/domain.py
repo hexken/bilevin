@@ -170,23 +170,23 @@ def get_merged_trajectory(
     """
     dir1_node = dir1_common
 
-    parent_dir2_node = dir2_common.parent
-    parent_dir2_action = dir2_common.parent_action
+    dir2_parent_node = dir2_common.parent
+    dir2_parent_action = dir2_common.parent_action
 
-    while parent_dir2_node:
-        state = parent_dir2_node.state
-        actions, mask = dir1_domain.actions_unpruned(state)
+    while dir2_parent_node:
+        new_state = dir2_parent_node.state
+        actions, mask = dir1_domain.actions_unpruned(new_state)
         new_dir1_node = node_type(
-            state=state,
+            state=new_state,
             g_cost=dir1_node.g_cost + 1,
             parent=dir1_node,
-            parent_action=dir1_domain.reverse_action(parent_dir2_action),
+            parent_action=dir1_domain.reverse_action(dir2_parent_action),
             actions=actions,
             actions_mask=mask,
         )
         dir1_node = new_dir1_node
-        parent_dir2_action = parent_dir2_node.parent_action
-        parent_dir2_node = parent_dir2_node.parent
+        dir2_parent_action = dir2_parent_node.parent_action
+        dir2_parent_node = dir2_parent_node.parent
 
     return Trajectory.from_goal_node(
         domain=dir1_domain,
