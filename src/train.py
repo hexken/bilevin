@@ -287,12 +287,11 @@ def train(
                     writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
 
                     batch_expansions = world_batch_print_df["Exp"].sum()
-                    batch_expansions_ratio = batch_expansions / (
-                        len(world_batch_print_df) * expansion_budget
-                    )
-
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=RuntimeWarning)
+                        batch_expansions_ratio = batch_expansions / (
+                            len(world_batch_print_df) * expansion_budget
+                        )
                         fb_exp_ratio = (
                             world_batch_print_df["FExp"].sum()
                             / world_batch_print_df["BExp"].sum()
@@ -442,10 +441,10 @@ def train(
 
             if rank == 0:
                 epoch_expansions = world_results_df["Exp"].sum()
-                epoch_expansions_ratio = epoch_expansions / max_epoch_expansions
                 epoch_solved_ratio = num_problems_solved_this_epoch / world_num_problems
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", category=RuntimeWarning)
+                    epoch_expansions_ratio = epoch_expansions / max_epoch_expansions
                     epoch_avg_sol_len = world_results_df[world_results_df["Len"] > 0][
                         "Len"
                     ].mean()
@@ -541,7 +540,11 @@ def train(
                         valid_fb_g_ratio,
                         valid_avg_sol_len,
                     ) = valid_results
-                    valid_expansions_ratio = valid_total_expanded / max_valid_expanded
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=RuntimeWarning)
+                        valid_expansions_ratio = (
+                            valid_total_expanded / max_valid_expanded
+                        )
                     valid_solve_rate = valid_solved / num_valid_problems
                     print(
                         f"{'Solved':20s}:  {valid_solved}/{num_valid_problems} {valid_solve_rate:5.3f}"

@@ -42,7 +42,7 @@ class Levin(Agent):
         self,
         problem: Problem,
         exp_budget: int,
-        time_budget=None,
+        time_budget: float,
     ):
         """ """
         start_time = timer()
@@ -78,8 +78,8 @@ class Levin(Agent):
         num_generated = 0
         while len(frontier) > 0:
             if (
-                (exp_budget and num_expanded >= exp_budget)
-                or time_budget
+                (exp_budget > 0 and num_expanded >= exp_budget)
+                or time_budget > 0
                 and timer() - start_time >= time_budget
             ):
                 return num_expanded, 0, num_generated, 0, None

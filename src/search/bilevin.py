@@ -41,7 +41,7 @@ class BiLevin(Agent):
         self,
         problem: Problem,
         exp_budget: int,
-        time_budget=None,
+        time_budget: float,
     ):
         """ """
         start_time = timer()
@@ -130,8 +130,8 @@ class BiLevin(Agent):
 
         while len(f_frontier) > 0 and len(b_frontier) > 0:
             if (
-                (exp_budget and n_total_expanded >= exp_budget)
-                or time_budget
+                (exp_budget > 0 and n_total_expanded >= exp_budget)
+                or time_budget > 0
                 and timer() - start_time >= time_budget
             ):
                 return (

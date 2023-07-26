@@ -263,7 +263,7 @@ def parse_args():
     )
     parser.add_argument(
         "--time-budget",
-        type=int,
+        type=float,
         default=300,
         help="time budget to solve a problem",
     )
