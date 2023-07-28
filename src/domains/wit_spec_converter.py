@@ -34,6 +34,12 @@ def main():
         type=lambda p: Path(p).absolute(),
         help="path of file to write problem instances (new spec)",
     )
+    parser.add_argument(
+        "--puzzle",
+        type=str,
+        choices=["colors", "triangles"],
+        help="witness puzzle type",
+    )
 
     args = parser.parse_args()
 
@@ -57,14 +63,33 @@ def main():
     else:
         raise ValueError(f"Input path {args.input_path} is not a file or directory")
 
+    if args.puzzle == "colors":
+        colors = 4
+    elif args.puzzle == "triangles":
+        colors = 3
+    else:
+        raise ValueError(f"Invalid puzzle type {args.puzzle}")
+
+    problemset_dict_template = {
+        "domain_module": "witness",
+        "domain_name": "Witness",
+        "width": width,
+        "num_actions": 4,
+        "max_num_colors": 4 if puzzle == "colors" else 0,
+        "in_channels": in_channels,
+        "state_t_width": state_t_width,
+        "seed": args.seed,
+        "puzzle": "colors",
+    }
+
     for i, (prefix, old_spec) in tqdm.tqdm(enumerate(problem_specs_old)):
         new_spec = {}
 
         init = old_spec[1].replace("Init: ", "").split(" ")
         goal = old_spec[2].replace("Goal: ", "").split(" ")
         new_spec = {
-            "init": [int(init[0]), int(init[1])],
-            "goal": [int(goal[0]), int(goal[1])],
+            "init": (int(init[0]), int(init[1])),
+            "goal": (int(goal[0]), int(goal[1])),
             "id": f"{prefix}_{i}",
         }
         colored_cells = []
