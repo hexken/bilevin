@@ -21,8 +21,8 @@ from pathlib import Path
 import numpy as np
 import tqdm
 
-import domains
 from domains import SlidingTilePuzzle
+from domains.stp import SlidingTilePuzzleState
 
 
 def is_valid(tiles):
@@ -251,6 +251,7 @@ def main():
             else:
                 steps = max_steps
             state = stp.reset()
+            assert isinstance(state, SlidingTilePuzzleState)
             for _ in range(steps):
                 actions, _ = stp.actions_unpruned(state)
                 random_action = rng.choice(actions)

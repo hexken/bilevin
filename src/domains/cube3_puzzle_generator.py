@@ -40,7 +40,7 @@ def main():
         help="generate all problems up to (inclusive) this many steps away from the goal",
     )
     parser.add_argument(
-        "--randomize-steps",
+        "--randomize-curriculum-steps",
         action="store_true",
         default=False,
         help="randomize the number of steps away from the goal for the curriculum",
@@ -62,6 +62,12 @@ def main():
         type=int,
         default=1000,
         help="number of steps from goal for testing puzzles",
+    )
+    parser.add_argument(
+        "--randomize-test-steps",
+        action="store_true",
+        default=False,
+        help="randomize the number of steps away from the goal for the test problems",
     )
     parser.add_argument(
         "--n-valid",
@@ -96,10 +102,9 @@ def main():
     problemset_dict = {
         "domain_module": "cube3",
         "domain_name": "Cube3",
-        "state_t_width": args.width,
-        "width": args.width,
-        "num_actions": 4,
-        "in_channels": int(args.width**2),
+        "state_t_width": 3,
+        "num_actions": 12,
+        "in_channels": 6,
         "seed": args.seed,
     }
 
@@ -137,7 +142,7 @@ def main():
         helper(state, 1, max_step)
         return problems
 
-    def save_problemset(problemset_dict, suffix, is_curriculum=False):
+    def save_problemset(problemset_dict, suffix):
         n_problems = 0
         if "problems" in problemset_dict:
             n_problems += len(problemset_dict["problems"])
@@ -145,8 +150,6 @@ def main():
             n_problems += len(problemset_dict["bootstrap_problems"])
         if "curriculum_problems" in problemset_dict:
             n_problems += len(problemset_dict["curriculum_problems"])
-        if "permutation_problems" in problemset_dict:
-            n_problems += len(problemset_dict["permutation_problems"])
 
         path = args.output_path / f"{n_problems}-{suffix}.json"
         with path.open("w") as f:
@@ -164,20 +167,27 @@ def main():
     print(
         f"Generating {args.n_problems_per_difficulty} curriculum problems for each of {len(args.curriculum)} steps: {args.curriculum}"
     )
-    curriculum_problems = []
-    curr_probs_generated = 0
-    id_counter = 0
-    num_curriculum_problems = args.n_problems_per_difficulty * len(args.curriculum)
-    with tqdm.tqdm(total=num_curriculum_problems) as pbar:
-        pbar.set_description("Curriculum problems")
-        difficulty = 0
-        max_steps = int(args.curriculum[difficulty])
-        while curr_probs_generated < num_curriculum_problems:
-            if args.randomize_steps:
+
+    def generate_step_problems(
+        n_problems: int,
+        max_steps: int,
+        id_prefix: str,
+        id_counter_start: int,
+        exclude_problemspecs: set,
+        randomize: bool,
+        pbar,
+    ):
+        problems = []
+        problems_generated = 0
+        id_counter = id_counter_start
+        while problems_generated < n_problems:
+            # put in function
+            if randomize:
                 steps = rng.integers(1, max_steps + 1)
             else:
                 steps = max_steps
             state = cube3.reset()
+            assert isinstance(state, Cube3State)
             for _ in range(steps):
                 actions, _ = cube3.actions_unpruned(state)
                 random_action = rng.choice(actions)
@@ -188,25 +198,40 @@ def main():
             else:
                 exclude_problemspecs.add(state)
                 problem = {
-                    "tiles": state.tiles.tolist(),
-                    "id": f"c{difficulty}_{id_counter}",
+                    "front": state.front.tolist(),
+                    "up": state.up.tolist(),
+                    "down": state.down.tolist(),
+                    "left": state.left.tolist(),
+                    "right": state.right.tolist(),
+                    "back": state.back.tolist(),
+                    "id": f"{id_prefix}_{id_counter}",
                 }
-                curriculum_problems.append(problem)
-                curr_probs_generated += 1
+                problems.append(problem)
+                problems_generated += 1
                 id_counter += 1
                 pbar.update(1)
-                if (
-                    curr_probs_generated > 0
-                    and curr_probs_generated < num_curriculum_problems
-                    and curr_probs_generated % args.n_problems_per_difficulty == 0
-                ):
-                    difficulty += 1
-                    id_counter = 0
-                    max_steps = int(args.curriculum[difficulty])
+        return problems
+
+    curriculum_problems = []
+    num_curriculum_problems = args.n_problems_per_difficulty * len(args.curriculum)
+    with tqdm.tqdm(total=num_curriculum_problems) as pbar:
+        pbar.set_description("Curriculum problems")
+        for diff, ms in enumerate(args.curriculum):
+            ms = int(ms)
+            this_curr_problems = generate_step_problems(
+                args.n_problems_per_difficulty,
+                ms,
+                f"c{diff}",
+                0,
+                exclude_problemspecs,
+                args.randomize_curriculum_steps,
+                pbar,
+            )
+            curriculum_problems.extend(this_curr_problems)
 
     trainset_dict = copy(problemset_dict)
     trainset_dict["is_curriculum"] = True
-    trainset_dict["randomize_steps"] = args.randomize_steps
+    trainset_dict["randomize_steps"] = args.randomize_curriculum_steps
     trainset_dict["curriculum"] = args.curriculum
     trainset_dict["problems_per_difficulty"] = args.n_problems_per_difficulty
     trainset_dict["bootstrap_problems"] = bootstrap_problems
@@ -215,20 +240,38 @@ def main():
     save_problemset(trainset_dict, "train")
 
     if args.n_valid > 0:
-        valid_problems = generate_permutation_problems(
-            "v", 0, args.n_valid, "Validation problems"
-        )
-        problemset_dict["problems"] = valid_problems
+        with tqdm.tqdm(total=args.n_valid) as pbar:
+            pbar.set_description("Valid problems")
+            valid_problems = generate_step_problems(
+                args.n_valid,
+                args.test_steps,
+                "t",
+                0,
+                exclude_problemspecs,
+                args.randomize_test_steps,
+                pbar,
+            )
+            problemset_dict["problems"] = valid_problems
+            problemset_dict["randomize_steps"] = args.randomize_test_steps
         save_problemset(
             problemset_dict,
             "valid",
         )
 
     if args.n_test > 0:
-        test_problems = generate_permutation_problems(
-            "t", 0, args.n_test, "Test problems"
-        )
-        problemset_dict["problems"] = test_problems
+        with tqdm.tqdm(total=args.n_test) as pbar:
+            pbar.set_description("Test problems")
+            test_problems = generate_step_problems(
+                args.n_test,
+                args.test_steps,
+                "t",
+                0,
+                exclude_problemspecs,
+                args.randomize_test_steps,
+                pbar,
+            )
+            problemset_dict["problems"] = test_problems
+            problemset_dict["randomize_steps"] = args.randomize_test_steps
         save_problemset(
             problemset_dict,
             "test",

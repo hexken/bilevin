@@ -23,8 +23,7 @@ from torch import Tensor, full
 
 from models import AgentModel
 
-if TYPE_CHECKING:
-    from search.utils import SearchNode, Trajectory
+from search.utils import Trajectory, SearchNode
 
 
 class State(ABC):

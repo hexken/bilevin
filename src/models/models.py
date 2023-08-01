@@ -27,15 +27,27 @@ class AgentModel(nn.Module):
         super().__init__()
         self.bidirectional: bool = model_args["bidirectional"]
         self.model_args: dict = model_args
-        self.in_channels: int = model_args["in_channels"]
-        self.kernel_size: tuple[int, int] = model_args["kernel_size"]
-        self.num_filters: int = model_args["num_filters"]
+        self.num_actions: int = model_args["num_actions"]
+
         self.share_feature_net: bool = model_args["share_feature_net"]
+        self.backward_goal: bool = model_args["backward_goal"]
+
+        self.in_channels: int = model_args["in_channels"]
+        self.num_filters: int = model_args["num_filters"]
+        self.kernel_size: tuple[int, int] = model_args["kernel_size"]
+        self.kernel_depth = None
 
         self.state_t_width: int = model_args["state_t_width"]
-        self.num_features: int = self.num_filters * ((self.state_t_width - 2) ** 2)
-        self.num_actions: int = model_args["num_actions"]
-        self.backward_goal: bool = model_args["backward_goal"]
+        reduced_width: int = self.state_t_width - 2 * self.kernel_size[0] + 2
+
+        if "kernel_depth" in model_args:
+            self.state_t_depth: int = model_args["state_t_depth"]
+            self.kernel_depth = model_args["kernel_depth"]
+            self.kernel_size = (self.kernel_depth, *self.kernel_size)
+            reduced_depth = self.state_t_depth - 2 * self.kernel_depth + 2
+            self.num_features = self.num_filters * reduced_depth * reduced_width**2
+        else:
+            self.num_features = self.num_filters * reduced_width**2
 
         self.forward_policy: nn.Module = StatePolicy(
             self.num_features,
@@ -205,7 +217,7 @@ class ConvFeatureNet(nn.Module):
         self,
         in_channels: int,
         state_t_width: int,
-        kernel_size: tuple[int, int],
+        kernel_size: tuple[int, int] | tuple[int, int, int],
         num_filters: int,
         num_actions: int,
     ):
@@ -214,12 +226,26 @@ class ConvFeatureNet(nn.Module):
         self._filters: int = num_filters
         self.num_actions: int = num_actions
 
-        self.conv1 = nn.Conv2d(in_channels, num_filters, kernel_size, padding="valid")
+        if len(kernel_size) == 3:
+            self.conv1 = nn.Conv3d(
+                in_channels, num_filters, kernel_size, padding="valid"
+            )
+            self.conv2 = nn.Conv3d(
+                num_filters, num_filters, kernel_size, padding="valid"
+            )
+        elif len(kernel_size) == 2:
+            self.conv1 = nn.Conv2d(
+                in_channels, num_filters, kernel_size, padding="valid"
+            )
+            self.conv2 = nn.Conv2d(
+                num_filters, num_filters, kernel_size, padding="valid"
+            )
+        else:
+            raise ValueError("kernel_size must be 2 or 3 dimensional")
+
         to.nn.init.kaiming_uniform_(
             self.conv1.weight, mode="fan_in", nonlinearity="relu"
         )
-
-        self.conv2 = nn.Conv2d(num_filters, num_filters, kernel_size, padding="valid")
         to.nn.init.kaiming_uniform_(
             self.conv2.weight, mode="fan_in", nonlinearity="relu"
         )

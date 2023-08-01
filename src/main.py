@@ -34,7 +34,8 @@ import wandb
 
 import domains
 from loaders import CurriculumLoader, ProblemsBatchLoader
-from search import BiLevin, Levin
+from search.levin import Levin
+from search.bilevin import BiLevin
 from train import train
 
 

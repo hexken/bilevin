@@ -133,34 +133,34 @@ def cross_entropy_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: i
     return loss, avg_action_nll, acc
 
 
-def merge_cross_entropy(trajs: list[Trajectory], model: AgentModel):
-    forward = trajs[0].forward
-    merged_states = to.cat(tuple(t.states for t in trajs))
-    merged_actions = to.cat(tuple(t.actions for t in trajs))
-    merged_masks = to.cat(tuple(t.masks for t in trajs))
+# def merge_cross_entropy(trajs: list[Trajectory], model: AgentModel):
+#     forward = trajs[0].forward
+#     merged_states = to.cat(tuple(t.states for t in trajs))
+#     merged_actions = to.cat(tuple(t.actions for t in trajs))
+#     merged_masks = to.cat(tuple(t.masks for t in trajs))
 
-    if forward:
-        merged_goal_states_t = None
-    else:
-        repeats = to.tensor(tuple(len(t) for t in trajs))
-        goal_states_t = to.cat(tuple(t.goal_state_t for t in trajs))
-        merged_goal_states_t = to.repeat_interleave(
-            goal_states_t, repeats=repeats, dim=0
-        )
+#     if forward:
+#         merged_goal_states_t = None
+#     else:
+#         repeats = to.tensor(tuple(len(t) for t in trajs))
+#         goal_states_t = to.cat(tuple(t.goal_state_t for t in trajs))
+#         merged_goal_states_t = to.repeat_interleave(
+#             goal_states_t, repeats=repeats, dim=0
+#         )
 
-    log_probs, _ = model(
-        merged_states,
-        forward=forward,
-        goal_state_t=merged_goal_states_t,
-        mask=merged_masks,
-    )
-    loss = nll_loss(log_probs, merged_actions, reduction="mean")
-    avg_action_nll = loss.detach()
-    acc = (
-        (log_probs.detach().argmax(dim=1) == merged_actions)
-        .sum()
-        .div(len(log_probs))
-        .item()
-    )
+#     log_probs, _ = model(
+#         merged_states,
+#         forward=forward,
+#         goal_state_t=merged_goal_states_t,
+#         mask=merged_masks,
+#     )
+#     loss = nll_loss(log_probs, merged_actions, reduction="mean")
+#     avg_action_nll = loss.detach()
+#     acc = (
+#         (log_probs.detach().argmax(dim=1) == merged_actions)
+#         .sum()
+#         .div(len(log_probs))
+#         .item()
+#     )
 
-    return loss, avg_action_nll, acc
+#     return loss, avg_action_nll, acc

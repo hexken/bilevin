@@ -27,8 +27,6 @@ from enums import Color, FourDir
 from models import AgentModel
 from search.utils import Problem, SearchNode, Trajectory
 
-# TODO UPDATE for the nll and pnll stuff!
-
 
 class WitnessState(State):
     """
