@@ -132,6 +132,37 @@ class AgentModel(nn.Module):
         return feats
 
 
+class StateHeuristic(nn.Module):
+    def __init__(self, num_features: int, hidden_layer_sizes: list[int] = [128]):
+        super().__init__()
+        self.num_features: int = num_features
+
+        self.layers = nn.ModuleList([nn.Linear(num_features, hidden_layer_sizes[0])])
+        self.layers.extend(
+            [
+                nn.Linear(hidden_layer_sizes[i], hidden_layer_sizes[i + 1])
+                for i in range(len(hidden_layer_sizes) - 1)
+            ]
+        )
+        self.output_layer = nn.Linear(hidden_layer_sizes[-1], 1)
+
+        for i in range(len(self.layers)):
+            to.nn.init.kaiming_uniform_(
+                self.layers[i].weight, mode="fan_in", nonlinearity="relu"
+            )
+            to.nn.init.constant_(self.layers[i].bias, 0.0)
+        to.nn.init.xavier_uniform_(self.output_layer.weight)
+        to.nn.init.constant_(self.output_layer.bias, 0.0)
+
+    def forward(self, state_feats: to.Tensor, goal_feats: Optional[to.Tensor] = None):
+        for l in self.layers:
+            state_feats = F.relu(l(state_feats))
+
+        h = self.output_layer(state_feats)
+
+        return h
+
+
 class StatePolicy(nn.Module):
     def __init__(
         self, num_features: int, num_actions: int, hidden_layer_sizes: list[int] = [128]
@@ -149,13 +180,13 @@ class StatePolicy(nn.Module):
         )
         self.output_layer = nn.Linear(hidden_layer_sizes[-1], num_actions)
 
-        for i in range(len(self.layers)):
-            to.nn.init.kaiming_uniform_(
-                self.layers[i].weight, mode="fan_in", nonlinearity="relu"
-            )
-            to.nn.init.constant_(self.layers[i].bias, 0.0)
-        to.nn.init.xavier_uniform_(self.output_layer.weight)
-        to.nn.init.constant_(self.output_layer.bias, 0.0)
+        # for i in range(len(self.layers)):
+        #     to.nn.init.kaiming_uniform_(
+        #         self.layers[i].weight, mode="fan_in", nonlinearity="relu"
+        #     )
+        #     to.nn.init.constant_(self.layers[i].bias, 0.0)
+        # to.nn.init.xavier_uniform_(self.output_layer.weight)
+        # to.nn.init.constant_(self.output_layer.bias, 0.0)
 
     def forward(self, state_feats: to.Tensor, goal_feats: Optional[to.Tensor] = None):
         for l in self.layers:
@@ -188,13 +219,13 @@ class StateGoalPolicy(nn.Module):
         )
         self.output_layer = nn.Linear(hidden_layer_sizes[-1], num_actions)
 
-        for i in range(len(self.layers)):
-            to.nn.init.kaiming_uniform_(
-                self.layers[i].weight, mode="fan_in", nonlinearity="relu"
-            )
-            to.nn.init.constant_(self.layers[i].bias, 0.0)
-        to.nn.init.xavier_uniform_(self.output_layer.weight)
-        to.nn.init.constant_(self.output_layer.bias, 0.0)
+        # for i in range(len(self.layers)):
+        #     to.nn.init.kaiming_uniform_(
+        #         self.layers[i].weight, mode="fan_in", nonlinearity="relu"
+        #     )
+        #     to.nn.init.constant_(self.layers[i].bias, 0.0)
+        # to.nn.init.xavier_uniform_(self.output_layer.weight)
+        # to.nn.init.constant_(self.output_layer.bias, 0.0)
 
     def forward(self, state_feats: to.Tensor, goal_feats: to.Tensor):
         bs = state_feats.shape[0]
@@ -243,12 +274,12 @@ class ConvFeatureNet(nn.Module):
         else:
             raise ValueError("kernel_size must be 2 or 3 dimensional")
 
-        to.nn.init.kaiming_uniform_(
-            self.conv1.weight, mode="fan_in", nonlinearity="relu"
-        )
-        to.nn.init.kaiming_uniform_(
-            self.conv2.weight, mode="fan_in", nonlinearity="relu"
-        )
+        # to.nn.init.kaiming_uniform_(
+        #     self.conv1.weight, mode="fan_in", nonlinearity="relu"
+        # )
+        # to.nn.init.kaiming_uniform_(
+        #     self.conv2.weight, mode="fan_in", nonlinearity="relu"
+        # )
 
         self.reduced_size = (state_t_width - 2) ** 2
 
