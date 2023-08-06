@@ -49,6 +49,7 @@ def train(
     epoch_reduce_lr: int = 99999,
     epoch_reduce_grad_steps: int = 99999,
     epoch_begin_validate: int = 1,
+    validate_every: int = 1,
     valid_loader: Optional[ProblemsBatchLoader] = None,
 ):
     is_distributed = world_size > 1
@@ -513,7 +514,7 @@ def train(
                 world_results_df.to_pickle(epoch_logdir / "train.pkl")
                 # fmt: on
 
-            if valid_loader and epoch >= epoch_begin_validate:
+            if valid_loader and epoch >= epoch_begin_validate and epoch % validate_every == 0:
                 if rank == 0:
                     print("VALIDATION")
                 if is_distributed:

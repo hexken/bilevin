@@ -91,7 +91,8 @@ def parse_args():
         default="cross_entropy_loss",
         choices=[
             "loop_levin_loss",
-            "cross_entropy_loss",
+            "loop_cross_entropy_loss",
+            "merge_cross_entropy_loss",
             "loop_levin_loss_real",
         ],
         help="loss function",
@@ -208,6 +209,12 @@ def parse_args():
         type=int,
         default=1,
         help="reduce learning rate by a factor of 10 after this many epochs",
+    )
+    parser.add_argument(
+        "--validate-every",
+        type=int,
+        default=1,
+        help="validate every this many epochs",
     )
     parser.add_argument(
         "-a",
@@ -390,6 +397,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             epoch_reduce_lr=args.epoch_reduce_lr,
             epoch_reduce_grad_steps=args.epoch_reduce_grad_steps,
             epoch_begin_validate=args.epoch_begin_validate,
+            validate_every=args.validate_every,
             valid_loader=local_valid_loader,
         )
 
