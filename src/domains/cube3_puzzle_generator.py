@@ -52,6 +52,18 @@ def main():
         help="list of steps away from goal for the curriculum",
     )
     parser.add_argument(
+        "--curriculum-multiple",
+        type=int,
+        default=0,
+        help="multiple of steps to use when generating a curriculum",
+    )
+    parser.add_argument(
+        "--curriculum-num-difficulties",
+        type=int,
+        default=0,
+        help="number of difficulties to use when generating a curriculum",
+    )
+    parser.add_argument(
         "--n-problems-per-difficulty",
         type=int,
         default=3200,
@@ -164,8 +176,20 @@ def main():
     )
     print(f"Generated {len(bootstrap_problems)} problems.")
 
+    if args.curriculum_multiple > 0 and args.curriculum_num_difficulties > 0:
+        curriculum = [
+            args.curriculum_multiple * i
+            for i in range(1, args.curriculum_num_difficulties + 1)
+        ]
+    elif len(args.curriculum) > 0:
+        curriculum = args.curriculum
+    else:
+        raise ValueError(
+            "Must specify either curriculum or curriculum_multiple and curriculum_num_difficulties or a curriculum"
+        )
+
     print(
-        f"Generating {args.n_problems_per_difficulty} curriculum problems for each of {len(args.curriculum)} steps: {args.curriculum}"
+        f"Generating {args.n_problems_per_difficulty} curriculum problems for each of {len(curriculum)} steps: {curriculum}"
     )
 
     def generate_step_problems(
@@ -213,10 +237,10 @@ def main():
         return problems
 
     curriculum_problems = []
-    num_curriculum_problems = args.n_problems_per_difficulty * len(args.curriculum)
+    num_curriculum_problems = args.n_problems_per_difficulty * len(curriculum)
     with tqdm.tqdm(total=num_curriculum_problems) as pbar:
         pbar.set_description("Curriculum problems")
-        for diff, ms in enumerate(args.curriculum):
+        for diff, ms in enumerate(curriculum):
             ms = int(ms)
             this_curr_problems = generate_step_problems(
                 args.n_problems_per_difficulty,
@@ -232,7 +256,7 @@ def main():
     trainset_dict = copy(problemset_dict)
     trainset_dict["is_curriculum"] = True
     trainset_dict["randomize_steps"] = args.randomize_curriculum_steps
-    trainset_dict["curriculum"] = args.curriculum
+    trainset_dict["curriculum"] = curriculum
     trainset_dict["problems_per_difficulty"] = args.n_problems_per_difficulty
     trainset_dict["bootstrap_problems"] = bootstrap_problems
     trainset_dict["curriculum_problems"] = curriculum_problems
