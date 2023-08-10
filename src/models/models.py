@@ -146,13 +146,13 @@ class StateHeuristic(nn.Module):
         )
         self.output_layer = nn.Linear(hidden_layer_sizes[-1], 1)
 
-        for i in range(len(self.layers)):
-            to.nn.init.kaiming_uniform_(
-                self.layers[i].weight, mode="fan_in", nonlinearity="relu"
-            )
-            to.nn.init.constant_(self.layers[i].bias, 0.0)
-        to.nn.init.xavier_uniform_(self.output_layer.weight)
-        to.nn.init.constant_(self.output_layer.bias, 0.0)
+        # for i in range(len(self.layers)):
+        #     to.nn.init.kaiming_uniform_(
+        #         self.layers[i].weight, mode="fan_in", nonlinearity="relu"
+        #     )
+        #     to.nn.init.constant_(self.layers[i].bias, 0.0)
+        # to.nn.init.xavier_uniform_(self.output_layer.weight)
+        # to.nn.init.constant_(self.output_layer.bias, 0.0)
 
     def forward(self, state_feats: to.Tensor, goal_feats: Optional[to.Tensor] = None):
         for l in self.layers:
