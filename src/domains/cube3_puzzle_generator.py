@@ -40,6 +40,13 @@ def main():
         help="generate all problems up to (inclusive) this many steps away from the goal",
     )
     parser.add_argument(
+        "--pad-bootstrap-problems",
+        type=int,
+        default=40,
+        help="pad bootstrap problems by resampling to be the smallest multiple of this, 0 for no pad",
+    )
+
+    parser.add_argument(
         "--randomize-curriculum-steps",
         action="store_true",
         default=False,
@@ -175,6 +182,17 @@ def main():
         "b", 0, cube3.initial_state, args.bootstrap_steps, exclude_problemspecs
     )
     print(f"Generated {len(bootstrap_problems)} problems.")
+    if args.pad_bootstrap_problems > 0:
+        nearest_multiple = (
+            (len(bootstrap_problems) // args.pad_bootstrap_problems) + 1
+        ) * args.pad_bootstrap_problems
+        k_add = nearest_multiple - len(bootstrap_problems)
+        print(
+            f"Padding bootstrap problems with {k_add} for a total of {nearest_multiple} problems."
+        )
+        indices = rng.choice(np.arange(len(bootstrap_problems)), size=k_add)
+        for i in indices:
+            bootstrap_problems.append(bootstrap_problems[i])
 
     if args.curriculum_multiple > 0 and args.curriculum_num_difficulties > 0:
         curriculum = [

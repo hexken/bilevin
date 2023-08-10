@@ -132,7 +132,11 @@ class Cube3(Domain):
         4 RIGHT RED
         5 BACK BLUE
         """
-        return [i for i in range(self.num_actions) if i != parent_action]
+        return [
+            i
+            for i in range(self.num_actions)
+            if i != self.reverse_action(parent_action)
+        ]
 
     def _actions_unpruned(self, state: Cube3State) -> list[int]:
         return self._actions_list
