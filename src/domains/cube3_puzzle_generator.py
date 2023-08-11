@@ -159,7 +159,7 @@ def main():
                     helper(new_state, step + 1, max_step)
 
         helper(state, 1, max_step)
-        return problems
+        return problems, id_counter
 
     def save_problemset(problemset_dict, suffix):
         n_problems = 0
@@ -178,7 +178,8 @@ def main():
     print(
         f"Generating bootstrap problems up to {args.bootstrap_steps} steps away from goal.."
     )
-    bootstrap_problems = get_all_reachable_states(
+    bootstrap_prefix = "b"
+    bootstrap_problems, bid = get_all_reachable_states(
         "b", 0, cube3.initial_state, args.bootstrap_steps, exclude_problemspecs
     )
     print(f"Generated {len(bootstrap_problems)} problems.")
@@ -192,7 +193,10 @@ def main():
         )
         indices = rng.choice(np.arange(len(bootstrap_problems)), size=k_add)
         for i in indices:
-            bootstrap_problems.append(bootstrap_problems[i])
+            prob = copy(bootstrap_problems[i])
+            prob["id"] = f"{bootstrap_prefix}_{bid}"
+            bootstrap_problems.append(prob)
+            bid += 1
 
     if args.curriculum_multiple > 0 and args.curriculum_num_difficulties > 0:
         curriculum = [
