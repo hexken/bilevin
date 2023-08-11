@@ -15,6 +15,17 @@ from domains.domain import Domain, State
 from search.utils import Problem
 
 
+def get_goal_state() -> Cube3State:
+    front = np.full((3, 3), 0, dtype=int)
+    up = np.full((3, 3), 1, dtype=int)
+    down = np.full((3, 3), 2, dtype=int)
+    left = np.full((3, 3), 3, dtype=int)
+    right = np.full((3, 3), 4, dtype=int)
+    back = np.full((3, 3), 5, dtype=int)
+    state = Cube3State(front, up, down, left, right, back)
+    return state
+
+
 class Cube3State(State):
     def __init__(
         self,
@@ -155,10 +166,10 @@ class Cube3(Domain):
         domain.goal_state_t = self.state_tensor(self.initial_state)
         return domain
 
-    def is_goal2(self, state: Cube3State) -> bool:
-        return goal_check(
-            state.front, state.up, state.down, state.left, state.right, state.back
-        )
+    # def is_goal2(self, state: Cube3State) -> bool:
+    #     return goal_check(
+    #         state.front, state.up, state.down, state.left, state.right, state.back
+    #     )
 
     def result(
         self,
@@ -175,115 +186,115 @@ class Cube3(Domain):
         if action == 0:
             f = np.rot90(f, -1)
             u[2, :], l[:, 2], d[0, :], r[:, 0] = (
-                np.flip(l[:, 2]),
-                d[0, :],
-                np.flip(r[:, 0]),
-                u[2, :],
+                np.flip(l[:, 2]).copy(),
+                d[0, :].copy(),
+                np.flip(r[:, 0]).copy(),
+                u[2, :].copy(),
             )
         elif action == 1:
             f = np.rot90(f, 1)
             u[2, :], r[:, 0], d[0, :], l[:, 2] = (
-                r[:, 0],
-                np.flip(d[0, :]),
-                l[:, 2],
-                np.flip(u[2, :]),
+                r[:, 0].copy(),
+                np.flip(d[0, :]).copy(),
+                l[:, 2].copy(),
+                np.flip(u[2, :]).copy(),
             )
         elif action == 2:
             # Face rotate.
             u = np.rot90(u, -1)
             b[2, :], l[0, :], f[0, :], r[0, :] = (
-                np.flip(l[0, :]),
-                f[0, :],
-                r[0, :],
-                np.flip(b[2, :]),
+                np.flip(l[0, :]).copy(),
+                f[0, :].copy(),
+                r[0, :].copy(),
+                np.flip(b[2, :]).copy(),
             )
         elif action == 3:
             u = np.rot90(u, 1)
             b[2, :], r[0, :], f[0, :], l[0, :] = (
-                np.flip(r[0, :]),
-                f[0, :],
-                l[0, :],
-                np.flip(b[2, :]),
+                np.flip(r[0, :]).copy(),
+                f[0, :].copy(),
+                l[0, :].copy(),
+                np.flip(b[2, :]).copy(),
             )
         elif action == 4:
             d = np.rot90(d, -1)
             f[2, :], l[2, :], b[0, :], r[2, :] = (
-                l[2, :],
-                np.flip(b[0, :]),
-                np.flip(r[2, :]),
-                f[2, :],
+                l[2, :].copy(),
+                np.flip(b[0, :]).copy(),
+                np.flip(r[2, :]).copy(),
+                f[2, :].copy(),
             )
         elif action == 5:
             d = np.rot90(d, 1)
             f[2, :], r[2, :], b[0, :], l[2, :] = (
-                r[2, :],
-                np.flip(b[0, :]),
-                np.flip(l[2, :]),
-                f[2, :],
+                r[2, :].copy(),
+                np.flip(b[0, :]).copy(),
+                np.flip(l[2, :]).copy(),
+                f[2, :].copy(),
             )
         elif action == 6:
             l = np.rot90(l, -1)
             u[:, 0], b[:, 0], d[:, 0], f[:, 0] = (
-                b[:, 0],
-                d[:, 0],
-                f[:, 0],
-                u[:, 0],
+                b[:, 0].copy(),
+                d[:, 0].copy(),
+                f[:, 0].copy(),
+                u[:, 0].copy(),
             )
         elif action == 7:
             l = np.rot90(l, 1)
             u[:, 0], f[:, 0], d[:, 0], b[:, 0] = (
-                f[:, 0],
-                d[:, 0],
-                b[:, 0],
-                u[:, 0],
+                f[:, 0].copy(),
+                d[:, 0].copy(),
+                b[:, 0].copy(),
+                u[:, 0].copy(),
             )
         elif action == 8:
             r = np.rot90(r, -1)
             u[:, 2], f[:, 2], d[:, 2], b[:, 2] = (
-                f[:, 2],
-                d[:, 2],
-                b[:, 2],
-                u[:, 2],
+                f[:, 2].copy(),
+                d[:, 2].copy(),
+                b[:, 2].copy(),
+                u[:, 2].copy(),
             )
         elif action == 9:
             r = np.rot90(r, 1)
             u[:, 2], b[:, 2], d[:, 2], f[:, 2] = (
-                b[:, 2],
-                d[:, 2],
-                f[:, 2],
-                u[:, 2],
+                b[:, 2].copy(),
+                d[:, 2].copy(),
+                f[:, 2].copy(),
+                u[:, 2].copy(),
             )
         elif action == 10:
-            b = np.rot90(b, -10)
+            b = np.rot90(b, -1)
             u[0, :], r[:, 2], d[2, :], l[:, 0] = (
-                r[:, 2],
-                np.flip(d[2, :]),
-                l[:, 0],
-                np.flip(u[0, :]),
+                r[:, 2].copy(),
+                np.flip(d[2, :]).copy(),
+                l[:, 0].copy(),
+                np.flip(u[0, :]).copy(),
             )
         else:
-            b = np.rot90(b, -1)
+            b = np.rot90(b, 1)
             u[0, :], l[:, 0], d[2, :], r[:, 2] = (
-                np.flip(l[:, 0]),
-                d[2, :],
-                np.flip(r[:, 2]),
-                u[0, :],
+                np.flip(l[:, 0]).copy(),
+                d[2, :].copy(),
+                np.flip(r[:, 2]).copy(),
+                u[0, :].copy(),
             )
 
         return Cube3State(f, u, d, l, r, b)
 
-    def result2(self, state: Cube3State, action: int) -> Cube3State:
-        return Cube3State(
-            *faces_result(
-                state.front,
-                state.up,
-                state.down,
-                state.left,
-                state.right,
-                state.back,
-                action,
-            )
-        )
+    # def result2(self, state: Cube3State, action: int) -> Cube3State:
+    #     return Cube3State(
+    #         *faces_result(
+    #             state.front,
+    #             state.up,
+    #             state.down,
+    #             state.left,
+    #             state.right,
+    #             state.back,
+    #             action,
+    #         )
+    #     )
 
     def _backwards_result(self, state: Cube3State, action: int) -> Cube3State:
         return self._forward_result(state, self.reverse_action(action))
@@ -443,17 +454,6 @@ class Cube3(Domain):
 #         )
 
 #     return f, u, d, l, r, b
-
-
-def get_goal_state() -> Cube3State:
-    front = np.full((3, 3), 0, dtype=int)
-    up = np.full((3, 3), 1, dtype=int)
-    down = np.full((3, 3), 2, dtype=int)
-    left = np.full((3, 3), 3, dtype=int)
-    right = np.full((3, 3), 4, dtype=int)
-    back = np.full((3, 3), 5, dtype=int)
-    state = Cube3State(front, up, down, left, right, back)
-    return state
 
 
 # @njit

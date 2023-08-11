@@ -133,32 +133,35 @@ def main():
         problems = []
         id_counter = id_start
 
-        def helper(state, step, max_step):
+        def helper(states: list, step, max_step):
             nonlocal id_counter
             if step > max_step:
                 return
-            cube3 = Cube3(goal_state)
-            actions, _ = cube3.actions_unpruned(state)
-            for action in actions:
-                new_state = cube3.result(state, action)
-                if new_state in exclude_problemspecs or cube3.is_goal(new_state):
-                    continue
-                else:
-                    exclude_problemspecs.add(new_state)
-                    problem = {
-                        "front": new_state.front.tolist(),
-                        "up": new_state.up.tolist(),
-                        "down": new_state.down.tolist(),
-                        "left": new_state.left.tolist(),
-                        "right": new_state.right.tolist(),
-                        "back": new_state.back.tolist(),
-                        "id": f"{id_prefix}_{id_counter}",
-                    }
-                    id_counter += 1
-                    problems.append(problem)
-                    helper(new_state, step + 1, max_step)
+            for state in states:
+                local_cube3 = Cube3(state)
+                actions, _ = local_cube3.actions_unpruned(state)
+                new_states = []
+                for action in actions:
+                    new_state = local_cube3.result(state, action)
+                    if new_state in exclude_problemspecs or local_cube3.is_goal(new_state):
+                        continue
+                    else:
+                        exclude_problemspecs.add(new_state)
+                        problem = {
+                            "front": new_state.front.tolist(),
+                            "up": new_state.up.tolist(),
+                            "down": new_state.down.tolist(),
+                            "left": new_state.left.tolist(),
+                            "right": new_state.right.tolist(),
+                            "back": new_state.back.tolist(),
+                            "id": f"{id_prefix}_{id_counter}",
+                        }
+                        id_counter += 1
+                        problems.append(problem)
+                        new_states.append(new_state)
+                helper(new_states, step + 1, max_step)
 
-        helper(state, 1, max_step)
+        helper([state], 1, max_step)
         return problems, id_counter
 
     def save_problemset(problemset_dict, suffix):

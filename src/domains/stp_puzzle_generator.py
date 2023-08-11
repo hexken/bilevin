@@ -187,27 +187,32 @@ def main():
         problems = []
         id_counter = id_start
 
-        def helper(state, step, max_step):
+        def helper(states: list, step, max_step):
             nonlocal id_counter
             if step > max_step:
                 return
-            stp = SlidingTilePuzzle(state.tiles, goal_tiles)
-            actions, _ = stp.actions_unpruned(state)
-            for action in actions:
-                new_state = stp.result(state, action)
-                if new_state in exclude_problemspecs or stp.is_goal(new_state):
-                    continue
-                else:
-                    exclude_problemspecs.add(new_state)
-                    problem = {
-                        "tiles": new_state.tiles.tolist(),
-                        "id": f"{id_prefix}_{id_counter}",
-                    }
-                    id_counter += 1
-                    problems.append(problem)
-                    helper(new_state, step + 1, max_step)
+            for state in states:
+                local_stp = SlidingTilePuzzle(state.tiles, goal_tiles)
+                actions, _ = local_stp.actions_unpruned(state)
+                new_states = []
+                for action in actions:
+                    new_state = local_stp.result(state, action)
+                    if new_state in exclude_problemspecs or local_stp.is_goal(
+                        new_state
+                    ):
+                        continue
+                    else:
+                        exclude_problemspecs.add(new_state)
+                        problem = {
+                            "tiles": new_state.tiles.tolist(),
+                            "id": f"{id_prefix}_{id_counter}",
+                        }
+                        id_counter += 1
+                        problems.append(problem)
+                        new_states.append(new_state)
+                    helper(new_states, step + 1, max_step)
 
-        helper(state, 1, max_step)
+        helper([state], 1, max_step)
         return problems
 
     def save_problemset(problemset_dict, suffix, is_curriculum=False):
