@@ -146,7 +146,7 @@ class CurriculumLoader:
                 self.local_batch_size,
                 self.world_size,
                 self.bootstrap_epochs,
-                False,  # don't shuffle the bootstrap loader on first epoch
+                self.shuffle,  # don't shuffle the bootstrap loader on first epoch
                 self.rng,
             )
         elif "curriculum" in self.next_stage:
