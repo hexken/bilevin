@@ -38,10 +38,18 @@ from search.bilevin import BiLevin
 from search.levin import Levin
 from train import train
 
+# todo add args for kernel dims
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
 
+    parser.add_argument(
+        "--shuffle",
+        action="store_true",
+        default=False,
+        help="shuffle problems",
+    )
     parser.add_argument(
         "--no-backward-goal",
         action="store_true",
@@ -113,6 +121,14 @@ def parse_args():
         type=int,
         help="hidden layer sizes of backward policy",
     )
+    # parser.add_argument(
+    #     "--kernel-dims",
+    #     action="store",
+    #     nargs="+",
+    #     default=[2, 2, 2],
+    #     type=int,
+    #     help="hidden layer sizes of backward policy",
+    # )
     parser.add_argument(
         "--weight-decay",
         type=float,
@@ -571,6 +587,7 @@ if __name__ == "__main__":
                         seed=args.seed + rank,
                         include_prev_difficulty=args.include_prev_difficulty,
                         permutation_focus=args.permutation_focus,
+                        shuffle=args.shuffle
                     )
                 )
 
@@ -590,6 +607,7 @@ if __name__ == "__main__":
                         local_batch_size=1,
                         world_size=args.world_size,
                         seed=args.seed,
+                        shuffle=args.shuffle
                     )
                 )
 

@@ -113,7 +113,7 @@ class Cube3(Domain):
         self.cube_width: int = 3
         self._actions_list: list[int] = [i for i in range(self.num_actions)]
         self.initial_state: Cube3State = initial_state
-        self._forward_result = self.result
+        # self._forward_result = self.result
 
         self.goal_state: Cube3State
         self.goal_state_t: to.Tensor
@@ -161,7 +161,7 @@ class Cube3(Domain):
     def backward_domain(self) -> Cube3:
         assert self.forward
         domain = Cube3(get_goal_state(), forward=False)
-        domain.result = domain._backwards_result
+        # domain.result = domain._backwards_result
         domain.goal_state = self.initial_state
         domain.goal_state_t = self.state_tensor(self.initial_state)
         return domain
@@ -296,8 +296,8 @@ class Cube3(Domain):
     #         )
     #     )
 
-    def _backwards_result(self, state: Cube3State, action: int) -> Cube3State:
-        return self._forward_result(state, self.reverse_action(action))
+    # def _backwards_result(self, state: Cube3State, action: int) -> Cube3State:
+    #     return self._forward_result(state, self.reverse_action(action))
 
     def is_goal(self, state: Cube3State) -> bool:
         return (
