@@ -46,13 +46,20 @@ class Agent(ABC):
             if args.world_size > 1:
                 for param in model.parameters():
                     dist.broadcast(param.data, 0)
-            self._model = to.jit.script(model)
-            self._model = model
+            if not args.no_jit:
+                self._model = to.jit.script(model)
+            else:
+                self._model = model
         elif args.model_path.is_dir():
             load_model_path = list(args.model_path.glob(f"model_{args.model_suffix}*"))[
                 0
             ]
-            self._model = to.jit.load(load_model_path)
+            if load_model_path.suffix == ".ts":
+                self._model = to.jit.load(load_model_path)
+            elif load_model_path.suffix == ".pt":
+                self._model = to.load(load_model_path)
+            else:
+                ValueError("model-path must be a .pt or .ts file")
 
             if rank == 0:
                 print(f"Loaded model\n  {str(load_model_path)}")
