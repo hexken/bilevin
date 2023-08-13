@@ -210,7 +210,7 @@ def main():
                         id_counter += 1
                         problems.append(problem)
                         new_states.append(new_state)
-                    helper(new_states, step + 1, max_step)
+                helper(new_states, step + 1, max_step)
 
         helper([state], 1, max_step)
         return problems

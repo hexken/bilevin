@@ -25,6 +25,7 @@ import numpy as np
 from tqdm import tqdm
 
 from domains import Witness
+from domains.witness import WitnessState
 
 
 def main():
@@ -83,16 +84,18 @@ def main():
         default=0.1,
         help="probability of placing a triangle in each snake adjacent cell",
     )
+    parser.add_argument(
+        "--min-path-ratio",
+        type=float,
+        default=0.35,
+        help="path that generated problem must be >= this ratio of squared width",
+    )
 
     args = parser.parse_args()
 
-    if args.max_num_colors < 2:
-        raise ValueError("Number of colors must be at least 2")
-
     args.output_path.mkdir(parents=True, exist_ok=True)
 
-    random.seed(args.seed)
-    np.random.seed(args.seed)
+    rng = np.random.default_rng(args.seed)
 
     goals = (
         [(0, i) for i in range(args.width + 1)]
@@ -116,10 +119,10 @@ def main():
                 prefix = "te_"
                 problem_id = 0
             head_at_goal = False
-            goal = random.choice(goals)
+            goal = rng.choice(goals)
             problem = {
                 "init": (0, 0),  # todo allow other initial pos?
-                "goal": goal,
+                "goal": goal.tolist(),
             }
             wit = Witness(
                 puzzle="triangles",
@@ -129,11 +132,12 @@ def main():
             )
             # generate a path from start to goal
             state = wit.reset()
+            assert isinstance(state, WitnessState)
             while True:
                 actions, _ = wit.actions_unpruned(state)
                 if not actions:
                     break
-                action = random.choice(actions)
+                action = rng.choice(actions)
                 state = wit.result(state, action)
                 if wit.is_head_at_goal(state):
                     head_at_goal = True
@@ -142,44 +146,36 @@ def main():
             if not head_at_goal:
                 continue
 
-            regions = connected_components(wit, state)
-
-            min_num_regions = 2
-            if args.width == 3:
-                min_num_regions = 2
-            if args.width >= 4:
-                min_num_regions = 4
-            if args.width == 10:
-                min_num_regions = 5
-
-            if len(regions) < min_num_regions:
+            # heuristic to make sure the path is not too short
+            if (state.v_segs.sum() + state.h_segs.sum()) / state.grid.shape[
+                0
+            ] ** 2 < args.min_path_ratio:
                 continue
 
-            # fill regions with colors, only keep sufficiently non empty ones
-            colors = random.choices(range(1, args.max_num_colors + 1), k=len(regions))
-            unique_colors_used = set()
             colored_cells = []
-            non_unit_regions_unique_colors = 0
-            for region in regions:
-                region_arr = np.array(sorted(region))
-                region_mask = np.random.rand(len(region_arr)) < args.bullet_prob
-                region_arr = region_arr[region_mask]
-                if len(region_arr):
-                    color = colors.pop()
-                    if len(region_arr) > 1 and color not in unique_colors_used:
-                        non_unit_regions_unique_colors += 1
-                    unique_colors_used.add(color)
-                    colored_cells.extend(
-                        [f"{row} {col} {color}" for row, col in region_arr]
-                    )
+            for row, col in product(range(args.width), range(args.width)):
+                n_adj = int(
+                    state.v_segs[row, col]
+                    + state.v_segs[row, col + 1]
+                    + state.h_segs[row, col]
+                    + state.h_segs[row + 1, col]
+                )
 
-            if non_unit_regions_unique_colors < args.width // 2:
+                if n_adj == 0:
+                    continue
+                elif n_adj == 4:
+                    wit.plot(state)
+                    raise ValueError("cell has 4 adjacent segments")
+
+                if rng.random() <= args.triangle_prob and n_adj >= 1:
+                    colored_cells.append(f"{row} {col} {n_adj}")
+
+            if len(colored_cells) < args.width // 2:
                 continue
 
             problem["colored_cells"] = colored_cells
             problem_str = str(problem)
             if problem_str in problem_specs:
-                print("duplicate")
                 continue
             else:
                 problem_specs.add(problem_str)
@@ -192,7 +188,6 @@ def main():
     num_actions = wit.num_actions
     in_channels = wit.in_channels
     width = wit.width
-    max_num_colors = wit.max_num_colors
     state_t_width = wit.state_width
 
     problemset_dict_template = {
@@ -200,11 +195,11 @@ def main():
         "domain_name": "Witness",
         "width": width,
         "num_actions": num_actions,
-        "max_num_colors": max_num_colors,
+        "max_num_colors": 3,
         "in_channels": in_channels,
         "state_t_width": state_t_width,
         "seed": args.seed,
-        "puzzle": "colors",
+        "puzzle": "triangles",
     }
 
     for n, suffix in [
@@ -230,53 +225,6 @@ def main():
         with path.open("w") as f:
             json.dump(problemset_dict, f)
         problems = problems[n:]
-
-
-def connected_components(wit, wit_state):
-    """
-    Compute the connected components of the grid, i.e. the regions separated by the path
-    """
-    visited = np.zeros((wit.width, wit.width))
-    cell_states = [(i, j) for i, j in product(range(wit.width), range(wit.width))]
-    regions = []
-    while len(cell_states) != 0:
-        root = cell_states.pop()
-        # If root of new BFS search was already visited, then go to the next state
-        if visited[root] == 1:
-            continue
-        this_region = [root]
-        frontier = deque()
-        frontier.append(root)
-        visited[root] = 1
-        while len(frontier) != 0:
-            cell_state = frontier.popleft()
-
-            def reachable_neighbors(cell):
-                neighbors = []
-                row, col = cell
-                # move up
-                if row + 1 < wit.width and wit_state.h_segs[row + 1, col] == 0:
-                    neighbors.append((row + 1, col))
-                # move down
-                if row > 0 and wit_state.h_segs[row, col] == 0:
-                    neighbors.append((row - 1, col))
-                # move right
-                if col + 1 < wit.width and wit_state.v_segs[row, col + 1] == 0:
-                    neighbors.append((row, col + 1))
-                # move left
-                if col > 0 and wit_state.v_segs[row, col] == 0:
-                    neighbors.append((row, col - 1))
-                return neighbors
-
-            neighbors = reachable_neighbors(cell_state)
-            for neighbor in neighbors:
-                if visited[neighbor] == 1:
-                    continue
-                this_region.append(neighbor)
-                frontier.append(neighbor)
-                visited[neighbor] = 1
-        regions.append(this_region)
-    return regions
 
 
 if __name__ == "__main__":
