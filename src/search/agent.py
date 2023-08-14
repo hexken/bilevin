@@ -42,14 +42,13 @@ class Agent(ABC):
 
         if args.model_path is None:
             # just use the random initialization from rank 0
-            model = AgentModel(model_args)
+            self._model = AgentModel(model_args)
             if args.world_size > 1:
-                for param in model.parameters():
+                for param in self._model.parameters():
                     dist.broadcast(param.data, 0)
             if not args.no_jit:
-                self._model = to.jit.script(model)
-            else:
-                self._model = model
+                self._model = to.jit.script(self._model)
+
         elif args.model_path.is_dir():
             load_model_path = list(args.model_path.glob(f"model_{args.model_suffix}*"))[
                 0
@@ -60,6 +59,9 @@ class Agent(ABC):
                 self._model = to.load(load_model_path)
             else:
                 ValueError("model-path must be a .pt or .ts file")
+
+            if not args.no_jit:
+                self._model = to.jit.script(self._model)
 
             if rank == 0:
                 print(f"Loaded model\n  {str(load_model_path)}")

@@ -302,6 +302,7 @@ def main():
             )
             problemset_dict["problems"] = valid_problems
             problemset_dict["randomize_steps"] = args.randomize_test_steps
+            problemset_dict["test_steps"] = args.test_steps
         save_problemset(
             problemset_dict,
             "valid",
@@ -321,6 +322,7 @@ def main():
             )
             problemset_dict["problems"] = test_problems
             problemset_dict["randomize_steps"] = args.randomize_test_steps
+            problemset_dict["test_steps"] = args.test_steps
         save_problemset(
             problemset_dict,
             "test",
