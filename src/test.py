@@ -42,7 +42,8 @@ def test(
     validate: bool = False,
     epoch: Optional[int] = None,
 ):
-    current_budget = expansion_budget
+    current_exp_budget = expansion_budget
+    current_time_budget = time_budget
 
     is_distributed = world_size > 1
 
@@ -90,8 +91,8 @@ def test(
                 traj,
             ) = agent.search(
                 problem,
-                current_budget,
-                time_budget=time_budget,
+                current_exp_budget,
+                time_budget=current_time_budget,
             )
             end_time = timer()
             solution_length = 0 if not traj else traj[0].cost
@@ -134,11 +135,13 @@ def test(
             break
 
         if increase_budget:
-            current_budget *= 2
+            current_exp_budget *= 2
+            current_time_budget *= 2
             if rank == 0:
                 print(
-                    f"Solved {current_num_solved}/{world_num_problems} problems, "
-                    f"budget increased from {int(current_budget / 2)} to {int(current_budget)} "
+                    f"Solved {current_num_solved}/{world_num_problems} problems\n"
+                    f"Expandion budget increased from {int(current_exp_budget / 2)} to {int(current_exp_budget)}\n"
+                    f"Time budget increased from {current_time_budget / 2} to {current_time_budget}\n"
                 )
 
     if is_distributed:
