@@ -213,34 +213,34 @@ class Trajectory:
 
         if model:
             with to.no_grad():
-                k = partial_g_cost
+                # k = partial_g_cost
                 log_probs, _ = model(
                     states,
                     mask=masks,
                     forward=forward,
                     goal_state_t=goal_state_t,
                 )
-                partial_nll = nll_loss(
-                    log_probs[:k], actions[:k], reduction="sum"
-                ).item()
-                nll = (
-                    partial_nll
-                    + nll_loss(log_probs[k:], actions[k:], reduction="sum").item()
-                )
+                # partial_nll = nll_loss(
+                #     log_probs[:k], actions[:k], reduction="sum"
+                # ).item()
+                # nll = (
+                #     partial_nll
+                #     + nll_loss(log_probs[k:], actions[k:], reduction="sum").item()
+                # )
 
-            lp = -nll
-            plp = -partial_nll
+            lp = -nll_loss(log_probs, actions, reduction="sum").item()
+            # plp = -partial_nll
 
             if log_prob and not np.isclose(log_prob, lp):
                 print(f"Warning: search log_prob != model log_prob {log_prob} {lp}")
             else:
                 log_prob = lp
-            if partial_log_prob and not np.isclose(partial_log_prob, plp):
-                print(
-                    f"Warning: search partial_log_prob != model partial_log_prob {partial_log_prob} {plp}"
-                )
-            else:
-                partial_log_prob = plp
+            # if partial_log_prob and not np.isclose(partial_log_prob, plp):
+            #     print(
+            #         f"Warning: search partial_log_prob != model partial_log_prob {partial_log_prob} {plp}"
+            #     )
+            # else:
+            #     partial_log_prob = plp
 
         return cls(
             states=states,
