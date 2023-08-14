@@ -42,9 +42,6 @@ def test(
     validate: bool = False,
     epoch: Optional[int] = None,
 ):
-    if not epoch:
-        epoch = 1
-
     current_budget = expansion_budget
 
     is_distributed = world_size > 1
@@ -61,8 +58,16 @@ def test(
     total_num_expanded = 0
 
     world_solved_problems = set()
-    local_remaining_problems = set()
-    local_remaining_problems = set(p[0] for p in problems_loader if p)
+    local_problems = set(p[0] for p in problems_loader if p)
+    local_search_results = np.zeros(
+        (len(local_problems), len(search_result_header)), dtype=np.float64
+    )
+    local_solved_problems = [False] * len(local_problems)
+
+    if rank == 0:
+        world_search_results = [None] * world_size
+    else:
+        world_search_results = None
 
     fb_exp_ratio = float("nan")
     fb_g_ratio = float("nan")
@@ -72,23 +77,10 @@ def test(
         print("Testing...")
     test_start_time = timer()
     while True:
-        num_solved_t = to.zeros(1, dtype=to.int64)
-        num_solved_t[0] = len(world_solved_problems)
-        if is_distributed:
-            dist.broadcast(num_solved_t, src=0)
-        if num_solved_t.item() == world_num_problems:
-            break
+        for i, problem in enumerate(tuple(local_problems)):
+            if local_solved_problems[i]:
+                continue
 
-        local_search_results = np.zeros(
-            (len(local_remaining_problems), len(search_result_header)), dtype=np.float64
-        )
-
-        if rank == 0:
-            world_search_results = [None] * world_size
-        else:
-            world_search_results = None
-
-        for i, problem in enumerate(tuple(local_remaining_problems)):
             start_time = timer()
             (
                 n_forw_expanded,
@@ -118,6 +110,8 @@ def test(
             local_search_results[i, 8] = solution_length
 
             if traj:
+                local_solved_problems[i] = True
+
                 local_search_results[i, 9] = traj[0].partial_g_cost
                 local_search_results[i, 11] = -1 * traj[0].partial_log_prob
                 local_search_results[i, 13] = -1 * traj[0].log_prob
@@ -130,85 +124,86 @@ def test(
         if is_distributed:
             dist.barrier()
 
+        num_solved_t = to.zeros(1, dtype=to.int64)
+        num_solved_t[0] = sum(local_solved_problems)
         if is_distributed:
-            dist.gather_object(local_search_results, world_search_results)
-        else:
-            world_search_results = [local_search_results]
+            dist.all_reduce(num_solved_t, op=dist.ReduceOp.SUM)
 
-        if rank == 0:
-            world_search_results_arr = np.vstack(world_search_results)
+        current_num_solved = num_solved_t.item()
+        if current_num_solved == world_num_problems or not increase_budget:
+            break
 
-            world_results_df = pd.DataFrame(
-                world_search_results_arr[:, 1:], columns=search_result_header[1:]
-            )
-            for col in int_columns:
-                world_results_df[col] = world_results_df[col].astype(int)
-
-            world_results_df["ProblemId"] = [
-                problems_loader.all_ids[i]
-                for i in world_search_results_arr[:, 0].astype(int)
-            ]
-            world_results_df = world_results_df.set_index("ProblemId")
-
-            solved_ids = world_results_df[world_results_df["Len"] > 0].index
-            for problem_id in solved_ids:
-                assert problem_id not in world_solved_problems
-                world_solved_problems.add(problem_id)
-
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=RuntimeWarning)
-                fb_exp_ratio = (
-                    world_results_df["FExp"].sum() / world_results_df["BExp"].sum()
-                )
-                fb_g_ratio = world_results_df["Fg"].sum() / world_results_df["Bg"].sum()
-                avg_sol_len = world_results_df[world_results_df["Len"] > 0][
-                    "Len"
-                ].mean()
-
-            world_results_df.sort_values("Exp")
-            if print_results:
-                print(
-                    tabulate(
-                        world_results_df,
-                        headers="keys",
-                        tablefmt="psql",
-                    )
-                )
-                print(f"{'Solved':23s}: {len(solved_ids)}/{world_num_problems}\n")
-                print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:5.3f}")
-                print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:5.3f}\n")
-                print(f"{'Avg solution length':20s}: {avg_sol_len:5.3f}\n")
-
-            total_num_expanded += world_results_df["Exp"].sum()
-
-            print(
-                f"Solved: {len(solved_ids)}/{world_num_problems} in {timer() - test_start_time:.2f}s"
-            )
-            if validate:
-                fname = f"{writer.log_dir}/epoch-{epoch}/valid.pkl"
-            else:
-                writer.add_scalar(
-                    f"cum_unique_solved_vs_expanded",
-                    len(world_solved_problems),
-                    total_num_expanded,
-                )
-                fname = f"{writer.log_dir}/test.pkl"
-
-            world_results_df.to_pickle(fname)
-
-        epoch += 1
         if increase_budget:
             current_budget *= 2
             if rank == 0:
                 print(
-                    f"Budget increased from {current_budget / 2} to {current_budget} "
+                    f"Solved {current_num_solved}/{world_num_problems} problems, "
+                    f"budget increased from {int(current_budget / 2)} to {int(current_budget)} "
                 )
+
+    if is_distributed:
+        dist.gather_object(local_search_results, world_search_results)
+    else:
+        world_search_results = [local_search_results]
+
+    if rank == 0:
+        world_search_results_arr = np.vstack(world_search_results)
+
+        world_results_df = pd.DataFrame(
+            world_search_results_arr[:, 1:], columns=search_result_header[1:]
+        )
+        for col in int_columns:
+            world_results_df[col] = world_results_df[col].astype(int)
+
+        world_results_df["ProblemId"] = [
+            problems_loader.all_ids[i]
+            for i in world_search_results_arr[:, 0].astype(int)
+        ]
+
+        world_results_df = world_results_df.set_index("ProblemId")
+        world_results_df = world_results_df.sort_values("Exp")
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            fb_exp_ratio = (
+                world_results_df["FExp"].sum() / world_results_df["BExp"].sum()
+            )
+            fb_g_ratio = world_results_df["Fg"].sum() / world_results_df["Bg"].sum()
+            avg_sol_len = world_results_df[world_results_df["Len"] > 0]["Len"].mean()
+
+        if print_results:
+            print(
+                tabulate(
+                    world_results_df,
+                    headers="keys",
+                    tablefmt="psql",
+                )
+            )
+            print(f"{'Solved':23s}: {current_num_solved}/{world_num_problems}\n")
+            print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:5.3f}")
+            print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:5.3f}")
+            print(f"{'Avg solution length':20s}: {avg_sol_len:5.3f}\n")
+
+        total_num_expanded += world_results_df["Exp"].sum()
+
+        print(
+            f"Solved: {current_num_solved}/{world_num_problems} in {timer() - test_start_time:.2f}s"
+        )
+        if validate:
+            fname = f"{writer.log_dir}/epoch-{epoch}/valid.pkl"
         else:
-            break
+            writer.add_scalar(
+                f"cum_unique_solved_vs_expanded",
+                current_num_solved,
+                total_num_expanded,
+            )
+            fname = f"{writer.log_dir}/test.pkl"
+
+        world_results_df.to_pickle(fname)
 
     if rank == 0:
         return (
-            len(world_solved_problems),
+            current_num_solved,
             total_num_expanded,
             fb_exp_ratio,
             fb_g_ratio,
