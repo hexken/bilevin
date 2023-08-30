@@ -186,7 +186,7 @@ def main():
         "b", 0, cube3.initial_state, args.bootstrap_steps, exclude_problemspecs
     )
     print(f"Generated {len(bootstrap_problems)} problems.")
-    if args.pad_bootstrap_problems > 0:
+    if args.pad_bootstrap_problems > 0 and args.bootstrap_steps > 0:
         nearest_multiple = (
             (len(bootstrap_problems) // args.pad_bootstrap_problems) + 1
         ) * args.pad_bootstrap_problems
