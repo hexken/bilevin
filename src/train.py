@@ -51,6 +51,7 @@ def train(
     epoch_begin_validate: int = 1,
     validate_every: int = 1,
     valid_loader: Optional[ProblemsBatchLoader] = None,
+    min_difficulty_solve_ratio: float | None = None,
 ):
     is_distributed = world_size > 1
 
@@ -514,7 +515,11 @@ def train(
                 world_results_df.to_pickle(epoch_logdir / "train.pkl")
                 # fmt: on
 
-            if valid_loader and epoch >= epoch_begin_validate and epoch % validate_every == 0:
+            if (
+                valid_loader
+                and epoch >= epoch_begin_validate
+                and epoch % validate_every == 0
+            ):
                 if rank == 0:
                     print("VALIDATION")
                 if is_distributed:
@@ -610,6 +615,17 @@ def train(
                     dist.barrier()
 
             epoch += 1
+            if min_difficulty_solve_ratio is not None:
+                break_flag = to.tensor([1], dtype=to.uint8)
+                if rank == 0:
+                    break_flag[0] = (epoch_solved_ratio >= min_difficulty_solve_ratio)
+                    if break_flag.item():
+                        print(
+                            f"Epoch solved ratio {epoch_solved_ratio} > {min_difficulty_solve_ratio} reached, advancing"
+                        )
+                dist.broadcast(break_flag, 0)
+                if break_flag.item():
+                    break
             # EPOCH END
 
     # EPOCHS END

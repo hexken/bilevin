@@ -45,6 +45,12 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
+        "--min-difficulty-solve-ratio",
+        type=float,
+        default=0,
+        help="advance curriculum when either reached epochs or this ratio of problems solved. 0 to ignore",
+    )
+    parser.add_argument(
         "--shuffle",
         action="store_true",
         default=False,
@@ -404,6 +410,9 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
     else:
         raise ValueError(f"Unknown agent: {args.agent}")
 
+    if args.min_difficulty_solve_ratio == 0:
+        args.min_difficulty_solve_ratio = None
+
     if args.mode == "train":
         train(
             rank,
@@ -421,6 +430,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             epoch_begin_validate=args.epoch_begin_validate,
             validate_every=args.validate_every,
             valid_loader=local_valid_loader,
+            min_difficulty_solve_ratio=args.min_difficulty_solve_ratio,
         )
 
     elif args.mode == "test":
