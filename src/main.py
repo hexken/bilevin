@@ -197,7 +197,13 @@ def parse_args():
         help="number of bootstrap epochs to train for",
     )
     parser.add_argument(
-        "--curriculum-epochs",
+        "--min-curriculum-epochs",
+        type=int,
+        default=1,
+        help="minimum number of epochs per curriculum difficulty",
+    )
+    parser.add_argument(
+        "--max-curriculum-epochs",
         type=int,
         default=1,
         help="number of curriculum epochs to train for",
@@ -594,7 +600,8 @@ if __name__ == "__main__":
                         world_problems_per_difficulty=ppd,
                         local_curriculum_problems=curriculum_problemsets[rank],
                         world_curriculum_ids=world_curr_ids,
-                        curriculum_epochs=args.curriculum_epochs,
+                        min_epochs=args.min_curriculum_epochs,
+                        max_epochs=args.max_curriculum_epochs,
                         local_permutation_problems=permutation_problemsets[rank],
                         world_permutation_ids=world_permutation_ids,
                         permutation_epochs=args.permutation_epochs,

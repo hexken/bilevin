@@ -615,10 +615,13 @@ def train(
                     dist.barrier()
 
             epoch += 1
-            if min_difficulty_solve_ratio is not None:
+            if (
+                min_difficulty_solve_ratio is not None
+                and epoch > train_loader.min_epochs
+            ):
                 break_flag = to.tensor([1], dtype=to.uint8)
                 if rank == 0:
-                    break_flag[0] = (epoch_solved_ratio >= min_difficulty_solve_ratio)
+                    break_flag[0] = epoch_solved_ratio >= min_difficulty_solve_ratio
                     if break_flag.item():
                         print(
                             f"Epoch solved ratio {epoch_solved_ratio} > {min_difficulty_solve_ratio} reached, advancing"

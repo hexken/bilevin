@@ -93,7 +93,8 @@ class CurriculumLoader:
         world_problems_per_difficulty: int,
         local_curriculum_problems: list[list[Problem]],
         world_curriculum_ids: list[list[str]],
-        curriculum_epochs: int,
+        min_epochs: int,
+        max_epochs: int,
         local_permutation_problems: list[Problem],
         world_permutation_ids: list[str],
         permutation_epochs: int,
@@ -119,7 +120,8 @@ class CurriculumLoader:
         self.world_curriculum_ids = world_curriculum_ids
         self.world_problems_per_difficulty = world_problems_per_difficulty
         self.local_problems_per_difficulty = len(local_curriculum_problems[0])
-        self.curriculum_epochs = curriculum_epochs
+        self.min_epochs = min_epochs
+        self.max_epochs = max_epochs
 
         self.permutation_problems = local_permutation_problems
         self.all_permutation_ids = world_permutation_ids
@@ -168,7 +170,7 @@ class CurriculumLoader:
                 self.ids,
                 self.local_batch_size,
                 self.world_size,
-                self.curriculum_epochs,
+                self.max_epochs,
                 self.shuffle,
                 self.rng,
             )
