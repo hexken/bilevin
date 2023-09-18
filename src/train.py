@@ -286,7 +286,7 @@ def train(
                     )
 
                     batch_avg = num_problems_solved_this_batch / num_problems_this_batch
-                    writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
+                    # writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
 
                     batch_expansions = world_batch_print_df["Exp"].sum()
                     with warnings.catch_warnings():
@@ -312,13 +312,13 @@ def train(
                     print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:.3f}")
                     print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:.3f}\n")
 
-                    writer.add_scalar(
-                        f"expansions_vs_batch", batch_expansions_ratio, batches_seen
-                    )
-                    writer.add_scalar(
-                        f"fb_expansions_ratio_vs_batch", fb_exp_ratio, batches_seen
-                    )
-                    writer.add_scalar(f"fb_g_ratio_vs_batch", fb_g_ratio, batches_seen)
+                    # writer.add_scalar(
+                    #     f"expansions_vs_batch", batch_expansions_ratio, batches_seen
+                    # )
+                    # writer.add_scalar(
+                    #     f"fb_expansions_ratio_vs_batch", fb_exp_ratio, batches_seen
+                    # )
+                    # writer.add_scalar(f"fb_g_ratio_vs_batch", fb_g_ratio, batches_seen)
 
                     total_num_expanded += world_batch_print_df["Exp"].sum()
                     writer.add_scalar(
