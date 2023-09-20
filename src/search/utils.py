@@ -58,6 +58,21 @@ search_result_header = [
     "Bnll",
     "EndTime",
 ]
+
+csv_header = [
+    "epoch",
+    "loss",
+    "acc",
+    "solve_rate",
+    "sol_len",
+    "cum_uniq_solved",
+    "exp_ratio",
+    "fb_exp_ratio",
+    "fb_g_ratio",
+    "fb_pnll_ratio",
+    "fb_nll_ratio",
+]
+
 int_columns = ["Exp", "FExp", "BExp", "Gen", "FGen", "BGen"]
 
 

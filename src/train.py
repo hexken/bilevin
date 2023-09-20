@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import csv
 from math import ceil
 from pathlib import Path
 from shutil import copyfile
@@ -32,7 +33,7 @@ from tqdm import tqdm
 
 from loaders import CurriculumLoader, ProblemsBatchLoader
 from search.agent import Agent
-from search.utils import int_columns, search_result_header
+from search.utils import int_columns, search_result_header, csv_header
 
 
 def train(
@@ -57,6 +58,10 @@ def train(
 
     if rank == 0:
         logdir = Path(writer.log_dir)
+        epochslog = logdir / "epochs.csv"
+        with open(epochslog, "w", newline="") as f:
+            csvwriter = csv.writer(f)
+            csvwriter.writerow(csv_header)
 
     opt_result_header = (
         f"           Forward        Backward\nOptStep   Loss    Acc    Loss    Acc"
@@ -413,14 +418,14 @@ def train(
                                     )
                                 else:
                                     print(f"{opt_step:7}  {f_loss:5.3f}  {f_acc:5.3f}")
-                                if grad_step == grad_steps:
-                                    # fmt: off
-                                    writer.add_scalar( f"loss_vs_opt_pass/forward", f_loss, opt_passes,)
-                                    writer.add_scalar( f"acc_vs_opt_pass/forward", f_acc, opt_passes,)
-                                    if bidirectional:
-                                        writer.add_scalar( f"loss_vs_opt_pass/backward", b_loss, opt_passes,)
-                                        writer.add_scalar( f"acc_vs_opt_pass/backward", b_acc, opt_passes,)
-                                    # fmt:on
+                                # if grad_step == grad_steps:
+                                # fmt: off
+                                # writer.add_scalar( f"loss_vs_opt_pass/forward", f_loss, opt_passes,)
+                                # writer.add_scalar( f"acc_vs_opt_pass/forward", f_acc, opt_passes,)
+                                # if bidirectional:
+                                # writer.add_scalar( f"loss_vs_opt_pass/backward", b_loss, opt_passes,)
+                                # writer.add_scalar( f"acc_vs_opt_pass/backward", b_acc, opt_passes,)
+                                # fmt:on
                         opt_step += 1
                 if num_procs_found_solution > 0:
                     opt_passes += 1
@@ -512,7 +517,10 @@ def train(
                 writer.add_scalar(f"fb_g_ratio_vs_epoch", epoch_fb_g_ratio_ratio, epoch)
                 writer.add_scalar(f"avg_sol_len_vs_epoch", epoch_avg_sol_len, epoch)
 
-                world_results_df.to_pickle(epoch_logdir / "train.pkl")
+                # world_results_df.to_pickle(epoch_logdir / "train.pkl")
+                with open(epochslog, "a") as f:
+                    csvwriter = csv.writer(f)
+                    csvwriter.writerow()
                 # fmt: on
 
             if (
