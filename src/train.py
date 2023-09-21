@@ -28,19 +28,24 @@ from tabulate import tabulate
 from test import test
 import torch as to
 import torch.distributed as dist
-from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 
 from loaders import CurriculumLoader, ProblemsBatchLoader
 from search.agent import Agent
-from search.utils import int_columns, search_result_header, csv_header
+from search.utils import (
+    int_columns,
+    search_result_header,
+    train_csvfields,
+    valid_csvfields,
+)
 
 
 def train(
     rank: int,
+    logdir: Path,
     agent: Agent,
     train_loader: CurriculumLoader,
-    writer: SummaryWriter,
+    valid_loader: ProblemsBatchLoader,
     world_size: int,
     expansion_budget: int,
     time_budget: int,
@@ -51,17 +56,17 @@ def train(
     epoch_reduce_grad_steps: int = 99999,
     epoch_begin_validate: int = 1,
     validate_every: int = 1,
-    valid_loader: Optional[ProblemsBatchLoader] = None,
     min_difficulty_solve_ratio: float | None = None,
 ):
     is_distributed = world_size > 1
 
     if rank == 0:
-        logdir = Path(writer.log_dir)
-        epochslog = logdir / "epochs.csv"
-        with open(epochslog, "w", newline="") as f:
-            csvwriter = csv.writer(f)
-            csvwriter.writerow(csv_header)
+        train_csv = (logdir / "train.csv").open("w", newline="")
+        trainwriter = csv.DictWriter(train_csv, train_csvfields)
+        trainwriter.writeheader()
+
+        valid_csv = (logdir / "valid.csv").open("w", newline="")
+        validwriter = csv.DictWriter(valid_csv, valid_csvfields)
 
     opt_result_header = (
         f"           Forward        Backward\nOptStep   Loss    Acc    Loss    Acc"
@@ -96,7 +101,7 @@ def train(
     opt_step = 1
     opt_passes = 1
 
-    num_valid_problems = 0 if not valid_loader else len(valid_loader.all_ids)
+    num_valid_problems = len(valid_loader.all_ids)
     max_valid_expanded = num_valid_problems * expansion_budget
     best_valid_solved = -1
     best_valid_total_expanded = max_valid_expanded + 1
@@ -141,8 +146,6 @@ def train(
             world_results_df["Batch"] = 0
 
             if rank == 0:
-                epoch_logdir = Path(writer.log_dir) / f"epoch-{epoch}"
-                epoch_logdir.mkdir(parents=True, exist_ok=True)
                 print(
                     "============================================================================"
                 )
@@ -317,23 +320,9 @@ def train(
                     print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:.3f}")
                     print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:.3f}\n")
 
-                    # writer.add_scalar(
-                    #     f"expansions_vs_batch", batch_expansions_ratio, batches_seen
-                    # )
-                    # writer.add_scalar(
-                    #     f"fb_expansions_ratio_vs_batch", fb_exp_ratio, batches_seen
-                    # )
-                    # writer.add_scalar(f"fb_g_ratio_vs_batch", fb_g_ratio, batches_seen)
-
                     total_num_expanded += world_batch_print_df["Exp"].sum()
-                    writer.add_scalar(
-                        "cum_unique_solved_vs_expanded",
-                        len(solved_problems),
-                        total_num_expanded,
-                    )
                     # if batches_seen % param_log_interval == 0:
                     #     log_params(writer, model, batches_seen)
-                    # riter.add_scalar(f"cum_unique_solved_vs_batch", len(solved_problems), batches_seen)
 
                 # perform grad steps
                 to.set_grad_enabled(True)
@@ -418,14 +407,7 @@ def train(
                                     )
                                 else:
                                     print(f"{opt_step:7}  {f_loss:5.3f}  {f_acc:5.3f}")
-                                # if grad_step == grad_steps:
-                                # fmt: off
-                                # writer.add_scalar( f"loss_vs_opt_pass/forward", f_loss, opt_passes,)
-                                # writer.add_scalar( f"acc_vs_opt_pass/forward", f_acc, opt_passes,)
-                                # if bidirectional:
-                                # writer.add_scalar( f"loss_vs_opt_pass/backward", b_loss, opt_passes,)
-                                # writer.add_scalar( f"acc_vs_opt_pass/backward", b_acc, opt_passes,)
-                                # fmt:on
+
                         opt_step += 1
                 if num_procs_found_solution > 0:
                     opt_passes += 1
@@ -456,11 +438,17 @@ def train(
                         "Len"
                     ].mean()
                     epoch_fb_exp_ratio = (
-                        world_results_df["FExp"].sum() / world_results_df["BExp"].sum()
-                    )
-                    epoch_fb_g_ratio_ratio = (
-                        world_results_df["Fg"].sum() / world_results_df["Bg"].sum()
-                    )
+                        world_results_df["FExp"] / world_results_df["BExp"]
+                    ).mean()
+                    epoch_fb_g_ratio = (
+                        world_results_df["Fg"] / world_results_df["Bg"]
+                    ).mean()
+                    epoch_fb_pnll_ratio = (
+                        world_results_df["Fpnll"] / world_results_df["Bpnll"]
+                    ).mean()
+                    epoch_fb_nll_ratio = (
+                        world_results_df["Fpnll"] / world_results_df["Bpnll"]
+                    ).mean()
                     epoch_f_loss = world_epoch_f_loss.mean(
                         where=(world_epoch_f_loss >= 0)
                     )
@@ -485,7 +473,7 @@ def train(
                     f"{'Solved':20s}: {num_problems_solved_this_epoch}/{world_num_problems} {epoch_solved_ratio}\n"
                     f"{'Expansions':20s}: {int(epoch_expansions)}/{max_epoch_expansions}  {epoch_expansions_ratio:5.3f}\n"
                     f"{'FB Exp Ratio':20s}: {epoch_fb_exp_ratio:5.3f}\n"
-                    f"{'FB G-Cost Ratio':20s}: {epoch_fb_g_ratio_ratio:5.3f}\n"
+                    f"{'FB G-Cost Ratio':20s}: {epoch_fb_g_ratio:5.3f}\n"
                     f"{'Avg solution length':20s}: {epoch_avg_sol_len:5.3f}\n"
                 )
                 print(f"  Forward        Backward\nLoss    Acc    Loss    Acc")
@@ -498,45 +486,34 @@ def train(
                 print(
                     "============================================================================"
                 )
-
-                # fmt: off
-                # writer.add_scalar("budget_vs_epoch", budget, epoch)
-                # writer.add_scalar(f"budget_{budget}/solved_vs_epoch", epoch_solved, epoch)
-                writer.add_scalar(f"solved_vs_epoch", epoch_solved_ratio, epoch)
-                writer.add_scalar("cum_unique_solved_vs_epoch", len(solved_problems), epoch)
-
-                writer.add_scalar(f"loss_vs_epoch/forward", epoch_f_loss, epoch)
-                writer.add_scalar(f"acc_vs_epoch/forward", epoch_f_acc, epoch)
-                if bidirectional:
-                    writer.add_scalar(f"loss_vs_epoch/backward", epoch_b_loss, epoch)
-                    writer.add_scalar(f"acc_vs_epoch/backward", epoch_b_acc, epoch)
-
-                # writer.add_scalar(f"expansions_vs_epoch", expansions, epoch)
-                writer.add_scalar(f"expansions_ratio_vs_epoch", epoch_expansions_ratio, epoch)
-                writer.add_scalar(f"fb_expansions_ratio_vs_epoch", epoch_fb_exp_ratio, epoch)
-                writer.add_scalar(f"fb_g_ratio_vs_epoch", epoch_fb_g_ratio_ratio, epoch)
-                writer.add_scalar(f"avg_sol_len_vs_epoch", epoch_avg_sol_len, epoch)
-
-                # world_results_df.to_pickle(epoch_logdir / "train.pkl")
-                with open(epochslog, "a") as f:
-                    csvwriter = csv.writer(f)
-                    csvwriter.writerow()
+                trainwriter.writerow(
+                    {
+                        "epoch": epoch,
+                        "floss": epoch_f_loss,
+                        "facc": epoch_f_acc,
+                        "bloss": epoch_b_loss,
+                        "bacc": epoch_b_acc,
+                        "solved": epoch_solved_ratio,
+                        "expansions": epoch_expansions,
+                        "fb_exp_ratio": epoch_fb_exp_ratio,
+                        "fb_g_ratio": epoch_fb_g_ratio,
+                        "sol_len": epoch_avg_sol_len,
+                        "fb_pnll_ratio": epoch_fb_pnll_ratio,
+                        "fb_nll_ratio": epoch_fb_nll_ratio,
+                    }
+                )
                 # fmt: on
 
-            if (
-                valid_loader
-                and epoch >= epoch_begin_validate
-                and epoch % validate_every == 0
-            ):
+            if epoch >= epoch_begin_validate and epoch % validate_every == 0:
                 if rank == 0:
                     print("VALIDATION")
                 if is_distributed:
                     dist.barrier()
                 valid_results = test(
                     rank,
+                    logdir,
                     agent,
                     valid_loader,
-                    writer,
                     world_size,
                     expansion_budget,
                     time_budget,
@@ -569,19 +546,6 @@ def train(
                     print(f"{'FB Exp Ratio':20s}: {valid_fb_exp_ratio:5.3f}")
                     print(f"{'FB G-Cost Ratio':20s}: {valid_fb_g_ratio:5.3f}")
                     # writer.add_scalar(f"budget_{budget}/valid_solve_rate", valid_solve_rate, epoch)
-                    writer.add_scalar(f"valid_solved_vs_epoch", valid_solve_rate, epoch)
-                    writer.add_scalar(
-                        f"valid_expansions_ratio_vs_epoch",
-                        valid_expansions_ratio,
-                        epoch,
-                    )
-                    writer.add_scalar(
-                        f"valid_fb_exp_ratio_vs_epoch", valid_fb_exp_ratio, epoch
-                    )
-                    writer.add_scalar(f"valid_fb_g_ratio", valid_fb_g_ratio, epoch)
-                    writer.add_scalar(f"valid_avg_sol_len", valid_avg_sol_len, epoch)
-                    # writer.add_scalar( f"valid_expanded_vs_epoch", valid_total_expanded, epoch)
-
                     agent.save_model("latest", log=False)
                     if valid_total_expanded <= best_valid_total_expanded:
                         best_valid_total_expanded = valid_total_expanded
@@ -602,23 +566,6 @@ def train(
                         agent.save_model("best_solved", log=False)
 
                     sys.stdout.flush()
-                    if isinstance(model, to.jit.ScriptModule):
-                        ext = ".ts"
-                    else:
-                        ext = ".pt"
-                    copyfile(
-                        logdir / f"model_latest{ext}",
-                        epoch_logdir / f"model_latest{ext}",
-                    )
-                    copyfile(
-                        logdir / f"model_best_solved{ext}",
-                        epoch_logdir / f"model_best_solved{ext}",
-                    )
-                    copyfile(
-                        logdir / f"model_best_expanded{ext}",
-                        epoch_logdir / f"model_best_expanded{ext}",
-                    )
-
                 if is_distributed:
                     dist.barrier()
 

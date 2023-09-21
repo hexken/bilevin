@@ -59,13 +59,26 @@ search_result_header = [
     "EndTime",
 ]
 
-csv_header = [
+train_csvfields = [
     "epoch",
-    "loss",
-    "acc",
-    "solve_rate",
+    "floss",
+    "facc",
+    "bloss",
+    "bacc",
+    "solved",
     "sol_len",
     "cum_uniq_solved",
+    "exp_ratio",
+    "fb_exp_ratio",
+    "fb_g_ratio",
+    "fb_pnll_ratio",
+    "fb_nll_ratio",
+]
+
+valid_csvfields = [
+    "epoch",
+    "solved",
+    "sol_len",
     "exp_ratio",
     "fb_exp_ratio",
     "fb_g_ratio",
