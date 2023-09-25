@@ -185,12 +185,6 @@ def parse_args():
         help="number of curriculum epochs to train for",
     )
     parser.add_argument(
-        "--include-prev-difficulty",
-        action="store_true",
-        default=False,
-        help="do not include previous difficulties in curriculum",
-    )
-    parser.add_argument(
         "--permutation-focus",
         action="store_true",
         default=False,

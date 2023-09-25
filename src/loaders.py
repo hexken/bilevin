@@ -15,6 +15,7 @@
 
 from copy import copy
 from math import ceil
+from typing import Optional
 
 import numpy as np
 
@@ -104,6 +105,7 @@ class CurriculumLoader:
         permutation_focus: bool,
         seed: int = 1,
         shuffle: bool = True,
+        samples_per_difficulty: Optional[int] = None,
     ):
         self.shuffle = shuffle
         self.local_batch_size = local_batch_size
@@ -120,6 +122,11 @@ class CurriculumLoader:
         self.world_curriculum_ids = world_curriculum_ids
         self.world_problems_per_difficulty = world_problems_per_difficulty
         self.local_problems_per_difficulty = len(local_curriculum_problems[0])
+        self.samples_per_difficulty = (
+            self.local_problems_per_difficulty
+            if samples_per_difficulty is None
+            else samples_per_difficulty
+        )
         self.min_epochs = min_epochs
         self.max_epochs = max_epochs
 
