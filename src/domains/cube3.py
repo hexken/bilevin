@@ -5,7 +5,6 @@ Based on the implementation found at this nice blog post:
 """
 from __future__ import annotations
 
-from numba import jit, njit
 import numpy as np
 import torch as to
 from torch import from_numpy
@@ -166,11 +165,6 @@ class Cube3(Domain):
         domain.goal_state_t = self.state_tensor(self.initial_state)
         return domain
 
-    # def is_goal2(self, state: Cube3State) -> bool:
-    #     return goal_check(
-    #         state.front, state.up, state.down, state.left, state.right, state.back
-    #     )
-
     def result(
         self,
         state: Cube3State,
@@ -283,22 +277,6 @@ class Cube3(Domain):
 
         return Cube3State(f, u, d, l, r, b)
 
-    # def result2(self, state: Cube3State, action: int) -> Cube3State:
-    #     return Cube3State(
-    #         *faces_result(
-    #             state.front,
-    #             state.up,
-    #             state.down,
-    #             state.left,
-    #             state.right,
-    #             state.back,
-    #             action,
-    #         )
-    #     )
-
-    # def _backwards_result(self, state: Cube3State, action: int) -> Cube3State:
-    #     return self._forward_result(state, self.reverse_action(action))
-
     def is_goal(self, state: Cube3State) -> bool:
         return (
             (state.front == 0).all()
@@ -308,18 +286,6 @@ class Cube3(Domain):
             and (state.right == 4).all()
             and (state.back == 5).all()
         )
-        # for i in range(3):
-        #     for j in range(3):
-        #         if (
-        #             state.front[i, j] != 0
-        #             or state.up[i, j] != 1
-        #             or state.down[i, j] != 2
-        #             or state.left[i, j] != 3
-        #             or state.right[i, j] != 4
-        #             or state.back[i, j] != 5
-        #         ):
-        #             return False
-        # return True
 
     def state_tensor(self, state: Cube3State) -> to.Tensor:
         return (
@@ -336,176 +302,6 @@ class Cube3(Domain):
             .float()
             .permute(3, 0, 1, 2)
         )
-
-
-# @njit
-# def faces_result(
-#     front: np.ndarray,
-#     up: np.ndarray,
-#     down: np.ndarray,
-#     left: np.ndarray,
-#     right: np.ndarray,
-#     back: np.ndarray,
-#     action: int,
-# ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-#     f = front.copy()
-#     u = up.copy()
-#     d = down.copy()
-#     l = left.copy()
-#     r = right.copy()
-#     b = back.copy()
-
-#     if action == 0:
-#         f = np.rot90(f, -1)
-#         u[2, :], l[:, 2], d[0, :], r[:, 0] = (
-#             np.flip(l[:, 2]),
-#             d[0, :],
-#             np.flip(r[:, 0]),
-#             u[2, :],
-#         )
-#     elif action == 1:
-#         f = np.rot90(f, 1)
-#         u[2, :], r[:, 0], d[0, :], l[:, 2] = (
-#             r[:, 0],
-#             np.flip(d[0, :]),
-#             l[:, 2],
-#             np.flip(u[2, :]),
-#         )
-#     elif action == 2:
-#         # Face rotate.
-#         u = np.rot90(u, -1)
-#         b[2, :], l[0, :], f[0, :], r[0, :] = (
-#             np.flip(l[0, :]),
-#             f[0, :],
-#             r[0, :],
-#             np.flip(b[2, :]),
-#         )
-#     elif action == 3:
-#         u = np.rot90(u, 1)
-#         b[2, :], r[0, :], f[0, :], l[0, :] = (
-#             np.flip(r[0, :]),
-#             f[0, :],
-#             l[0, :],
-#             np.flip(b[2, :]),
-#         )
-#     elif action == 4:
-#         d = np.rot90(d, -1)
-#         f[2, :], l[2, :], b[0, :], r[2, :] = (
-#             l[2, :],
-#             np.flip(b[0, :]),
-#             np.flip(r[2, :]),
-#             f[2, :],
-#         )
-#     elif action == 5:
-#         d = np.rot90(d, 1)
-#         f[2, :], r[2, :], b[0, :], l[2, :] = (
-#             r[2, :],
-#             np.flip(b[0, :]),
-#             np.flip(l[2, :]),
-#             f[2, :],
-#         )
-#     elif action == 6:
-#         l = np.rot90(l, -1)
-#         u[:, 0], b[:, 0], d[:, 0], f[:, 0] = (
-#             b[:, 0],
-#             d[:, 0],
-#             f[:, 0],
-#             u[:, 0],
-#         )
-#     elif action == 7:
-#         l = np.rot90(l, 1)
-#         u[:, 0], f[:, 0], d[:, 0], b[:, 0] = (
-#             f[:, 0],
-#             d[:, 0],
-#             b[:, 0],
-#             u[:, 0],
-#         )
-#     elif action == 8:
-#         r = np.rot90(r, -1)
-#         u[:, 2], f[:, 2], d[:, 2], b[:, 2] = (
-#             f[:, 2],
-#             d[:, 2],
-#             b[:, 2],
-#             u[:, 2],
-#         )
-#     elif action == 9:
-#         r = np.rot90(r, 1)
-#         u[:, 2], b[:, 2], d[:, 2], f[:, 2] = (
-#             b[:, 2],
-#             d[:, 2],
-#             f[:, 2],
-#             u[:, 2],
-#         )
-#     elif action == 10:
-#         b = np.rot90(b, -10)
-#         u[0, :], r[:, 2], d[2, :], l[:, 0] = (
-#             r[:, 2],
-#             np.flip(d[2, :]),
-#             l[:, 0],
-#             np.flip(u[0, :]),
-#         )
-#     else:
-#         b = np.rot90(b, -1)
-#         u[0, :], l[:, 0], d[2, :], r[:, 2] = (
-#             np.flip(l[:, 0]),
-#             d[2, :],
-#             np.flip(r[:, 2]),
-#             u[0, :],
-#         )
-
-#     return f, u, d, l, r, b
-
-
-# @njit
-def goal_check(
-    front: np.ndarray,
-    up: np.ndarray,
-    down: np.ndarray,
-    left: np.ndarray,
-    right: np.ndarray,
-    back: np.ndarray,
-) -> bool:
-    for i in range(3):
-        for j in range(3):
-            if (
-                front[i, j] != 0
-                or up[i, j] != 1
-                or down[i, j] != 2
-                or left[i, j] != 3
-                or right[i, j] != 4
-                or back[i, j] != 5
-            ):
-                return False
-    return True
-
-
-# @njit
-def equal_check(
-    front: np.ndarray,
-    up: np.ndarray,
-    down: np.ndarray,
-    left: np.ndarray,
-    right: np.ndarray,
-    back: np.ndarray,
-    front2: np.ndarray,
-    up2: np.ndarray,
-    down2: np.ndarray,
-    left2: np.ndarray,
-    right2: np.ndarray,
-    back2: np.ndarray,
-) -> bool:
-    for i in range(3):
-        for j in range(3):
-            if (
-                front[i, j] != front2[i, j]
-                or up[i, j] != up2[i, j]
-                or down[i, j] != down2[i, j]
-                or left[i, j] != left2[i, j]
-                or right[i, j] != right2[i, j]
-                or back[i, j] != back2[i, j]
-            ):
-                return False
-    return True
 
 
 def parse_problemset(problemset: dict):

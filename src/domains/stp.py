@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-from numba import jit, njit
 import numpy as np
 import torch as to
 
@@ -49,18 +48,7 @@ class SlidingTilePuzzleState(State):
         return self.tiles.tobytes().__hash__()
 
     def __eq__(self, other: SlidingTilePuzzleState) -> bool:
-        return np.array_equal(self.tiles, other.tiles)
-        # return tiles_eq(self.tiles, other.tiles)
-
-
-@njit
-def tiles_eq(tiles: np.ndarray, other_tiles: np.ndarray) -> bool:
-    n = len(tiles)
-    for i in range(n):
-        for j in range(n):
-            if tiles[i, j] != other_tiles[i, j]:
-                return False
-    return True
+        return (self.tiles == other.tiles).all()
 
 
 class SlidingTilePuzzle(Domain):
