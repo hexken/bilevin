@@ -23,7 +23,7 @@ from torch.jit import RecursiveScriptModule
 
 from domains.domain import State
 from search.agent import Agent
-from search.utils import LevinNode, Problem, Trajectory
+from search.utils import SearchNode, Problem, Trajectory
 
 
 class Levin(Agent):
@@ -58,11 +58,11 @@ class Levin(Agent):
         actions, mask = domain.actions_unpruned(state)
         log_probs, _ = model(state_t, mask=mask)
 
-        node = LevinNode(
+        node = SearchNode(
             state,
             g_cost=0,
             log_prob=0.0,
-            levin_cost=0.0,
+            cost=0.0,
             actions=actions,
             actions_mask=mask,
             log_action_probs=log_probs[0],
@@ -94,7 +94,7 @@ class Levin(Agent):
                 new_state = domain.result(node.state, a)
                 new_state_actions, mask = domain.actions(a, new_state)
 
-                new_node = LevinNode(
+                new_node = SearchNode(
                     new_state,
                     g_cost=node.g_cost + 1,
                     parent=node,
@@ -103,7 +103,7 @@ class Levin(Agent):
                     actions_mask=mask,
                     log_prob=node.log_prob + node.log_action_probs[a].item(),
                 )
-                new_node.levin_cost = cost_fn(new_node)
+                new_node.cost = cost_fn(new_node)
 
                 num_generated += 1
 

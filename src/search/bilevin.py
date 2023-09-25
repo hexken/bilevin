@@ -22,7 +22,7 @@ import torch as to
 from domains.domain import State
 from enums import TwoDir
 from search.agent import Agent
-from search.utils import LevinNode, Problem
+from search.utils import SearchNode, Problem
 
 
 class BiLevin(Agent):
@@ -63,11 +63,11 @@ class BiLevin(Agent):
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
         f_actions, f_mask = f_domain.actions_unpruned(f_state)
         f_log_probs, _ = model(f_state_t, mask=f_mask)
-        f_start_node = LevinNode(
+        f_start_node = SearchNode(
             f_state,
             g_cost=0,
             log_prob=0.0,
-            levin_cost=0.0,
+            cost=0.0,
             actions=f_actions,
             actions_mask=f_mask,
             log_action_probs=f_log_probs[0],
@@ -107,11 +107,11 @@ class BiLevin(Agent):
             b_state_t, forward=False, goal_feats=b_goal_feats, mask=b_mask
         )
         for i, state in enumerate(b_states):
-            start_node = LevinNode(
+            start_node = SearchNode(
                 state,
                 g_cost=0,
                 log_prob=0.0,
-                levin_cost=0.0,
+                cost=0.0,
                 actions=b_actions[i],
                 actions_mask=b_mask[i],
                 log_action_probs=b_log_probs[i],
@@ -171,7 +171,7 @@ class BiLevin(Agent):
                 new_state = _domain.result(node.state, a)
                 new_state_actions, mask = _domain.actions(a, new_state)
 
-                new_node = LevinNode(
+                new_node = SearchNode(
                     new_state,
                     g_cost=node.g_cost + 1,
                     parent=node,
@@ -180,7 +180,7 @@ class BiLevin(Agent):
                     actions_mask=mask,
                     log_prob=node.log_prob + node.log_action_probs[a].item(),
                 )
-                new_node.levin_cost = cost_fn(new_node)
+                new_node.cost = cost_fn(new_node)
 
                 if direction == TwoDir.FORWARD:
                     n_forw_generated += 1

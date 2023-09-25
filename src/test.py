@@ -13,6 +13,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import csv
+from pathlib import Path
 from timeit import default_timer as timer
 from typing import Optional
 import warnings
@@ -22,24 +24,22 @@ import pandas as pd
 from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
-from torch.utils.tensorboard.writer import SummaryWriter
 
 from loaders import ProblemsBatchLoader
 from search.agent import Agent
-from search.utils import int_columns, search_result_header
+from search.utils import int_columns, search_result_header, test_csvfields
 
 
 def test(
     rank: int,
+    logdir: Path,
     agent: Agent,
     problems_loader: ProblemsBatchLoader,
-    writer: SummaryWriter,
     world_size: int,
     expansion_budget: int,
     time_budget: int,
     increase_budget: bool = True,
     print_results: bool = True,
-    validate: bool = False,
     epoch: Optional[int] = None,
 ):
     current_exp_budget = expansion_budget
@@ -58,7 +58,6 @@ def test(
 
     total_num_expanded = 0
 
-    world_solved_problems = set()
     local_problems = set(p[0] for p in problems_loader if p)
     local_search_results = np.zeros(
         (len(local_problems), len(search_result_header)), dtype=np.float64
@@ -67,6 +66,14 @@ def test(
 
     if rank == 0:
         world_search_results = [None] * world_size
+        test_csv = logdir / "test.csv"
+        if test_csv.exists():
+            test_csv = test_csv.open("a", newline="")
+            test_writer = csv.DictWriter(test_csv, test_csvfields)
+        else:
+            test_csv = test_csv.open("w", newline="")
+            test_writer = csv.DictWriter(test_csv, test_csvfields)
+            test_writer.writeheader()
     else:
         world_search_results = None
 
@@ -168,10 +175,14 @@ def test(
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            fb_exp_ratio = (
-                world_results_df["FExp"].sum() / world_results_df["BExp"].sum()
-            )
-            fb_g_ratio = world_results_df["Fg"].sum() / world_results_df["Bg"].sum()
+            fb_exp_ratio = (world_results_df["FExp"] / world_results_df["BExp"]).mean()
+            fb_g_ratio = (world_results_df["Fg"] / world_results_df["Bg"]).mean()
+            fb_pnll_ratio = (
+                world_results_df["FPnll"] / world_results_df["BPnll"]
+            ).mean()
+            fb_nll_ratio = (
+                world_results_df["FPnll"] / world_results_df["BPnll"]
+            ).mean()
             avg_sol_len = world_results_df[world_results_df["Len"] > 0]["Len"].mean()
 
         if print_results:
@@ -192,17 +203,23 @@ def test(
         print(
             f"Solved: {current_num_solved}/{world_num_problems} in {timer() - test_start_time:.2f}s"
         )
-        if validate:
-            fname = f"{writer.log_dir}/epoch-{epoch}/valid.pkl"
+        if not epoch:
+            this_epoch = 1
         else:
-            writer.add_scalar(
-                f"cum_unique_solved_vs_expanded",
-                current_num_solved,
-                total_num_expanded,
-            )
-            fname = f"{writer.log_dir}/test.pkl"
-
-        world_results_df.to_pickle(fname)
+            this_epoch = epoch
+        test_writer.writerow(
+            {
+                "epoch": this_epoch,
+                "solved": current_num_solved,
+                "sol_len": avg_sol_len,
+                "exp_ratio": fb_exp_ratio,
+                "fb_exp_ratio": fb_exp_ratio,
+                "fb_g_ratio": fb_g_ratio,
+                "fb_pnll_ratio": fb_pnll_ratio,
+                "fb_nll_ratio": fb_nll_ratio,
+            }
+        )
+        test_csv.flush()
 
     if rank == 0:
         return (

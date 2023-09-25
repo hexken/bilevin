@@ -16,7 +16,6 @@
 import csv
 from math import ceil
 from pathlib import Path
-from shutil import copyfile
 import sys
 from timeit import default_timer as timer
 from typing import Optional
@@ -36,7 +35,6 @@ from search.utils import (
     int_columns,
     search_result_header,
     train_csvfields,
-    valid_csvfields,
 )
 
 
@@ -62,11 +60,12 @@ def train(
 
     if rank == 0:
         train_csv = (logdir / "train.csv").open("w", newline="")
-        trainwriter = csv.DictWriter(train_csv, train_csvfields)
-        trainwriter.writeheader()
+        train_writer = csv.DictWriter(train_csv, train_csvfields)
+        train_writer.writeheader()
 
-        valid_csv = (logdir / "valid.csv").open("w", newline="")
-        validwriter = csv.DictWriter(valid_csv, valid_csvfields)
+        best_csv = (logdir / "best_models.csv").open("w", newline="")
+        best_writer = csv.DictWriter(best_csv, ["epoch", "solve_rate", "exp_ratio"])
+        best_writer.writeheader()
 
     opt_result_header = (
         f"           Forward        Backward\nOptStep   Loss    Acc    Loss    Acc"
@@ -294,7 +293,6 @@ def train(
                     )
 
                     batch_avg = num_problems_solved_this_batch / num_problems_this_batch
-                    # writer.add_scalar(f"solved_vs_batch", batch_avg, batches_seen)
 
                     batch_expansions = world_batch_print_df["Exp"].sum()
                     with warnings.catch_warnings():
@@ -303,13 +301,11 @@ def train(
                             len(world_batch_print_df) * expansion_budget
                         )
                         fb_exp_ratio = (
-                            world_batch_print_df["FExp"].sum()
-                            / world_batch_print_df["BExp"].sum()
-                        )
+                            world_batch_print_df["FExp"] / world_batch_print_df["BExp"]
+                        ).mean()
                         fb_g_ratio = (
-                            world_batch_print_df["Fg"].sum()
-                            / world_batch_print_df["Bg"].sum()
-                        )
+                            world_batch_print_df["Fg"] / world_batch_print_df["Bg"]
+                        ).mean()
 
                     print(
                         f"{'Solved':23s}: {num_problems_solved_this_batch}/{num_problems_this_batch}"
@@ -444,10 +440,10 @@ def train(
                         world_results_df["Fg"] / world_results_df["Bg"]
                     ).mean()
                     epoch_fb_pnll_ratio = (
-                        world_results_df["Fpnll"] / world_results_df["Bpnll"]
+                        world_results_df["FPnll"] / world_results_df["BPnll"]
                     ).mean()
                     epoch_fb_nll_ratio = (
-                        world_results_df["Fpnll"] / world_results_df["Bpnll"]
+                        world_results_df["FPnll"] / world_results_df["BPnll"]
                     ).mean()
                     epoch_f_loss = world_epoch_f_loss.mean(
                         where=(world_epoch_f_loss >= 0)
@@ -486,7 +482,7 @@ def train(
                 print(
                     "============================================================================"
                 )
-                trainwriter.writerow(
+                train_writer.writerow(
                     {
                         "epoch": epoch,
                         "floss": epoch_f_loss,
@@ -494,7 +490,7 @@ def train(
                         "bloss": epoch_b_loss,
                         "bacc": epoch_b_acc,
                         "solved": epoch_solved_ratio,
-                        "expansions": epoch_expansions,
+                        "exp_ratio": epoch_expansions_ratio,
                         "fb_exp_ratio": epoch_fb_exp_ratio,
                         "fb_g_ratio": epoch_fb_g_ratio,
                         "sol_len": epoch_avg_sol_len,
@@ -502,6 +498,7 @@ def train(
                         "fb_nll_ratio": epoch_fb_nll_ratio,
                     }
                 )
+                train_csv.flush()
                 # fmt: on
 
             if epoch >= epoch_begin_validate and epoch % validate_every == 0:
@@ -519,7 +516,6 @@ def train(
                     time_budget,
                     increase_budget=False,
                     print_results=False,
-                    validate=True,
                     epoch=epoch,
                 )
 
@@ -550,21 +546,27 @@ def train(
                     if valid_total_expanded <= best_valid_total_expanded:
                         best_valid_total_expanded = valid_total_expanded
                         print("Saving best model by expansions")
-                        writer.add_text(
-                            "best_model_expansions",
-                            f"epoch: {epoch}, solve rate: {valid_solve_rate}, expansion ratio: {valid_expansions_ratio}",
+                        best_writer.writerow(
+                            {
+                                "epoch": epoch,
+                                "solve_rate": valid_solve_rate,
+                                "exp_ratio": valid_expansions_ratio,
+                            }
                         )
                         agent.save_model("best_expanded", log=False)
 
                     if valid_solved >= best_valid_solved:
                         best_valid_solved = valid_solved
                         print("Saving best model by solved")
-                        writer.add_text(
-                            "best_model_solved",
-                            f"epoch: {epoch}, solve rate: {valid_solve_rate}, expansion ratio: {valid_expansions_ratio}",
+                        best_writer.writerow(
+                            {
+                                "epoch": epoch,
+                                "solve_rate": valid_solve_rate,
+                                "exp_ratio": valid_expansions_ratio,
+                            }
                         )
                         agent.save_model("best_solved", log=False)
-
+                    best_csv.flush()
                     sys.stdout.flush()
                 if is_distributed:
                     dist.barrier()

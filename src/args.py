@@ -239,7 +239,6 @@ def parse_args():
         default="levin_cost",
         choices=[
             "levin_cost",
-            "opt_levin_cost",
         ],
         help="loss function",
     )

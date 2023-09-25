@@ -75,7 +75,7 @@ train_csvfields = [
     "fb_nll_ratio",
 ]
 
-valid_csvfields = [
+test_csvfields = [
     "epoch",
     "solved",
     "sol_len",
@@ -100,6 +100,7 @@ class SearchNode:
         actions: Optional[list[int]] = None,
         actions_mask: Optional[Tensor] = None,
         log_action_probs: Optional[Tensor] = None,
+        cost: Optional[float] = None,
     ):
         self.state = state
         self.parent = parent
@@ -109,6 +110,7 @@ class SearchNode:
         self.actions = actions
         self.actions_mask = actions_mask
         self.log_action_probs = log_action_probs
+        self.cost = g_cost if cost is None else cost
 
     def __eq__(self, other):
         """
@@ -121,7 +123,7 @@ class SearchNode:
         """
         less-than used by the heap
         """
-        return self.g_cost < other.g_cost
+        return self.cost < other.cost
 
     def __hash__(self):
         """
@@ -130,47 +132,8 @@ class SearchNode:
         return self.state.__hash__()
 
 
-# todo LevinNode class is redundant
-class LevinNode(SearchNode):
-    def __init__(
-        self,
-        state: State,
-        g_cost: int,
-        parent: Optional[SearchNode] = None,
-        parent_action: Optional[int] = None,
-        log_prob: Optional[float] = None,
-        actions: Optional[list[int]] = None,
-        actions_mask: Optional[Tensor] = None,
-        log_action_probs: Optional[Tensor] = None,
-        levin_cost: Optional[float] = None,
-    ):
-        super().__init__(
-            state=state,
-            g_cost=g_cost,
-            parent=parent,
-            parent_action=parent_action,
-            log_prob=log_prob,
-            actions=actions,
-            actions_mask=actions_mask,
-            log_action_probs=log_action_probs,
-        )
-        self.levin_cost = levin_cost
-
-    def __lt__(self, other):
-        """
-        used by the heap
-        """
-        return self.levin_cost < other.levin_cost
-
-
-def levin_cost(node: LevinNode):
+def levin_cost(node: SearchNode):
     return math.log(node.g_cost) - node.log_prob  # type:ignore
-
-
-def opt_levin_cost(node: LevinNode):
-    return (
-        math.log(node.g_cost) - node.parent.log_action_probs[node.parent_action]
-    )  # type:ignore
 
 
 class Trajectory:

@@ -81,6 +81,7 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             logdir,
             agent,
             local_loader,
+            local_valid_loader,
             args.world_size,
             expansion_budget=args.expansion_budget,
             time_budget=args.time_budget,
@@ -91,7 +92,6 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
             epoch_reduce_grad_steps=args.epoch_reduce_grad_steps,
             epoch_begin_validate=args.epoch_begin_validate,
             validate_every=args.validate_every,
-            valid_loader=local_valid_loader,
             min_difficulty_solve_ratio=args.min_difficulty_solve_ratio,
         )
 
