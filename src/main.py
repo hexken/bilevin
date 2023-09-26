@@ -30,7 +30,6 @@ import torch.multiprocessing as mp
 
 from args import parse_args
 import domains
-from loaders import CurriculumLoader, ProblemsBatchLoader
 from search.bilevin import BiLevin
 from search.levin import Levin
 from train import train
@@ -38,7 +37,52 @@ from train import train
 # todo add args for kernel dims
 
 
-def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
+def get_loaders(args, problemset):
+    rng = np.random.default_rng(args.seed)
+
+    def split(problems):
+        ranks_problems = [[] for _ in range(args.world_size)]
+        rank = 0
+        for problem in problems:
+            # this should be a redundant check, but just in case
+            if problem.domain.is_goal(problem.domain.initial_state):
+                raise Exception(f"Problem '{problem.id}' initial state is a goal state")
+
+            ranks_problems[rank].append(problem)
+            rank = (rank + 1) % args.world_size
+
+        # ensure all ranks have same number of problems per stage
+        n_largest_pset = len(ranks_problems[0])
+        for pset in ranks_problems:
+            if len(pset) < n_largest_pset:
+                pset.append(rng.choice(problems))
+            assert len(pset) == n_largest_pset
+
+        return ranks_problems
+
+    def set_id_idxs(problems):
+        for i, p in enumerate(problems):
+            p.id_idx = i
+
+    stages_x_problems = problemset["problems"]
+    num_stages = len(stages_x_problems)
+    all_ids = [p.id for problems in stages_x_problems for p in problems]
+
+    # turn stages x problems into stages x ranks x problems
+    stages_x_ranks_x_problems = [[] for _ in range(num_stages)]
+    for stage in range(num_stages):
+        set_id_idxs(stages_x_problems[stage])
+        stages_x_ranks_x_problems[stage] = split(stages_x_problems[stage])
+
+    ranks_x_stages_x_problems = [[] for _ in range(args.world_size)]
+    for rank in range(args.world_size):
+        for stage in range(num_stages):
+            ranks_x_stages_x_problems.append(stages_x_ranks_x_problems[stage][rank])
+
+    return ranks_x_stages_x_problems, all_ids
+
+
+def run(rank, run_name, model_args, args, local_train_problems, local_valid_problems):
     is_distributed = args.world_size > 1
 
     if is_distributed:
@@ -48,17 +92,6 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
 
     if args.mode == "test":
         run_name = f"test_{run_name}"
-
-    logdir = args.runsdir_path / run_name
-    if rank == 0:
-        logdir.mkdir(parents=True, exist_ok=True)
-        print(f"Logging to {str(logdir)}\n")
-
-        arg_dict = {
-            k: (v if not isinstance(v, Path) else str(v)) for k, v in vars(args).items()
-        }
-        with (logdir / "args.json").open("w") as f:
-            json.dump(arg_dict, f, indent=2)
 
     local_seed = args.seed + rank
     random.seed(local_seed)
@@ -72,39 +105,21 @@ def run(rank, run_name, model_args, args, local_loader, local_valid_loader):
     else:
         raise ValueError(f"Unknown agent: {args.agent}")
 
-    if args.min_difficulty_solve_ratio == 0:
-        args.min_difficulty_solve_ratio = None
-
     if args.mode == "train":
         train(
             rank,
-            logdir,
             agent,
-            local_loader,
-            local_valid_loader,
-            args.world_size,
-            expansion_budget=args.expansion_budget,
-            time_budget=args.time_budget,
+            local_train_problems,
+            local_valid_problems,
             seed=local_seed,
-            grad_steps=args.grad_steps,
-            n_subgoals=args.n_subgoals,
-            epoch_reduce_lr=args.epoch_reduce_lr,
-            epoch_reduce_grad_steps=args.epoch_reduce_grad_steps,
-            epoch_begin_validate=args.epoch_begin_validate,
-            validate_every=args.validate_every,
-            min_difficulty_solve_ratio=args.min_difficulty_solve_ratio,
         )
 
     elif args.mode == "test":
         test(
             rank,
-            logdir,
             agent,
-            local_loader,
-            args.world_size,
-            expansion_budget=args.expansion_budget,
-            time_budget=args.time_budget,
-            increase_budget=args.increase_budget,
+            local_train_problems,
+            seed=local_seed,
             print_results=True,
             validate=False,
             epoch=None,
@@ -122,185 +137,21 @@ if __name__ == "__main__":
 
     is_distributed = args.world_size > 1
 
-    if args.mode == "train":
-        if args.batch_size_train < args.world_size:
-            raise ValueError(
-                f"batch-size-train'{args.batch_size_train}' must be >= world_size {args.world_size}"
-            )
-        if args.batch_size_train % args.world_size != 0:
-            raise ValueError(
-                f"batch-size-train '{args.batch_size_train}' must be a multiple of world_size {args.world_size}"
-            )
-
     abs_start_time = time.time()
     rel_start_time = timer()
+    print(time.ctime(abs_start_time))
 
     problemset_dict = json.load(args.problemset_path.open("r"))
     domain_module = getattr(domains, problemset_dict["domain_module"])
     problemset, model_args = getattr(domain_module, "parse_problemset")(problemset_dict)
+    problem_loaders = get_loaders(args, problemset)
 
     if args.validset_path:
         validset_dict = json.load(args.validset_path.open("r"))
         validset, _ = getattr(domain_module, "parse_problemset")(validset_dict)
-
-    print(time.ctime(abs_start_time))
-
-    def get_loaders(problemset):
-        def split(problems):
-            num_problems_parsed = len(problems)
-            # if num_problems_parsed < args.world_size:
-            #     raise Exception(
-            #         f"Number of problems '{num_problems_parsed}' must be greater than world size '{args.world_size}'"
-            #     )
-
-            problemsets = [[] for _ in range(args.world_size)]
-            proc = 0
-            for problem in problems:
-                # this should be a redundant check, but just in case
-                if problem.domain.is_goal(problem.domain.initial_state):
-                    raise Exception(
-                        f"Problem '{problem.id}' initial state is a goal state"
-                    )
-
-                problemsets[proc].append(problem)
-                proc = (proc + 1) % args.world_size
-
-            print(f"Parsed {num_problems_parsed} problems")
-
-            large_size = len(problemsets[0])
-            small_size = len(problemsets[-1])
-            if large_size == small_size:
-                print(
-                    f"  Loading {large_size} into each of {args.world_size} processes"
-                )
-            else:
-                small_ranks = 0
-                while len(problemsets[small_ranks]) == large_size:
-                    small_ranks += 1
-                    continue
-
-                print(
-                    f"  Loading {large_size} into ranks 0-{small_ranks - 1},\n"
-                    f"          {small_size} into ranks {small_ranks}-{args.world_size - 1}\n"
-                )
-
-            return problemsets
-
-        local_batch_size = args.batch_size_train // args.world_size
-
-        def set_id_idxs(start_idx, problems):
-            for i, p in enumerate(
-                problems,
-                start=start_idx,
-            ):
-                p.id_idx = i
-
-        if "is_curriculum" in problemset:
-            # for now, all training problemsets should be curricula
-            bootstrap_problemsets = split(problemset["bootstrap_problems"])
-            world_bootstrap_ids = [p.id for p in problemset["bootstrap_problems"]]
-            set_id_idxs(0, problemset["bootstrap_problems"])
-
-            curriculum_problems = problemset["curriculum_problems"]
-            world_curr_ids = [p.id for p in problemset["curriculum_problems"]]
-
-            ppd = problemset["problems_per_difficulty"]
-            if ppd % args.world_size != 0:
-                raise ValueError(
-                    "problems_per_difficulty must be a multiple of world_size"
-                )
-            if args.samples_per_difficulty is not None:
-                if (
-                    args.samples_per_difficulty >= ppd
-                    or args.samples_per_difficulty % args.world_size != 0
-                ):
-                    raise ValueError(
-                        "samples_per_difficulty must be a multiple of world_size and <= problems_per_difficulty"
-                    )
-                local_samples_per_difficulty = (
-                    args.samples_per_difficulty // args.world_size
-                )
-            else:
-                local_samples_per_difficulty = None
-
-            num_difficulty_levels = len(problemset["curriculum"])
-
-            curriculum_diff_ranks_split = [[] for _ in range(num_difficulty_levels)]
-            for i in range(num_difficulty_levels):
-                curriculum_difficulty_problems = curriculum_problems[
-                    i * ppd : (i + 1) * ppd
-                ]
-                set_id_idxs(0, curriculum_difficulty_problems)
-                curriculum_diff_ranks_split[i] = split(curriculum_difficulty_problems)
-
-            curriculum_problemsets = [[] for _ in range(args.world_size)]
-            for i in range(args.world_size):
-                for j in range(num_difficulty_levels):
-                    curriculum_problemsets[i].append(curriculum_diff_ranks_split[j][i])
-
-            permutation_problemsets = split(problemset["permutation_problems"])
-            world_permutation_ids = [p.id for p in problemset["permutation_problems"]]
-            set_id_idxs(
-                0,
-                problemset["permutation_problems"],
-            )
-
-            world_curr_ids = [
-                world_curr_ids[i : i + ppd] for i in range(0, len(world_curr_ids), ppd)
-            ]
-
-            loaders = []
-            for rank in range(args.world_size):
-                loaders.append(
-                    CurriculumLoader(
-                        local_bootstrap_problems=bootstrap_problemsets[rank],
-                        world_bootstrap_ids=world_bootstrap_ids,
-                        bootstrap_epochs=args.bootstrap_epochs,
-                        curriculum=problemset["curriculum"],
-                        world_problems_per_difficulty=ppd,
-                        local_curriculum_problems=curriculum_problemsets[rank],
-                        world_curriculum_ids=world_curr_ids,
-                        min_epochs=args.min_curriculum_epochs,
-                        max_epochs=args.max_curriculum_epochs,
-                        local_permutation_problems=permutation_problemsets[rank],
-                        world_permutation_ids=world_permutation_ids,
-                        permutation_epochs=args.permutation_epochs,
-                        local_batch_size=local_batch_size,
-                        world_size=args.world_size,
-                        seed=args.seed + rank,
-                        permutation_focus=args.permutation_focus,
-                        shuffle=args.shuffle,
-                        local_samples_per_difficulty=local_samples_per_difficulty,
-                    )
-                )
-
-        else:
-            # this is only for loading test/valid problemsets, which always use a batch_size of 1 to
-            # populate lists/tuples inside the test script
-            loaders = []
-            problemsets = split(problemset["problems"])
-            all_ids = [p.id for p in problemset["problems"]]
-            set_id_idxs(0, problemset["problems"])
-
-            for rank in range(args.world_size):
-                loaders.append(
-                    ProblemsBatchLoader(
-                        problems=problemsets[rank],
-                        all_ids=all_ids,
-                        local_batch_size=1,
-                        world_size=args.world_size,
-                        seed=args.seed,
-                        shuffle=args.shuffle,
-                    )
-                )
-
-        return loaders
-
-    problem_loaders = get_loaders(problemset)
-
-    valid_loaders = None
-    if args.validset_path:
-        valid_loaders = get_loaders(validset)
+        valid_loaders = get_loaders(args, validset)
+    else:
+        valid_loaders = None
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
     problemset_params = (
@@ -321,6 +172,18 @@ if __name__ == "__main__":
     model_args["backward_goal"] = (
         model_args["requires_backward_goal"] and not args.no_backward_goal
     )
+
+    logdir = args.runsdir_path / run_name
+    logdir.mkdir(parents=True, exist_ok=True)
+    print(f"Logging to {str(logdir)}\n")
+
+    arg_dict = {
+        k: (v if not isinstance(v, Path) else str(v)) for k, v in vars(args).items()
+    }
+    with (logdir / "args.json").open("w") as f:
+        json.dump(arg_dict, f, indent=2)
+
+    args.logdir = logdir
 
     if is_distributed:
         processes = []

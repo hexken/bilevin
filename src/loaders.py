@@ -87,21 +87,12 @@ class ProblemsBatchLoader:
 class CurriculumLoader:
     def __init__(
         self,
-        local_bootstrap_problems: list[Problem],
-        world_bootstrap_ids: list[str],
-        bootstrap_epochs: int,
-        curriculum: list[int],
-        world_problems_per_difficulty: int,
         local_curriculum_problems: list[list[Problem]],
         world_curriculum_ids: list[list[str]],
         min_epochs: int,
         max_epochs: int,
-        local_permutation_problems: list[Problem],
-        world_permutation_ids: list[str],
-        permutation_epochs: int,
         local_batch_size: int,
         world_size: int,
-        permutation_focus: bool,
         seed: int = 1,
         shuffle: bool = True,
         local_samples_per_difficulty: Optional[int] = None,
@@ -110,16 +101,9 @@ class CurriculumLoader:
         self.local_batch_size = local_batch_size
         self.seed = seed
         self.rng = np.random.default_rng(self.seed)
-        self.all_bootstrap_ids = world_bootstrap_ids
 
-        self.bootstrap_problems = local_bootstrap_problems
-        self.bootstrap_epochs = bootstrap_epochs
-
-        self.curriculum = curriculum
-        self.num_curriculum_stages = len(curriculum)
         self.local_curriculum_problems = local_curriculum_problems
         self.world_curriculum_ids = world_curriculum_ids
-        self.world_problems_per_difficulty = world_problems_per_difficulty
         self.local_samples_per_difficulty = (
             len(self.local_curriculum_problems[0])
             if local_samples_per_difficulty is None
@@ -128,12 +112,8 @@ class CurriculumLoader:
         self.min_epochs = min_epochs
         self.max_epochs = max_epochs
 
-        self.permutation_problems = local_permutation_problems
-        self.all_permutation_ids = world_permutation_ids
-        self.permutation_epochs = permutation_epochs
         self.world_size = world_size
 
-        self.permutation_focus = permutation_focus
 
     def __iter__(self):
         self.next_stage = "bootstrap"

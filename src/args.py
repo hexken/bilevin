@@ -21,16 +21,16 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--min-difficulty-solve-ratio",
+        "--min-stage-solve-ratio",
         type=float,
         default=0,
         help="advance curriculum when either reached epochs or this ratio of problems solved. 0 to ignore",
     )
     parser.add_argument(
-        "--samples-per-difficulty",
+        "--samples-per-stage",
         type=int,
         default=None,
-        help="number of samples to use per epoch of each curriculum difficulty",
+        help="number of samples to use per epoch of each curriculum stage",
     )
     parser.add_argument(
         "--shuffle",
@@ -173,34 +173,16 @@ def parse_args():
         help="number of gradient steps to be performed in each opt pass",
     )
     parser.add_argument(
-        "--bootstrap-epochs",
+        "--min-stage-epochs",
         type=int,
         default=1,
-        help="number of bootstrap epochs to train for",
+        help="minimum number of epochs per stage",
     )
     parser.add_argument(
-        "--min-curriculum-epochs",
+        "--max-stage-epochs",
         type=int,
         default=1,
-        help="minimum number of epochs per curriculum difficulty",
-    )
-    parser.add_argument(
-        "--max-curriculum-epochs",
-        type=int,
-        default=1,
-        help="number of curriculum epochs to train for",
-    )
-    parser.add_argument(
-        "--permutation-focus",
-        action="store_true",
-        default=False,
-        help="just use the permutation problems once the bootstrap/curriculum is done",
-    )
-    parser.add_argument(
-        "--permutation-epochs",
-        type=int,
-        default=1,
-        help="number of permutation epochs to train for",
+        help="maximum number of epochs per stage",
     )
     parser.add_argument(
         "--epoch-reduce-lr",
@@ -259,12 +241,6 @@ def parse_args():
         type=str,
         default="34567",
         help="port for multiprocessing communication",
-    )
-    parser.add_argument(
-        "--batch-size-train",
-        type=int,
-        default=32,
-        help="number of problems to batch during",
     )
     parser.add_argument(
         "--expansion-budget",

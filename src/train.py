@@ -29,6 +29,7 @@ import torch.distributed as dist
 from tqdm import tqdm
 
 from loaders import CurriculumLoader, ProblemsBatchLoader
+from search import Problem
 from search.agent import Agent
 from search.utils import (
     int_columns,
@@ -39,21 +40,12 @@ from search.utils import (
 
 def train(
     rank: int,
-    logdir: Path,
     agent: Agent,
-    train_loader: CurriculumLoader,
-    valid_loader: ProblemsBatchLoader,
-    world_size: int,
-    expansion_budget: int,
-    time_budget: int,
+    train_problems: list[list[Problem]],
+    train_all_ids: list[str],
+    valid_problems: list[list[Problem]],
+    valid_all_ids: list[str],
     seed: int,
-    grad_steps: int = 10,
-    n_subgoals: int = 0,
-    epoch_reduce_lr: int = 99999,
-    epoch_reduce_grad_steps: int = 99999,
-    epoch_begin_validate: int = 1,
-    validate_every: int = 1,
-    min_difficulty_solve_ratio: float | None = None,
 ):
     is_distributed = world_size > 1
 
