@@ -137,14 +137,17 @@ class CurriculumLoader:
 
     def __iter__(self):
         self.next_stage = "bootstrap"
+        self.stage = self.next_stage
         self.stage_epoch = 1
+        self.advance_stage = False
         return self
 
     def __next__(self):
         if self.next_stage == "bootstrap":
-            if self.stage_epoch == self.max_epochs:
-                self.next_stage = "curriculum"
-            self.curriculum_stage = -1
+            if self.stage_epoch >= self.bootstrap_epochs or self.advance_stage:
+                self.next_stage = "curriculum_0"
+                self.advance_stage = False
+            self.curriculum_stage = 0
             self.stage = "bootstrap"
             self.problems = copy(self.bootstrap_problems)
             self.all_ids = copy(self.all_bootstrap_ids)
@@ -158,11 +161,11 @@ class CurriculumLoader:
                 self.rng,
             )
         elif "curriculum" in self.next_stage:
-            self.stage_epoch = 1
-            self.curriculum_stage += 1
-            if self.curriculum_stage == self.num_curriculum_stages - 1:
-                if self.stage_epoch == self.max_epochs:
+            if self.stage_epoch >= self.max_epochs or self.advance_stage:
+                self.next_stage = f"curriculum_{self.curriculum_stage}"
+                if self.curriculum_stage == self.num_curriculum_stages - 1:
                     self.next_stage = "permutation"
+                    self.advance_stage = False
             self.stage = f"curriculum_{self.curriculum_stage}"
             new_problems = self.local_curriculum_problems[self.curriculum_stage]
             new_ids = self.world_curriculum_ids[self.curriculum_stage]
@@ -189,9 +192,9 @@ class CurriculumLoader:
                 self.rng,
             )
         elif self.next_stage == "permutation":
-            self.stage_epoch = 1
-            if self.stage_epoch == self.max_epochs:
+            if self.stage_epoch >= self.permutation_epochs or self.advance_stage:
                 self.next_stage = "end"
+                self.advance_stage = False
             self.stage = "permutation"
             self.problems = self.permutation_problems
             self.all_ids = self.all_permutation_ids
@@ -207,5 +210,9 @@ class CurriculumLoader:
         elif self.next_stage == "end":
             raise StopIteration
 
-        self.stage_epoch += 1
+        if self.stage != self.next_stage:
+            self.stage_epoch = 1
+        else:
+            self.stage_epoch += 1
+
         return self.loader

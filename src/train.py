@@ -1,4 +1,4 @@
-# offlini Copyright (C) 2021-2022, Ken Tjhia
+# Copyright (C) 2021-2022, Ken Tjhia
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,6 @@ from math import ceil
 from pathlib import Path
 import sys
 from timeit import default_timer as timer
-from typing import Optional
 import warnings
 
 import numpy as np
@@ -441,7 +440,7 @@ def train(
                 "============================================================================"
             )
             print(
-                f"END | STAGE {train_loader.stage} EPOCH {stage_epoch} | TOTAL EPOCH {epoch}"
+                f"END | STAGE {train_loader.stage} EPOCH {train_loader.stage_epoch} | TOTAL EPOCH {epoch}"
             )
             print(
                 "----------------------------------------------------------------------------"
@@ -551,17 +550,17 @@ def train(
                 dist.barrier()
 
         epoch += 1
-        if min_difficulty_solve_ratio is not None and epoch > train_loader.min_epochs:
-            break_flag = to.tensor([1], dtype=to.uint8)
-            if rank == 0:
-                break_flag[0] = epoch_solved_ratio >= min_difficulty_solve_ratio
-                if break_flag.item():
-                    print(
-                        f"Epoch solved ratio {epoch_solved_ratio} > {min_difficulty_solve_ratio} reached, advancing"
-                    )
-            dist.broadcast(break_flag, 0)
-            if break_flag.item():
-                break
+        # if min_difficulty_solve_ratio is not None and epoch > train_loader.min_epochs:
+        #     break_flag = to.tensor([1], dtype=to.uint8)
+        #     if rank == 0:
+        #         break_flag[0] = epoch_solved_ratio >= min_difficulty_solve_ratio
+        #         if break_flag.item():
+        #             print(
+        #                 f"Epoch solved ratio {epoch_solved_ratio} > {min_difficulty_solve_ratio} reached, advancing"
+        #             )
+        #     dist.broadcast(break_flag, 0)
+        #     if break_flag.item():
+        #         break
         # EPOCH END
 
     # EPOCHS END

@@ -209,16 +209,20 @@ if __name__ == "__main__":
                 raise ValueError(
                     "problems_per_difficulty must be a multiple of world_size"
                 )
-            if (
-                args.samples_per_difficulty is not None
-                and args.samples_per_difficulty >= ppd
-            ) or args.samples_per_difficulty % args.world_size != 0:
-                raise ValueError(
-                    "samples_per_difficulty must be a multiple of world_size and <= problems_per_difficulty"
+            if args.samples_per_difficulty is not None:
+                if (
+                    args.samples_per_difficulty >= ppd
+                    or args.samples_per_difficulty % args.world_size != 0
+                ):
+                    raise ValueError(
+                        "samples_per_difficulty must be a multiple of world_size and <= problems_per_difficulty"
+                    )
+                local_samples_per_difficulty = (
+                    args.samples_per_difficulty // args.world_size
                 )
-            local_samples_per_difficulty = (
-                args.samples_per_difficulty // args.world_size
-            )
+            else:
+                local_samples_per_difficulty = None
+
             num_difficulty_levels = len(problemset["curriculum"])
 
             curriculum_diff_ranks_split = [[] for _ in range(num_difficulty_levels)]
