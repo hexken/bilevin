@@ -210,11 +210,11 @@ if __name__ == "__main__":
                     "problems_per_difficulty must be a multiple of world_size"
                 )
             if (
-                args.samples_per_difficulty < ppd
-                or args.samples_per_difficulty % args.world_size != 0
-            ):
+                args.samples_per_difficulty is not None
+                and args.samples_per_difficulty >= ppd
+            ) or args.samples_per_difficulty % args.world_size != 0:
                 raise ValueError(
-                    "samples_per_difficulty must be a multiple of world_size and >= problems_per_difficulty"
+                    "samples_per_difficulty must be a multiple of world_size and <= problems_per_difficulty"
                 )
             local_samples_per_difficulty = (
                 args.samples_per_difficulty // args.world_size

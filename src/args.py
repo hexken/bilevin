@@ -30,7 +30,7 @@ def parse_args():
         "--samples-per-difficulty",
         type=int,
         default=None,
-        help="advance curriculum when either reached epochs or this ratio of problems solved. 0 to ignore",
+        help="number of samples to use per epoch of each curriculum difficulty",
     )
     parser.add_argument(
         "--shuffle",

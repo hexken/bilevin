@@ -137,18 +137,20 @@ class CurriculumLoader:
 
     def __iter__(self):
         self.next_stage = "bootstrap"
+        self.stage_epoch = 1
         return self
 
     def __next__(self):
         if self.next_stage == "bootstrap":
-            self.next_stage = "curriculum"
+            if self.stage_epoch == self.max_epochs:
+                self.next_stage = "curriculum"
             self.curriculum_stage = -1
             self.stage = "bootstrap"
             self.problems = copy(self.bootstrap_problems)
-            self.ids = copy(self.all_bootstrap_ids)
+            self.all_ids = copy(self.all_bootstrap_ids)
             self.loader = ProblemsBatchLoader(
                 self.problems,
-                self.ids,
+                self.all_ids,
                 self.local_batch_size,
                 self.world_size,
                 self.bootstrap_epochs,
@@ -156,14 +158,14 @@ class CurriculumLoader:
                 self.rng,
             )
         elif "curriculum" in self.next_stage:
+            self.stage_epoch = 1
             self.curriculum_stage += 1
             if self.curriculum_stage == self.num_curriculum_stages - 1:
-                self.next_stage = "permutation"
+                if self.stage_epoch == self.max_epochs:
+                    self.next_stage = "permutation"
             self.stage = f"curriculum_{self.curriculum_stage}"
             new_problems = self.local_curriculum_problems[self.curriculum_stage]
             new_ids = self.world_curriculum_ids[self.curriculum_stage]
-            self.problems = new_problems
-            self.ids = new_ids
 
             if self.local_samples_per_difficulty is not None:
                 sample = self.rng.choice(
@@ -171,12 +173,15 @@ class CurriculumLoader:
                     size=self.local_samples_per_difficulty,
                     replace=False,
                 )
-                self.problems = self.problems[sample]
-                self.ids = self.ids[sample]
+                self.problems = [new_problems[i] for i in sample]
+                self.all_ids = new_ids
+            else:
+                self.problems = new_problems
+                self.all_ids = new_ids
 
             self.loader = ProblemsBatchLoader(
                 self.problems,
-                self.ids,
+                self.all_ids,
                 self.local_batch_size,
                 self.world_size,
                 self.max_epochs,
@@ -184,13 +189,15 @@ class CurriculumLoader:
                 self.rng,
             )
         elif self.next_stage == "permutation":
-            self.next_stage = "end"
+            self.stage_epoch = 1
+            if self.stage_epoch == self.max_epochs:
+                self.next_stage = "end"
             self.stage = "permutation"
             self.problems = self.permutation_problems
-            self.ids = self.all_permutation_ids
+            self.all_ids = self.all_permutation_ids
             self.loader = ProblemsBatchLoader(
                 self.problems,
-                self.ids,
+                self.all_ids,
                 self.local_batch_size,
                 self.world_size,
                 self.permutation_epochs,
@@ -200,4 +207,5 @@ class CurriculumLoader:
         elif self.next_stage == "end":
             raise StopIteration
 
+        self.stage_epoch += 1
         return self.loader
