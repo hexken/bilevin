@@ -38,7 +38,6 @@ class ProblemLoader:
             self.rng = rng
 
         self.shuffle = shuffle
-        self.manual_advance = manual_advance
         self.problems = np.empty(len(local_problems), dtype=object)
         self.problems[:] = local_problems
         self.all_ids = all_ids  # ids of problems accross all ranks
@@ -77,5 +76,3 @@ class ProblemLoader:
             raise StopIteration
         return self.stage_problems[self._indices[self._served_this_stage]]
 
-    def advance_stage(self):
-        self._advance_stage = True
