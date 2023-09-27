@@ -39,6 +39,7 @@ from search.utils import (
 
 
 def train(
+    args,
     rank: int,
     agent: Agent,
     train_problems: list[list[Problem]],
@@ -47,14 +48,12 @@ def train(
     valid_all_ids: list[str],
     seed: int,
 ):
-    is_distributed = world_size > 1
-
     if rank == 0:
-        train_csv = (logdir / "train.csv").open("w", newline="")
+        train_csv = (args.logdir / "train.csv").open("w", newline="")
         train_writer = csv.DictWriter(train_csv, train_csvfields)
         train_writer.writeheader()
 
-        best_csv = (logdir / "best_models.csv").open("w", newline="")
+        best_csv = (args.logdir / "best_models.csv").open("w", newline="")
         best_writer = csv.DictWriter(best_csv, ["epoch", "solve_rate", "exp_ratio"])
         best_writer.writeheader()
 
@@ -82,7 +81,7 @@ def train(
     )
     world_batch_search_results = [
         to.zeros((local_batch_size, len(search_result_header)), dtype=to.float64)
-        for _ in range(world_size)
+        for _ in range(args.world_size)
     ]
 
     batches_seen = 0
@@ -105,7 +104,7 @@ def train(
         max_epoch_expansions = world_num_problems * expansion_budget
 
         world_batches_this_difficulty = ceil(
-            world_num_problems / (local_batch_size * world_size)
+            world_num_problems / (local_batch_size * args.world_size)
         )
 
         dummy_data = np.column_stack(
@@ -222,11 +221,8 @@ def train(
 
                 local_batch_search_results[i, 15] = end_time - epoch_start_time
 
-            if is_distributed:
-                dist.all_gather(world_batch_search_results, local_batch_search_results)
-                world_batch_results_t = to.cat(world_batch_search_results, dim=0)
-            else:
-                world_batch_results_t = local_batch_search_results
+            dist.all_gather(world_batch_search_results, local_batch_search_results)
+            world_batch_results_t = to.cat(world_batch_search_results, dim=0)
 
             world_batch_results_arr = world_batch_results_t.numpy()
             # results with no expanded nodes are not valid (from a partial batch)
@@ -341,13 +337,10 @@ def train(
                 else:
                     local_batch_opt_results[:] = 0
 
-                if is_distributed:
-                    dist.all_reduce(local_batch_opt_results, op=dist.ReduceOp.SUM)
-                    num_procs_found_solution = int(local_batch_opt_results[2].item())
-                    if num_procs_found_solution > 0:
-                        sync_grads(model, num_procs_found_solution)
-                else:
-                    num_procs_found_solution = int(local_batch_opt_results[2].item())
+                dist.all_reduce(local_batch_opt_results, op=dist.ReduceOp.SUM)
+                num_procs_found_solution = int(local_batch_opt_results[2].item())
+                if num_procs_found_solution > 0:
+                    sync_grads(model, num_procs_found_solution)
 
                 optimizer.step()
 
@@ -476,14 +469,15 @@ def train(
         if epoch >= epoch_begin_validate and epoch % validate_every == 0:
             if rank == 0:
                 print("VALIDATION")
-            if is_distributed:
-                dist.barrier()
+
+            dist.barrier()
+
             valid_results = test(
                 rank,
-                logdir,
+                args.logdir,
                 agent,
                 valid_loader,
-                world_size,
+                args.world_size,
                 expansion_budget,
                 time_budget,
                 increase_budget=False,
@@ -538,8 +532,8 @@ def train(
                     agent.save_model("best_solved", log=False)
                 best_csv.flush()
                 sys.stdout.flush()
-            if is_distributed:
-                dist.barrier()
+
+            dist.barrier()
 
         epoch += 1
         # if min_difficulty_solve_ratio is not None and epoch > train_loader.min_epochs:

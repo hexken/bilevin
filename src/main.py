@@ -37,10 +37,11 @@ from train import train
 # todo add args for kernel dims
 
 
-def get_loaders(args, problemset):
+def split(args, problemset):
+    "split a list of lists of problems into a list of lists of problems per rank"
     rng = np.random.default_rng(args.seed)
 
-    def split(problems):
+    def _split(problems):
         ranks_problems = [[] for _ in range(args.world_size)]
         rank = 0
         for problem in problems:
@@ -72,7 +73,7 @@ def get_loaders(args, problemset):
     stages_x_ranks_x_problems = [[] for _ in range(num_stages)]
     for stage in range(num_stages):
         set_id_idxs(stages_x_problems[stage])
-        stages_x_ranks_x_problems[stage] = split(stages_x_problems[stage])
+        stages_x_ranks_x_problems[stage] = _split(stages_x_problems[stage])
 
     ranks_x_stages_x_problems = [[] for _ in range(args.world_size)]
     for rank in range(args.world_size):
@@ -82,13 +83,19 @@ def get_loaders(args, problemset):
     return ranks_x_stages_x_problems, all_ids
 
 
-def run(rank, run_name, model_args, args, local_train_problems, local_valid_problems):
-    is_distributed = args.world_size > 1
-
-    if is_distributed:
-        os.environ["MASTER_ADDR"] = args.master_addr
-        os.environ["MASTER_PORT"] = args.master_port
-        dist.init_process_group(backend="gloo", rank=rank, world_size=args.world_size)
+def run(
+    rank,
+    run_name,
+    model_args,
+    args,
+    local_train_problems,
+    local_train_ids,
+    local_valid_problems,
+    local_valid_ids,
+):
+    os.environ["MASTER_ADDR"] = args.master_addr
+    os.environ["MASTER_PORT"] = args.master_port
+    dist.init_process_group(backend="gloo", rank=rank, world_size=args.world_size)
 
     if args.mode == "test":
         run_name = f"test_{run_name}"
@@ -107,15 +114,19 @@ def run(rank, run_name, model_args, args, local_train_problems, local_valid_prob
 
     if args.mode == "train":
         train(
+            args,
             rank,
             agent,
             local_train_problems,
+            local_train_ids,
             local_valid_problems,
+            local_valid_ids,
             seed=local_seed,
         )
 
     elif args.mode == "test":
         test(
+            args,
             rank,
             agent,
             local_train_problems,
@@ -135,8 +146,6 @@ def run(rank, run_name, model_args, args, local_train_problems, local_valid_prob
 if __name__ == "__main__":
     args = parse_args()
 
-    is_distributed = args.world_size > 1
-
     abs_start_time = time.time()
     rel_start_time = timer()
     print(time.ctime(abs_start_time))
@@ -144,14 +153,15 @@ if __name__ == "__main__":
     problemset_dict = json.load(args.problemset_path.open("r"))
     domain_module = getattr(domains, problemset_dict["domain_module"])
     problemset, model_args = getattr(domain_module, "parse_problemset")(problemset_dict)
-    problem_loaders = get_loaders(args, problemset)
+    train_problems, train_ids = split(args, problemset)
 
     if args.validset_path:
         validset_dict = json.load(args.validset_path.open("r"))
         validset, _ = getattr(domain_module, "parse_problemset")(validset_dict)
-        valid_loaders = get_loaders(args, validset)
+        valid_problems, valid_ids = split(args, validset)
     else:
-        valid_loaders = None
+        valid_problems = None
+        valid_ids = None
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
     problemset_params = (
@@ -185,33 +195,26 @@ if __name__ == "__main__":
 
     args.logdir = logdir
 
-    if is_distributed:
-        processes = []
-        for rank in range(args.world_size):
-            proc = mp.Process(
-                target=run,
-                args=(
-                    rank,
-                    run_name,
-                    model_args,
-                    args,
-                    problem_loaders[rank],
-                    valid_loaders[rank] if valid_loaders else None,
-                ),
-            )
-            problem_loaders[rank] = None
-            proc.start()
-            processes.append(proc)
-
-        for proc in processes:
-            proc.join()
-    else:
-        assert len(problem_loaders) == 1
-        run(
-            0,
-            run_name,
-            model_args,
-            args,
-            problem_loaders[0],
-            valid_loaders[0] if valid_loaders else None,
+    processes = []
+    for rank in range(args.world_size):
+        proc = mp.Process(
+            target=run,
+            args=(
+                rank,
+                run_name,
+                model_args,
+                args,
+                train_problems[rank],
+                train_ids[rank],
+                valid_problems[rank] if valid_problems else None,
+                valid_ids[rank] if valid_ids else None,
+            ),
         )
+        proc.start()
+        processes.append(proc)
+
+    del train_problems
+    del valid_problems
+
+    for proc in processes:
+        proc.join()

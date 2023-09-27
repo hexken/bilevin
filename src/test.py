@@ -45,8 +45,6 @@ def test(
     current_exp_budget = expansion_budget
     current_time_budget = time_budget
 
-    is_distributed = world_size > 1
-
     world_num_problems = len(problems_loader.all_ids)
 
     bidirectional = agent.bidirectional
@@ -129,13 +127,12 @@ def test(
                     local_search_results[i, 14] = -1 * traj[1].log_prob
             local_search_results[i, 15] = end_time - test_start_time
 
-        if is_distributed:
-            dist.barrier()
+        dist.barrier()
 
         num_solved_t = to.zeros(1, dtype=to.int64)
         num_solved_t[0] = sum(local_solved_problems)
-        if is_distributed:
-            dist.all_reduce(num_solved_t, op=dist.ReduceOp.SUM)
+
+        dist.all_reduce(num_solved_t, op=dist.ReduceOp.SUM)
 
         current_num_solved = num_solved_t.item()
         if current_num_solved == world_num_problems or not increase_budget:
@@ -151,10 +148,7 @@ def test(
                     f"Time budget increased from {current_time_budget / 2} to {current_time_budget}\n"
                 )
 
-    if is_distributed:
-        dist.gather_object(local_search_results, world_search_results)
-    else:
-        world_search_results = [local_search_results]
+    dist.gather_object(local_search_results, world_search_results)
 
     if rank == 0:
         world_search_results_arr = np.vstack(world_search_results)
