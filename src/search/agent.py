@@ -19,10 +19,8 @@ from typing import Callable, Optional
 
 import torch as to
 import torch.distributed as dist
-from torch.jit import ScriptModule
 
 from models import AgentModel
-import models
 import models.losses as losses
 import search.utils as sutils
 from search.utils import Problem, SearchNode, Trajectory
@@ -33,52 +31,34 @@ class Agent(ABC):
         if not self.trainable:
             return
 
-        model_args["bidirectional"] = self.bidirectional
+        model_args["bidirectioal"] = self.bidirectional
 
         self.logdir: Path = logdir
 
-        self._model: AgentModel | ScriptModule
+        self.model: AgentModel
         self.cost_fn: Callable[[SearchNode], float] = getattr(sutils, args.cost_fn)
 
         if args.model_path is None:
             # just use the random initialization from rank 0
-            self._model = AgentModel(model_args)
+            self.model = AgentModel(model_args)
             if args.world_size > 1:
-                for param in self._model.parameters():
+                for param in self.model.parameters():
                     dist.broadcast(param.data, 0)
-            if not args.no_jit:
-                self._model = to.jit.script(self._model)
-
         elif args.model_path.is_dir():
-            load_model_path = list(args.model_path.glob(f"model_{args.model_suffix}*"))[
-                0
-            ]
-            if load_model_path.suffix == ".ts":
-                self._model = to.jit.load(load_model_path)
-            elif load_model_path.suffix == ".pt":
-                self._model = to.load(load_model_path)
-            else:
-                ValueError("model-path must be a .pt or .ts file")
-
-            if not args.no_jit:
-                self._model = to.jit.script(self._model)
-
+            full_model_path = args.model_path / f"best_{args.model_suffix}.pt"
+            self.model = to.load(full_model_path)
             if rank == 0:
-                print(f"Loaded model\n  {str(load_model_path)}")
+                print(f"Loaded model\n  {str(full_model_path)}")
         else:
             raise ValueError("model-path argument must be a directory if given")
 
         if rank == 0:
-            if isinstance(self._model, ScriptModule):
-                init_model = self.logdir / f"model_init.ts"
-                to.jit.save(self._model, init_model)
-            else:
-                init_model = self.logdir / f"model_init.pt"
-                to.save(self._model, init_model)
+            init_model = self.logdir / f"model_init.pt"
+            to.save(self.model, init_model)
             print(f"Saved init model\n  to {str(init_model)}")
 
         if args.mode == "train":
-            assert self._model
+            assert self.model
             self.loss_fn = getattr(losses, args.loss_fn)
             if not args.share_feature_net:
                 flr = args.forward_feature_net_lr
@@ -117,26 +97,14 @@ class Agent(ABC):
                 )
             self.optimizer = to.optim.Adam(optimizer_params)
 
-    @property
-    def model(self) -> AgentModel | ScriptModule:
-        return self._model
-
     def save_model(
         self,
         suffix: str = "",
         subpath: str = "",
         log: bool = True,
     ):
-        if isinstance(self.model, to.jit.ScriptModule):
-            save_func = to.jit.save
-            ext = ".ts"
-        else:
-            save_func = to.save
-            ext = ".pt"
-
-        path = self.logdir / subpath / f"model_{suffix}{ext}"
-        save_func(self.model, path)
-
+        path = self.logdir / subpath / f"model_{suffix}.pt"
+        to.save(self.model, path)
         if log:
             print(f"Saved model\n  to {str(path)}")
 

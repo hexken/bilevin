@@ -118,12 +118,6 @@ def parse_args():
     #     help="hidden layer sizes of backward policy",
     # )
     parser.add_argument(
-        "--no-jit",
-        action="store_true",
-        default=False,
-        help="do not use torch jit",
-    )
-    parser.add_argument(
         "--weight-decay",
         type=float,
         default=0.001,
