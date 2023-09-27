@@ -22,17 +22,15 @@ import numpy as np
 from search.utils import Problem
 
 
-class ProblemsBatchLoader:
+class ProblemLoader:
     def __init__(
         self,
-        problems: list[Problem],
+        local_problems: list[list[Problem]],
         all_ids: list[str],
-        local_batch_size: int,
-        world_size: int = 1,
-        epochs: int = 1,
         shuffle: bool = True,
         rng=None,
         seed: int = 1,
+        manual_advance: bool = False,
     ):
         if not rng:
             self.rng = np.random.default_rng(seed)
@@ -40,159 +38,44 @@ class ProblemsBatchLoader:
             self.rng = rng
 
         self.shuffle = shuffle
-        self.epochs = epochs
-        self.problems = np.empty(len(problems), dtype=object)
-        self.problems[:] = problems
+        self.manual_advance = manual_advance
+        self.problems = np.empty(len(local_problems), dtype=object)
+        self.problems[:] = local_problems
         self.all_ids = all_ids  # ids of problems accross all ranks
-        self.local_batch_size = local_batch_size
-        self._len = len(problems)
-        self._num_problems_served = 0
-
-        self.world_size = world_size
-        self.world_num_batches = ceil(len(all_ids) / (local_batch_size * world_size))
-        self.batches_served = 0
+        self._len = len(self.all_ids)
+        self.n_stages = len(self.problems)
 
     def __len__(self):
         return self._len
 
     def __iter__(self):
-        self.batches_served = 0
+        self.stage = -1
+        self._advance_stage = False
+        self._advance_stage(self.stage)
+        return self
+
+    def _advance_stage(self):
+        self.stage_problems = self.problems[self.stage]
+        self.stage_all_ids = self.all_ids[self.stage]
         if self.shuffle:
-            self._indices = self.rng.permutation(self._len)
+            self._indices = [self.rng.permutation(len(sp)) for sp in self.problems]
         else:
-            self._indices = np.arange(self._len)
+            self._indices = [np.arange(len(sp)) for sp in self.problems]
 
-        self._num_problems_served = 0
-
-        return self
+        self._served_this_stage = 0
 
     def __next__(self):
-        if self._num_problems_served >= self._len:
-            if self.batches_served < self.world_num_batches:
-                self.batches_served += 1
-                return []
+        if self._advance_stage:
+            self._advance_stage = False
+            self.stage += 1
+            self._advance_stage(self.stage)
+        if self._served_this_stage >= len(self.stage_problems):
+            if not self.manual_advance:
+                self._advance_stage = True
+            problem = self.rng.choice(self.stage_problems)
+        if self.stage >= self.n_stages:
             raise StopIteration
-        next_indices = self._indices[
-            self._num_problems_served : self._num_problems_served
-            + self.local_batch_size
-        ]
-        self._num_problems_served += len(next_indices)
-        self.batches_served += 1
-        return self.problems[next_indices]
+        return self.stage_problems[self._indices[self._served_this_stage]]
 
-    def __getitem__(self, idx):
-        return self.problems[idx]
-
-
-class CurriculumLoader:
-    def __init__(
-        self,
-        local_curriculum_problems: list[list[Problem]],
-        world_curriculum_ids: list[list[str]],
-        min_epochs: int,
-        max_epochs: int,
-        local_batch_size: int,
-        world_size: int,
-        seed: int = 1,
-        shuffle: bool = True,
-        local_samples_per_difficulty: Optional[int] = None,
-    ):
-        self.shuffle = shuffle
-        self.local_batch_size = local_batch_size
-        self.seed = seed
-        self.rng = np.random.default_rng(self.seed)
-
-        self.local_curriculum_problems = local_curriculum_problems
-        self.world_curriculum_ids = world_curriculum_ids
-        self.local_samples_per_difficulty = (
-            len(self.local_curriculum_problems[0])
-            if local_samples_per_difficulty is None
-            else local_samples_per_difficulty
-        )
-        self.min_epochs = min_epochs
-        self.max_epochs = max_epochs
-
-        self.world_size = world_size
-
-
-    def __iter__(self):
-        self.next_stage = "bootstrap"
-        self.stage = self.next_stage
-        self.stage_epoch = 1
-        self.advance_stage = False
-        return self
-
-    def __next__(self):
-        if self.next_stage == "bootstrap":
-            if self.stage_epoch >= self.bootstrap_epochs or self.advance_stage:
-                self.next_stage = "curriculum_0"
-                self.advance_stage = False
-            self.curriculum_stage = 0
-            self.stage = "bootstrap"
-            self.problems = copy(self.bootstrap_problems)
-            self.all_ids = copy(self.all_bootstrap_ids)
-            self.loader = ProblemsBatchLoader(
-                self.problems,
-                self.all_ids,
-                self.local_batch_size,
-                self.world_size,
-                self.bootstrap_epochs,
-                self.shuffle,  # don't shuffle the bootstrap loader on first epoch
-                self.rng,
-            )
-        elif "curriculum" in self.next_stage:
-            if self.stage_epoch >= self.max_epochs or self.advance_stage:
-                self.next_stage = f"curriculum_{self.curriculum_stage}"
-                if self.curriculum_stage == self.num_curriculum_stages - 1:
-                    self.next_stage = "permutation"
-                    self.advance_stage = False
-            self.stage = f"curriculum_{self.curriculum_stage}"
-            new_problems = self.local_curriculum_problems[self.curriculum_stage]
-            new_ids = self.world_curriculum_ids[self.curriculum_stage]
-
-            if self.local_samples_per_difficulty is not None:
-                sample = self.rng.choice(
-                    range(len(new_problems)),
-                    size=self.local_samples_per_difficulty,
-                    replace=False,
-                )
-                self.problems = [new_problems[i] for i in sample]
-                self.all_ids = new_ids
-            else:
-                self.problems = new_problems
-                self.all_ids = new_ids
-
-            self.loader = ProblemsBatchLoader(
-                self.problems,
-                self.all_ids,
-                self.local_batch_size,
-                self.world_size,
-                self.max_epochs,
-                self.shuffle,
-                self.rng,
-            )
-        elif self.next_stage == "permutation":
-            if self.stage_epoch >= self.permutation_epochs or self.advance_stage:
-                self.next_stage = "end"
-                self.advance_stage = False
-            self.stage = "permutation"
-            self.problems = self.permutation_problems
-            self.all_ids = self.all_permutation_ids
-            self.loader = ProblemsBatchLoader(
-                self.problems,
-                self.all_ids,
-                self.local_batch_size,
-                self.world_size,
-                self.permutation_epochs,
-                self.shuffle,
-                self.rng,
-            )
-        elif self.next_stage == "end":
-            raise StopIteration
-
-        if self.stage != self.next_stage:
-            self.stage_epoch = 1
-        else:
-            self.stage_epoch += 1
-
-        return self.loader
+    def advance_stage(self):
+        self._advance_stage = True

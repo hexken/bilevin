@@ -57,16 +57,14 @@ def parse_args():
         help="path of directory to save run results to",
     )
     parser.add_argument(
-        "-p",
-        "--problemset-path",
+        "--problems-path",
         type=lambda p: Path(p).absolute(),
-        help="path of file with problem instances",
+        help="path of file with training or test problem instances",
     )
     parser.add_argument(
-        "-v",
-        "--validset-path",
+        "--valid-path",
         type=lambda p: Path(p).absolute(),
-        help="path of file with problem instances",
+        help="path of file with valid problem instances",
     )
     parser.add_argument(
         "-m",

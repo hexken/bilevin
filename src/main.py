@@ -34,8 +34,6 @@ from search.bilevin import BiLevin
 from search.levin import Levin
 from train import train
 
-# todo add args for kernel dims
-
 
 def split(args, problemset):
     "split a list of lists of problems into a list of lists of problems per rank"
@@ -67,7 +65,7 @@ def split(args, problemset):
 
     stages_x_problems = problemset["problems"]
     num_stages = len(stages_x_problems)
-    all_ids = [p.id for problems in stages_x_problems for p in problems]
+    all_ids = [[p.id for p in problems] for problems in stages_x_problems]
 
     # turn stages x problems into stages x ranks x problems
     stages_x_ranks_x_problems = [[] for _ in range(num_stages)]
@@ -150,12 +148,12 @@ if __name__ == "__main__":
     rel_start_time = timer()
     print(time.ctime(abs_start_time))
 
-    problemset_dict = json.load(args.problemset_path.open("r"))
+    problemset_dict = json.load(args.problems_path.open("r"))
     domain_module = getattr(domains, problemset_dict["domain_module"])
     problemset, model_args = getattr(domain_module, "parse_problemset")(problemset_dict)
-    train_problems, train_ids = split(args, problemset)
+    problems, ids = split(args, problemset)
 
-    if args.validset_path:
+    if args.valid_path:
         validset_dict = json.load(args.validset_path.open("r"))
         validset, _ = getattr(domain_module, "parse_problemset")(validset_dict)
         valid_problems, valid_ids = split(args, validset)
@@ -204,8 +202,8 @@ if __name__ == "__main__":
                 run_name,
                 model_args,
                 args,
-                train_problems[rank],
-                train_ids[rank],
+                problems[rank],
+                ids[rank],
                 valid_problems[rank] if valid_problems else None,
                 valid_ids[rank] if valid_ids else None,
             ),
@@ -213,7 +211,7 @@ if __name__ == "__main__":
         proc.start()
         processes.append(proc)
 
-    del train_problems
+    del problems
     del valid_problems
 
     for proc in processes:
