@@ -13,10 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from copy import copy
-from math import ceil
-from typing import Optional
-
 import numpy as np
 
 from search.utils import Problem
@@ -38,41 +34,54 @@ class ProblemLoader:
             self.rng = rng
 
         self.shuffle = shuffle
-        self.problems = np.empty(len(local_problems), dtype=object)
-        self.problems[:] = local_problems
+        self.problems = local_problems
         self.all_ids = all_ids  # ids of problems accross all ranks
         self._len = len(self.all_ids)
         self.n_stages = len(self.problems)
-
-    def __len__(self):
-        return self._len
+        self.manual_advance = manual_advance
 
     def __iter__(self):
         self.stage = -1
-        self._advance_stage = False
-        self._advance_stage(self.stage)
+        self._goto_next_stage = False
+        self._advance_stage()
+        if self.shuffle:
+            self._indices = self.rng.permutation(len(self.stage_problems))
+        else:
+            self._indices = np.arange(len(self.stage_problems))
         return self
 
-    def _advance_stage(self):
-        self.stage_problems = self.problems[self.stage]
+    def _advance_stage(self) -> bool:
+        """Returns True if there are no more stages"""
+        self.stage += 1
+        if self.stage >= self.n_stages:
+            return True
+        probs = self.problems[self.stage]
+        self.stage_problems = np.empty(len(probs), dtype=object)
+        self.stage_problems[:] = probs
         self.stage_all_ids = self.all_ids[self.stage]
-        if self.shuffle:
-            self._indices = [self.rng.permutation(len(sp)) for sp in self.problems]
-        else:
-            self._indices = [np.arange(len(sp)) for sp in self.problems]
-
-        self._served_this_stage = 0
+        self._idx = 0
+        return False
 
     def __next__(self):
-        if self._advance_stage:
-            self._advance_stage = False
-            self.stage += 1
-            self._advance_stage(self.stage)
-        if self._served_this_stage >= len(self.stage_problems):
+        if self._goto_next_stage:
+            self.goto_next_stage = False
+            done = self._advance_stage()
+            if done:
+                raise StopIteration
+        if self._idx >= len(self.stage_problems):
             if not self.manual_advance:
-                self._advance_stage = True
-            problem = self.rng.choice(self.stage_problems)
-        if self.stage >= self.n_stages:
-            raise StopIteration
-        return self.stage_problems[self._indices[self._served_this_stage]]
+                done = self._advance_stage()
+                if done:
+                    raise StopIteration
+            else:
+                if self.shuffle:
+                    self._indices = self.rng.permutation(len(self.stage_problems))
+        problem = self.stage_problems[self._indices[self._idx]]
+        self._idx += 1
+        return problem
 
+    def stage_complete(self):
+        return self._idx >= len(self.stage_problems)
+
+    def manual_advance_stage(self):
+        self._goto_next_stage = True
