@@ -46,9 +46,6 @@ search_result_header = [
     "Exp",
     "FExp",
     "BExp",
-    "Gen",
-    "FGen",
-    "BGen",
     "Len",
     "Fg",
     "Bg",
@@ -56,7 +53,6 @@ search_result_header = [
     "BPnll",
     "Fnll",
     "Bnll",
-    "EndTime",
 ]
 
 train_csvfields = [

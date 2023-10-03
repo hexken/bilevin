@@ -39,9 +39,9 @@ class ProblemLoader:
         self._len = len(self.all_ids)
         self.n_stages = len(self.problems)
         self.manual_advance = manual_advance
+        self.stage = -1
 
     def __iter__(self):
-        self.stage = -1
         self._goto_next_stage = False
         self._advance_stage()
         if self.shuffle:
@@ -78,7 +78,7 @@ class ProblemLoader:
                     self._indices = self.rng.permutation(len(self.stage_problems))
         problem = self.stage_problems[self._indices[self._idx]]
         self._idx += 1
-        return problem
+        return problem, self.stage
 
     def stage_complete(self):
         return self._idx >= len(self.stage_problems)

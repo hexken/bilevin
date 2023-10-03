@@ -38,18 +38,18 @@ def parse_args():
         default=False,
         help="shuffle problems",
     )
-    parser.add_argument(
-        "--no-backward-goal",
-        action="store_true",
-        default=False,
-        help="do not use backward goal state for policy input",
-    )
-    parser.add_argument(
-        "--n-subgoals",
-        type=int,
-        default=10,
-        help="use a maximum of this many subgoals per trajectory",
-    )
+    # parser.add_argument(
+    #     "--no-backward-goal",
+    #     action="store_true",
+    #     default=False,
+    #     help="do not use backward goal state for policy input",
+    # )
+    # parser.add_argument(
+    #     "--n-subgoals",
+    #     type=int,
+    #     default=10,
+    #     help="use a maximum of this many subgoals per trajectory",
+    # )
     parser.add_argument(
         "--runsdir-path",
         default="runs",

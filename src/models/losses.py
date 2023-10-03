@@ -24,7 +24,7 @@ from search.utils import Trajectory
 
 
 def loop_levin_loss_real(
-    trajs: list[Trajectory], model: AgentModel, n_subgoals: int = 0
+    trajs: list[Trajectory], model: AgentModel
 ):
     loss = 0
     acc = 0
@@ -48,7 +48,7 @@ def loop_levin_loss_real(
     return loss, avg_action_nll, acc
 
 
-def loop_levin_loss(trajs: list[Trajectory], model: AgentModel, n_subgoals: int = 0):
+def loop_levin_loss(trajs: list[Trajectory], model: AgentModel):
     loss = 0
     acc = 0
     total_actions = 0
