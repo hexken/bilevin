@@ -68,7 +68,12 @@ def train(
         if not param.grad:
             param.grad = to.zeros_like(param)
 
-    train_loader = ProblemLoader(train_problems, train_all_ids, seed=seed)
+    train_loader = ProblemLoader(
+        train_problems,
+        train_all_ids,
+        seed=seed,
+        manual_advance=args.min_stage_solve_ratio > 0,
+    )
     valid_loader = ProblemLoader(valid_problems, valid_all_ids, seed=seed)
 
     local_opt_results = to.zeros(5, dtype=to.float64)
@@ -93,9 +98,12 @@ def train(
     stage_baccs = []
     # for running avg of stage solve rate
     stage_avg = 0
-    stage_problems_sovled = 0
+    stage_problems_solved = 0
+    stage_problems_seen = 0
 
     for epoch in range(1, args.epochs + 1):
+        epoch_start_time = timer()
+
         flosses = []
         faccs = []
         blosses = []
@@ -145,20 +153,7 @@ def train(
                 "============================================================================\n"
             )
 
-        epoch_start_time = timer()
-
-        old_stage = train_loader.stage
         for problem, stage in train_loader:
-            if stage != old_stage:
-                old_stage = stage
-                stage_flosses = []
-                stage_faccs = []
-                stage_blosses = []
-                stage_baccs = []
-                # for running avg of stage solve rate
-                stage_avg = 0
-                stage_problems_sovled = 0
-
             model.eval()
             to.set_grad_enabled(False)
 
@@ -177,7 +172,7 @@ def train(
             ) = agent.search(
                 problem,
                 expansion_budget,
-                time_budget=time_budget,
+                time_budget=args.time_budget,
             )
             end_time = timer()
             solution_length = 0 if not traj else traj[0].cost
@@ -236,7 +231,7 @@ def train(
             batch_expansions = batch_print_df["Exp"].sum()
             epoch_expanded += batch_expansions
 
-            stage_problems_sovled += num_problems_solved_this_batch
+            stage_problems_solved += num_problems_solved_this_batch
 
             batch_avg = num_problems_solved_this_batch / batch_size
             batches_seen += 1
@@ -359,6 +354,13 @@ def train(
                                 blosses.append(b_loss)
                                 baccs.append(b_acc)
                             batches.append(batches_seen)
+
+            if (
+                args.samples_per_stage
+                and stage_problems_seen >= args.samples_per_stage
+                and stage_avg >= args.min_stage_solve_ratio
+            ):
+                train_loader.manual_advance_stage()
             # BATCH END
 
             if rank == 0:

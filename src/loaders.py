@@ -68,17 +68,16 @@ class ProblemLoader:
             done = self._advance_stage()
             if done:
                 raise StopIteration
-        if self._idx >= len(self.stage_problems):
+        problem = self.stage_problems[self._indices[self._idx]]
+        self._idx += 1
+        if self._idx == len(self.stage_problems):
             if not self.manual_advance:
-                done = self._advance_stage()
-                if done:
-                    raise StopIteration
+                self._goto_next_stage = True
             else:
                 if self.shuffle:
                     self._indices = self.rng.permutation(len(self.stage_problems))
-        problem = self.stage_problems[self._indices[self._idx]]
-        self._idx += 1
-        return problem, self.stage
+                    self.f_idx = 0
+        return problem
 
     def stage_complete(self):
         return self._idx >= len(self.stage_problems)
