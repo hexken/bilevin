@@ -24,7 +24,6 @@ class Agent(ABC):
         self.cost_fn: Callable[[SearchNode], float] = getattr(sutils, args.cost_fn)
 
         if args.model_path is None:
-            # just use the random initialization from rank 0
             self.model = AgentModel(model_args)
         elif args.model_path.is_dir():
             full_model_path = args.model_path / f"best_{args.model_suffix}.pt"

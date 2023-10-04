@@ -78,7 +78,7 @@ class BiLevin(Agent):
             f_frontier.append(f_start_node)
         heapq.heapify(f_frontier)
 
-        if model.backward_goal:
+        if model.requires_backward_goal:
             b_goal_feats = model.backward_feature_net(f_state_t)
         else:
             b_goal_feats = None

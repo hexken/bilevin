@@ -24,24 +24,24 @@ def split(args, problems):
     rng = np.random.default_rng(args.seed)
 
     def _split(problems):
-        ranks_problems = [[] for _ in range(args.world_size)]
+        ranks_x_problems = [[] for _ in range(args.world_size)]
         rank = 0
         for problem in problems:
             # this should be a redundant check, but just in case
             if problem.domain.is_goal(problem.domain.initial_state):
                 raise Exception(f"Problem '{problem.id}' initial state is a goal state")
 
-            ranks_problems[rank].append(problem)
+            ranks_x_problems[rank].append(problem)
             rank = (rank + 1) % args.world_size
 
         # ensure all ranks have same number of problems per stage
-        n_largest_pset = len(ranks_problems[0])
-        for pset in ranks_problems:
+        n_largest_pset = len(ranks_x_problems[0])
+        for pset in ranks_x_problems:
             if len(pset) < n_largest_pset:
                 pset.append(rng.choice(problems))
             assert len(pset) == n_largest_pset
 
-        return ranks_problems
+        return ranks_x_problems
 
     stages_x_problems = problems
     num_stages = len(stages_x_problems)
@@ -109,9 +109,7 @@ def run(
             rank,
             agent,
             local_train_problems,
-            seed=local_seed,
             print_results=True,
-            validate=False,
             epoch=None,
         )
 

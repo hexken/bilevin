@@ -15,7 +15,7 @@ class AgentModel(nn.Module):
         self.num_actions: int = model_args["num_actions"]
 
         self.share_feature_net: bool = model_args["share_feature_net"]
-        self.backward_goal: bool = model_args["backward_goal"]
+        self.requires_backward_goal: bool = model_args["requires_backward_goal"]
 
         self.in_channels: int = model_args["in_channels"]
         self.num_filters: int = model_args["num_filters"]
@@ -60,7 +60,7 @@ class AgentModel(nn.Module):
                     self.num_actions,
                 )
 
-            if self.backward_goal:
+            if self.requires_backward_goal:
                 self.backward_policy: nn.Module = StateGoalPolicy(
                     self.num_features,
                     self.num_actions,

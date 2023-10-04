@@ -165,6 +165,12 @@ def parse_args():
         help="number of gradient steps to be performed in each opt pass",
     )
     parser.add_argument(
+        "--epochs",
+        type=int,
+        default=10,
+        help="number of epochs to train for",
+    )
+    parser.add_argument(
         "--epoch-reduce-lr",
         type=int,
         default=9999999,

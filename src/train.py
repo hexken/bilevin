@@ -119,7 +119,10 @@ def train(
             )
 
         old_stage = -1
+        # print(len(train_loader))
+        # print(train_loader.n_stages)
         for problem in train_loader:
+            # print(train_loader.stage)
             if old_stage != train_loader.stage:
                 old_stage = train_loader.stage
                 stage_start_time = timer()
@@ -418,14 +421,10 @@ def train(
             dist.barrier()
 
             valid_results = test(
+                args,
                 rank,
-                logdir,
                 agent,
                 valid_loader,
-                world_size,
-                expansion_budget,
-                time_budget,
-                increase_budget=False,
                 print_results=False,
                 epoch=epoch,
             )
