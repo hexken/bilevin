@@ -1,11 +1,10 @@
 import json
-import json
 import os
 from pathlib import Path
+import pickle
 import random
 import time
 from timeit import default_timer as timer
-from typing import Optional
 
 import numpy as np
 from test import test
@@ -14,14 +13,13 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 
 from args import parse_args
-import domains
 from loaders import ProblemLoader
 from search.bilevin import BiLevin
 from search.levin import Levin
 from train import train
 
 
-def split(args, problemset):
+def split(args, problems):
     "split a list of lists of problems into a list of lists of problems per rank"
     rng = np.random.default_rng(args.seed)
 
@@ -45,7 +43,7 @@ def split(args, problemset):
 
         return ranks_problems
 
-    stages_x_problems = problemset["problems"]
+    stages_x_problems = problems
     num_stages = len(stages_x_problems)
     world_num_problems = sum(len(pset) for pset in stages_x_problems)
 
@@ -65,7 +63,7 @@ def split(args, problemset):
 def run(
     rank,
     run_name,
-    model_args,
+    agent,
     args,
     local_train_problems,
     world_num_train_problems,
@@ -84,19 +82,12 @@ def run(
     np.random.seed(local_seed)
     to.manual_seed(local_seed)
 
-    if args.agent == "Levin":
-        agent = Levin(rank, logdir, args, model_args)
-    elif args.agent == "BiLevin":
-        agent = BiLevin(rank, logdir, args, model_args)
-    else:
-        raise ValueError(f"Unknown agent: {args.agent}")
-
     train_loader = ProblemLoader(
         world_num_train_problems,
         local_train_problems,
         seed=local_seed,
         manual_advance=args.min_stage_solve_ratio > 0
-        and args.samples_per_stage is not None,
+        and args.min_samples_per_stage is not None,
     )
     valid_loader = ProblemLoader(
         world_num_valid_problems, local_valid_problems, seed=local_seed
@@ -133,51 +124,54 @@ def run(
 
 if __name__ == "__main__":
     args = parse_args()
-    if args.min_stage_solve_ratio > 0 and args.samples_per_stage is None:
+    if args.min_stage_solve_ratio > 0 and args.min_samples_per_stage is None:
         raise ValueError(
             "Must provide --min-samples-per-stage when using --min-stage-solve-ratio"
         )
+
+    pset_dict = pickle.load(args.problems_path.open("rb"))
+    problems, world_num_problems = split(args, pset_dict["problems"])
 
     abs_start_time = time.time()
     rel_start_time = timer()
     print(time.ctime(abs_start_time))
 
-    problemset_dict = json.load(args.problems_path.open("r"))
-    domain_module = getattr(domains, problemset_dict["domain_module"])
-    problemset, model_args = getattr(domain_module, "parse_problemset")(problemset_dict)
-    problems, world_num_problems = split(args, problemset)
-
-    if args.valid_path:
-        validset_dict = json.load(args.validset_path.open("r"))
-        validset, _ = getattr(domain_module, "parse_problemset")(validset_dict)
-        valid_problems, world_num_valid_problems = split(args, validset)
-    else:
-        valid_problems = None
-        world_num_valid_problems = 0
-
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
-    problemset_params = (
-        f"{args.problemset_path.parent.stem}-{args.problemset_path.stem}"
-    )
-    run_name = f"{problemset_dict['domain_name']}-{problemset_params}_{args.agent}-e{args.expansion_budget}-t{args.time_budget}{exp_name}_{args.seed}_{int(abs_start_time)}"
-    del problemset_dict
 
-    model_args.update(
-        {
-            "kernel_size": (2, 2),
-            "num_filters": 32,
-            "share_feature_net": args.share_feature_net,
-            "forward_hidden_layers": args.forward_hidden_layers,
-            "backward_hidden_layers": args.backward_hidden_layers,
-        }
-    )
-    model_args["backward_goal"] = (
-        model_args["requires_backward_goal"] and not args.no_backward_goal
-    )
+    problemset_params = f"{args.problems_path.parent.stem}-{args.problems_path.stem}"
+    run_name = f"{pset_dict['domain_name']}-{problemset_params}_{args.agent}-e{args.expansion_budget}-t{args.time_budget}{exp_name}_{args.seed}_{int(abs_start_time)}"
 
     logdir = args.runsdir_path / run_name
     logdir.mkdir(parents=True, exist_ok=True)
     print(f"Logging to {str(logdir)}\n")
+
+    model_args = {
+        "kernel_size": (2, 2),
+        "num_filters": 32,
+        "share_feature_net": args.share_feature_net,
+        "forward_hidden_layers": args.forward_hidden_layers,
+        "backward_hidden_layers": args.backward_hidden_layers,
+        "state_t_width": pset_dict["state_t_width"],
+        "state_t_depth": pset_dict["state_t_depth"],
+        "num_actions": pset_dict["num_actions"],
+        "in_channels": pset_dict["in_channels"],
+        "kernel_depth": pset_dict["kernel_depth"],
+        "requires_backward_goal": pset_dict["requires_backward_goal"],
+    }
+
+    if args.agent == "Levin":
+        agent = Levin(logdir, args, model_args)
+    elif args.agent == "BiLevin":
+        agent = BiLevin(logdir, args, model_args)
+    else:
+        raise ValueError(f"Unknown agent: {args.agent}")
+
+    if args.valid_path:
+        vset_dict = pickle.load(args.valid_path.open("rb"))
+        valid_problems, world_num_valid_problems = split(args, vset_dict["problems"])
+    else:
+        valid_problems = None
+        world_num_valid_problems = 0
 
     arg_dict = {
         k: (v if not isinstance(v, Path) else str(v)) for k, v in vars(args).items()
@@ -194,7 +188,7 @@ if __name__ == "__main__":
             args=(
                 rank,
                 run_name,
-                model_args,
+                agent,
                 args,
                 problems[rank],
                 world_num_problems,
@@ -204,9 +198,6 @@ if __name__ == "__main__":
         )
         proc.start()
         processes.append(proc)
-
-    del problems
-    del valid_problems
 
     for proc in processes:
         proc.join()

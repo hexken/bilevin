@@ -1,5 +1,4 @@
 import csv
-from pathlib import Path
 import pickle
 import sys
 from timeit import default_timer as timer

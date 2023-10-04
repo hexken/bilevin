@@ -1,9 +1,6 @@
-import csv
-from pathlib import Path
 import pickle
 from timeit import default_timer as timer
 from typing import Optional
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -14,7 +11,7 @@ import torch.distributed as dist
 from loaders import ProblemLoader
 from search.agent import Agent
 from search.utils import print_search_summary
-from search.utils import int_columns, search_result_header, test_csvfields
+from search.utils import int_columns, search_result_header
 
 
 def test(

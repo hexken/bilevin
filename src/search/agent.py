@@ -12,11 +12,11 @@ from search.utils import Problem, SearchNode, Trajectory
 
 
 class Agent(ABC):
-    def __init__(self, rank, logdir, args, model_args):
+    def __init__(self, logdir, args, model_args):
         if not self.trainable:
             return
 
-        model_args["bidirectioal"] = self.bidirectional
+        model_args["bidirectional"] = self.bidirectional
 
         self.logdir: Path = logdir
 
@@ -26,21 +26,16 @@ class Agent(ABC):
         if args.model_path is None:
             # just use the random initialization from rank 0
             self.model = AgentModel(model_args)
-            if args.world_size > 1:
-                for param in self.model.parameters():
-                    dist.broadcast(param.data, 0)
         elif args.model_path.is_dir():
             full_model_path = args.model_path / f"best_{args.model_suffix}.pt"
             self.model = to.load(full_model_path)
-            if rank == 0:
-                print(f"Loaded model\n  {str(full_model_path)}")
+            print(f"Loaded model\n  {str(full_model_path)}")
         else:
             raise ValueError("model-path argument must be a directory if given")
 
-        if rank == 0:
-            init_model = self.logdir / f"model_init.pt"
-            to.save(self.model, init_model)
-            print(f"Saved init model\n  to {str(init_model)}")
+        init_model = self.logdir / f"model_init.pt"
+        to.save(self.model, init_model)
+        print(f"Saved init model\n  to {str(init_model)}")
 
         if args.mode == "train":
             assert self.model

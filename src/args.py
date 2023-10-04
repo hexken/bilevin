@@ -165,18 +165,6 @@ def parse_args():
         help="number of gradient steps to be performed in each opt pass",
     )
     parser.add_argument(
-        "--min-stage-epochs",
-        type=int,
-        default=1,
-        help="minimum number of epochs per stage",
-    )
-    parser.add_argument(
-        "--max-stage-epochs",
-        type=int,
-        default=1,
-        help="maximum number of epochs per stage",
-    )
-    parser.add_argument(
         "--epoch-reduce-lr",
         type=int,
         default=9999999,
