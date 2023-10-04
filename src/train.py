@@ -16,8 +16,8 @@ from search.agent import Agent
 from search.utils import (
     int_columns,
     print_search_summary,
+    print_model_train_summary,
     search_result_header,
-    train_csvfields,
 )
 
 
@@ -372,8 +372,6 @@ def train(
                     stage_baccs = []
                     batches = []
 
-                # with warnings.catch_warnings():
-                #     warnings.simplefilter("ignore", category=RuntimeWarning)
                 print(
                     "----------------------------------------------------------------------------"
                 )
@@ -394,11 +392,13 @@ def train(
                 "============================================================================"
             )
             print(f"END EPOCH {epoch}")
+            epoch_search_df = pd.concat(epoch_search_dfs, ignore_index=True)
             print_search_summary(
                 epoch_search_df,
                 bidirectional,
             )
-            print_model_summary(
+            epoch_model_train_df = pd.concat(epoch_model_train_dfs, ignore_index=True)
+            print_model_train_summary(
                 epoch_model_train_df,
                 bidirectional,
             )

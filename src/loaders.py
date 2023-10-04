@@ -24,6 +24,10 @@ class ProblemLoader:
         self.n_stages = len(self.problems)
         self.manual_advance = manual_advance
         self.stage = -1
+        self._len = sum(len(p) for p in self.all_ids)
+
+    def __len__(self):
+        return self._len
 
     def __iter__(self):
         self.goto_next_stage = True

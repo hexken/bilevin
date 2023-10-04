@@ -25,8 +25,10 @@ def test(
 ):
     current_exp_budget = args.expansion_budget
     current_time_budget = args.time_budget
+    world_size = args.world_size
+    increase_budget = args.increase_budget
 
-    world_num_problems = len(problems_loader.all_ids)
+    world_num_problems = len(problems_loader)
 
     bidirectional = agent.bidirectional
     model = agent.model

@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument(
         "--min-samples-per-stage",
         type=int,
-        default=1,
+        default=None,
         help="minimum number of samples to use per epoch of each curriculum stage",
     )
     parser.add_argument(

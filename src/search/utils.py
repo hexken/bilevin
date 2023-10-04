@@ -1,6 +1,7 @@
 from __future__ import annotations
 import math
 from typing import Optional, TYPE_CHECKING
+import warnings
 
 import numpy as np
 import torch as to
@@ -70,18 +71,50 @@ test_csvfields = [
 int_columns = ["Exp", "FExp", "BExp"]
 
 
-def print_model_summary(
+def print_model_train_summary(
     model_train_df,
     bidirectioal: bool,
 ):
-    pass
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        floss = model_train_df["floss"].mean()
+        facc = model_train_df["facc"].mean()
+        print(f"Floss: {floss:.3f}")
+        print(f"Facc: {facc:.3f}")
+        if bidirectioal:
+            bloss = model_train_df["bloss"].mean()
+            bacc = model_train_df["bacc"].mean()
+            print(f"Bloss: {bloss:.3f}")
+            print(f"Bacc: {bacc:.3f}")
 
 
 def print_search_summary(
     search_df,
-    bidirectioal: bool,
+    bidirectional: bool,
 ):
-    pass
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        solved_df = search_df[(search_df["flen"] > 0) | (search_df["blen"] > 0)]
+        solved = len(solved_df) / len(search_df)
+        time = solved_df["time"].mean()
+        exp = (solved_df["fexp"] + solved_df["bexp"]).mean()
+        if bidirectional:
+            fb_exp = (solved_df["fexp"] / solved_df["bexp"]).mean()
+            fb_lens = (solved_df["flen"] / solved_df["blen"]).mean()
+            fb_pnll = (solved_df["fpnll"] / solved_df["bpnll"]).mean()
+            fb_nll = (solved_df["fnll"] / solved_df["bnll"]).mean()
+            lens = (solved_df["flen"] + solved_df["blen"]).mean()
+        else:
+            lens = solved_df["flen"].mean()
+        print(f"Solved: {solved:.3f}")
+        print(f"Time: {time:.3f}")
+        print(f"Exp: {exp:.3f}")
+        print(f"Len: {lens:.3f}")
+        if bidirectional:
+            print(f"FB Exp: {fb_exp:.3f}")
+            print(f"FB Len: {fb_lens:.3f}")
+            print(f"FB Pnll: {fb_pnll:.3f}")
+            print(f"FB Nll: {fb_nll:.3f}")
 
 
 class SearchNode:
