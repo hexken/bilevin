@@ -1,5 +1,6 @@
 import csv
 from pathlib import Path
+import pickle
 import sys
 from timeit import default_timer as timer
 import warnings
@@ -15,8 +16,8 @@ from loaders import ProblemLoader
 from search.agent import Agent
 from search.utils import (
     int_columns,
-    print_search_summary,
     print_model_train_summary,
+    print_search_summary,
     search_result_header,
 )
 
@@ -60,7 +61,7 @@ def train(
     batches_seen = 0
     batch_size = args.world_size
 
-    num_valid_problems = len(valid_loader.all_ids)
+    num_valid_problems = len(valid_loader)
     max_valid_expanded = num_valid_problems * expansion_budget
     best_valid_solved = -1
     best_valid_total_expanded = max_valid_expanded + 1
@@ -157,7 +158,7 @@ def train(
             if bidirectional:
                 problem.domain.reset()
 
-            local_search_results[0] = problem.id_idx
+            local_search_results[0] = problem.id
             local_search_results[1] = end_time - start_time
             local_search_results[2] = n_forw_expanded + n_backw_expanded
             local_search_results[3] = n_forw_expanded
@@ -181,16 +182,9 @@ def train(
 
             batch_results_arr = world_batch_results_t.numpy()
 
-            batch_real_ids = np.array(
-                [train_loader.all_ids[i] for i in batch_results_arr[:, 0].astype(int)],
-                dtype=np.unicode_,
-            )
-
             batch_print_df = pd.DataFrame(
-                batch_results_arr, columns=search_result_header[1:]
+                batch_results_arr, columns=search_result_header
             )
-            batch_print_df["Id"] = batch_real_ids
-            batch_print_df = batch_print_df.set_index("Id")
             for col in int_columns:
                 batch_print_df[col] = batch_print_df[col].astype(int)
             batch_print_df = batch_print_df.sort_values("Exp")
@@ -204,6 +198,7 @@ def train(
                         batch_print_df,
                         headers="keys",
                         tablefmt="psql",
+                        showindex=False,
                         # floatfmt=".2f"
                         # intfmt="",
                     )
@@ -353,24 +348,24 @@ def train(
                         "batch": pd.Series(batches, dtype=np.uint32),
                     }
 
-                    epoch_search_dfs.append(stage_search_df)
-                    epoch_model_train_dfs.append(stage_model_train_df)
+                epoch_search_dfs.append(stage_search_df)
+                epoch_model_train_dfs.append(stage_model_train_df)
 
-                    stage_times = []
-                    stage_fexps = []
-                    stage_bexps = []
-                    stage_flens = []
-                    stage_blens = []
-                    stage_fpnlls = []
-                    stage_bpnlls = []
-                    stage_fnlls = []
-                    stage_bnlls = []
+                stage_times = []
+                stage_fexps = []
+                stage_bexps = []
+                stage_flens = []
+                stage_blens = []
+                stage_fpnlls = []
+                stage_bpnlls = []
+                stage_fnlls = []
+                stage_bnlls = []
 
-                    stage_flosses = []
-                    stage_faccs = []
-                    stage_blosses = []
-                    stage_baccs = []
-                    batches = []
+                stage_flosses = []
+                stage_faccs = []
+                stage_blosses = []
+                stage_baccs = []
+                batches = []
 
                 print(
                     "----------------------------------------------------------------------------"
@@ -380,7 +375,11 @@ def train(
                     stage_search_df,
                     bidirectional,
                 )
-                print(f"Time: {timer() - stage_start_time}")
+                print_model_train_summary(
+                    stage_model_train_df,
+                    bidirectional,
+                )
+                print(f"Time: {timer() - stage_start_time:.2f}")
                 print(
                     "----------------------------------------------------------------------------"
                 )
@@ -393,21 +392,25 @@ def train(
             )
             print(f"END EPOCH {epoch}")
             epoch_search_df = pd.concat(epoch_search_dfs, ignore_index=True)
+            epoch_model_train_df = pd.concat(epoch_model_train_dfs, ignore_index=True)
             print_search_summary(
                 epoch_search_df,
                 bidirectional,
             )
+            with (logdir / f"search_train_{epoch}.pkl").open("wb") as f:
+                pickle.dump(epoch_search_df, f)
+
             epoch_model_train_df = pd.concat(epoch_model_train_dfs, ignore_index=True)
             print_model_train_summary(
                 epoch_model_train_df,
                 bidirectional,
             )
-            print(f"Time: {timer() - epoch_start_time}")
+            with (logdir / f"model_train_{epoch}.pkl").open("wb") as f:
+                pickle.dump(epoch_model_train_df, f)
+            print(f"\nTime: {timer() - epoch_start_time:.2f}")
             print(
                 "============================================================================"
             )
-
-            # fmt: on
 
         if epoch >= args.epoch_begin_validate and epoch % args.validate_every == 0:
             if rank == 0:
@@ -432,18 +435,8 @@ def train(
                 (
                     valid_solved,
                     valid_total_expanded,
-                    valid_fb_exp_ratio,
-                    valid_fb_g_ratio,
-                    valid_avg_sol_len,
                 ) = valid_results
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", category=RuntimeWarning)
-                    valid_expansions_ratio = valid_total_expanded / max_valid_expanded
-                valid_solve_rate = valid_solved / num_valid_problems
-                print_search_summary(
-                    valid_search_df,
-                    bidirectional,
-                )
+
                 agent.save_model("latest", log=False)
 
                 if valid_total_expanded <= best_valid_total_expanded:

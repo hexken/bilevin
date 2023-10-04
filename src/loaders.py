@@ -6,8 +6,8 @@ from search.utils import Problem
 class ProblemLoader:
     def __init__(
         self,
+        world_num_problems: int,
         local_problems: list[list[Problem]],
-        all_ids: list[str],
         shuffle: bool = True,
         rng=None,
         seed: int = 1,
@@ -20,14 +20,13 @@ class ProblemLoader:
 
         self.shuffle = shuffle
         self.problems = local_problems
-        self.all_ids = all_ids  # ids of problems accross all ranks
         self.n_stages = len(self.problems)
         self.manual_advance = manual_advance
         self.stage = -1
-        self._len = sum(len(p) for p in self.all_ids)
+        self.world_num_problems = world_num_problems
 
     def __len__(self):
-        return self._len
+        return self.world_num_problems
 
     def __iter__(self):
         self.goto_next_stage = True
@@ -46,7 +45,6 @@ class ProblemLoader:
             self._indices = self.rng.permutation(len(self.stage_problems))
         else:
             self._indices = np.arange(len(self.stage_problems))
-        self.stage_all_ids = self.all_ids[self.stage]
         self._idx = 0
         return False
 

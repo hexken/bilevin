@@ -45,18 +45,13 @@ def split(args, problemset):
 
         return ranks_problems
 
-    def set_id_idxs(problems):
-        for i, p in enumerate(problems):
-            p.id_idx = i
-
     stages_x_problems = problemset["problems"]
     num_stages = len(stages_x_problems)
-    all_ids = [[p.id for p in problems] for problems in stages_x_problems]
+    world_num_problems = sum(len(pset) for pset in stages_x_problems)
 
     # turn stages x problems into stages x ranks x problems
     stages_x_ranks_x_problems = [[] for _ in range(num_stages)]
     for stage in range(num_stages):
-        set_id_idxs(stages_x_problems[stage])
         stages_x_ranks_x_problems[stage] = _split(stages_x_problems[stage])
 
     ranks_x_stages_x_problems = [[] for _ in range(args.world_size)]
@@ -64,7 +59,7 @@ def split(args, problemset):
         for stage in range(num_stages):
             ranks_x_stages_x_problems.append(stages_x_ranks_x_problems[stage][rank])
 
-    return ranks_x_stages_x_problems, all_ids
+    return ranks_x_stages_x_problems, world_num_problems
 
 
 def run(
@@ -73,9 +68,9 @@ def run(
     model_args,
     args,
     local_train_problems,
-    local_train_all_ids,
+    world_num_train_problems,
     local_valid_problems,
-    local_valid_all_ids,
+    world_num_valid_problems,
 ):
     os.environ["MASTER_ADDR"] = args.master_addr
     os.environ["MASTER_PORT"] = args.master_port
@@ -97,14 +92,14 @@ def run(
         raise ValueError(f"Unknown agent: {args.agent}")
 
     train_loader = ProblemLoader(
+        world_num_train_problems,
         local_train_problems,
-        local_train_all_ids,
         seed=local_seed,
         manual_advance=args.min_stage_solve_ratio > 0
         and args.samples_per_stage is not None,
     )
     valid_loader = ProblemLoader(
-        local_valid_problems, local_valid_all_ids, seed=local_seed
+        world_num_valid_problems, local_valid_problems, seed=local_seed
     )
 
     if args.mode == "train":
@@ -150,15 +145,15 @@ if __name__ == "__main__":
     problemset_dict = json.load(args.problems_path.open("r"))
     domain_module = getattr(domains, problemset_dict["domain_module"])
     problemset, model_args = getattr(domain_module, "parse_problemset")(problemset_dict)
-    problems, ids = split(args, problemset)
+    problems, world_num_problems = split(args, problemset)
 
     if args.valid_path:
         validset_dict = json.load(args.validset_path.open("r"))
         validset, _ = getattr(domain_module, "parse_problemset")(validset_dict)
-        valid_problems, valid_ids = split(args, validset)
+        valid_problems, world_num_valid_problems = split(args, validset)
     else:
         valid_problems = None
-        valid_ids = None
+        world_num_valid_problems = 0
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
     problemset_params = (
@@ -202,9 +197,9 @@ if __name__ == "__main__":
                 model_args,
                 args,
                 problems[rank],
-                ids[rank],
+                world_num_problems,
                 valid_problems[rank] if valid_problems else None,
-                valid_ids[rank] if valid_ids else None,
+                world_num_valid_problems if valid_problems else 0,
             ),
         )
         proc.start()

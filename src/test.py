@@ -1,5 +1,6 @@
 import csv
 from pathlib import Path
+import pickle
 from timeit import default_timer as timer
 from typing import Optional
 import warnings
@@ -12,6 +13,7 @@ import torch.distributed as dist
 
 from loaders import ProblemLoader
 from search.agent import Agent
+from search.utils import print_search_summary
 from search.utils import int_columns, search_result_header, test_csvfields
 
 
@@ -27,6 +29,7 @@ def test(
     current_time_budget = args.time_budget
     world_size = args.world_size
     increase_budget = args.increase_budget
+    logdir = args.logdir
 
     world_num_problems = len(problems_loader)
 
@@ -47,20 +50,8 @@ def test(
 
     if rank == 0:
         world_search_results = [None] * world_size
-        test_csv = logdir / "test.csv"
-        if test_csv.exists():
-            test_csv = test_csv.open("a", newline="")
-            test_writer = csv.DictWriter(test_csv, test_csvfields)
-        else:
-            test_csv = test_csv.open("w", newline="")
-            test_writer = csv.DictWriter(test_csv, test_csvfields)
-            test_writer.writeheader()
     else:
         world_search_results = None
-
-    fb_exp_ratio = float("nan")
-    fb_g_ratio = float("nan")
-    avg_sol_len = float("nan")
 
     if rank == 0:
         print("Testing...")
@@ -93,22 +84,18 @@ def test(
             local_search_results[i, 2] = n_forw_expanded + n_backw_expanded
             local_search_results[i, 3] = n_forw_expanded
             local_search_results[i, 4] = n_backw_expanded
-            local_search_results[i, 5] = n_forw_generated + n_backw_generated
-            local_search_results[i, 6] = n_forw_generated
-            local_search_results[i, 7] = n_backw_generated
-            local_search_results[i, 8] = solution_length
+            local_search_results[i, 5] = solution_length
 
             if traj:
                 local_solved_problems[i] = True
 
-                local_search_results[i, 9] = traj[0].partial_g_cost
-                local_search_results[i, 11] = -1 * traj[0].partial_log_prob
-                local_search_results[i, 13] = -1 * traj[0].log_prob
+                local_search_results[i, 6] = traj[0].partial_g_cost
+                local_search_results[i, 8] = -1 * traj[0].partial_log_prob
+                local_search_results[i, 10] = -1 * traj[0].log_prob
                 if bidirectional:
-                    local_search_results[i, 10] = traj[1].partial_g_cost
-                    local_search_results[i, 12] = -1 * traj[1].partial_log_prob
-                    local_search_results[i, 14] = -1 * traj[1].log_prob
-            local_search_results[i, 15] = end_time - test_start_time
+                    local_search_results[i, 7] = traj[1].partial_g_cost
+                    local_search_results[i, 9] = -1 * traj[1].partial_log_prob
+                    local_search_results[i, 11] = -1 * traj[1].log_prob
 
         dist.barrier()
 
@@ -132,6 +119,7 @@ def test(
                 )
 
     dist.gather_object(local_search_results, world_search_results)
+    # End testing
 
     if rank == 0:
         world_search_results_arr = np.vstack(world_search_results)
@@ -142,25 +130,7 @@ def test(
         for col in int_columns:
             world_results_df[col] = world_results_df[col].astype(int)
 
-        world_results_df["ProblemId"] = [
-            problems_loader.all_ids[i]
-            for i in world_search_results_arr[:, 0].astype(int)
-        ]
-
-        world_results_df = world_results_df.set_index("ProblemId")
         world_results_df = world_results_df.sort_values("Exp")
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=RuntimeWarning)
-            fb_exp_ratio = (world_results_df["FExp"] / world_results_df["BExp"]).mean()
-            fb_g_ratio = (world_results_df["Fg"] / world_results_df["Bg"]).mean()
-            fb_pnll_ratio = (
-                world_results_df["FPnll"] / world_results_df["BPnll"]
-            ).mean()
-            fb_nll_ratio = (
-                world_results_df["FPnll"] / world_results_df["BPnll"]
-            ).mean()
-            avg_sol_len = world_results_df[world_results_df["Len"] > 0]["Len"].mean()
 
         if print_results:
             print(
@@ -168,43 +138,48 @@ def test(
                     world_results_df,
                     headers="keys",
                     tablefmt="psql",
+                    showindex=False,
                 )
             )
-            print(f"{'Solved':23s}: {current_num_solved}/{world_num_problems}\n")
-            print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:5.3f}")
-            print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:5.3f}")
-            print(f"{'Avg solution length':20s}: {avg_sol_len:5.3f}\n")
-
         total_num_expanded += world_results_df["Exp"].sum()
 
-        print(
-            f"Solved: {current_num_solved}/{world_num_problems} in {timer() - test_start_time:.2f}s"
-        )
-        if not epoch:
-            this_epoch = 1
-        else:
-            this_epoch = epoch
-        test_writer.writerow(
-            {
-                "epoch": this_epoch,
-                "solved": current_num_solved,
-                "sol_len": avg_sol_len,
-                "exp_ratio": fb_exp_ratio,
-                "fb_exp_ratio": fb_exp_ratio,
-                "fb_g_ratio": fb_g_ratio,
-                "fb_pnll_ratio": fb_pnll_ratio,
-                "fb_nll_ratio": fb_nll_ratio,
+        if bidirectional:
+            stage_search_df = {
+                "id": world_results_df["id"].astype(np.uint32),
+                "time": world_results_df["time"].astype(np.float32),
+                "fexp": world_results_df["fexp"].astype(np.uint16),
+                "bexp": world_results_df["bexp"].astype(np.uint16),
+                "flen": world_results_df["flen"].astype(np.uint16),
+                "blen": world_results_df["blen"].astype(np.uint16),
+                "fpnll": world_results_df["fpnll"].astype(np.float32),
+                "bpnll": world_results_df["bpnll"].astype(np.float32),
+                "fnll": world_results_df["fnll"].astype(np.float32),
+                "bnll": world_results_df["bnll"].astype(np.float32),
             }
-        )
-        test_csv.flush()
+        else:
+            stage_search_df = {
+                "id": world_results_df["id"].astype(np.uint32),
+                "time": world_results_df["time"].astype(np.float32),
+                "fexp": world_results_df["fexp"].astype(np.uint16),
+                "flen": world_results_df["flen"].astype(np.uint16),
+                "fpnll": world_results_df["fpnll"].astype(np.float32),
+                "fnll": world_results_df["fnll"].astype(np.float32),
+            }
+
+        print_search_summary(stage_search_df, bidirectional)
+        print(f"\nTime: {timer() - test_start_time:.2f}s")
+        if not epoch:
+            pth = logdir / f"test.pkl"
+        else:
+            pth = logdir / f"search_valid_{epoch}.pkl"
+
+        with open(pth, "wb") as f:
+            pickle.dump(stage_search_df, f)
 
     if rank == 0:
         return (
             current_num_solved,
             total_num_expanded,
-            fb_exp_ratio,
-            fb_g_ratio,
-            avg_sol_len,
         )
 
-    return None, None, None, None, None
+    return None, None

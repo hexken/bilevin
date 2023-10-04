@@ -27,18 +27,18 @@ class Problem:
 
 
 search_result_header = [
-    "ProblemId",
-    "Time",
-    "Exp",
-    "FExp",
-    "BExp",
-    "Len",
-    "Fg",
-    "Bg",
-    "FPnll",
-    "BPnll",
-    "Fnll",
-    "Bnll",
+    "id",
+    "time",
+    "exp",
+    "fexp",
+    "bexp",
+    "len",
+    "fg",
+    "bg",
+    "fpnll",
+    "bpnll",
+    "fnll",
+    "bnll",
 ]
 
 train_csvfields = [
