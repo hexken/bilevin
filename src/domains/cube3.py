@@ -63,22 +63,6 @@ class Cube3State(State):
             self.back.tobytes().__hash__(),
         ).__hash__()
 
-    def __eq__2(self, other: Cube3State) -> bool:
-        return equal_check(
-            self.front,
-            self.up,
-            self.down,
-            self.left,
-            self.right,
-            self.back,
-            other.front,
-            other.up,
-            other.down,
-            other.left,
-            other.right,
-            other.back,
-        )
-
     def __eq__(self, other: Cube3State) -> bool:
         return (
             (self.front == other.front).all()
@@ -88,18 +72,6 @@ class Cube3State(State):
             and (self.right == other.right).all()
             and (self.back == other.back).all()
         )
-        # for i in range(3):
-        #     for j in range(3):
-        #         if (
-        #             self.front[i, j] != other.front[i, j]
-        #             or self.up[i, j] != other.up[i, j]
-        #             or self.down[i, j] != other.down[i, j]
-        #             or self.left[i, j] != other.left[i, j]
-        #             or self.right[i, j] != other.right[i, j]
-        #             or self.back[i, j] != other.back[i, j]
-        #         ):
-        #             return False
-        # return True
 
 
 class Cube3(Domain):
@@ -112,7 +84,6 @@ class Cube3(Domain):
         self.cube_width: int = 3
         self._actions_list: list[int] = [i for i in range(self.num_actions)]
         self.initial_state: Cube3State = initial_state
-        # self._forward_result = self.result
 
         self.goal_state: Cube3State
         self.goal_state_t: to.Tensor
@@ -302,46 +273,3 @@ class Cube3(Domain):
             .float()
             .permute(3, 0, 1, 2)
         )
-
-
-def parse_problemset(problemset: dict):
-    def parse_specs(problem_specs):
-        problems = []
-        for spec in problem_specs:
-            f = np.array(spec["front"])
-            u = np.array(spec["up"])
-            d = np.array(spec["down"])
-            l = np.array(spec["left"])
-            r = np.array(spec["right"])
-            b = np.array(spec["back"])
-            cube_state = Cube3State(f, u, d, l, r, b)
-            problem = Problem(
-                id=spec["id"],
-                domain=Cube3(initial_state=cube_state),
-            )
-            problems.append(problem)
-        return problems
-
-    model_args = {
-        "num_actions": problemset["num_actions"],
-        "in_channels": problemset["in_channels"],
-        "state_t_width": problemset["state_t_width"],
-        "requires_backward_goal": True,
-        "kernel_depth": 2,
-        "state_t_depth": 6,
-    }
-
-    if "is_curriculum" in problemset:
-        bootstrap_problems = parse_specs(problemset["bootstrap_problems"])
-        problemset["bootstrap_problems"] = bootstrap_problems
-        problemset["curriculum_problems"] = parse_specs(
-            problemset["curriculum_problems"]
-        )
-        problemset["permutation_problems"] = parse_specs(
-            problemset["permutation_problems"]
-        )
-    else:
-        problems = parse_specs(problemset["problems"])
-        problemset["problems"] = problems
-
-    return problemset, model_args
