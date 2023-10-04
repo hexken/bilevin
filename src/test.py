@@ -1,18 +1,3 @@
-# Copyright (C) 2021-2022, Ken Tjhia
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 import csv
 from pathlib import Path
 from timeit import default_timer as timer
@@ -25,25 +10,21 @@ from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
 
-from loaders import ProblemsBatchLoader
+from loaders import ProblemLoader
 from search.agent import Agent
 from search.utils import int_columns, search_result_header, test_csvfields
 
 
 def test(
+    args,
     rank: int,
-    logdir: Path,
     agent: Agent,
-    problems_loader: ProblemsBatchLoader,
-    world_size: int,
-    expansion_budget: int,
-    time_budget: int,
-    increase_budget: bool = True,
+    problems_loader: ProblemLoader,
     print_results: bool = True,
     epoch: Optional[int] = None,
 ):
-    current_exp_budget = expansion_budget
-    current_time_budget = time_budget
+    current_exp_budget = args.expansion_budget
+    current_time_budget = args.time_budget
 
     world_num_problems = len(problems_loader.all_ids)
 

@@ -27,10 +27,10 @@ def parse_args():
         help="advance curriculum when either reached epochs or this ratio of problems solved. 0 to ignore",
     )
     parser.add_argument(
-        "--samples-per-stage",
+        "--min-samples-per-stage",
         type=int,
-        default=None,
-        help="number of samples to use per epoch of each curriculum stage",
+        default=1,
+        help="minimum number of samples to use per epoch of each curriculum stage",
     )
     parser.add_argument(
         "--shuffle",

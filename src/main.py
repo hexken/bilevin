@@ -1,18 +1,3 @@
-# Copyright (C) 2021-2022, Ken Tjhia
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 import json
 import json
 import os
@@ -30,6 +15,7 @@ import torch.multiprocessing as mp
 
 from args import parse_args
 import domains
+from loaders import ProblemLoader
 from search.bilevin import BiLevin
 from search.levin import Levin
 from train import train
@@ -87,9 +73,9 @@ def run(
     model_args,
     args,
     local_train_problems,
-    local_train_ids,
+    local_train_all_ids,
     local_valid_problems,
-    local_valid_ids,
+    local_valid_all_ids,
 ):
     os.environ["MASTER_ADDR"] = args.master_addr
     os.environ["MASTER_PORT"] = args.master_port
@@ -110,15 +96,24 @@ def run(
     else:
         raise ValueError(f"Unknown agent: {args.agent}")
 
+    train_loader = ProblemLoader(
+        local_train_problems,
+        local_train_all_ids,
+        seed=local_seed,
+        manual_advance=args.min_stage_solve_ratio > 0
+        and args.samples_per_stage is not None,
+    )
+    valid_loader = ProblemLoader(
+        local_valid_problems, local_valid_all_ids, seed=local_seed
+    )
+
     if args.mode == "train":
         train(
             args,
             rank,
             agent,
-            local_train_problems,
-            local_train_ids,
-            local_valid_problems,
-            local_valid_ids,
+            train_loader,
+            valid_loader,
             seed=local_seed,
         )
 
@@ -143,6 +138,10 @@ def run(
 
 if __name__ == "__main__":
     args = parse_args()
+    if args.min_stage_solve_ratio > 0 and args.samples_per_stage is None:
+        raise ValueError(
+            "Must provide --min-samples-per-stage when using --min-stage-solve-ratio"
+        )
 
     abs_start_time = time.time()
     rel_start_time = timer()

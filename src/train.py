@@ -1,18 +1,3 @@
-# Copyright (C) 2021-2022, Ken Tjhia
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 import csv
 from pathlib import Path
 import sys
@@ -25,56 +10,44 @@ from tabulate import tabulate
 from test import test
 import torch as to
 import torch.distributed as dist
-from tqdm import tqdm
 
 from loaders import ProblemLoader
 from search.agent import Agent
-from search.utils import Problem
-from search.utils import int_columns, search_result_header, train_csvfields
+from search.utils import (
+    int_columns,
+    print_search_summary,
+    search_result_header,
+    train_csvfields,
+)
 
 
 def train(
     args,
     rank: int,
     agent: Agent,
-    train_problems: list[list[Problem]],
-    train_all_ids: list[str],
-    valid_problems: list[list[Problem]],
-    valid_all_ids: list[str],
+    train_loader: ProblemLoader,
+    valid_loader: ProblemLoader,
     seed: int,
 ):
-    if rank == 0:
-        train_csv = (args.logdir / "train.csv").open("w", newline="")
-        train_writer = csv.DictWriter(train_csv, train_csvfields)
-        train_writer.writeheader()
+    logdir = args.logdir
+    world_size = args.world_size
+    time_budget = args.time_budget
+    expansion_budget = args.expansion_budget
+    grad_steps = args.grad_steps
 
-        best_csv = (args.logdir / "best_models.csv").open("w", newline="")
+    if rank == 0:
+        best_csv = (logdir / "best_models.csv").open("w", newline="")
         best_writer = csv.DictWriter(best_csv, ["epoch", "solve_rate", "exp_ratio"])
         best_writer.writeheader()
-
-    opt_result_header = (
-        f"           Forward        Backward\nOptStep   Loss    Acc    Loss    Acc"
-    )
 
     bidirectional = agent.bidirectional
     model = agent.model
     optimizer = agent.optimizer
     loss_fn = agent.loss_fn
 
-    expansion_budget = args.expansion_budget
-    grad_steps = args.grad_steps
-
     for param in model.parameters():
         if not param.grad:
             param.grad = to.zeros_like(param)
-
-    train_loader = ProblemLoader(
-        train_problems,
-        train_all_ids,
-        seed=seed,
-        manual_advance=args.min_stage_solve_ratio > 0,
-    )
-    valid_loader = ProblemLoader(valid_problems, valid_all_ids, seed=seed)
 
     local_opt_results = to.zeros(5, dtype=to.float64)
     local_search_results = to.zeros(len(search_result_header), dtype=to.float64)
@@ -92,46 +65,38 @@ def train(
     best_valid_solved = -1
     best_valid_total_expanded = max_valid_expanded + 1
 
+    stage_ids = []
+    stage_times = []
+    stage_fexps = []
+    stage_bexps = []
+    stage_flens = []
+    stage_blens = []
+    stage_fpnlls = []
+    stage_bpnlls = []
+    stage_fnlls = []
+    stage_bnlls = []
+
     stage_flosses = []
     stage_faccs = []
     stage_blosses = []
     stage_baccs = []
+    batches = []
+
     # for running avg of stage solve rate
     stage_avg = 0
-    stage_problems_solved = 0
     stage_problems_seen = 0
 
     for epoch in range(1, args.epochs + 1):
         epoch_start_time = timer()
 
-        flosses = []
-        faccs = []
-        blosses = []
-        baccs = []
-        batches = []
-
-        # for epoch search results
-        ids = []
-        times = []
-        fexps = []
-        bexps = []
-        flens = []
-        blens = []
-        fpnlls = []
-        bpnlls = []
-        fnlls = []
-        bnlls = []
-        stages = []
-        # num_new_problems_solved_this_epoch = 0
-        epoch_solved = 0
-        epoch_problems_seen = 0
-        epoch_expanded = 0
+        epoch_search_dfs = []
+        epoch_model_train_dfs = []
 
         if rank == 0:
             print(
                 "============================================================================"
             )
-            print(f"START | STAGE {train_loader.stage} EPOCH {epoch}")
+            print(f"START EPOCH {epoch}")
 
         if epoch == args.epoch_reduce_lr:
             new_lr = optimizer.param_groups[0]["lr"] * 0.1
@@ -153,7 +118,19 @@ def train(
                 "============================================================================\n"
             )
 
-        for problem, stage in train_loader:
+        old_stage = -1
+        for problem in train_loader:
+            if old_stage != train_loader.stage:
+                old_stage = train_loader.stage
+                stage_start_time = timer()
+                print(
+                    "----------------------------------------------------------------------------"
+                )
+                print(f"START STAGE {old_stage}")
+                print(
+                    "----------------------------------------------------------------------------"
+                )
+
             model.eval()
             to.set_grad_enabled(False)
 
@@ -172,7 +149,7 @@ def train(
             ) = agent.search(
                 problem,
                 expansion_budget,
-                time_budget=args.time_budget,
+                time_budget=time_budget,
             )
             end_time = timer()
             solution_length = 0 if not traj else traj[0].cost
@@ -204,7 +181,7 @@ def train(
 
             batch_results_arr = world_batch_results_t.numpy()
 
-            world_batch_ids = np.array(
+            batch_real_ids = np.array(
                 [train_loader.all_ids[i] for i in batch_results_arr[:, 0].astype(int)],
                 dtype=np.unicode_,
             )
@@ -212,30 +189,11 @@ def train(
             batch_print_df = pd.DataFrame(
                 batch_results_arr, columns=search_result_header[1:]
             )
-            batch_print_df["Id"] = world_batch_ids
+            batch_print_df["Id"] = batch_real_ids
             batch_print_df = batch_print_df.set_index("Id")
             for col in int_columns:
                 batch_print_df[col] = batch_print_df[col].astype(int)
             batch_print_df = batch_print_df.sort_values("Exp")
-
-            batch_solved_ids = batch_print_df[batch_print_df["Len"] > 0]["Len"]
-            # for problem_id in batch_solved_ids:
-            #     if problem_id not in solved_problems:
-            #         num_new_problems_solved_this_epoch += 1
-            #         solved_problems.add(problem_id)
-
-            num_problems_solved_this_batch = len(batch_solved_ids)
-            epoch_solved += num_problems_solved_this_batch
-            epoch_problems_seen += batch_size
-
-            batch_expansions = batch_print_df["Exp"].sum()
-            epoch_expanded += batch_expansions
-
-            stage_problems_solved += num_problems_solved_this_batch
-
-            batch_avg = num_problems_solved_this_batch / batch_size
-            batches_seen += 1
-            stage_avg += (batch_avg - stage_avg) / (batches_seen)
 
             if rank == 0:
                 print(f"\n\nBatch {batches_seen}")
@@ -250,40 +208,24 @@ def train(
                         # intfmt="",
                     )
                 )
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", category=RuntimeWarning)
-                    batch_expansions_ratio = batch_expansions / (
-                        len(batch_print_df) * expansion_budget
-                    )
-                    fb_exp_ratio = (
-                        batch_print_df["FExp"] / batch_print_df["BExp"]
-                    ).mean()
-                    fb_g_ratio = (batch_print_df["Fg"] / batch_print_df["Bg"]).mean()
-
-                print(f"{'Solved':23s}: {num_problems_solved_this_batch}/{batch_size}")
-                print(f"{'Total expansion ratio':23s}: {batch_expansions_ratio:.3f}")
-                print(f"{'F/B expansion ratio':23s}: {fb_exp_ratio:.3f}")
-                print(f"{'F/B g-cost ratio':23s}: {fb_g_ratio:.3f}\n")
-
-                # if batches_seen % param_log_interval == 0:
-                #     log_params(writer, model, batches_seen)
 
             for i in range(batch_size):
-                ids.append(batch_results_arr[i, 0])
-                times.append(batch_results_arr[i, 1])
-                fexps.append(batch_results_arr[i, 3])
-                bexps.append(batch_results_arr[i, 4])
-                flens.append(batch_results_arr[i, 6])
-                blens.append(batch_results_arr[i, 7])
-                fpnlls.append(batch_results_arr[i, 8])
-                bpnlls.append(batch_results_arr[i, 9])
-                fnlls.append(batch_results_arr[i, 10])
-                bnlls.append(batch_results_arr[i, 11])
-                stages.append(stage)
+                stage_ids.append(batch_results_arr[i, 0])
+                stage_times.append(batch_results_arr[i, 1])
+                stage_fexps.append(batch_results_arr[i, 3])
+                stage_bexps.append(batch_results_arr[i, 4])
+                stage_flens.append(batch_results_arr[i, 6])
+                stage_blens.append(batch_results_arr[i, 7])
+                stage_fpnlls.append(batch_results_arr[i, 8])
+                stage_bpnlls.append(batch_results_arr[i, 9])
+                stage_fnlls.append(batch_results_arr[i, 10])
+                stage_bnlls.append(batch_results_arr[i, 11])
 
             # perform grad steps
             dist.all_reduce(local_opt_results, op=dist.ReduceOp.SUM)
             num_procs_found_solution = int(local_opt_results[2].item())
+
+            batches_seen += 1
 
             if num_procs_found_solution > 0:
                 to.set_grad_enabled(True)
@@ -324,187 +266,215 @@ def train(
 
                     optimizer.step()
 
-                    if rank == 0:
-                        if grad_step == 1 or grad_step == grad_steps:
-                            if grad_step == 1:
-                                print(opt_result_header)
-                            f_loss = (
-                                local_opt_results[0].item() / num_procs_found_solution
-                            )
-                            f_acc = (
-                                local_opt_results[1].item() / num_procs_found_solution
-                            )
-                            b_loss = (
-                                local_opt_results[3].item() / num_procs_found_solution
-                            )
-                            b_acc = (
-                                local_opt_results[4].item() / num_procs_found_solution
-                            )
-                            if bidirectional:
-                                print(
-                                    f"{f_loss:5.3f}  {f_acc:5.3f}    {b_loss:5.3f}  {b_acc:5.3f}"
-                                )
-                            else:
-                                print(f"{f_loss:5.3f}  {f_acc:5.3f}")
+                    if grad_step == grad_steps:
+                        batch_floss = (
+                            local_opt_results[0].item() / num_procs_found_solution
+                        )
+                        batch_facc = (
+                            local_opt_results[1].item() / num_procs_found_solution
+                        )
+                        batch_bloss = (
+                            local_opt_results[3].item() / num_procs_found_solution
+                        )
+                        batch_bacc = (
+                            local_opt_results[4].item() / num_procs_found_solution
+                        )
 
-                        if grad_step == grad_steps:
-                            flosses.append(f_loss)
-                            faccs.append(f_acc)
-                            if bidirectional:
-                                blosses.append(b_loss)
-                                baccs.append(b_acc)
-                            batches.append(batches_seen)
+                        stage_flosses.append(batch_floss)
+                        stage_faccs.append(batch_facc)
+                        if bidirectional:
+                            stage_blosses.append(batch_bloss)
+                            stage_baccs.append(batch_bacc)
+                        batches.append(batches_seen)
+                        print(f"floss: {batch_floss:.3f}")
+                        print(f"facc: {batch_facc:.3f}")
+                        if bidirectional:
+                            print(f"\nbloss: {batch_bloss:.3f}")
+                            print(f"bacc: {batch_bacc:.3f}")
+
+            num_problems_solved_this_batch = len(
+                batch_print_df[batch_print_df["Len"] > 0]["Len"]
+            )
+
+            batch_avg = num_problems_solved_this_batch / batch_size
+            stage_avg += (batch_avg - stage_avg) / (batches_seen)
+
+            # with warnings.catch_warnings():
+            #     warnings.simplefilter("ignore", category=RuntimeWarning)
 
             if (
-                args.samples_per_stage
-                and stage_problems_seen >= args.samples_per_stage
+                train_loader.manual_advance
+                and stage_problems_seen >= args.min_samples_per_stage
                 and stage_avg >= args.min_stage_solve_ratio
             ):
-                train_loader.manual_advance_stage()
-            # BATCH END
+                train_loader.goto_next_stage = True
 
-            if rank == 0:
-                epoch_solved_ratio = epoch_solved / epoch_problems_seen
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", category=RuntimeWarning)
-                    epoch_expansions_ratio = epoch_expansions / max_epoch_expansions
-                    epoch_avg_sol_len = world_results_df[world_results_df["Len"] > 0][
-                        "Len"
-                    ].mean()
-                    epoch_fb_exp_ratio = (
-                        world_results_df["FExp"] / world_results_df["BExp"]
-                    ).mean()
-                    epoch_fb_g_ratio = (
-                        world_results_df["Fg"] / world_results_df["Bg"]
-                    ).mean()
-                    epoch_fb_pnll_ratio = (
-                        world_results_df["FPnll"] / world_results_df["BPnll"]
-                    ).mean()
-                    epoch_fb_nll_ratio = (
-                        world_results_df["FPnll"] / world_results_df["BPnll"]
-                    ).mean()
-                    epoch_f_loss = flosses.mean(where=(flosses >= 0))
-                    epoch_f_acc = faccs.mean(where=(faccs >= 0))
-                    if bidirectional:
-                        epoch_b_loss = blosses.mean(where=(blosses >= 0))
-                        epoch_b_acc = baccs.mean(where=(baccs >= 0))
-                print(
-                    "============================================================================"
-                )
-                print(
-                    f"END | STAGE {train_loader.stage} EPOCH {train_loader.stage_epoch} | TOTAL EPOCH {epoch}"
-                )
+            if train_loader.goto_next_stage:
+                if bidirectional:
+                    stage_search_df = {
+                        "id": pd.Series(stage_ids, dtype=np.uint32),
+                        "time": pd.Series(stage_times, dtype=np.float32),
+                        "fexp": pd.Series(stage_fexps, dtype=np.uint16),
+                        "bexp": pd.Series(stage_bexps, dtype=np.uint16),
+                        "flen": pd.Series(stage_flens, dtype=np.uint16),
+                        "blen": pd.Series(stage_blens, dtype=np.uint16),
+                        "fpnll": pd.Series(stage_fpnlls, dtype=np.float32),
+                        "bpnll": pd.Series(stage_bpnlls, dtype=np.float32),
+                        "fnll": pd.Series(stage_fnlls, dtype=np.float32),
+                        "bnll": pd.Series(stage_bnlls, dtype=np.float32),
+                        "stage": pd.Series(
+                            [old_stage for _ in range(stage_problems_seen)],
+                            dtype=np.uint8,
+                        ),
+                    }
+                    stage_model_train_df = {
+                        "floss": pd.Series(stage_flosses, dtype=np.float32),
+                        "bloss": pd.Series(stage_blosses, dtype=np.float32),
+                        "facc": pd.Series(stage_faccs, dtype=np.float32),
+                        "bacc": pd.Series(stage_baccs, dtype=np.float32),
+                        "batch": pd.Series(batches, dtype=np.uint32),
+                    }
+                else:
+                    stage_search_df = {
+                        "id": pd.Series(stage_ids, dtype=np.uint32),
+                        "time": pd.Series(stage_times, dtype=np.float32),
+                        "fexp": pd.Series(stage_fexps, dtype=np.uint16),
+                        "flen": pd.Series(stage_flens, dtype=np.uint16),
+                        "fpnll": pd.Series(stage_fpnlls, dtype=np.float32),
+                        "fnll": pd.Series(stage_fnlls, dtype=np.float32),
+                        "stage": pd.Series(
+                            [old_stage for _ in range(stage_problems_seen)],
+                            dtype=np.uint8,
+                        ),
+                    }
+                    stage_model_train_df = {
+                        "floss": pd.Series(stage_flosses, dtype=np.float32),
+                        "facc": pd.Series(stage_faccs, dtype=np.float32),
+                        "batch": pd.Series(batches, dtype=np.uint32),
+                    }
+
+                    epoch_search_dfs.append(stage_search_df)
+                    epoch_model_train_dfs.append(stage_model_train_df)
+
+                    stage_times = []
+                    stage_fexps = []
+                    stage_bexps = []
+                    stage_flens = []
+                    stage_blens = []
+                    stage_fpnlls = []
+                    stage_bpnlls = []
+                    stage_fnlls = []
+                    stage_bnlls = []
+
+                    stage_flosses = []
+                    stage_faccs = []
+                    stage_blosses = []
+                    stage_baccs = []
+                    batches = []
+
+                # with warnings.catch_warnings():
+                #     warnings.simplefilter("ignore", category=RuntimeWarning)
                 print(
                     "----------------------------------------------------------------------------"
                 )
+                print(f"END STAGE {old_stage}")
+                print_search_summary(
+                    stage_search_df,
+                    bidirectional,
+                )
+                print(f"Time: {timer() - stage_start_time}")
                 print(
-                    f"{'Solved':20s}: {epoch_solved}/{world_num_problems} {epoch_solved_ratio}\n"
-                    f"{'Expansions':20s}: {int(epoch_expansions)}/{max_epoch_expansions}  {epoch_expansions_ratio:5.3f}\n"
-                    f"{'FB Exp Ratio':20s}: {epoch_fb_exp_ratio:5.3f}\n"
-                    f"{'FB G-Cost Ratio':20s}: {epoch_fb_g_ratio:5.3f}\n"
-                    f"{'Avg solution length':20s}: {epoch_avg_sol_len:5.3f}\n"
+                    "----------------------------------------------------------------------------"
                 )
-                print(f"  Forward        Backward\nLoss    Acc    Loss    Acc")
-                if bidirectional:
-                    print(
-                        f"{epoch_f_loss:5.3f}  {epoch_f_acc:5.3f}    {epoch_b_loss:5.3f}  {epoch_b_acc:5.3f}"
+            # BATCH END
+
+        # process end of epoch
+        if rank == 0:
+            print(
+                "============================================================================"
+            )
+            print(f"END EPOCH {epoch}")
+            print_search_summary(
+                epoch_search_df,
+                bidirectional,
+            )
+            print_model_summary(
+                epoch_model_train_df,
+                bidirectional,
+            )
+            print(f"Time: {timer() - epoch_start_time}")
+            print(
+                "============================================================================"
+            )
+
+            # fmt: on
+
+        if epoch >= args.epoch_begin_validate and epoch % args.validate_every == 0:
+            if rank == 0:
+                print("VALIDATION")
+
+            dist.barrier()
+
+            valid_results = test(
+                rank,
+                logdir,
+                agent,
+                valid_loader,
+                world_size,
+                expansion_budget,
+                time_budget,
+                increase_budget=False,
+                print_results=False,
+                epoch=epoch,
+            )
+
+            if rank == 0:
+                (
+                    valid_solved,
+                    valid_total_expanded,
+                    valid_fb_exp_ratio,
+                    valid_fb_g_ratio,
+                    valid_avg_sol_len,
+                ) = valid_results
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=RuntimeWarning)
+                    valid_expansions_ratio = valid_total_expanded / max_valid_expanded
+                valid_solve_rate = valid_solved / num_valid_problems
+                print_search_summary(
+                    valid_search_df,
+                    bidirectional,
+                )
+                agent.save_model("latest", log=False)
+
+                if valid_total_expanded <= best_valid_total_expanded:
+                    best_valid_total_expanded = valid_total_expanded
+                    print("Saving best model by expansions")
+                    best_writer.writerow(
+                        {
+                            "epoch": epoch,
+                            "solve_rate": valid_solve_rate,
+                            "exp_ratio": valid_expansions_ratio,
+                        }
                     )
-                else:
-                    print(f"{epoch_f_loss:5.3f}  {epoch_f_acc:5.3f}")
-                print(
-                    "============================================================================"
-                )
-                train_writer.writerow(
-                    {
-                        "epoch": epoch,
-                        "floss": epoch_f_loss,
-                        "facc": epoch_f_acc,
-                        "bloss": epoch_b_loss,
-                        "bacc": epoch_b_acc,
-                        "solved": epoch_solved_ratio,
-                        "exp_ratio": epoch_expansions_ratio,
-                        "fb_exp_ratio": epoch_fb_exp_ratio,
-                        "fb_g_ratio": epoch_fb_g_ratio,
-                        "sol_len": epoch_avg_sol_len,
-                        "fb_pnll_ratio": epoch_fb_pnll_ratio,
-                        "fb_nll_ratio": epoch_fb_nll_ratio,
-                    }
-                )
-                train_csv.flush()
-                # fmt: on
+                    agent.save_model("best_expanded", log=False)
 
-            if epoch >= epoch_begin_validate and epoch % validate_every == 0:
-                if rank == 0:
-                    print("VALIDATION")
-
-                dist.barrier()
-
-                valid_results = test(
-                    rank,
-                    args.logdir,
-                    agent,
-                    valid_loader,
-                    args.world_size,
-                    expansion_budget,
-                    time_budget,
-                    increase_budget=False,
-                    print_results=False,
-                    epoch=epoch,
-                )
-
-                if rank == 0:
-                    (
-                        valid_solved,
-                        valid_total_expanded,
-                        valid_fb_exp_ratio,
-                        valid_fb_g_ratio,
-                        valid_avg_sol_len,
-                    ) = valid_results
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", category=RuntimeWarning)
-                        valid_expansions_ratio = (
-                            valid_total_expanded / max_valid_expanded
-                        )
-                    valid_solve_rate = valid_solved / num_valid_problems
-                    print(
-                        f"{'Solved':20s}:  {valid_solved}/{num_valid_problems} {valid_solve_rate:5.3f}"
+                if valid_solved >= best_valid_solved:
+                    best_valid_solved = valid_solved
+                    print("Saving best model by solved")
+                    best_writer.writerow(
+                        {
+                            "epoch": epoch,
+                            "solve_rate": valid_solve_rate,
+                            "exp_ratio": valid_expansions_ratio,
+                        }
                     )
-                    print(
-                        f"{'Expansions':20s}: {int(valid_total_expanded)}/{max_valid_expanded} {valid_expansions_ratio:5.3f}"
-                    )
-                    print(f"{'FB Exp Ratio':20s}: {valid_fb_exp_ratio:5.3f}")
-                    print(f"{'FB G-Cost Ratio':20s}: {valid_fb_g_ratio:5.3f}")
-                    # writer.add_scalar(f"budget_{budget}/valid_solve_rate", valid_solve_rate, epoch)
-                    agent.save_model("latest", log=False)
-                    if valid_total_expanded <= best_valid_total_expanded:
-                        best_valid_total_expanded = valid_total_expanded
-                        print("Saving best model by expansions")
-                        best_writer.writerow(
-                            {
-                                "epoch": epoch,
-                                "solve_rate": valid_solve_rate,
-                                "exp_ratio": valid_expansions_ratio,
-                            }
-                        )
-                        agent.save_model("best_expanded", log=False)
+                    agent.save_model("best_solved", log=False)
+                best_csv.flush()
+                sys.stdout.flush()
 
-                    if valid_solved >= best_valid_solved:
-                        best_valid_solved = valid_solved
-                        print("Saving best model by solved")
-                        best_writer.writerow(
-                            {
-                                "epoch": epoch,
-                                "solve_rate": valid_solve_rate,
-                                "exp_ratio": valid_expansions_ratio,
-                            }
-                        )
-                        agent.save_model("best_solved", log=False)
-                    best_csv.flush()
-                    sys.stdout.flush()
+            dist.barrier()
 
-                dist.barrier()
-
-            epoch += 1
+        epoch += 1
         # EPOCHS END
     if rank == 0:
         print("END TRAINING")

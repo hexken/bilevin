@@ -1,18 +1,3 @@
-# Copyright (C) 2021-2022, Ken Tjhia
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 from __future__ import annotations
 import math
 from typing import Optional, TYPE_CHECKING
@@ -82,7 +67,21 @@ test_csvfields = [
     "fb_nll_ratio",
 ]
 
-int_columns = ["Exp", "FExp", "BExp", "Gen", "FGen", "BGen"]
+int_columns = ["Exp", "FExp", "BExp"]
+
+
+def print_model_summary(
+    model_train_df,
+    bidirectioal: bool,
+):
+    pass
+
+
+def print_search_summary(
+    search_df,
+    bidirectioal: bool,
+):
+    pass
 
 
 class SearchNode:
