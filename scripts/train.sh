@@ -27,8 +27,8 @@ python src/main.py \
     --grad-steps 10 \
     --seed 1 \
     --runsdir-path runs/ \
-    --problems-path latest_problems/cube3/1000-train.pkl \
-    --valid-path latest_problems/cube3/100-valid.pkl \
+    --problems-path problems/cube3/1000-train.pkl \
+    --valid-path problems/cube3/100-valid.pkl \
     # --problemset-path fresh_problems/cube3/50000-train.json \
     # --validset-path fresh_problems/cube3/4000-valid.json \
     # --problemset-path fresh_problems/stp/w3/5000-train.json \

@@ -23,7 +23,7 @@ def split(args, problems):
     "split a list of lists of problems into a list of lists of problems per rank"
     rng = np.random.default_rng(args.seed)
 
-    def _split(problems):
+    def split_by_rank(problems):
         ranks_x_problems = [[] for _ in range(args.world_size)]
         rank = 0
         for problem in problems:
@@ -48,14 +48,16 @@ def split(args, problems):
     world_num_problems = sum(len(pset) for pset in stages_x_problems)
 
     # turn stages x problems into stages x ranks x problems
-    stages_x_ranks_x_problems = [[] for _ in range(num_stages)]
+    stages_x_ranks_x_problems = []
     for stage in range(num_stages):
-        stages_x_ranks_x_problems[stage] = _split(stages_x_problems[stage])
+        stages_x_ranks_x_problems.append(split_by_rank(stages_x_problems[stage]))
 
-    ranks_x_stages_x_problems = [[] for _ in range(args.world_size)]
+    ranks_x_stages_x_problems = []
     for rank in range(args.world_size):
+        curr_stages_x_problems = []
         for stage in range(num_stages):
-            ranks_x_stages_x_problems.append(stages_x_ranks_x_problems[stage][rank])
+            curr_stages_x_problems.append(stages_x_ranks_x_problems[stage][rank])
+        ranks_x_stages_x_problems.append(curr_stages_x_problems)
 
     return ranks_x_stages_x_problems, world_num_problems
 

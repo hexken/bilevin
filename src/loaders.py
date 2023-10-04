@@ -38,7 +38,7 @@ class ProblemLoader:
         self.stage += 1
         if self.stage >= self.n_stages:
             return True
-        probs = self.problems[self.stage]
+        probs: list[Problem] = self.problems[self.stage]
         self.stage_problems = np.empty(len(probs), dtype=object)
         self.stage_problems[:] = probs
         if self.shuffle:
@@ -63,4 +63,5 @@ class ProblemLoader:
                 if self.shuffle:
                     self._indices = self.rng.permutation(len(self.stage_problems))
                     self._idx = 0
+        assert isinstance(problem, Problem)
         return problem

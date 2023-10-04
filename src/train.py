@@ -115,25 +115,22 @@ def train(
                 print(f"-> Grad steps reduced from {old_gs} to {grad_steps}")
         if rank == 0:
             print(
-                "============================================================================\n"
+                "============================================================================"
             )
 
         old_stage = -1
-        # print(len(train_loader))
-        # print(train_loader.n_stages)
         for problem in train_loader:
-            # print(train_loader.stage)
             if old_stage != train_loader.stage:
                 old_stage = train_loader.stage
                 stage_start_time = timer()
-                print(
-                    "----------------------------------------------------------------------------"
-                )
-                print(f"START STAGE {old_stage}")
-                print(
-                    "----------------------------------------------------------------------------"
-                )
-
+                if rank == 0:
+                    print(
+                        "----------------------------------------------------------------------------"
+                    )
+                    print(f"START STAGE {old_stage}")
+                    print(
+                        "----------------------------------------------------------------------------"
+                    )
             model.eval()
             to.set_grad_enabled(False)
 
@@ -183,6 +180,7 @@ def train(
             world_batch_results_t = to.cat(world_search_results, dim=0)
 
             batch_results_arr = world_batch_results_t.numpy()
+            print(batch_results_arr)
 
             batch_print_df = pd.DataFrame(
                 batch_results_arr, columns=search_result_header

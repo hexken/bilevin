@@ -171,11 +171,9 @@ class Trajectory:
         actions: Tensor,
         masks: Tensor,
         num_expanded: int,
-        partial_g_cost: Optional[int] = None,  # g_cost of node that generated sol.
-        partial_log_prob: Optional[
-            float
-        ] = None,  # probability of node that generates sol.
-        log_prob: Optional[float] = None,
+        partial_g_cost: int,  # g_cost of node that generated sol.
+        partial_log_prob: float,  # probability of node that generates sol.
+        log_prob: float,
         goal_state_t: Optional[Tensor] = None,
         forward: bool = True,
     ):
@@ -276,23 +274,23 @@ class Trajectory:
     def __len__(self):
         return self._len
 
-    def get_subgoal_trajs(self: Trajectory):
-        """
-        Generates all sub-trajectories of a trajectory.
-        """
-        sub_trajs = []
-        for goal_idx in range(len(self) - 1, 0, -1):
-            masks = self.masks[:goal_idx]
+    # def get_subgoal_trajs(self: Trajectory):
+    #     """
+    #     Generates all sub-trajectories of a trajectory.
+    #     """
+    #     sub_trajs = []
+    #     for goal_idx in range(len(self) - 1, 0, -1):
+    #         masks = self.masks[:goal_idx]
 
-            est_num_exp = int(self.num_expanded / (len(self) - goal_idx + 1))
-            sub_trajs.append(
-                Trajectory(
-                    self.states[:goal_idx],
-                    self.actions[:goal_idx],
-                    masks=masks,
-                    num_expanded=est_num_exp,
-                    forward=False,
-                    goal_state_t=self.states[goal_idx].unsqueeze(0),
-                )
-            )
-        return sub_trajs
+    #         est_num_exp = int(self.num_expanded / (len(self) - goal_idx + 1))
+    #         sub_trajs.append(
+    #             Trajectory(
+    #                 self.states[:goal_idx],
+    #                 self.actions[:goal_idx],
+    #                 masks=masks,
+    #                 num_expanded=est_num_exp,
+    #                 forward=False,
+    #                 goal_state_t=self.states[goal_idx].unsqueeze(0),
+    #             )
+    #         )
+    #     return sub_trajs
