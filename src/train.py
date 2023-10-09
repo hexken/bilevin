@@ -36,9 +36,7 @@ def train(
     grad_steps = args.grad_steps
 
     if rank == 0:
-        best_csv = (logdir / "best_models.csv").open("w", newline="")
-        best_writer = csv.DictWriter(best_csv, ["epoch", "solve_rate", "exp_ratio"])
-        best_writer.writeheader()
+        best_models_log = (logdir / "best_models.csv").open("w")
 
     bidirectional = agent.bidirectional
     model = agent.model
@@ -445,27 +443,19 @@ def train(
                 if valid_total_expanded <= best_valid_total_expanded:
                     best_valid_total_expanded = valid_total_expanded
                     print("Saving best model by expansions")
-                    best_writer.writerow(
-                        {
-                            "epoch": epoch,
-                            "solve_rate": valid_solve_rate,
-                            "exp_ratio": valid_expansions_ratio,
-                        }
+                    best_models_log.write(
+                        f"epoch {epoch} solved {valid_solved} exp {valid_total_expanded}"
                     )
                     agent.save_model("best_expanded", log=False)
 
                 if valid_solved >= best_valid_solved:
                     best_valid_solved = valid_solved
                     print("Saving best model by solved")
-                    best_writer.writerow(
-                        {
-                            "epoch": epoch,
-                            "solve_rate": valid_solve_rate,
-                            "exp_ratio": valid_expansions_ratio,
-                        }
+                    best_models_log.write(
+                        f"epoch {epoch} solved {valid_solved} exp {valid_total_expanded}"
                     )
                     agent.save_model("best_solved", log=False)
-                best_csv.flush()
+                best_models_log.flush()
                 sys.stdout.flush()
 
             dist.barrier()
