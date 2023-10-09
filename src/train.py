@@ -69,8 +69,8 @@ def train(
     stage_times = []
     stage_fexps = []
     stage_bexps = []
-    stage_flens = []
-    stage_blens = []
+    stage_fgs = []
+    stage_bgs = []
     stage_fpnlls = []
     stage_bpnlls = []
     stage_fnlls = []
@@ -177,17 +177,16 @@ def train(
                     local_search_results[11] = -1 * b_traj.log_prob
 
             dist.all_gather(world_search_results, local_search_results)
-            world_batch_results_t = to.cat(world_search_results, dim=0)
+            world_batch_results_t = to.stack(world_search_results, dim=0)
 
             batch_results_arr = world_batch_results_t.numpy()
-            print(batch_results_arr)
 
             batch_print_df = pd.DataFrame(
                 batch_results_arr, columns=search_result_header
             )
             for col in int_columns:
                 batch_print_df[col] = batch_print_df[col].astype(int)
-            batch_print_df = batch_print_df.sort_values("Exp")
+            batch_print_df = batch_print_df.sort_values("exp")
 
             if rank == 0:
                 print(f"\n\nBatch {batches_seen}")
@@ -209,8 +208,8 @@ def train(
                 stage_times.append(batch_results_arr[i, 1])
                 stage_fexps.append(batch_results_arr[i, 3])
                 stage_bexps.append(batch_results_arr[i, 4])
-                stage_flens.append(batch_results_arr[i, 6])
-                stage_blens.append(batch_results_arr[i, 7])
+                stage_fgs.append(batch_results_arr[i, 6])
+                stage_bgs.append(batch_results_arr[i, 7])
                 stage_fpnlls.append(batch_results_arr[i, 8])
                 stage_bpnlls.append(batch_results_arr[i, 9])
                 stage_fnlls.append(batch_results_arr[i, 10])
@@ -288,7 +287,7 @@ def train(
                             print(f"bacc: {batch_bacc:.3f}")
 
             num_problems_solved_this_batch = len(
-                batch_print_df[batch_print_df["Len"] > 0]["Len"]
+                batch_print_df[batch_print_df["len"] > 0]["len"]
             )
 
             batch_avg = num_problems_solved_this_batch / batch_size
@@ -304,49 +303,57 @@ def train(
             ):
                 train_loader.goto_next_stage = True
 
-            if train_loader.goto_next_stage:
+            if rank == 0 and train_loader.goto_next_stage:
                 if bidirectional:
-                    stage_search_df = {
-                        "id": pd.Series(stage_ids, dtype=np.uint32),
-                        "time": pd.Series(stage_times, dtype=np.float32),
-                        "fexp": pd.Series(stage_fexps, dtype=np.uint16),
-                        "bexp": pd.Series(stage_bexps, dtype=np.uint16),
-                        "flen": pd.Series(stage_flens, dtype=np.uint16),
-                        "blen": pd.Series(stage_blens, dtype=np.uint16),
-                        "fpnll": pd.Series(stage_fpnlls, dtype=np.float32),
-                        "bpnll": pd.Series(stage_bpnlls, dtype=np.float32),
-                        "fnll": pd.Series(stage_fnlls, dtype=np.float32),
-                        "bnll": pd.Series(stage_bnlls, dtype=np.float32),
-                        "stage": pd.Series(
-                            [old_stage for _ in range(stage_problems_seen)],
-                            dtype=np.uint8,
-                        ),
-                    }
-                    stage_model_train_df = {
-                        "floss": pd.Series(stage_flosses, dtype=np.float32),
-                        "bloss": pd.Series(stage_blosses, dtype=np.float32),
-                        "facc": pd.Series(stage_faccs, dtype=np.float32),
-                        "bacc": pd.Series(stage_baccs, dtype=np.float32),
-                        "batch": pd.Series(batches, dtype=np.uint32),
-                    }
+                    stage_search_df = pd.DataFrame(
+                        {
+                            "id": pd.Series(stage_ids, dtype=np.uint32),
+                            "time": pd.Series(stage_times, dtype=np.float32),
+                            "fexp": pd.Series(stage_fexps, dtype=np.uint16),
+                            "bexp": pd.Series(stage_bexps, dtype=np.uint16),
+                            "fg": pd.Series(stage_fgs, dtype=np.uint16),
+                            "bg": pd.Series(stage_bgs, dtype=np.uint16),
+                            "fpnll": pd.Series(stage_fpnlls, dtype=np.float32),
+                            "bpnll": pd.Series(stage_bpnlls, dtype=np.float32),
+                            "fnll": pd.Series(stage_fnlls, dtype=np.float32),
+                            "bnll": pd.Series(stage_bnlls, dtype=np.float32),
+                            "stage": pd.Series(
+                                [old_stage for _ in range(stage_problems_seen)],
+                                dtype=np.uint8,
+                            ),
+                        }
+                    )
+                    stage_model_train_df = pd.DataFrame(
+                        {
+                            "floss": pd.Series(stage_flosses, dtype=np.float32),
+                            "bloss": pd.Series(stage_blosses, dtype=np.float32),
+                            "facc": pd.Series(stage_faccs, dtype=np.float32),
+                            "bacc": pd.Series(stage_baccs, dtype=np.float32),
+                            "batch": pd.Series(batches, dtype=np.uint32),
+                        }
+                    )
                 else:
-                    stage_search_df = {
-                        "id": pd.Series(stage_ids, dtype=np.uint32),
-                        "time": pd.Series(stage_times, dtype=np.float32),
-                        "fexp": pd.Series(stage_fexps, dtype=np.uint16),
-                        "flen": pd.Series(stage_flens, dtype=np.uint16),
-                        "fpnll": pd.Series(stage_fpnlls, dtype=np.float32),
-                        "fnll": pd.Series(stage_fnlls, dtype=np.float32),
-                        "stage": pd.Series(
-                            [old_stage for _ in range(stage_problems_seen)],
-                            dtype=np.uint8,
-                        ),
-                    }
-                    stage_model_train_df = {
-                        "floss": pd.Series(stage_flosses, dtype=np.float32),
-                        "facc": pd.Series(stage_faccs, dtype=np.float32),
-                        "batch": pd.Series(batches, dtype=np.uint32),
-                    }
+                    stage_search_df = pd.DataFrame(
+                        {
+                            "id": pd.Series(stage_ids, dtype=np.uint32),
+                            "time": pd.Series(stage_times, dtype=np.float32),
+                            "fexp": pd.Series(stage_fexps, dtype=np.uint16),
+                            "fg": pd.Series(stage_fgs, dtype=np.uint16),
+                            "fpnll": pd.Series(stage_fpnlls, dtype=np.float32),
+                            "fnll": pd.Series(stage_fnlls, dtype=np.float32),
+                            "stage": pd.Series(
+                                [old_stage for _ in range(stage_problems_seen)],
+                                dtype=np.uint8,
+                            ),
+                        }
+                    )
+                    stage_model_train_df = pd.DataFrame(
+                        {
+                            "floss": pd.Series(stage_flosses, dtype=np.float32),
+                            "facc": pd.Series(stage_faccs, dtype=np.float32),
+                            "batch": pd.Series(batches, dtype=np.uint32),
+                        }
+                    )
 
                 epoch_search_dfs.append(stage_search_df)
                 epoch_model_train_dfs.append(stage_model_train_df)
@@ -354,8 +361,8 @@ def train(
                 stage_times = []
                 stage_fexps = []
                 stage_bexps = []
-                stage_flens = []
-                stage_blens = []
+                stage_fgs = []
+                stage_bgs = []
                 stage_fpnlls = []
                 stage_bpnlls = []
                 stage_fnlls = []
@@ -379,7 +386,7 @@ def train(
                     stage_model_train_df,
                     bidirectional,
                 )
-                print(f"Time: {timer() - stage_start_time:.2f}")
+                print(f"\nTime: {timer() - stage_start_time:.2f}")
                 print(
                     "----------------------------------------------------------------------------"
                 )
