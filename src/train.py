@@ -34,7 +34,7 @@ def train(
     grad_steps = args.grad_steps
 
     if rank == 0:
-        best_models_log = (logdir / "best_models.csv").open("w")
+        best_models_log = (logdir / "best_models.txt").open("w")
 
     bidirectional = agent.bidirectional
     model = agent.model
@@ -80,11 +80,6 @@ def train(
     stage_avg = 0
     stage_batches_seen = 0
     stage_problems_seen = 0
-
-    # print(f"p lens {rank} {len(train_loader.problems)}")
-    # for i, sp in enumerate(train_loader.problems):
-    #     for p in sp:
-    #         print(f"rank {rank} stage {i} id {p.id}")
 
     for epoch in range(1, args.epochs + 1):
         epoch_start_time = timer()
@@ -222,8 +217,6 @@ def train(
                         headers="keys",
                         tablefmt="psql",
                         showindex=False,
-                        # floatfmt=".2f"
-                        # intfmt="",
                     )
                 )
 
@@ -239,8 +232,6 @@ def train(
                 bpnlls.append(batch_results_arr[i, 9])
                 fnlls.append(batch_results_arr[i, 10])
                 bnlls.append(batch_results_arr[i, 11])
-
-            # perform grad steps
 
             total_batches_seen += 1
             stage_batches_seen += 1
@@ -356,6 +347,10 @@ def train(
                     {
                         "floss": pd.Series(flosses, dtype=pd.Float32Dtype()),
                         "facc": pd.Series(faccs, dtype=pd.Float32Dtype()),
+                        "stage": pd.Series(
+                            [old_stage for _ in range(stage_problems_seen)],
+                            dtype=pd.UInt8Dtype(),
+                        ),
                     }
                 )
                 if bidirectional:
