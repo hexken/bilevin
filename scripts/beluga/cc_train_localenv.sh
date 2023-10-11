@@ -1,11 +1,11 @@
 #!/bin/bash
+#SBATCH --account=rrg-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
 #SBATCH --time=0:10:00
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/oct/cube3/
-#SBATCH --account=rrg-lelis
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/oct/cube3
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
