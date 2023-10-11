@@ -1,9 +1,11 @@
 from __future__ import annotations
 import math
+import random
 from typing import Optional, TYPE_CHECKING
 import warnings
 
 import numpy as np
+import pandas as pd
 import torch as to
 from torch import Tensor
 from torch.nn.functional import nll_loss
@@ -94,23 +96,20 @@ def print_search_summary(
 ):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
-        solved_df = search_df[(search_df["fg"] > 0) | (search_df["bg"] > 0)]
+        solved_df = search_df.dropna()
         solved = len(solved_df) / len(search_df)
         time = solved_df["time"].mean()
         exp = (solved_df["fexp"] + solved_df["bexp"]).mean()
-        if bidirectional:
-            fb_exp = (solved_df["fexp"] / solved_df["bexp"]).mean()
-            fb_lens = (solved_df["fg"] / solved_df["bg"]).mean()
-            fb_pnll = (solved_df["fpnll"] / solved_df["bpnll"]).mean()
-            fb_nll = (solved_df["fnll"] / solved_df["bnll"]).mean()
-            lens = (solved_df["fg"] + solved_df["bg"]).mean()
-        else:
-            lens = solved_df["fg"].mean()
+        lens = solved_df["len"].mean()
         print(f"Solved: {solved:.3f}")
         print(f"Time: {time:.3f}")
         print(f"Exp: {exp:.3f}")
         print(f"Len: {lens:.3f}")
         if bidirectional:
+            fb_exp = (solved_df["fexp"] / solved_df["bexp"]).mean()
+            fb_lens = (solved_df["fg"] / solved_df["bg"]).mean()
+            fb_pnll = (solved_df["fpnll"] / solved_df["bpnll"]).mean()
+            fb_nll = (solved_df["fnll"] / solved_df["bnll"]).mean()
             print(f"\nFB Exp: {fb_exp:.3f}")
             print(f"FB Len: {fb_lens:.3f}")
             print(f"FB Pnll: {fb_pnll:.3f}")
@@ -294,3 +293,9 @@ class Trajectory:
     #             )
     #         )
     #     return sub_trajs
+
+def set_seeds(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    to.manual_seed(seed)
+

@@ -39,10 +39,11 @@ def test(
 
     total_num_expanded = 0
 
-    local_problems = problems_loader.problems[0] # test/valid problems have one stage
+    local_problems = problems_loader.problems[0]  # test/valid problems have one stage
     local_search_results = np.zeros(
         (len(local_problems), len(search_result_header)), dtype=np.float64
     )
+    local_search_results[:, :] = np.nan
     local_solved_problems = [False] * len(local_problems)
 
     if rank == 0:
@@ -62,8 +63,6 @@ def test(
             (
                 n_forw_expanded,
                 n_backw_expanded,
-                n_forw_generated,
-                n_backw_generated,
                 traj,
             ) = agent.search(
                 problem,
@@ -140,28 +139,24 @@ def test(
             )
         total_num_expanded += world_results_df["exp"].sum()
 
+        stage_search_df = pd.DataFrame(
+            {
+                "id": world_results_df["id"].astype(pd.UInt32Dtype()),
+                "time": world_results_df["time"].astype(pd.Float32Dtype()),
+                "len": world_results_df["len"].astype(pd.UInt16Dtype()),
+                "fexp": world_results_df["fexp"].astype(pd.UInt16Dtype()),
+                "fg": world_results_df["fg"].astype(pd.UInt16Dtype()),
+                "fpnll": world_results_df["fpnll"].astype(pd.Float32Dtype()),
+                "fnll": world_results_df["fnll"].astype(pd.Float32Dtype()),
+            }
+        )
         if bidirectional:
-            stage_search_df = pd.DataFrame({
-                "id": world_results_df["id"].astype(np.uint32),
-                "time": world_results_df["time"].astype(np.float32),
-                "fexp": world_results_df["fexp"].astype(np.uint16),
-                "bexp": world_results_df["bexp"].astype(np.uint16),
-                "fg": world_results_df["fg"].astype(np.uint16),
-                "bg": world_results_df["bg"].astype(np.uint16),
-                "fpnll": world_results_df["fpnll"].astype(np.float32),
-                "bpnll": world_results_df["bpnll"].astype(np.float32),
-                "fnll": world_results_df["fnll"].astype(np.float32),
-                "bnll": world_results_df["bnll"].astype(np.float32),
-            })
-        else:
-            stage_search_df = pd.DataFrame({
-                "id": world_results_df["id"].astype(np.uint32),
-                "time": world_results_df["time"].astype(np.float32),
-                "fexp": world_results_df["fexp"].astype(np.uint16),
-                "fg": world_results_df["fg"].astype(np.uint16),
-                "fpnll": world_results_df["fpnll"].astype(np.float32),
-                "fnll": world_results_df["fnll"].astype(np.float32),
-            })
+            stage_search_df["bexp"] = world_results_df["bexp"].astype(pd.UInt16Dtype())
+            stage_search_df["bg"] = world_results_df["bg"].astype(pd.UInt16Dtype())
+            stage_search_df["bpnll"] = world_results_df["bpnll"].astype(
+                pd.Float32Dtype()
+            )
+            stage_search_df["bnll"] = world_results_df["bnll"].astype(pd.Float32Dtype())
 
         print_search_summary(stage_search_df, bidirectional)
         print(f"\nTime: {timer() - test_start_time:.2f}s")

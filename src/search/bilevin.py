@@ -125,8 +125,6 @@ class BiLevin(Agent):
         n_total_expanded = 0
         n_forw_expanded = 0
         n_backw_expanded = 0
-        n_forw_generated = 0
-        n_backw_generated = 0
 
         while len(f_frontier) > 0 and len(b_frontier) > 0:
             if (
@@ -137,8 +135,6 @@ class BiLevin(Agent):
                 return (
                     n_forw_expanded,
                     n_backw_expanded,
-                    n_forw_generated,
-                    n_backw_generated,
                     None,
                 )
 
@@ -182,10 +178,6 @@ class BiLevin(Agent):
                 )
                 new_node.cost = cost_fn(new_node)
 
-                if direction == TwoDir.FORWARD:
-                    n_forw_generated += 1
-                else:
-                    n_backw_generated += 1
 
                 if new_node not in _reached:
                     trajs = _domain.try_make_solution(
@@ -199,8 +191,6 @@ class BiLevin(Agent):
                         return (
                             n_forw_expanded,
                             n_backw_expanded,
-                            n_forw_generated,
-                            n_backw_generated,
                             trajs,
                         )
 
@@ -231,7 +221,5 @@ class BiLevin(Agent):
         return (
             n_forw_expanded,
             n_backw_expanded,
-            n_forw_generated,
-            n_backw_generated,
             None,
         )

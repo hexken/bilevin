@@ -82,12 +82,9 @@ def parse_args():
     parser.add_argument(
         "--loss-fn",
         type=str,
-        default="cross_entropy_loss",
+        default="levin_loss",
         choices=[
-            "loop_levin_loss",
-            "loop_cross_entropy_loss",
-            "merge_cross_entropy_loss",
-            "loop_levin_loss_real",
+            "levin_loss"
         ],
         help="loss function",
     )

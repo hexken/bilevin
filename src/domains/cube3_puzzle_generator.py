@@ -158,21 +158,21 @@ def main():
         return problems
 
     curriculum_problems = []
-    num_curriculum_problems = args.n_problems_per_stage * len(stages)
+    num_curriculum_problems = 0
     with tqdm.tqdm(total=num_curriculum_problems) as pbar:
         pbar.set_description("Curriculum problems")
-        for stage, ms in enumerate(stages):
+        for ms in stages:
             ms = int(ms)
-            id_start = 0 if stage == 0 else len(curriculum_problems[-1])
             stage_problems = generate_step_problems(
                 args.n_problems_per_stage,
                 ms,
-                id_start,
+                num_curriculum_problems,
                 exclude_problemspecs,
                 args.randomize_curriculum_steps,
                 pbar,
             )
             curriculum_problems.append(stage_problems)
+            num_curriculum_problems += len(stage_problems)
 
     trainset_dict = copy(problemset_dict)
     trainset_dict["randomize_steps"] = args.randomize_curriculum_steps

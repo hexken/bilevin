@@ -16,14 +16,12 @@
 from __future__ import annotations
 import heapq
 from timeit import default_timer as timer
-from typing import TYPE_CHECKING
 
 import torch as to
-from torch.jit import RecursiveScriptModule
 
 from domains.domain import State
 from search.agent import Agent
-from search.utils import SearchNode, Problem, Trajectory
+from search.utils import Problem, SearchNode, Trajectory
 
 
 class Levin(Agent):
@@ -75,14 +73,13 @@ class Levin(Agent):
         heapq.heapify(frontier)
 
         num_expanded = 0
-        num_generated = 0
         while len(frontier) > 0:
             if (
                 (exp_budget > 0 and num_expanded >= exp_budget)
                 or time_budget > 0
                 and timer() - start_time >= time_budget
             ):
-                return num_expanded, 0, num_generated, 0, None
+                return num_expanded, 0, None
 
             node = heapq.heappop(frontier)
             num_expanded += 1
@@ -105,8 +102,6 @@ class Levin(Agent):
                 )
                 new_node.cost = cost_fn(new_node)
 
-                num_generated += 1
-
                 if new_node not in reached:
                     if domain.is_goal(new_state):
                         traj = Trajectory.from_goal_node(
@@ -119,7 +114,7 @@ class Levin(Agent):
                             model=model,
                         )
                         traj = (traj, None)
-                        return num_expanded, 0, num_generated, 0, traj
+                        return num_expanded, 0, traj
 
                     reached[new_node] = new_node
                     if new_state_actions:
@@ -141,4 +136,4 @@ class Levin(Agent):
                     child.log_action_probs = lap
 
         print(f"Emptied frontier for problem {problem_id}")
-        return num_expanded, 0, num_generated, 0, None
+        return num_expanded, 0, None

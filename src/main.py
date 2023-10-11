@@ -16,10 +16,11 @@ from args import parse_args
 from loaders import ProblemLoader
 from search.bilevin import BiLevin
 from search.levin import Levin
+from search.utils import set_seeds
 from train import train
 
 
-def split(args, problems):
+def split_by_rank(args, problems):
     "split a list of lists of problems into a list of lists of problems per rank"
     rng = np.random.default_rng(args.seed)
 
@@ -45,18 +46,20 @@ def split(args, problems):
 
     stages_x_problems = problems
     num_stages = len(stages_x_problems)
-    world_num_problems = sum(len(pset) for pset in stages_x_problems)
 
     # turn stages x problems into stages x ranks x problems
     stages_x_ranks_x_problems = []
     for stage in range(num_stages):
         stages_x_ranks_x_problems.append(split_by_rank(stages_x_problems[stage]))
 
+    world_num_problems = 0
     ranks_x_stages_x_problems = []
     for rank in range(args.world_size):
         curr_stages_x_problems = []
         for stage in range(num_stages):
-            curr_stages_x_problems.append(stages_x_ranks_x_problems[stage][rank])
+            probs = stages_x_ranks_x_problems[stage][rank]
+            curr_stages_x_problems.append(probs)
+            world_num_problems += len(probs)
         ranks_x_stages_x_problems.append(curr_stages_x_problems)
 
     return ranks_x_stages_x_problems, world_num_problems
@@ -80,9 +83,7 @@ def run(
         run_name = f"test_{run_name}"
 
     local_seed = args.seed + rank
-    random.seed(local_seed)
-    np.random.seed(local_seed)
-    to.manual_seed(local_seed)
+    set_seeds(local_seed)
 
     train_loader = ProblemLoader(
         world_num_train_problems,
@@ -130,12 +131,12 @@ if __name__ == "__main__":
         )
 
     pset_dict = pickle.load(args.problems_path.open("rb"))
-    problems, world_num_problems = split(args, pset_dict["problems"])
+    problems, world_num_problems = split_by_rank(args, pset_dict["problems"])
 
     abs_start_time = time.time()
     rel_start_time = timer()
     print(time.ctime(abs_start_time))
-
+    set_seeds(args.seed)
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
 
     problemset_params = f"{args.problems_path.parent.stem}-{args.problems_path.stem}"
@@ -168,7 +169,9 @@ if __name__ == "__main__":
 
     if args.valid_path:
         vset_dict = pickle.load(args.valid_path.open("rb"))
-        valid_problems, world_num_valid_problems = split(args, vset_dict["problems"])
+        valid_problems, world_num_valid_problems = split_by_rank(
+            args, vset_dict["problems"]
+        )
     else:
         valid_problems = None
         world_num_valid_problems = 0

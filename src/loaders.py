@@ -9,15 +9,10 @@ class ProblemLoader:
         world_num_problems: int,
         local_problems: list[list[Problem]],
         shuffle: bool = True,
-        rng=None,
         seed: int = 1,
         manual_advance: bool = False,
     ):
-        if not rng:
-            self.rng = np.random.default_rng(seed)
-        else:
-            self.rng = rng
-
+        self.rng = np.random.default_rng(seed)
         self.shuffle = shuffle
         self.problems = local_problems
         self.n_stages = len(self.problems)
