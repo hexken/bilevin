@@ -442,7 +442,7 @@ def train(
                     best_valid_total_expanded = valid_total_expanded
                     print("Saving best model by expansions")
                     best_models_log.write(
-                        f"epoch {epoch} solved {valid_solved} exp {valid_total_expanded}\n"
+                        f"epoch {epoch} solved {valid_solved} best exp {valid_total_expanded}\n"
                     )
                     agent.save_model("best_expanded", log=False)
 
@@ -450,7 +450,7 @@ def train(
                     best_valid_solved = valid_solved
                     print("Saving best model by solved")
                     best_models_log.write(
-                        f"epoch {epoch} solved {valid_solved} exp {valid_total_expanded}\n"
+                        f"epoch {epoch} best solved {valid_solved} exp {valid_total_expanded}\n"
                     )
                     agent.save_model("best_solved", log=False)
                 best_models_log.flush()
