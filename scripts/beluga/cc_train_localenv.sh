@@ -2,9 +2,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=24:00:00
+#SBATCH --time=0:10:00
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stpw4/%j.txt
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/oct/cube3/
 #SBATCH --account=rrg-lelis
 
 source $HOME/bilevin-env2/bin/activate
@@ -22,30 +22,29 @@ export OMP_NUM_THREADS=1
 
 python src/main.py \
     --world-size 40 \
-    --batch-size-train 40 \
     --mode train \
-    --loss-fn cross_entropy_loss \
+    --loss-fn levin_loss \
     --cost-fn levin_cost \
-    --n-subgoals $5 \
     --grad-steps 10 \
     --feature-net-lr 0.001 \
+    --forward-hidden-layers 128 \
+    --backward-hidden-layers 256 192 128 \
     --forward-feature-net-lr 0.001 \
     --backward-feature-net-lr 0.001\
     --forward-policy-lr 0.001 \
     --backward-policy-lr 0.001 \
-    --bootstrap-epochs 0 \
-    --curriculum-epochs 5 \
-    --permutation-epochs 100 \
-    --epoch-reduce-lr 1000 \
-    --epoch-reduce-grad-steps 1000 \
+    --epochs 10 \
+    --epoch-reduce-lr 10000 \
+    --epoch-reduce-grad-steps 10000 \
     --epoch-begin-validate 1 \
+    --validate-every 1 \
     --time-budget 300 \
     --agent $1 \
-    --problemset-path $2 \
-    --validset-path $3 \
+    --problems-path $2 \
+    --valid-path $3 \
     --expansion-budget $4 \
-    --seed $6 \
-    --wandb-mode disabled \
-    --runsdir-path runs/stpw4 \
-    --exp-name s_ce_lc_bg
-
+    --seed $5 \
+    --share-feature-net \
+    --runsdir-path runs/oct/cube3/
+    #--min-samples-per-stage 5000 \
+    #--min-stage-solve-ratio 0 \

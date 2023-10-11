@@ -2,18 +2,19 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --array=1-30
-#SBATCH --time=00:20:00
+#SBATCH --array=1-20
+#SBATCH --time=00:12:00
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stpw4t/%j.txt
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/sep/wit_tri4t/%j.txt
 #SBATCH --account=rrg-lelis
 
 source $HOME/bilevin-env2/bin/activate
-cd $SLURM_TMPDIR
-pip freeze > requirements.txt
-python -m venv env
-deactivate source env/bin/activate pip install --no-index --upgrade pip
-pip install --no-index -r requirements.txt
+#cd $SLURM_TMPDIR
+#pip freeze > requirements.txt
+#python -m venv env
+#deactivate
+#source env/bin/activate pip install --no-index --upgrade pip
+#pip install --no-index -r requirements.txt
 
 argfile=/scratch/tjhia/bilevin/scripts/beluga/args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
@@ -30,11 +31,11 @@ python src/main.py \
     --world-size 40 \
     --mode "test" \
     --agent $agent \
-    --problemset-path "fresh_problems/stp/w4/10000-test.json" \
+    --problemset-path "fresh_problems/wit_tri/w4/10000-test.json" \
     --model-suffix "best_expanded" \
     --expansion-budget $ebudget \
     --time-budget $tbudget \
-    --seed 1 \
     --wandb-mode disabled \
     --model-path $modelpath \
+    --runsdir-path runs/sep/wit_tri4t \
     --exp-name $expname
