@@ -7,7 +7,7 @@ export OMP_NUM_THREADS=1
 python src/main.py \
     --world-size 4 \
     --mode train \
-    --agent BiLevin \
+    --agent Levin \
     --loss levin_loss \
     --cost-fn levin_cost \
     --feature-net-lr 0.001 \
@@ -15,20 +15,21 @@ python src/main.py \
     --backward-feature-net-lr 0.001 \
     --forward-policy-lr 0.001 \
     --backward-policy-lr 0.001 \
-    --min-samples-per-stage 10 \
     --epochs 3 \
     --epoch-reduce-lr 99 \
     --epoch-reduce-grad-steps 99 \
     --epoch-begin-validate 1 \
     --validate-every 1 \
-    --expansion-budget 5 \
+    --expansion-budget 21000 \
     --time-budget 300 \
     --grad-steps 10 \
     --seed 1 \
     --runsdir-path runs/ \
-    --problems-path problems/cube3/90-train.pkl \
-    --valid-path problems/cube3/16-valid.pkl \
-    # --min-stage-solve-ratio 0 \
+    --problems-path problems/cube3/1000-train.pkl \
+    --valid-path problems/cube3/1000-valid.pkl \
+    --min-samples-per-stage 50 \
+    --min-solve-ratio 0.9 \
+    --n-solve-ratio 25 \
     # --problemset-path fresh_problems/cube3/50000-train.json \
     # --validset-path fresh_problems/cube3/4000-valid.json \
     # --problemset-path fresh_problems/stp/w3/5000-train.json \

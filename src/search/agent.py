@@ -34,7 +34,7 @@ class Agent(ABC):
 
         init_model = self.logdir / f"model_init.pt"
         to.save(self.model, init_model)
-        print(f"Saved init model\n  to {str(init_model)}")
+        # print(f"Saved init model\n  to {str(init_model)}")
 
         if args.mode == "train":
             assert self.model

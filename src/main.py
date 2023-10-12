@@ -84,17 +84,21 @@ def run(
 
     local_seed = args.seed + rank
     set_seeds(local_seed)
+    to.set_num_threads(1)
 
     train_loader = ProblemLoader(
         world_num_train_problems,
         local_train_problems,
         seed=local_seed,
-        manual_advance=args.min_stage_solve_ratio > 0
+        manual_advance=args.min_solve_ratio > 0
         and args.min_samples_per_stage is not None,
     )
     valid_loader = ProblemLoader(
         world_num_valid_problems, local_valid_problems, seed=local_seed
     )
+
+    if args.n_solve_ratio < len(local_train_problems[0]):
+        args.n_solve_ratio = len(local_train_problems[0])
 
     if args.mode == "train":
         train(
@@ -125,7 +129,7 @@ def run(
 
 if __name__ == "__main__":
     args = parse_args()
-    if args.min_stage_solve_ratio > 0 and args.min_samples_per_stage is None:
+    if args.min_solve_ratio > 0 and args.min_samples_per_stage is None:
         raise ValueError(
             "Must provide --min-samples-per-stage when using --min-stage-solve-ratio"
         )
@@ -144,7 +148,7 @@ if __name__ == "__main__":
 
     logdir = args.runsdir_path / run_name
     logdir.mkdir(parents=True, exist_ok=True)
-    print(f"Logging to {str(logdir)}\n")
+    print(f"Logging to {str(logdir)}")
 
     model_args = {
         "kernel_size": (2, 2),
@@ -181,6 +185,8 @@ if __name__ == "__main__":
     }
     with (logdir / "args.json").open("w") as f:
         json.dump(arg_dict, f, indent=2)
+    for k, v in arg_dict.items():
+        print(f"{k}: {v}")
 
     args.logdir = logdir
 

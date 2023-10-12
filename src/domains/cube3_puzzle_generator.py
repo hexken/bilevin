@@ -123,6 +123,7 @@ def main():
 
     def generate_step_problems(
         n_problems: int,
+        min_steps: int,
         max_steps: int,
         id_counter_start: int,
         exclude_problemspecs: set,
@@ -135,7 +136,7 @@ def main():
         while problems_generated < n_problems:
             # put in function
             if randomize:
-                steps = rng.integers(1, max_steps + 1)
+                steps = rng.integers(min_steps, max_steps + 1)
             else:
                 steps = max_steps
             state = cube3.reset()
@@ -161,11 +162,13 @@ def main():
     num_curriculum_problems = 0
     with tqdm.tqdm(total=num_curriculum_problems) as pbar:
         pbar.set_description("Curriculum problems")
-        for ms in stages:
-            ms = int(ms)
+        for i in range(len(stages)):
+            minsteps = stages[i - 1] + 1 if i > 0 else 1
+            maxsteps = stages[i]
             stage_problems = generate_step_problems(
                 args.n_problems_per_stage,
-                ms,
+                minsteps,
+                maxsteps,
                 num_curriculum_problems,
                 exclude_problemspecs,
                 args.randomize_curriculum_steps,
@@ -187,6 +190,7 @@ def main():
             valid_problems = generate_step_problems(
                 args.n_valid,
                 args.test_steps,
+                args.test_steps,
                 0,
                 exclude_problemspecs,
                 args.randomize_test_steps,
@@ -205,6 +209,7 @@ def main():
             pbar.set_description("Test problems")
             test_problems = generate_step_problems(
                 args.n_test,
+                args.test_steps,
                 args.test_steps,
                 0,
                 exclude_problemspecs,

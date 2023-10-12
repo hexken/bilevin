@@ -18,6 +18,8 @@ from search.utils import (
     search_result_header,
 )
 
+# todo add doubling if none solved
+
 
 def train(
     args,
@@ -77,8 +79,6 @@ def train(
     blosses = []
     baccs = []
 
-    stage_avg = 0
-    stage_batches_seen = 0
     stage_problems_seen = 0
 
     for epoch in range(1, args.epochs + 1):
@@ -139,8 +139,6 @@ def train(
                 blosses = []
                 baccs = []
 
-                stage_avg = 0
-                stage_batches_seen = 0
                 stage_problems_seen = 0
 
                 if rank == 0:
@@ -171,6 +169,7 @@ def train(
                 problem.domain.reset()
 
             local_search_results = to.zeros(len(search_result_header), dtype=to.float64)
+            local_search_results[:] = np.nan
             local_search_results[0] = problem.id
             local_search_results[1] = end_time - start_time
             local_search_results[2] = n_forw_expanded + n_backw_expanded
@@ -197,6 +196,8 @@ def train(
             dist.all_gather(world_search_results, local_search_results)
             dist.all_reduce(solved_flag, op=dist.ReduceOp.SUM)
             num_procs_found_solution = solved_flag[0].item()
+
+            total_batches_seen += 1
 
             world_batch_results_t = to.stack(world_search_results, dim=0)
             batch_results_arr = world_batch_results_t.numpy()
@@ -232,9 +233,6 @@ def train(
                 bpnlls.append(batch_results_arr[i, 9])
                 fnlls.append(batch_results_arr[i, 10])
                 bnlls.append(batch_results_arr[i, 11])
-
-            total_batches_seen += 1
-            stage_batches_seen += 1
 
             if num_procs_found_solution > 0:
                 to.set_grad_enabled(True)
@@ -313,17 +311,19 @@ def train(
                                 print(f"bloss: {batch_bloss:.3f}")
                                 print(f"bacc: {batch_bacc:.3f}")
 
-            batch_avg = num_procs_found_solution / batch_size
-            stage_avg += (batch_avg - stage_avg) / stage_batches_seen
             stage_problems_seen += batch_size
 
-            # with warnings.catch_warnings():
-            #     warnings.simplefilter("ignore", category=RuntimeWarning)
+            if len(lens) >= args.n_solve_ratio:
+                stage_solve_ratio = (
+                    ~np.isnan(np.array(lens[-args.n_solve_ratio :]))
+                ).mean()
+            else:
+                stage_solve_ratio = 0
 
             if (
                 train_loader.manual_advance
                 and stage_problems_seen >= args.min_samples_per_stage
-                and stage_avg >= args.min_stage_solve_ratio
+                and stage_solve_ratio >= args.min_solve_ratio
             ):
                 train_loader.goto_next_stage = True
 
@@ -386,6 +386,7 @@ def train(
                 print(
                     "----------------------------------------------------------------------------"
                 )
+            sys.stdout.flush()
             # BATCH END
 
         # process end of epoch

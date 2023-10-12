@@ -21,10 +21,16 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--min-stage-solve-ratio",
+        "--min-solve-ratio",
         type=float,
         default=0,
         help="advance curriculum when either reached epochs or this ratio of problems solved. 0 to ignore",
+    )
+    parser.add_argument(
+        "--n-solve-ratio",
+        type=int,
+        default=1000,
+        help="compute solve ratio based on last n problems",
     )
     parser.add_argument(
         "--min-samples-per-stage",
@@ -32,24 +38,6 @@ def parse_args():
         default=None,
         help="minimum number of samples to use per epoch of each curriculum stage",
     )
-    parser.add_argument(
-        "--shuffle",
-        action="store_true",
-        default=False,
-        help="shuffle problems",
-    )
-    # parser.add_argument(
-    #     "--no-backward-goal",
-    #     action="store_true",
-    #     default=False,
-    #     help="do not use backward goal state for policy input",
-    # )
-    # parser.add_argument(
-    #     "--n-subgoals",
-    #     type=int,
-    #     default=10,
-    #     help="use a maximum of this many subgoals per trajectory",
-    # )
     parser.add_argument(
         "--runsdir-path",
         default="runs",

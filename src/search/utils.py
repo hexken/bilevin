@@ -99,7 +99,10 @@ def print_search_summary(
         solved_df = search_df.dropna()
         solved = len(solved_df) / len(search_df)
         time = solved_df["time"].mean()
-        exp = (solved_df["fexp"] + solved_df["bexp"]).mean()
+        if bidirectional:
+            exp = (solved_df["fexp"] + solved_df["bexp"]).mean()
+        else:
+            exp = (solved_df["fexp"]).mean()
         lens = solved_df["len"].mean()
         print(f"Solved: {solved:.3f}")
         print(f"Time: {time:.3f}")
@@ -294,8 +297,8 @@ class Trajectory:
     #         )
     #     return sub_trajs
 
+
 def set_seeds(seed):
     random.seed(seed)
     np.random.seed(seed)
     to.manual_seed(seed)
-
