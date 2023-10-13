@@ -165,7 +165,7 @@ def test(
         else:
             pth = logdir / f"search_valid_{epoch}.pkl"
 
-        with open(pth, "wb") as f:
+        with pth.open("wb") as f:
             pickle.dump(stage_search_df, f)
 
     if rank == 0:

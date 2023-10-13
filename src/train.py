@@ -1,3 +1,4 @@
+from pathlib import Path
 import pickle
 import sys
 from timeit import default_timer as timer
@@ -84,8 +85,10 @@ def train(
     for epoch in range(1, args.epochs + 1):
         epoch_start_time = timer()
 
-        epoch_search_dfs = []
-        epoch_model_train_dfs = []
+        stage_search_dfs = []
+        stage_model_dfs = []
+        search_data_path = logdir / f"search_train_{epoch}_0.pkl"
+        model_data_path = logdir / f"model_train_{epoch}_0.pkl"
 
         if rank == 0:
             print(
@@ -242,7 +245,7 @@ def train(
                     if f_traj:
                         (
                             f_loss,
-                            f_avg_action_nll,
+                            _,
                             f_acc,
                         ) = loss_fn(f_traj, model)
 
@@ -252,7 +255,7 @@ def train(
                         if b_traj:
                             (
                                 b_loss,
-                                b_avg_action_nll,
+                                _,
                                 b_acc,
                             ) = loss_fn(b_traj, model)
 
@@ -372,6 +375,7 @@ def train(
                     "----------------------------------------------------------------------------"
                 )
                 print(f"END STAGE {old_stage}\n")
+                agent.save_model("latest", log=False)
                 print_search_summary(
                     stage_search_df,
                     bidirectional,
@@ -380,8 +384,17 @@ def train(
                     stage_model_train_df,
                     bidirectional,
                 )
-                epoch_search_dfs.append(stage_search_df)
-                epoch_model_train_dfs.append(stage_model_train_df)
+                stage_search_dfs.append(stage_search_df)
+                stage_model_dfs.append(stage_model_train_df)
+
+                if old_stage < train_loader.n_stages - 1:
+                    search_data_path = logdir / f"search_train_{epoch}_{old_stage}.pkl"
+                    model_data_path = logdir / f"model_train_{epoch}_{old_stage}.pkl"
+                    with search_data_path.open("wb") as f:
+                        pickle.dump(stage_search_df, f)
+                    with model_data_path.open("wb") as f:
+                        pickle.dump(stage_model_train_df, f)
+
                 print(f"\nTime: {timer() - stage_start_time:.2f}")
                 print(
                     "----------------------------------------------------------------------------"
@@ -395,22 +408,25 @@ def train(
                 "============================================================================"
             )
             print(f"END EPOCH {epoch}")
-            epoch_search_df = pd.concat(epoch_search_dfs, ignore_index=True)
-            epoch_model_train_df = pd.concat(epoch_model_train_dfs, ignore_index=True)
+
+            epoch_search_df = pd.concat(stage_search_dfs, ignore_index=True)
+            epoch_model_train_df = pd.concat(stage_model_dfs, ignore_index=True)
+            with Path(logdir / f"search_train_{epoch}.pkl").open("wb") as f:
+                pickle.dump(epoch_search_df, f)
+            with Path(logdir / f"model_train_{epoch}.pkl").open("wb") as f:
+                pickle.dump(epoch_model_train_df, f)
             print_search_summary(
                 epoch_search_df,
                 bidirectional,
             )
-            with (logdir / f"search_train_{epoch}.pkl").open("wb") as f:
-                pickle.dump(epoch_search_df, f)
-
-            epoch_model_train_df = pd.concat(epoch_model_train_dfs, ignore_index=True)
             print_model_train_summary(
                 epoch_model_train_df,
                 bidirectional,
             )
-            with (logdir / f"model_train_{epoch}.pkl").open("wb") as f:
-                pickle.dump(epoch_model_train_df, f)
+            for i in range(train_loader.n_stages - 1):
+                Path(logdir / f"search_train_{epoch}_{i}.pkl").unlink()
+                Path(logdir / f"model_train_{epoch}_{i}.pkl").unlink()
+
             print(f"\nTime: {timer() - epoch_start_time:.2f}")
             print(
                 "============================================================================"
@@ -436,8 +452,6 @@ def train(
                     valid_solved,
                     valid_total_expanded,
                 ) = valid_results
-
-                agent.save_model("latest", log=False)
 
                 if valid_total_expanded <= best_valid_total_expanded:
                     best_valid_total_expanded = valid_total_expanded
