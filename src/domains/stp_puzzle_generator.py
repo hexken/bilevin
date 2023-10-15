@@ -65,28 +65,40 @@ def main():
         help="generate all problems up to (inclusive) this many steps away from the goal",
     )
     parser.add_argument(
-        "--randomize-steps",
-        action="store_true",
-        default=False,
-        help="randomize the number of steps away from the goal for the curriculum",
-    )
-    parser.add_argument(
-        "--curriculum",
+        "--stages",
         nargs="+",
         default=[],
         help="list of steps away from goal for the curriculum",
     )
     parser.add_argument(
-        "--n-problems-per-difficulty",
+        "--stages-multiple",
+        type=int,
+        default=0,
+        help="multiple of steps to use when generating a curriculum",
+    )
+    parser.add_argument(
+        "--num-stages",
+        type=int,
+        default=0,
+        help="number of stages to use when generating a curriculum",
+    )
+    parser.add_argument(
+        "--n-problems-per-stage",
         type=int,
         default=3200,
         help="number of training puzzles to be generated",
     )
     parser.add_argument(
-        "--n-permutation-problems",
+        "--test-steps",
         type=int,
-        default=3200,
-        help="number of validation puzzles to be generated",
+        default=1000,
+        help="number of steps from goal for testing puzzles",
+    )
+    parser.add_argument(
+        "--randomize-test-steps",
+        action="store_true",
+        default=False,
+        help="randomize the number of steps away from the goal for the test problems",
     )
     parser.add_argument(
         "--n-valid",
@@ -107,7 +119,6 @@ def main():
         default=42,
         help="random seed",
     )
-
     args = parser.parse_args()
 
     args.output_path.mkdir(parents=True, exist_ok=True)
