@@ -123,12 +123,12 @@ class SearchNode:
     def __init__(
         self,
         state: State,
+        parent: Optional[SearchNode],
+        parent_action: Optional[int],
+        actions: list[int],
+        actions_mask: Tensor,
         g_cost: int,
-        parent: Optional[SearchNode] = None,
-        parent_action: Optional[int] = None,
         log_prob: Optional[float] = None,
-        actions: Optional[list[int]] = None,
-        actions_mask: Optional[Tensor] = None,
         log_action_probs: Optional[Tensor] = None,
         cost: Optional[float] = None,
     ):

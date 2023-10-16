@@ -1,29 +1,12 @@
-# Copyright (C) 2021-2022, Ken Tjhia
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from collections import namedtuple
-from typing import Callable, Optional, Type, TYPE_CHECKING
+from typing import Optional, Type
 
 import torch as to
 from torch import Tensor, full
 
 from models import AgentModel
-
-from search.utils import Trajectory, SearchNode
+from search.utils import SearchNode, Trajectory
 
 
 class State(ABC):
@@ -38,17 +21,17 @@ class State(ABC):
 
 class Domain(ABC):
     def __init__(self, forward: bool = True):
-        self.visited: dict = {}
+        self.aux_closed: dict = {}
         self.forward: bool = forward
-        self.initial_state: State | list[State]
+        self.initial_state: State
         self.goal_state_t: Optional[Tensor] = None
 
-    def reset(self) -> State | list[State]:
-        self.visited = {}
+    def reset(self) -> State:
+        self.aux_closed = {}
         return self.initial_state
 
     def update(self, node: SearchNode):
-        self.visited[node.state.__hash__()] = node
+        self.aux_closed[node.state.__hash__()] = node
 
     def actions(self, parent_action, state: State) -> tuple[list, Tensor]:
         actions = self._actions(parent_action, state)
@@ -73,8 +56,8 @@ class Domain(ABC):
         Returns a trajectory if state is a solution to this problem, None otherwise.
         """
         hsh = node.state.__hash__()
-        if hsh in other_domain.visited:  # solution found
-            other_node = other_domain.visited[hsh]
+        if hsh in other_domain.aux_closed:  # solution found
+            other_node = other_domain.aux_closed[hsh]
             if self.forward:
                 f_common_node = node
                 b_common_node = other_node

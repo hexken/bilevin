@@ -37,29 +37,27 @@ class Levin(Agent):
         cost_fn = self.cost_fn
 
         state = domain.reset()
-        assert isinstance(state, State)
         state_t = domain.state_tensor(state).unsqueeze(0)
         actions, mask = domain.actions_unpruned(state)
         log_probs, _ = model(state_t, mask=mask)
 
         node = SearchNode(
             state,
+            parent=None,
+            parent_action=None,
+            actions=actions,
+            actions_mask=mask,
             g_cost=0,
             log_prob=0.0,
             cost=0.0,
-            actions=actions,
-            actions_mask=mask,
             log_action_probs=log_probs[0],
         )
 
-        reached = {node: node}
-        frontier = []
-        if actions:
-            frontier.append(node)
-        heapq.heapify(frontier)
+        closed = {node: node}
+        open = [node]
 
         num_expanded = 0
-        while len(frontier) > 0:
+        while len(open) > 0:
             if (
                 (exp_budget > 0 and num_expanded >= exp_budget)
                 or time_budget > 0
@@ -67,7 +65,7 @@ class Levin(Agent):
             ):
                 return num_expanded, 0, None
 
-            node = heapq.heappop(frontier)
+            node = heapq.heappop(open)
             num_expanded += 1
 
             masks = []
@@ -88,7 +86,7 @@ class Levin(Agent):
                 )
                 new_node.cost = cost_fn(new_node)
 
-                if new_node not in reached:
+                if new_node not in closed:
                     if domain.is_goal(new_state):
                         traj = Trajectory.from_goal_node(
                             domain=domain,
@@ -102,9 +100,9 @@ class Levin(Agent):
                         traj = (traj, None)
                         return num_expanded, 0, traj
 
-                    reached[new_node] = new_node
+                    closed[new_node] = new_node
                     if new_state_actions:
-                        heapq.heappush(frontier, new_node)
+                        heapq.heappush(open, new_node)
                         children_to_be_evaluated.append(new_node)
                         state_t = domain.state_tensor(new_state)
                         state_t_of_children_to_be_evaluated.append(state_t)
@@ -121,5 +119,5 @@ class Levin(Agent):
                 for child, lap in zip(children_to_be_evaluated, log_probs):
                     child.log_action_probs = lap
 
-        print(f"Emptied frontier for problem {problem_id}")
+        print(f"Emptied open list for problem {problem_id}")
         return num_expanded, 0, None
