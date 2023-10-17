@@ -178,4 +178,4 @@ class SlidingTilePuzzle(Domain):
         return new_state
 
     def is_goal(self, state: SlidingTilePuzzleState) -> bool:
-        return (state.tiles == self.goal_state.tiles).all()
+        return state == self.goal_state

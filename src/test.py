@@ -70,7 +70,7 @@ def test(
                 time_budget=current_time_budget,
             )
             end_time = timer()
-            solution_length = 0 if not traj else traj[0].cost
+            solution_length = 0 if not traj else len(traj[0])
 
             if bidirectional:
                 problem.domain.reset()
@@ -83,15 +83,13 @@ def test(
             local_search_results[i, 5] = solution_length
 
             if traj:
+                f_traj, b_traj = traj
                 local_solved_problems[i] = True
-
-                local_search_results[i, 6] = traj[0].partial_g_cost
-                local_search_results[i, 8] = -1 * traj[0].partial_log_prob
-                local_search_results[i, 10] = -1 * traj[0].log_prob
-                if bidirectional:
-                    local_search_results[i, 7] = traj[1].partial_g_cost
-                    local_search_results[i, 9] = -1 * traj[1].partial_log_prob
-                    local_search_results[i, 11] = -1 * traj[1].log_prob
+                local_search_results[i, 6] = f_traj.partial_g_cost
+                local_search_results[i, 8] = -1 * f_traj.partial_log_prob
+                if b_traj:
+                    local_search_results[i, 7] = b_traj.partial_g_cost
+                    local_search_results[i, 9] = -1 * b_traj.partial_log_prob
 
         dist.barrier()
 
@@ -147,7 +145,6 @@ def test(
                 "fexp": world_results_df["fexp"].astype(pd.UInt16Dtype()),
                 "fg": world_results_df["fg"].astype(pd.UInt16Dtype()),
                 "fpnll": world_results_df["fpnll"].astype(pd.Float32Dtype()),
-                "fnll": world_results_df["fnll"].astype(pd.Float32Dtype()),
             }
         )
         if bidirectional:
@@ -156,7 +153,6 @@ def test(
             stage_search_df["bpnll"] = world_results_df["bpnll"].astype(
                 pd.Float32Dtype()
             )
-            stage_search_df["bnll"] = world_results_df["bnll"].astype(pd.Float32Dtype())
 
         print_search_summary(stage_search_df, bidirectional)
         print(f"\nTime: {timer() - test_start_time:.2f}s")

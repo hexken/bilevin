@@ -85,8 +85,8 @@ class Cube3(Domain):
         self._actions_list: list[int] = [i for i in range(self.num_actions)]
         self.initial_state: Cube3State = initial_state
 
-        self.goal_state: Cube3State
-        self.goal_state_t: to.Tensor
+        self.goal_state = get_goal_state()
+        self.goal_state_t = self.state_tensor(self.goal_state)
 
     @property
     def state_width(self) -> int:
@@ -249,14 +249,7 @@ class Cube3(Domain):
         return Cube3State(f, u, d, l, r, b)
 
     def is_goal(self, state: Cube3State) -> bool:
-        return (
-            (state.front == 0).all()
-            and (state.up == 1).all()
-            and (state.down == 2).all()
-            and (state.left == 3).all()
-            and (state.right == 4).all()
-            and (state.back == 5).all()
-        )
+        return state == self.goal_state
 
     def state_tensor(self, state: Cube3State) -> to.Tensor:
         return (

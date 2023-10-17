@@ -72,8 +72,6 @@ def train(
     bgs = []
     fpnlls = []
     bpnlls = []
-    fnlls = []
-    bnlls = []
 
     flosses = []
     faccs = []
@@ -134,8 +132,6 @@ def train(
                 bgs = []
                 fpnlls = []
                 bpnlls = []
-                fnlls = []
-                bnlls = []
 
                 flosses = []
                 faccs = []
@@ -166,7 +162,7 @@ def train(
                 time_budget=time_budget,
             )
             end_time = timer()
-            solution_length = np.nan if not traj else traj[0].cost
+            solution_length = np.nan if not traj else len(traj[0])
 
             if bidirectional:
                 problem.domain.reset()
@@ -185,11 +181,9 @@ def train(
                 f_traj, b_traj = traj
                 local_search_results[6] = f_traj.partial_g_cost
                 local_search_results[8] = -1 * f_traj.partial_log_prob
-                local_search_results[10] = -1 * f_traj.log_prob
                 if b_traj:
                     local_search_results[7] = b_traj.partial_g_cost
                     local_search_results[9] = -1 * b_traj.partial_log_prob
-                    local_search_results[11] = -1 * b_traj.log_prob
 
             else:
                 local_search_results[6:] = np.nan
@@ -234,8 +228,6 @@ def train(
                 bgs.append(batch_results_arr[i, 7])
                 fpnlls.append(batch_results_arr[i, 8])
                 bpnlls.append(batch_results_arr[i, 9])
-                fnlls.append(batch_results_arr[i, 10])
-                bnlls.append(batch_results_arr[i, 11])
 
             if num_procs_found_solution > 0:
                 to.set_grad_enabled(True)
@@ -339,7 +331,6 @@ def train(
                         "fexp": pd.Series(fexps, dtype=pd.UInt16Dtype()),
                         "fg": pd.Series(fgs, dtype=pd.UInt16Dtype()),
                         "fpnll": pd.Series(fpnlls, dtype=pd.Float32Dtype()),
-                        "fnll": pd.Series(fnlls, dtype=pd.Float32Dtype()),
                         "stage": pd.Series(
                             [old_stage for _ in range(stage_problems_seen)],
                             dtype=pd.UInt8Dtype(),
@@ -362,8 +353,6 @@ def train(
                     stage_search_df["bpnll"] = pd.Series(
                         bpnlls, dtype=pd.Float32Dtype()
                     )
-                    stage_search_df["bnll"] = pd.Series(bnlls, dtype=pd.Float32Dtype())
-
                     stage_model_train_df["bloss"] = pd.Series(
                         blosses, dtype=pd.Float32Dtype()
                     )

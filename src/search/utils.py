@@ -39,35 +39,6 @@ search_result_header = [
     "bg",
     "fpnll",
     "bpnll",
-    "fnll",
-    "bnll",
-]
-
-train_csvfields = [
-    "epoch",
-    "floss",
-    "facc",
-    "bloss",
-    "bacc",
-    "solved",
-    "sol_len",
-    "cum_uniq_solved",
-    "exp_ratio",
-    "fb_exp_ratio",
-    "fb_g_ratio",
-    "fb_pnll_ratio",
-    "fb_nll_ratio",
-]
-
-test_csvfields = [
-    "epoch",
-    "solved",
-    "sol_len",
-    "exp_ratio",
-    "fb_exp_ratio",
-    "fb_g_ratio",
-    "fb_pnll_ratio",
-    "fb_nll_ratio",
 ]
 
 int_columns = ["exp", "fexp", "bexp"]
@@ -112,11 +83,9 @@ def print_search_summary(
             fb_exp = (solved_df["fexp"] / solved_df["bexp"]).mean()
             fb_lens = (solved_df["fg"] / solved_df["bg"]).mean()
             fb_pnll = (solved_df["fpnll"] / solved_df["bpnll"]).mean()
-            fb_nll = (solved_df["fnll"] / solved_df["bnll"]).mean()
             print(f"\nFB Exp: {fb_exp:.3f}")
             print(f"FB Len: {fb_lens:.3f}")
             print(f"FB Pnll: {fb_pnll:.3f}")
-            print(f"FB Nll: {fb_nll:.3f}")
 
 
 class SearchNode:
@@ -175,7 +144,6 @@ class Trajectory:
         num_expanded: int,
         partial_g_cost: int,  # g_cost of node that generated sol.
         partial_log_prob: float,  # probability of node that generates sol.
-        log_prob: float,
         goal_state_t: Optional[Tensor] = None,
         forward: bool = True,
     ):
@@ -184,13 +152,10 @@ class Trajectory:
         self.num_expanded = num_expanded
         self.partial_g_cost = partial_g_cost
         self.partial_log_prob = partial_log_prob
-        self.log_prob = log_prob
         self.masks = masks
         self.goal_state_t = goal_state_t
         self.forward = forward
 
-        self.cost = len(self.actions)
-        self.costs_to_go = to.arange(self.cost, 0, -1)
         self._len = len(self.actions)
 
     @classmethod
@@ -200,9 +165,7 @@ class Trajectory:
         final_node: SearchNode,
         num_expanded: int,
         partial_g_cost: int,
-        partial_log_prob: Optional[float] = None,
-        log_prob: Optional[float] = None,
-        model: Optional[AgentModel] = None,
+        partial_log_prob: float,
         goal_state_t: Optional[Tensor] = None,
         forward: bool = True,
     ):
@@ -230,36 +193,36 @@ class Trajectory:
         actions = to.tensor(tuple(reversed(actions)))
         masks = to.stack(tuple(reversed(masks)))
 
-        if model:
-            with to.no_grad():
-                # k = partial_g_cost
-                log_probs, _ = model(
-                    states,
-                    mask=masks,
-                    forward=forward,
-                    goal_state_t=goal_state_t,
-                )
-                # partial_nll = nll_loss(
-                #     log_probs[:k], actions[:k], reduction="sum"
-                # ).item()
-                # nll = (
-                #     partial_nll
-                #     + nll_loss(log_probs[k:], actions[k:], reduction="sum").item()
-                # )
+        # if model:
+        #     with to.no_grad():
+        #         # k = partial_g_cost
+        #         log_probs, _ = model(
+        #             states,
+        #             mask=masks,
+        #             forward=forward,
+        #             goal_state_t=goal_state_t,
+        #         )
+        #         # partial_nll = nll_loss(
+        #         #     log_probs[:k], actions[:k], reduction="sum"
+        #         # ).item()
+        #         # nll = (
+        #         #     partial_nll
+        #         #     + nll_loss(log_probs[k:], actions[k:], reduction="sum").item()
+        #         # )
 
-            lp = -nll_loss(log_probs, actions, reduction="sum").item()
-            # plp = -partial_nll
+        #     lp = -nll_loss(log_probs, actions, reduction="sum").item()
+        #     # plp = -partial_nll
 
-            if log_prob and not np.isclose(log_prob, lp):
-                print(f"Warning: search log_prob != model log_prob {log_prob} {lp}")
-            else:
-                log_prob = lp
-            # if partial_log_prob and not np.isclose(partial_log_prob, plp):
-            #     print(
-            #         f"Warning: search partial_log_prob != model partial_log_prob {partial_log_prob} {plp}"
-            #     )
-            # else:
-            #     partial_log_prob = plp
+        #     if log_prob and not np.isclose(log_prob, lp):
+        #         print(f"Warning: search log_prob != model log_prob {log_prob} {lp}")
+        #     else:
+        #         log_prob = lp
+        #     # if partial_log_prob and not np.isclose(partial_log_prob, plp):
+        #     #     print(
+        #     #         f"Warning: search partial_log_prob != model partial_log_prob {partial_log_prob} {plp}"
+        #     #     )
+        #     # else:
+        #     #     partial_log_prob = plp
 
         return cls(
             states=states,
@@ -268,7 +231,6 @@ class Trajectory:
             num_expanded=num_expanded,
             partial_g_cost=partial_g_cost,
             partial_log_prob=partial_log_prob,
-            log_prob=log_prob,
             goal_state_t=goal_state_t,
             forward=forward,
         )

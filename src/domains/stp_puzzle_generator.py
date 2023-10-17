@@ -1,13 +1,37 @@
 import argparse
 from copy import copy
+import json
 from pathlib import Path
 import pickle
 
 import numpy as np
 import tqdm
 
-from domains.stp import SlidingTilePuzzle, SlidingTilePuzzleState
-from search.utils import Problem
+from domains import SlidingTilePuzzle
+from domains.stp import SlidingTilePuzzleState
+
+
+def is_valid(tiles):
+    """
+    Check if a sliding tile puzzle is solvable.
+    For nxn grids.
+    if n is odd, then the number of inversions must be even.
+    if n is even, then the number of inversions + blank_row (0-indexed) must be even.
+    """
+    blank_row = np.where(tiles == 0)[0].item()
+    num_inversions = 0
+    width = tiles.shape[0]
+    n = width**2
+    tiles = tiles.reshape(-1)
+    for i in range(0, n):
+        for j in range(i + 1, n):
+            if tiles[i] and tiles[j] and tiles[i] > tiles[j]:
+                num_inversions += 1
+
+    if width % 2 == 1:
+        return num_inversions % 2 == 0
+    else:
+        return (blank_row + num_inversions) % 2 == 0
 
 
 def main():
@@ -20,10 +44,26 @@ def main():
         help="path to save problem instances",
     )
     parser.add_argument(
-        "--randomize-curriculum-steps",
-        action="store_true",
-        default=False,
-        help="randomize the number of steps away from the goal for the curriculum",
+        "-x",
+        "--exclude-problems",
+        action="extend",
+        nargs="+",
+        type=lambda p: Path(p).absolute(),
+        help="path to save problem instances",
+    )
+
+    parser.add_argument(
+        "-w",
+        "--width",
+        type=int,
+        default=4,
+        help="width of puzzles to be generated",
+    )
+    parser.add_argument(
+        "--bootstrap-steps",
+        type=int,
+        default=10,
+        help="generate all problems up to (inclusive) this many steps away from the goal",
     )
     parser.add_argument(
         "--stages",
@@ -56,6 +96,12 @@ def main():
         help="number of steps from goal for testing puzzles",
     )
     parser.add_argument(
+        "--permutation-test",
+        type=bool,
+        default=False,
+        help="use permutation test set instead of random walk test set",
+    )
+    parser.add_argument(
         "--randomize-test-steps",
         action="store_true",
         default=False,
@@ -80,145 +126,197 @@ def main():
         default=42,
         help="random seed",
     )
-
     args = parser.parse_args()
 
     args.output_path.mkdir(parents=True, exist_ok=True)
 
     exclude_problemspecs = set()
+    if args.exclude_problemset:
+        for pset_path in args.exclude_problemset:
+            problemset_dict = pickle.load(pset_path.open("r"))
+            problemset, _ = getattr(domain_module, "parse_problemset")(problemset_dict)
+
+            for problem in problemset["problems"]:
+                exclude_problemspecs.add(problem.domain.initial_state)
 
     rng = np.random.default_rng(args.seed)
-    goal_state = get_goal_state()
-    cube3 = Cube3(goal_state)
+    goal_tiles = np.arange(args.width**2).reshape(args.width, args.width)
+    stp = SlidingTilePuzzle(goal_tiles, goal_tiles)
 
     problemset_dict = {
-        "domain_module": "cube3",
-        "domain_name": "Cube3",
-        "state_t_width": 3,
-        "state_t_depth": 6,
-        "num_actions": 12,
-        "in_channels": 6,
-        "kernel_depth": 2,
-        "requires_backward_goal": True,
+        "domain_module": "stp",
+        "domain_name": "SlidingTilePuzzle",
+        "state_t_width": args.width,
+        "width": args.width,
+        "num_actions": 4,
+        "in_channels": int(args.width**2),
         "seed": args.seed,
     }
 
-    def save_problemset(problemset_dict, suffix):
-        n_problems = sum(len(p) for p in problemset_dict["problems"])
-        path = args.output_path / f"{n_problems}-{suffix}.pkl"
-        with path.open("wb") as f:
-            pickle.dump(problemset_dict, f)
-        print(f"Saved {n_problems} problems to {path}")
+    def generate_permutation_problems(id_prefix, id_start, num_problems, desc):
+        problems = []
+        id_counter = id_start
+        with tqdm.tqdm(total=num_problems) as local_pbar:
+            local_pbar.set_description(desc)
+            generated = 0
+            while generated < num_problems:
+                tiles = rng.permutation(args.width**2).reshape(
+                    (args.width, args.width)
+                )
+                stp = SlidingTilePuzzle(tiles, goal_tiles)
+                state = stp.initial_state
+                if (
+                    state in exclude_problemspecs
+                    or stp.is_goal(state)
+                    or not is_valid(state.tiles)
+                ):
+                    continue
+                else:
+                    exclude_problemspecs.add(state)
+                    problem = {
+                        "tiles": state.tiles.tolist(),
+                        "id": f"{id_prefix}_{id_counter}",
+                    }
+                    problems.append(problem)
+                    id_counter += 1
+                    generated += 1
+                    local_pbar.update(1)
+        return problems
 
-    if args.stages_multiple > 0 and args.num_stages > 0:
-        stages = [args.stages_multiple * i for i in range(1, args.num_stages + 1)]
-    elif len(args.stages) > 0:
-        stages = args.stages
-    else:
-        raise ValueError("Must specify either stages or stages_multiple and num_stages")
-
-    print(
-        f"Generating {args.n_problems_per_stage} problems for each of {len(stages)} stages: {stages}"
-    )
-
-    def generate_step_problems(
-        n_problems: int,
-        min_steps: int,
-        max_steps: int,
-        id_counter_start: int,
-        exclude_problemspecs: set,
-        randomize: bool,
-        pbar,
+    def get_all_reachable_states(
+        id_prefix, id_start, state, max_step, exclude_problemspecs
     ):
         problems = []
-        problems_generated = 0
-        id_counter = id_counter_start
-        while problems_generated < n_problems:
-            # put in function
-            if randomize:
-                steps = rng.integers(min_steps, max_steps + 1)
+        id_counter = id_start
+
+        def helper(states: list, step, max_step):
+            nonlocal id_counter
+            if step > max_step:
+                return
+            for state in states:
+                local_stp = SlidingTilePuzzle(state.tiles, goal_tiles)
+                actions, _ = local_stp.actions_unpruned(state)
+                new_states = []
+                for action in actions:
+                    new_state = local_stp.result(state, action)
+                    if new_state in exclude_problemspecs or local_stp.is_goal(
+                        new_state
+                    ):
+                        continue
+                    else:
+                        exclude_problemspecs.add(new_state)
+                        problem = {
+                            "tiles": new_state.tiles.tolist(),
+                            "id": f"{id_prefix}_{id_counter}",
+                        }
+                        id_counter += 1
+                        problems.append(problem)
+                        new_states.append(new_state)
+                helper(new_states, step + 1, max_step)
+
+        helper([state], 1, max_step)
+        return problems
+
+    def save_problemset(problemset_dict, suffix, is_curriculum=False):
+        n_problems = 0
+        if "problems" in problemset_dict:
+            n_problems += len(problemset_dict["problems"])
+        if "bootstrap_problems" in problemset_dict:
+            n_problems += len(problemset_dict["bootstrap_problems"])
+        if "curriculum_problems" in problemset_dict:
+            n_problems += len(problemset_dict["curriculum_problems"])
+        if "permutation_problems" in problemset_dict:
+            n_problems += len(problemset_dict["permutation_problems"])
+
+        path = args.output_path / f"{n_problems}-{suffix}.json"
+        with path.open("w") as f:
+            json.dump(problemset_dict, f)
+        print(f"Saved {n_problems} problems to {path}")
+
+    print(
+        f"Generating bootstrap problems up to {args.bootstrap_steps} steps away from goal.."
+    )
+    bootstrap_problems = get_all_reachable_states(
+        "b", 0, stp.initial_state, args.bootstrap_steps, exclude_problemspecs
+    )
+    print(f"Generated {len(bootstrap_problems)} problems.")
+
+    print(
+        f"Generating {args.n_problems_per_difficulty} curriculum problems for each of {len(args.curriculum)} steps: {args.curriculum}"
+    )
+    curriculum_problems = []
+    curr_probs_generated = 0
+    id_counter = 0
+    num_curriculum_problems = args.n_problems_per_difficulty * len(args.curriculum)
+    with tqdm.tqdm(total=num_curriculum_problems) as pbar:
+        pbar.set_description("Curriculum problems")
+        difficulty = 0
+        max_steps = int(args.curriculum[difficulty])
+        while curr_probs_generated < num_curriculum_problems:
+            if args.randomize_steps:
+                steps = rng.integers(1, max_steps + 1)
             else:
                 steps = max_steps
-            state = cube3.reset()
-            assert isinstance(state, Cube3State)
+            state = stp.reset()
+            assert isinstance(state, SlidingTilePuzzleState)
             for _ in range(steps):
-                actions, _ = cube3.actions_unpruned(state)
+                actions, _ = stp.actions_unpruned(state)
                 random_action = rng.choice(actions)
-                state = cube3.result(state, random_action)
+                state = stp.result(state, random_action)
 
-            if state in exclude_problemspecs or cube3.is_goal(state):
+            if state in exclude_problemspecs or stp.is_goal(state):
                 continue
             else:
                 exclude_problemspecs.add(state)
-                domain = Cube3(initial_state=state)
-                problem = Problem(id=id_counter, domain=domain)
-                problems.append(problem)
-                problems_generated += 1
+                problem = {
+                    "tiles": state.tiles.tolist(),
+                    "id": f"c{difficulty}_{id_counter}",
+                }
+                curriculum_problems.append(problem)
+                curr_probs_generated += 1
                 id_counter += 1
                 pbar.update(1)
-        return problems
+                if (
+                    curr_probs_generated > 0
+                    and curr_probs_generated < num_curriculum_problems
+                    and curr_probs_generated % args.n_problems_per_difficulty == 0
+                ):
+                    difficulty += 1
+                    id_counter = 0
+                    max_steps = int(args.curriculum[difficulty])
 
-    curriculum_problems = []
-    num_curriculum_problems = 0
-    with tqdm.tqdm(total=num_curriculum_problems) as pbar:
-        pbar.set_description("Curriculum problems")
-        for i in range(len(stages)):
-            minsteps = stages[i - 1] + 1 if i > 0 else 1
-            maxsteps = stages[i]
-            stage_problems = generate_step_problems(
-                args.n_problems_per_stage,
-                minsteps,
-                maxsteps,
-                num_curriculum_problems,
-                exclude_problemspecs,
-                args.randomize_curriculum_steps,
-                pbar,
-            )
-            curriculum_problems.append(stage_problems)
-            num_curriculum_problems += len(stage_problems)
+    permutation_problems = generate_permutation_problems(
+        "p",
+        0,
+        args.n_permutation_problems,
+        "Permutation problems",
+    )
 
     trainset_dict = copy(problemset_dict)
-    trainset_dict["randomize_steps"] = args.randomize_curriculum_steps
-    trainset_dict["stages"] = stages
-    trainset_dict["problems_per_stage"] = args.n_problems_per_stage
-    trainset_dict["problems"] = curriculum_problems
+    trainset_dict["is_curriculum"] = True
+    trainset_dict["randomize_steps"] = args.randomize_steps
+    trainset_dict["curriculum"] = args.curriculum
+    trainset_dict["problems_per_difficulty"] = args.n_problems_per_difficulty
+    trainset_dict["bootstrap_problems"] = bootstrap_problems
+    trainset_dict["curriculum_problems"] = curriculum_problems
+    trainset_dict["permutation_problems"] = permutation_problems
     save_problemset(trainset_dict, "train")
 
     if args.n_valid > 0:
-        with tqdm.tqdm(total=args.n_valid) as pbar:
-            pbar.set_description("Valid problems")
-            valid_problems = generate_step_problems(
-                args.n_valid,
-                args.test_steps,
-                args.test_steps,
-                0,
-                exclude_problemspecs,
-                args.randomize_test_steps,
-                pbar,
-            )
-            problemset_dict["problems"] = [valid_problems]
-            problemset_dict["randomize_steps"] = args.randomize_test_steps
-            problemset_dict["test_steps"] = args.test_steps
+        valid_problems = generate_permutation_problems(
+            "v", 0, args.n_valid, "Validation problems"
+        )
+        problemset_dict["problems"] = valid_problems
         save_problemset(
             problemset_dict,
             "valid",
         )
 
     if args.n_test > 0:
-        with tqdm.tqdm(total=args.n_test) as pbar:
-            pbar.set_description("Test problems")
-            test_problems = generate_step_problems(
-                args.n_test,
-                args.test_steps,
-                args.test_steps,
-                0,
-                exclude_problemspecs,
-                args.randomize_test_steps,
-                pbar,
-            )
-            problemset_dict["problems"] = [test_problems]
-            problemset_dict["randomize_steps"] = args.randomize_test_steps
-            problemset_dict["test_steps"] = args.test_steps
+        test_problems = generate_permutation_problems(
+            "t", 0, args.n_test, "Test problems"
+        )
+        problemset_dict["problems"] = test_problems
         save_problemset(
             problemset_dict,
             "test",

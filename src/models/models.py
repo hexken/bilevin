@@ -259,13 +259,6 @@ class ConvFeatureNet(nn.Module):
         else:
             raise ValueError("kernel_size must be 2 or 3 dimensional")
 
-        # to.nn.init.kaiming_uniform_(
-        #     self.conv1.weight, mode="fan_in", nonlinearity="relu"
-        # )
-        # to.nn.init.kaiming_uniform_(
-        #     self.conv2.weight, mode="fan_in", nonlinearity="relu"
-        # )
-
         self.reduced_size = (state_t_width - 2) ** 2
 
     def forward(self, x: to.Tensor):
