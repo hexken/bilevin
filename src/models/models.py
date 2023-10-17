@@ -25,7 +25,7 @@ class AgentModel(nn.Module):
         self.state_t_width: int = model_args["state_t_width"]
         reduced_width: int = self.state_t_width - 2 * self.kernel_size[0] + 2
 
-        if "kernel_depth" in model_args:
+        if model_args["kernel_depth"] > 1:
             self.state_t_depth: int = model_args["state_t_depth"]
             self.kernel_depth = model_args["kernel_depth"]
             self.kernel_size = (self.kernel_depth, *self.kernel_size)

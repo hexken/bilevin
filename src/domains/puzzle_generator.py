@@ -6,7 +6,10 @@ import pickle
 import numpy as np
 import tqdm
 
-from domains.cube3 import Cube3, Cube3State, get_goal_state
+from domains.cube3 import Cube3
+from domains.cube3 import get_goal_state as cube3ggs
+from domains.stp import SlidingTilePuzzle
+from domains.stp import get_goal_state as stpggs
 from search.utils import Problem
 
 
@@ -19,6 +22,8 @@ def save_problemset(pth, problemset_dict, suffix):
 
 
 def generate_step_problems(
+    init_domain,
+    domain_class,
     rng,
     n_problems: int,
     min_steps: int,
@@ -28,30 +33,26 @@ def generate_step_problems(
     randomize: bool,
     pbar,
 ):
-    goal_state = get_goal_state()
-    cube3 = Cube3(goal_state)
     problems = []
     problems_generated = 0
     id_counter = id_counter_start
     while problems_generated < n_problems:
-        # put in function
         if randomize:
             steps = rng.integers(min_steps, max_steps + 1)
         else:
             steps = max_steps
-        state = cube3.reset()
-        assert isinstance(state, Cube3State)
+        state = init_domain.reset()
         for _ in range(steps):
-            actions, _ = cube3.actions_unpruned(state)
+            actions, _ = init_domain.actions_unpruned(state)
             random_action = rng.choice(actions)
-            state = cube3.result(state, random_action)
+            state = init_domain.result(state, random_action)
 
-        if state in exclude_problemspecs or cube3.is_goal(state):
+        if state in exclude_problemspecs or init_domain.is_goal(state):
             continue
         else:
             exclude_problemspecs.add(state)
-            domain = Cube3(initial_state=state)
-            problem = Problem(id=id_counter, domain=domain)
+            new_domain = domain_class(initial_state=state)
+            problem = Problem(id=id_counter, domain=new_domain)
             problems.append(problem)
             problems_generated += 1
             id_counter += 1
@@ -71,6 +72,7 @@ def main():
     parser.add_argument(
         "--domain",
         type=str,
+        choices=["cube3", "stp"],
         help="domain",
     )
     parser.add_argument(
@@ -94,19 +96,19 @@ def main():
     parser.add_argument(
         "--stages-multiple",
         type=int,
-        default=0,
+        default=1000,
         help="multiple of steps to use when generating a curriculum",
     )
     parser.add_argument(
         "--num-stages",
         type=int,
-        default=0,
+        default=1,
         help="number of stages to use when generating a curriculum",
     )
     parser.add_argument(
         "--n-problems-per-stage",
         type=int,
-        default=3200,
+        default=50000,
         help="number of training puzzles to be generated",
     )
     parser.add_argument(
@@ -124,13 +126,13 @@ def main():
     parser.add_argument(
         "--n-valid",
         type=int,
-        default=3200,
+        default=4000,
         help="number of validation puzzles to be generated",
     )
     parser.add_argument(
         "--n-test",
         type=int,
-        default=3200,
+        default=4000,
         help="number of testing puzzles to be generated",
     )
     parser.add_argument(
@@ -149,17 +151,34 @@ def main():
 
     rng = np.random.default_rng(args.seed)
 
-    problemset_dict = {
-        "domain_module": "cube3",
-        "domain_name": "Cube3",
-        "state_t_width": 3,
-        "state_t_depth": 6,
-        "num_actions": 12,
-        "in_channels": 6,
-        "kernel_depth": 2,
-        "requires_backward_goal": True,
-        "seed": args.seed,
-    }
+    if args.domain == "cube3":
+        problemset_dict = {
+            "domain_name": "Cube3",
+            "state_t_width": 3,
+            "state_t_depth": 6,
+            "num_actions": 12,
+            "in_channels": 6,
+            "kernel_depth": 2,
+            "requires_backward_goal": True,
+            "seed": args.seed,
+        }
+        domain = Cube3(cube3ggs())
+        domain_class = Cube3
+    elif args.domain == "stp":
+        problemset_dict = {
+            "domain_name": "SlidingTilePuzzle",
+            "state_t_width": args.width,
+            "state_t_depth": 1,
+            "num_actions": 4,
+            "in_channels": int(args.width**2),
+            "kernel_depth": 1,
+            "requires_backward_goal": True,
+            "seed": args.seed,
+        }
+        domain = SlidingTilePuzzle(stpggs(args.width))
+        domain_class = SlidingTilePuzzle
+    else:
+        raise ValueError(f"Unknown domain {args.domain}")
 
     if args.stages_multiple > 0 and args.num_stages > 0:
         stages = [args.stages_multiple * i for i in range(1, args.num_stages + 1)]
@@ -173,13 +192,15 @@ def main():
     )
 
     curriculum_problems = []
-    num_curriculum_problems = 0
+    num_curriculum_problems = len(stages) * args.n_problems_per_stage
     with tqdm.tqdm(total=num_curriculum_problems) as pbar:
         pbar.set_description("Curriculum problems")
         for i in range(len(stages)):
             minsteps = stages[i - 1] + 1 if i > 0 else 1
             maxsteps = stages[i]
             stage_problems = generate_step_problems(
+                domain,
+                domain_class,
                 rng,
                 args.n_problems_per_stage,
                 minsteps,
@@ -203,6 +224,8 @@ def main():
         with tqdm.tqdm(total=args.n_valid) as pbar:
             pbar.set_description("Valid problems")
             valid_problems = generate_step_problems(
+                domain,
+                domain_class,
                 rng,
                 args.n_valid,
                 args.test_steps,
@@ -225,6 +248,8 @@ def main():
         with tqdm.tqdm(total=args.n_test) as pbar:
             pbar.set_description("Test problems")
             test_problems = generate_step_problems(
+                domain,
+                domain_class,
                 rng,
                 args.n_test,
                 args.test_steps,

@@ -5,7 +5,11 @@ import torch as to
 
 from domains.domain import Domain, State
 from enums import FourDir
-from search.utils import Problem
+
+
+def get_goal_state(width: int) -> SlidingTilePuzzleState:
+    tiles = np.arange(width**2).reshape(width, width)
+    return SlidingTilePuzzleState(tiles, 0, 0)
 
 
 class SlidingTilePuzzleState(State):
@@ -37,35 +41,18 @@ class SlidingTilePuzzleState(State):
 
 
 class SlidingTilePuzzle(Domain):
-    def __init__(
-        self, init_tiles: np.ndarray, goal_tiles: np.ndarray, forward: bool = True
-    ):
+    def __init__(self, initial_state: SlidingTilePuzzleState, forward: bool = True):
         super().__init__(forward=forward)
-        self.width = init_tiles.shape[0]
+
+        self.initial_state = initial_state
+        self.width = initial_state.tiles.shape[0]
         self.num_tiles = self.width**2
 
         width_indices = np.arange(self.width)
         self._row_indices = np.repeat(width_indices, self.width)
         self._col_indices = np.tile(width_indices, self.width)
 
-        blank_pos = np.where(init_tiles == 0)
-        self.blank_row = blank_pos[0].item()
-        self.blank_col = blank_pos[1].item()
-
-        self.initial_state: SlidingTilePuzzleState = SlidingTilePuzzleState(
-            init_tiles, self.blank_row, self.blank_col
-        )
-
-        self.initial_state_t: to.Tensor = self.state_tensor(self.initial_state)
-
-        self.goal_tiles = goal_tiles
-        blank_pos = np.where(goal_tiles == 0)
-        goal_blank_row = blank_pos[0].item()
-        goal_blank_col = blank_pos[1].item()
-
-        self.goal_state = SlidingTilePuzzleState(
-            goal_tiles, goal_blank_row, goal_blank_col
-        )
+        self.goal_state = get_goal_state(self.width)
         self.goal_state_t = self.state_tensor(self.goal_state)
 
     @property
@@ -109,9 +96,10 @@ class SlidingTilePuzzle(Domain):
 
     def backward_domain(self) -> SlidingTilePuzzle:
         assert self.forward
-        init_tiles = self.goal_tiles
-        goal_tiles = self.initial_state.tiles
-        domain = SlidingTilePuzzle(init_tiles, goal_tiles, forward=False)
+        init_state = get_goal_state(self.width)
+        domain = SlidingTilePuzzle(init_state, forward=False)
+        domain.goal_state = self.initial_state
+        domain.goal_state_t = self.state_tensor(init_state)
 
         return domain
 
@@ -190,42 +178,4 @@ class SlidingTilePuzzle(Domain):
         return new_state
 
     def is_goal(self, state: SlidingTilePuzzleState) -> bool:
-        return np.array_equal(state.tiles, self.goal_tiles)
-
-
-def parse_problemset(problemset: dict):
-    width = problemset["width"]
-    goal_tiles = np.arange(width**2).reshape(width, width)
-
-    def parse_specs(problem_specs):
-        problems = []
-        for spec in problem_specs:
-            init_tiles = np.array(spec["tiles"])
-            problem = Problem(
-                id=spec["id"],
-                domain=SlidingTilePuzzle(init_tiles=init_tiles, goal_tiles=goal_tiles),
-            )
-            problems.append(problem)
-        return problems
-
-    model_args = {
-        "num_actions": problemset["num_actions"],
-        "in_channels": problemset["in_channels"],
-        "state_t_width": problemset["state_t_width"],
-        "requires_backward_goal": True,
-    }
-
-    if "is_curriculum" in problemset:
-        bootstrap_problems = parse_specs(problemset["bootstrap_problems"])
-        problemset["bootstrap_problems"] = bootstrap_problems
-        problemset["curriculum_problems"] = parse_specs(
-            problemset["curriculum_problems"]
-        )
-        problemset["permutation_problems"] = parse_specs(
-            problemset["permutation_problems"]
-        )
-    else:
-        problems = parse_specs(problemset["problems"])
-        problemset["problems"] = problems
-
-    return problemset, model_args
+        return (state.tiles == self.goal_state.tiles).all()
