@@ -88,6 +88,12 @@ def main():
         help="randomize the number of steps away from the goal for the curriculum",
     )
     parser.add_argument(
+        "--final-stage",
+        action="store_true",
+        default=False,
+        help="insert a final stage with the maximum number of steps away from the goal, not randomized",
+    )
+    parser.add_argument(
         "--stages",
         nargs="+",
         default=[],
@@ -192,7 +198,9 @@ def main():
     )
 
     curriculum_problems = []
-    num_curriculum_problems = len(stages) * args.n_problems_per_stage
+    num_curriculum_problems = len(stages) * args.n_problems_per_stage + (
+        args.n_problems_per_stage if args.final_stage else 0
+    )
     with tqdm.tqdm(total=num_curriculum_problems) as pbar:
         pbar.set_description("Curriculum problems")
         for i in range(len(stages)):
@@ -208,6 +216,21 @@ def main():
                 num_curriculum_problems,
                 exclude_problemspecs,
                 args.randomize_curriculum_steps,
+                pbar,
+            )
+            curriculum_problems.append(stage_problems)
+            num_curriculum_problems += len(stage_problems)
+        if args.final_stage:
+            stage_problems = generate_step_problems(
+                domain,
+                domain_class,
+                rng,
+                args.n_problems_per_stage,
+                stages[-1],
+                stages[-1],
+                num_curriculum_problems,
+                exclude_problemspecs,
+                False,
                 pbar,
             )
             curriculum_problems.append(stage_problems)
