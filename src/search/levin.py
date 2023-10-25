@@ -94,8 +94,6 @@ class Levin(Agent):
                             num_expanded=num_expanded,
                             partial_g_cost=new_node.g_cost,
                             partial_log_prob=new_node.log_prob,
-                            log_prob=new_node.log_prob,
-                            model=model,
                         )
                         traj = (traj, None)
                         return num_expanded, 0, traj

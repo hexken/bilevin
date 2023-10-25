@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 from pathlib import Path
@@ -77,7 +78,12 @@ def run(
 ):
     os.environ["MASTER_ADDR"] = args.master_addr
     os.environ["MASTER_PORT"] = args.master_port
-    dist.init_process_group(backend="gloo", rank=rank, world_size=args.world_size)
+    dist.init_process_group(
+        timeout=datetime.timedelta(seconds=86400),
+        backend="gloo",
+        rank=rank,
+        world_size=args.world_size,
+    )
 
     if args.mode == "test":
         run_name = f"test_{run_name}"

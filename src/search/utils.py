@@ -59,6 +59,7 @@ def print_model_train_summary(
             bacc = model_train_df["bacc"].mean()
             print(f"Bloss: {bloss:.3f}")
             print(f"Bacc: {bacc:.3f}")
+        print(f"Opt steps: {len(model_train_df)}")
 
 
 def print_search_summary(
@@ -75,6 +76,7 @@ def print_search_summary(
         else:
             exp = (solved_df["fexp"]).mean()
         lens = solved_df["len"].mean()
+        print(f"Problems: {len(search_df)}")
         print(f"Solved: {solved:.3f}")
         print(f"Time: {time:.3f}")
         print(f"Exp: {exp:.3f}")

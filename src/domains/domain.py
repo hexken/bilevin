@@ -70,14 +70,13 @@ class Domain(ABC):
                 b_domain = self
 
             f_traj = get_merged_trajectory(
-                model, f_domain, f_common_node, b_common_node, type(node), num_expanded
+                model, f_domain, f_common_node, b_common_node, num_expanded
             )
             b_traj = get_merged_trajectory(
                 model,
                 b_domain,
                 b_common_node,
                 f_common_node,
-                type(node),
                 num_expanded,
                 b_domain.goal_state_t,
                 forward=False,
@@ -141,7 +140,6 @@ def get_merged_trajectory(
     dir1_domain: Domain,
     dir1_common: SearchNode,
     dir2_common: SearchNode,
-    node_type: Type[SearchNode],
     num_expanded: int,
     goal_state_t: Optional[Tensor] = None,
     forward: bool = True,
@@ -158,7 +156,7 @@ def get_merged_trajectory(
     while dir2_parent_node:
         new_state = dir2_parent_node.state
         actions, mask = dir1_domain.actions_unpruned(new_state)
-        new_dir1_node = node_type(
+        new_dir1_node = SearchNode(
             state=new_state,
             g_cost=dir1_node.g_cost + 1,
             parent=dir1_node,

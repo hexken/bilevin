@@ -79,6 +79,7 @@ def train(
     baccs = []
 
     stage_problems_seen = 0
+    stage_problems_this_budget = 0
 
     for epoch in range(1, args.epochs + 1):
         epoch_start_time = timer()
@@ -139,12 +140,14 @@ def train(
                 baccs = []
 
                 stage_problems_seen = 0
+                stage_problems_this_budget = 0
 
                 if rank == 0:
                     print(
                         "----------------------------------------------------------------------------"
                     )
                     print(f"START STAGE {old_stage}")
+                    expansion_budget = args.expansion_budget
                     print(
                         "----------------------------------------------------------------------------"
                     )
@@ -202,7 +205,7 @@ def train(
                 batch_results_arr, columns=search_result_header
             )
             for col in int_columns:
-                batch_print_df[col] = batch_print_df[col].astype(int)
+                batch_print_df[col] = batch_print_df[col].astype(pd.UInt32Dtype())
             batch_print_df = batch_print_df.sort_values("exp")
 
             if rank == 0:
@@ -307,6 +310,7 @@ def train(
                                 print(f"bacc: {batch_bacc:.3f}")
 
             stage_problems_seen += batch_size
+            stage_problems_this_budget += batch_size
 
             if len(lens) >= args.n_solve_ratio:
                 stage_solve_ratio = (
@@ -321,6 +325,21 @@ def train(
                 and stage_solve_ratio >= args.min_solve_ratio
             ):
                 train_loader.goto_next_stage = True
+            elif (
+                stage_problems_this_budget >= args.n_solve_ratio
+                and stage_solve_ratio <= args.min_solve_ratio
+            ):
+                old_budget = expansion_budget
+                expansion_budget *= 2
+                stage_problems_this_budget = 0
+                if rank == 0:
+                    print(
+                        "----------------------------------------------------------------------------"
+                    )
+                    print(f"Budget increased from {old_budget} to {expansion_budget}")
+                    print(
+                        "----------------------------------------------------------------------------"
+                    )
 
             if rank == 0 and train_loader.goto_next_stage:
                 stage_search_df = pd.DataFrame(
@@ -425,7 +444,7 @@ def train(
             if rank == 0:
                 print("VALIDATION")
 
-            dist.barrier()
+            dist.monitored_barrier()
 
             valid_results = test(
                 args,
@@ -460,7 +479,7 @@ def train(
                 best_models_log.flush()
                 sys.stdout.flush()
 
-            dist.barrier()
+            dist.monitored_barrier()
 
         epoch += 1
         # EPOCHS END

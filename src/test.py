@@ -91,7 +91,7 @@ def test(
                     local_search_results[i, 7] = b_traj.partial_g_cost
                     local_search_results[i, 9] = -1 * b_traj.partial_log_prob
 
-        dist.barrier()
+        dist.monitored_barrier()
 
         num_solved_t = to.zeros(1, dtype=to.int64)
         num_solved_t[0] = sum(local_solved_problems)
@@ -142,13 +142,13 @@ def test(
                 "id": world_results_df["id"].astype(pd.UInt32Dtype()),
                 "time": world_results_df["time"].astype(pd.Float32Dtype()),
                 "len": world_results_df["len"].astype(pd.UInt16Dtype()),
-                "fexp": world_results_df["fexp"].astype(pd.UInt16Dtype()),
-                "fg": world_results_df["fg"].astype(pd.UInt16Dtype()),
+                "fexp": world_results_df["fexp"].astype(pd.UInt32Dtype()),
+                "fg": world_results_df["fg"].astype(pd.UInt32Dtype()),
                 "fpnll": world_results_df["fpnll"].astype(pd.Float32Dtype()),
             }
         )
         if bidirectional:
-            stage_search_df["bexp"] = world_results_df["bexp"].astype(pd.UInt16Dtype())
+            stage_search_df["bexp"] = world_results_df["bexp"].astype(pd.UInt32Dtype())
             stage_search_df["bg"] = world_results_df["bg"].astype(pd.UInt16Dtype())
             stage_search_df["bpnll"] = world_results_df["bpnll"].astype(
                 pd.Float32Dtype()
