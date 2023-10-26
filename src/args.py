@@ -36,6 +36,11 @@ def parse_args():
         help="path of file with training or test problem instances",
     )
     parser.add_argument(
+        "--trainstate-path",
+        type=lambda p: Path(p).absolute(),
+        help="Continue training from this prior run",
+    )
+    parser.add_argument(
         "--valid-path",
         type=lambda p: Path(p).absolute(),
         help="path of file with valid problem instances",

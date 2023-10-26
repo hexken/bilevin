@@ -19,6 +19,7 @@ class ProblemLoader:
         self.manual_advance = manual_advance
         self.stage = -1
         self.world_num_problems = world_num_problems
+        self.state = None
 
     def __len__(self):
         return self.world_num_problems
@@ -27,6 +28,27 @@ class ProblemLoader:
         self.goto_next_stage = True
         self.stage = -1
         return self
+
+    def save_state(self):
+        state = {
+            "indices": self._indices,
+            "_idx": self._idx,
+            "stage": self.stage,
+            "rng": self.rng,
+            "manual_advance": self.manual_advance,
+            "shuffle": self.shuffle,
+            "goto_next_stage": self.goto_next_stage,
+        }
+        return state
+
+    def load_state(self, state):
+        self._indices = state["indices"]
+        self._idx = state["_idx"]
+        self.stage = state["stage"]
+        self.rng = state["rng"]
+        self.manual_advance = state["manual_advance"]
+        self.shuffle = state["shuffle"]
+        self.goto_next_stage = state["goto_next_stage"]
 
     def _advance_stage(self) -> bool:
         """Returns True if there are no more stages"""

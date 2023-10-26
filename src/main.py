@@ -131,6 +131,12 @@ def run(
 
 if __name__ == "__main__":
     args = parse_args()
+    abs_start_time = time.time()
+    rel_start_time = timer()
+    print(time.ctime(abs_start_time))
+    set_seeds(args.seed)
+    exp_name = f"_{args.exp_name}" if args.exp_name else ""
+
     if args.min_solve_ratio > 0 and args.min_samples_per_stage is None:
         raise ValueError(
             "Must provide --min-samples-per-stage when using --min-stage-solve-ratio"
@@ -138,12 +144,6 @@ if __name__ == "__main__":
 
     pset_dict = pickle.load(args.problems_path.open("rb"))
     problems, world_num_problems = split_by_rank(args, pset_dict["problems"])
-
-    abs_start_time = time.time()
-    rel_start_time = timer()
-    print(time.ctime(abs_start_time))
-    set_seeds(args.seed)
-    exp_name = f"_{args.exp_name}" if args.exp_name else ""
 
     problemset_params = f"{args.problems_path.parent.stem}-{args.problems_path.stem}"
     run_name = f"{pset_dict['domain_name']}-{problemset_params}_{args.agent}-e{args.expansion_budget}-t{args.time_budget}{exp_name}_{args.seed}_{int(abs_start_time)}"
