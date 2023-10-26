@@ -7,7 +7,23 @@ from models import AgentModel
 from search.utils import Trajectory
 
 
-def cross_entropy_loss(traj: Trajectory, model: AgentModel):
+def cross_entropy_avg_loss(traj: Trajectory, model: AgentModel):
+    n_actions = len(traj)
+    log_probs, _ = model(
+        traj.states,
+        forward=traj.forward,
+        goal_state_t=traj.goal_state_t,
+        mask=traj.masks,
+    )
+    loss = nll_loss(log_probs, traj.actions, reduction="mean")
+
+    avg_action_nll = loss.item()
+    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
+
+    return loss, avg_action_nll, acc
+
+
+def cross_entropy_sum_loss(traj: Trajectory, model: AgentModel):
     n_actions = len(traj)
     log_probs, _ = model(
         traj.states,
