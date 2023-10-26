@@ -29,10 +29,6 @@ def split_by_rank(args, problems):
         ranks_x_problems = [[] for _ in range(args.world_size)]
         rank = 0
         for problem in problems:
-            # this should be a redundant check, but just in case
-            if problem.domain.is_goal(problem.domain.initial_state):
-                raise Exception(f"Problem '{problem.id}' initial state is a goal state")
-
             ranks_x_problems[rank].append(problem)
             rank = (rank + 1) % args.world_size
 

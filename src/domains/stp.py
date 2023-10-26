@@ -44,8 +44,18 @@ class SlidingTilePuzzle(Domain):
     def __init__(self, initial_state: SlidingTilePuzzleState, forward: bool = True):
         super().__init__(forward=forward)
 
-        self.initial_state = initial_state
-        self.width = initial_state.tiles.shape[0]
+        self.initial_state: SlidingTilePuzzleState = initial_state
+        self.width: int
+        self.num_tiles: int
+
+        self._row_indices: np.ndarray
+        self._col_indices = np.ndarray
+
+        self.goal_state: SlidingTilePuzzleState
+        self.goal_state_t: to.Tensor
+
+    def reset(self) -> State:
+        self.width = self.initial_state.tiles.shape[0]
         self.num_tiles = self.width**2
 
         width_indices = np.arange(self.width)
@@ -54,6 +64,7 @@ class SlidingTilePuzzle(Domain):
 
         self.goal_state = get_goal_state(self.width)
         self.goal_state_t = self.state_tensor(self.goal_state)
+        return self._reset()
 
     @property
     def state_width(self) -> int:

@@ -26,7 +26,11 @@ class Domain(ABC):
         self.initial_state: State
         self.goal_state_t: Optional[Tensor] = None
 
+    @abstractmethod
     def reset(self) -> State:
+        pass
+
+    def _reset(self) -> State:
         self.aux_closed = {}
         return self.initial_state
 

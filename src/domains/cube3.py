@@ -82,11 +82,17 @@ class Cube3(Domain):
     ):
         super().__init__(forward=forward)
         self.cube_width: int = 3
-        self._actions_list: list[int] = [i for i in range(self.num_actions)]
         self.initial_state: Cube3State = initial_state
+        self._actions_list: list[int]
 
+        self.goal_state: Cube3State
+        self.goal_state_t: to.Tensor
+
+    def reset(self) -> State:
+        self._actions_list = [i for i in range(self.num_actions)]
         self.goal_state = get_goal_state()
         self.goal_state_t = self.state_tensor(self.goal_state)
+        return self._reset()
 
     @property
     def state_width(self) -> int:
@@ -131,7 +137,6 @@ class Cube3(Domain):
     def backward_domain(self) -> Cube3:
         assert self.forward
         domain = Cube3(get_goal_state(), forward=False)
-        # domain.result = domain._backwards_result
         domain.goal_state = self.initial_state
         domain.goal_state_t = self.state_tensor(self.initial_state)
         return domain
