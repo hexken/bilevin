@@ -10,7 +10,7 @@ def parse_args():
         "--min-solve-ratio",
         type=float,
         default=0,
-        help="advance curriculum when either reached epochs or this ratio of problems solved. 0 to ignore",
+        help="advance curriculum when this ratio of problems solved. 0 to ignore",
     )
     parser.add_argument(
         "--n-solve-ratio",
@@ -22,7 +22,7 @@ def parse_args():
         "--min-samples-per-stage",
         type=int,
         default=None,
-        help="minimum number of samples to use per epoch of each curriculum stage",
+        help="minimum number of samples to use for each stage",
     )
     parser.add_argument(
         "--runsdir-path",
@@ -143,35 +143,35 @@ def parse_args():
         default=10,
         help="number of gradient steps to be performed in each opt pass",
     )
+    # parser.add_argument(
+    #     "--epoch-reduce-lr",
+    #     type=int,
+    #     default=9999999,
+    #     help="reduce learning rate by a factor of 10 after this many epochs",
+    # )
+    # parser.add_argument(
+    #     "--epoch-reduce-grad-steps",
+    #     type=int,
+    #     default=9999999,
+    #     help="reduce number of grad steps by a factor of 2 after this many epochs",
+    # )
     parser.add_argument(
-        "--epochs",
-        type=int,
-        default=10,
-        help="number of epochs to train for",
-    )
-    parser.add_argument(
-        "--epoch-reduce-lr",
-        type=int,
-        default=9999999,
-        help="reduce learning rate by a factor of 10 after this many epochs",
-    )
-    parser.add_argument(
-        "--epoch-reduce-grad-steps",
-        type=int,
-        default=9999999,
-        help="reduce number of grad steps by a factor of 2 after this many epochs",
-    )
-    parser.add_argument(
-        "--epoch-begin-validate",
+        "--batch-begin-validate",
         type=int,
         default=1,
-        help="reduce learning rate by a factor of 10 after this many epochs",
+        help="",
     )
     parser.add_argument(
         "--validate-every",
         type=int,
-        default=1,
-        help="validate every this many epochs",
+        default=100,
+        help="validate every this many batches",
+    )
+    parser.add_argument(
+        "--checkpoint-every",
+        type=int,
+        default=100,
+        help="validate every this many batches",
     )
     parser.add_argument(
         "-a",
@@ -208,10 +208,14 @@ def parse_args():
         help="port for multiprocessing communication",
     )
     parser.add_argument(
-        "--expansion-budget",
+        "--train-expansion-budget",
         type=int,
-        default=2**10,
-        help="initial node expansion budget to solve a problem",
+        help="initial node expansion budget to solve a problem during training",
+    )
+    parser.add_argument(
+        "--test-expansion-budget",
+        type=int,
+        help="initial node expansion budget to solve a problem during testing/validation",
     )
     parser.add_argument(
         "--increase-budget",

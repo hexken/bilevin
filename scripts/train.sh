@@ -8,7 +8,7 @@ python src/main.py \
     --world-size 4 \
     --mode train \
     --agent BiLevin \
-    --loss levin_loss \
+    --loss-fn cross_entropy_avg_loss\
     --cost-fn levin_cost \
     --feature-net-lr 0.001 \
     --forward-feature-net-lr 0.001 \
@@ -20,16 +20,16 @@ python src/main.py \
     --epoch-reduce-grad-steps 99 \
     --epoch-begin-validate 1 \
     --validate-every 1 \
-    --expansion-budget 10 \
+    --expansion-budget 2100 \
     --time-budget 300 \
     --grad-steps 10 \
     --seed 1 \
     --runsdir-path runs/ \
-    --problems-path problems/cube3/1000-train.pkl \
+    --problems-path problems/cube3/1100000-train.pkl \
     --valid-path problems/cube3/1000-valid.pkl \
     --min-samples-per-stage 100 \
-    --min-solve-ratio 0 \
-    --n-solve-ratio 50 \
+    --min-solve-ratio 0.9 \
+    --n-solve-ratio 100 \
     # --problemset-path fresh_problems/cube3/50000-train.json \
     # --validset-path fresh_problems/cube3/4000-valid.json \
     # --problemset-path fresh_problems/stp/w3/5000-train.json \

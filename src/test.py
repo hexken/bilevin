@@ -20,12 +20,12 @@ def test(
     agent: Agent,
     problems_loader: ProblemLoader,
     print_results: bool = True,
-    epoch: Optional[int] = None,
+    batch: Optional[int] = None,
 ):
-    current_exp_budget = args.expansion_budget
+    current_exp_budget = args.test_expansion_budget
     current_time_budget = args.time_budget
     world_size = args.world_size
-    increase_budget = args.increase_budget
+    increase_budget = False
     logdir = args.logdir
 
     world_num_problems = len(problems_loader)
@@ -156,10 +156,10 @@ def test(
 
         print_search_summary(stage_search_df, bidirectional)
         print(f"\nTime: {timer() - test_start_time:.2f}s")
-        if not epoch:
+        if not batch:
             pth = logdir / f"test.pkl"
         else:
-            pth = logdir / f"search_valid_{epoch}.pkl"
+            pth = logdir / f"search_valid_{batch}.pkl"
 
         with pth.open("wb") as f:
             pickle.dump(stage_search_df, f)
