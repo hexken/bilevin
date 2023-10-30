@@ -23,19 +23,18 @@ class Agent(ABC):
         self.model: AgentModel
         self.cost_fn: Callable[[SearchNode], float] = getattr(sutils, args.cost_fn)
 
-        if args.model_path is None:
-            self.model = AgentModel(model_args)
-        elif args.model_path.is_dir():
-            full_model_path = args.model_path / f"best_{args.model_suffix}.pt"
-            self.model = to.load(full_model_path)
-            print(f"Loaded model\n  {str(full_model_path)}")
-        else:
-            raise ValueError("model-path argument must be a directory if given")
+        self.model = AgentModel(model_args)
+        if args.model_path.is_file():
+            self.model.load_state_dict(to.load(args.model_path))
+            print(f"Loaded model\n  {str(args.model_path)}")
+        elif args.model_path is not None:
+            raise FileNotFoundError(f"Model file not found: {str(args.model_path)}")
 
-        init_model = self.logdir / f"model_init.pt"
-        to.save(self.model, init_model)
+        # init_model = self.logdir / f"model_init.pt"
+        # to.save(self.model.state_dict(), init_model)
         # print(f"Saved init model\n  to {str(init_model)}")
 
+        # Set up the optimizer and loss_fn
         if args.mode == "train":
             assert self.model
             self.loss_fn = getattr(losses, args.loss_fn)
@@ -83,7 +82,7 @@ class Agent(ABC):
         log: bool = True,
     ):
         path = self.logdir / subpath / f"model_{suffix}.pt"
-        to.save(self.model, path)
+        to.save(self.model.state_dict(), path)
         if log:
             print(f"Saved model\n  to {str(path)}")
 

@@ -146,10 +146,16 @@ if __name__ == "__main__":
     problems, world_num_problems = split_by_rank(args, pset_dict["problems"])
 
     problemset_params = f"{args.problems_path.parent.stem}-{args.problems_path.stem}"
-    run_name = f"{pset_dict['domain_name']}-{problemset_params}_{args.agent}-e{args.expansion_budget}-t{args.time_budget}{exp_name}_{args.seed}_{int(abs_start_time)}"
+    if args.checkpoint_path is not None:
+        run_name = str(args.checkpoint_path.parents[-1]).strip("/")
+        logdir = args.checkpoint_path.parent
+        print(f"Loaded checkpoint {str(args.checkpoint_path)}")
+    else:
+        run_name = f"{pset_dict['domain_name']}-{problemset_params}_{args.agent}-e{args.train_expansion_budget}-t{args.time_budget}{exp_name}_{args.seed}_{int(abs_start_time)}"
 
-    logdir = args.runsdir_path / run_name
-    logdir.mkdir(parents=True, exist_ok=True)
+        logdir = args.runsdir_path / run_name
+        logdir.mkdir(parents=True, exist_ok=True)
+
     print(f"Logging to {str(logdir)}")
 
     model_args = {
@@ -185,8 +191,10 @@ if __name__ == "__main__":
     arg_dict = {
         k: (v if not isinstance(v, Path) else str(v)) for k, v in vars(args).items()
     }
-    with (logdir / "args.json").open("w") as f:
-        json.dump(arg_dict, f, indent=2)
+    argspath = logdir / "args.json"
+    if not argspath.is_file():
+        with argspath.open("w") as f:
+            json.dump(arg_dict, f, indent=2)
     for k, v in arg_dict.items():
         print(f"{k}: {v}")
 

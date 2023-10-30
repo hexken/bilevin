@@ -61,30 +61,53 @@ def train(
     best_valid_expanded = max_valid_expanded + 1
 
     # to suppress possible unbound warnings
-    ids = []
-    times = []
-    lens = []
-    fexps = []
-    bexps = []
-    fgs = []
-    bgs = []
-    fpnlls = []
-    bpnlls = []
+    if args.checkpoint_path is None:
+        ids = []
+        times = []
+        lens = []
+        fexps = []
+        bexps = []
+        fgs = []
+        bgs = []
+        fpnlls = []
+        bpnlls = []
 
-    flosses = []
-    faccs = []
-    blosses = []
-    baccs = []
+        flosses = []
+        faccs = []
+        blosses = []
+        baccs = []
 
-    stage_problems_seen = 0
-    stage_problems_this_budget = 0
+        loader_state = None
+        stage_problems_seen = 0
+        stage_problems_this_budget = 0
+    else:
+        chkpt = pickle.load(args.checkpoint_path.open("rb"))
+        ids = chkpt["ids"]
+        times = chkpt["times"]
+        lens = chkpt["lens"]
+        fexps = chkpt["fexps"]
+        bexps = chkpt["bexps"]
+        fgs = chkpt["fgs"]
+        bgs = chkpt["bgs"]
+        fpnlls = chkpt["fpnlls"]
+        bpnlls = chkpt["bpnlls"]
+
+        flosses = chkpt["flosses"]
+        faccs = chkpt["faccs"]
+        blosses = chkpt["blosses"]
+        baccs = chkpt["baccs"]
+
+        loader_state = chkpt["loader_state"]
+        stage_problems_seen = chkpt["stage_problems_seen"]
+        stage_problems_this_budget = chkpt["stage_problems_this_budget"]
+
 
     stage_start_time = 0
 
     old_checkpoint = logdir / f"dummy_chkpt"
 
     old_stage = train_loader.stage
-    for problem in train_loader:
+    for problem in train_loader(state=loader_state):
         if old_stage != train_loader.stage:
             stage_start_time = timer()
             old_stage = train_loader.stage
@@ -273,34 +296,6 @@ def train(
         stage_problems_seen += batch_size
         stage_problems_this_budget += batch_size
 
-        if rank == 0 and batches_seen % args.checkpoint_every == 0:
-            # todo work out time chkpoint
-            chkpt = {
-                "model_params": model.state_dict(),
-                "ids": ids,
-                "times": times,
-                "lens": lens,
-                "fexps": fexps,
-                "bexps": bexps,
-                "fgs": fgs,
-                "bgs": bgs,
-                "fpnlls": fpnlls,
-                "bpnlls": bpnlls,
-                "flosses": flosses,
-                "faccs": faccs,
-                "blosses": blosses,
-                "baccs": baccs,
-                "best_valid_expanded": best_valid_expanded,
-                "stage_problems_seen": stage_problems_seen,
-                "stage_problems_this_budget": stage_problems_this_budget,
-                "batches_seen": batches_seen,
-            }
-            new_checkpoint = logdir / f"chkpt_{batches_seen}.pkl"
-            with new_checkpoint.open("wb"):
-                pickle.dump(chkpt, new_checkpoint)
-            old_checkpoint.unlink()
-            old_checkpoint = new_checkpoint
-
         if len(lens) >= args.n_solve_ratio:
             stage_solve_ratio = (
                 ~np.isnan(np.array(lens[-args.n_solve_ratio :]))
@@ -435,5 +430,37 @@ def train(
 
             dist.monitored_barrier()
 
+        # Checkpoint
+        if batches_seen % args.checkpoint_every == 0:
+            indices = [None] * args.world_size
+            dist.gather_object(indices, train_loader._indices)
+            if rank == 0:
+                chkpt = {
+                    "model_params": model.state_dict(),
+                    "ids": ids,
+                    "times": times,
+                    "lens": lens,
+                    "fexps": fexps,
+                    "bexps": bexps,
+                    "fgs": fgs,
+                    "bgs": bgs,
+                    "fpnlls": fpnlls,
+                    "bpnlls": bpnlls,
+                    "flosses": flosses,
+                    "faccs": faccs,
+                    "blosses": blosses,
+                    "baccs": baccs,
+                    "best_valid_expanded": best_valid_expanded,
+                    "stage_problems_seen": stage_problems_seen,
+                    "stage_problems_this_budget": stage_problems_this_budget,
+                    "batches_seen": batches_seen,
+                    "loader_state": train_loader.get_state(),
+                    "indices": indices,
+                }
+                new_checkpoint = logdir / f"chkpt_{batches_seen}.pkl"
+                with new_checkpoint.open("wb"):
+                    pickle.dump(chkpt, new_checkpoint)
+                old_checkpoint.unlink(missing_ok=True)
+                old_checkpoint = new_checkpoint
     if rank == 0:
         print("END TRAINING")

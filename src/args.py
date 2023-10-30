@@ -25,6 +25,12 @@ def parse_args():
         help="minimum number of samples to use for each stage",
     )
     parser.add_argument(
+        "--checkpoint-path",
+        default="runs",
+        type=lambda p: Path(p).absolute(),
+        help="path of checkpoint file",
+    )
+    parser.add_argument(
         "--runsdir-path",
         default="runs",
         type=lambda p: Path(p).absolute(),
