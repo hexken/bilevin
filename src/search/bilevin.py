@@ -35,9 +35,8 @@ class BiLevin(Agent):
         cost_fn = self.cost_fn
 
         problem_id = problem.id
-        f_domain = problem.domain
-        b_domain = f_domain.backward_domain()
 
+        f_domain = problem.domain
         f_state = f_domain.reset()
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
         f_actions, f_mask = f_domain.actions_unpruned(f_state)
@@ -62,6 +61,7 @@ class BiLevin(Agent):
         else:
             b_goal_feats = None
 
+        b_domain = f_domain.backward_domain()
         b_state = b_domain.reset()
         b_state_t = b_domain.state_tensor(b_state).unsqueeze(0)
         b_actions, b_mask = b_domain.actions_unpruned(b_state)

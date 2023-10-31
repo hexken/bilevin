@@ -26,7 +26,7 @@ def parse_args():
     )
     parser.add_argument(
         "--checkpoint-path",
-        default="runs",
+        default=None,
         type=lambda p: Path(p).absolute(),
         help="path of checkpoint file",
     )

@@ -24,11 +24,9 @@ class Agent(ABC):
         self.cost_fn: Callable[[SearchNode], float] = getattr(sutils, args.cost_fn)
 
         self.model = AgentModel(model_args)
-        if args.model_path.is_file():
+        if args.model_path is not None:
             self.model.load_state_dict(to.load(args.model_path))
             print(f"Loaded model\n  {str(args.model_path)}")
-        elif args.model_path is not None:
-            raise FileNotFoundError(f"Model file not found: {str(args.model_path)}")
 
         # init_model = self.logdir / f"model_init.pt"
         # to.save(self.model.state_dict(), init_model)

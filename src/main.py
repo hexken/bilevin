@@ -81,9 +81,6 @@ def run(
         world_size=args.world_size,
     )
 
-    if args.mode == "test":
-        run_name = f"test_{run_name}"
-
     local_seed = args.seed + rank
     set_seeds(local_seed)
     to.set_num_threads(1)
@@ -145,13 +142,12 @@ if __name__ == "__main__":
     pset_dict = pickle.load(args.problems_path.open("rb"))
     problems, world_num_problems = split_by_rank(args, pset_dict["problems"])
 
-    problemset_params = f"{args.problems_path.parent.stem}-{args.problems_path.stem}"
     if args.checkpoint_path is not None:
-        run_name = str(args.checkpoint_path.parents[-1]).strip("/")
+        run_name = str(args.checkpoint_path.parents[-1])
         logdir = args.checkpoint_path.parent
         print(f"Loaded checkpoint {str(args.checkpoint_path)}")
     else:
-        run_name = f"{pset_dict['domain_name']}-{problemset_params}_{args.agent}-e{args.train_expansion_budget}-t{args.time_budget}{exp_name}_{args.seed}_{int(abs_start_time)}"
+        run_name = f"{args.problems_path.parent.stem}-{args.problems_path.stem}_{args.agent}-e{args.train_expansion_budget}-t{args.time_budget}{exp_name}_{args.seed}_{int(abs_start_time)}"
 
         logdir = args.runsdir_path / run_name
         logdir.mkdir(parents=True, exist_ok=True)

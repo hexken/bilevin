@@ -33,7 +33,9 @@ class ProblemLoader:
         return self
 
     def __call__(self, rank, state=None):
-        self.load_state(state)
+        if state is not None:
+            self.load_state(state, rank)
+        return self
 
     def get_state(self):
         state = {
@@ -47,8 +49,8 @@ class ProblemLoader:
         }
         return state
 
-    def load_state(self, state):
-        self._indices = state["indices"]
+    def load_state(self, state, rank):
+        self._indices = state["indices"][rank]
         self._idx = state["_idx"]
         self.stage = state["stage"]
         self.rng = state["rng"]

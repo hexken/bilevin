@@ -101,13 +101,12 @@ def train(
         stage_problems_seen = chkpt["stage_problems_seen"]
         stage_problems_this_budget = chkpt["stage_problems_this_budget"]
 
-
     stage_start_time = 0
 
     old_checkpoint = logdir / f"dummy_chkpt"
 
     old_stage = train_loader.stage
-    for problem in train_loader(state=loader_state):
+    for problem in train_loader(state=loader_state, rank=rank):
         if old_stage != train_loader.stage:
             stage_start_time = timer()
             old_stage = train_loader.stage
@@ -432,8 +431,13 @@ def train(
 
         # Checkpoint
         if batches_seen % args.checkpoint_every == 0:
+            # add indices of all ranks to loader_state
+            loader_state = train_loader.get_state()
             indices = [None] * args.world_size
-            dist.gather_object(indices, train_loader._indices)
+            dist.gather_object(indices, loader_state["_indices"], dst=0)
+            loader_state = train_loader.get_state()
+            loader_state["indices"] = indices
+
             if rank == 0:
                 chkpt = {
                     "model_params": model.state_dict(),
@@ -454,8 +458,7 @@ def train(
                     "stage_problems_seen": stage_problems_seen,
                     "stage_problems_this_budget": stage_problems_this_budget,
                     "batches_seen": batches_seen,
-                    "loader_state": train_loader.get_state(),
-                    "indices": indices,
+                    "loader_state": loader_state,
                 }
                 new_checkpoint = logdir / f"chkpt_{batches_seen}.pkl"
                 with new_checkpoint.open("wb"):
