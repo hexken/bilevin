@@ -6,10 +6,8 @@ python src/main.py \
     --world-size 4 \
     --mode "test" \
     --agent BiLevin \
-    --problemset-path fresh_problems/stp/w4/10000-test.json \
-    --expansion-budget 24000 \
+    --problems-path problems/cube3/1000-test.pkl \
+    --test-expansion-budget 4 \
     --seed 1 \
-    --wandb-mode disabled \
-    --model-path \
-    --model-suffix  "best_expanded" \
+    --model-path runs/cube3-1100-train_BiLevin_e4_t300.0_1_1698863272/model_best_expanded.pt \
     --exp-name ""

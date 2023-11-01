@@ -1,4 +1,5 @@
 env
+*.ipynb filter=strip-notebook-output
 todo.txt
 .ipynb_checkpoints/
 .python-version

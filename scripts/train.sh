@@ -1,8 +1,6 @@
 #!/bin/bash
-#
+
 export OMP_NUM_THREADS=1
-# export PYTORCH_JIT=0
-# export PYTORCH_JIT_LOG_LEVEL=">>graph_fuser.cpp"
 
 python src/main.py \
     --world-size 4 \
@@ -16,10 +14,10 @@ python src/main.py \
     --forward-policy-lr 0.001 \
     --backward-policy-lr 0.001 \
     --batch-begin-validate 1 \
-    --validate-every 100 \
-    --checkpoint-every 100 \
-    --train-expansion-budget 4 \
-    --test-expansion-budget 4 \
+    --validate-every 10 \
+    --checkpoint-every 5 \
+    --train-expansion-budget 2100 \
+    --test-expansion-budget 500 \
     --time-budget 300 \
     --grad-steps 10 \
     --seed 1 \
@@ -27,20 +25,6 @@ python src/main.py \
     --min-samples-per-stage 100 \
     --min-solve-ratio 0 \
     --n-solve-ratio 100 \
-    --problems-path problems/cube3/1100-train.pkl \
+    --problems-path problems/cube3/150-train.pkl \
     --valid-path problems/cube3/100-valid.pkl \
-    # --problems-path problems/cube3/1100000-train.pkl \
-    # --valid-path problems/cube3/1000-valid.pkl \
-    # --problemset-path fresh_problems/cube3/50000-train.json \
-    # --validset-path fresh_problems/cube3/4000-valid.json \
-    # --problemset-path fresh_problems/stp/w3/5000-train.json \
-    # --validset-path fresh_problems/stp/w3/400-valid.json \
-
-    # --problemset-path fresh_problems/wit/w6c4/50000-train.json \
-    # --validset-path fresh_problems/wit/w6c4/4000-valid.json \
-
-    # --problemset-path fresh_problems/stp/w4/50000-train.json \
-    # --validset-path fresh_problems/stp/w4/4000-valid.json \
-
-   # --problemset-path fresh_problems/stp/w4/50000-train.json \
-    # --validset-path fresh_problems/stp/w4/4000-valid.json \
+    --checkpoint-path runs/cube3-150-train_BiLevin_e2100_t300.0_1_1698874122/checkpoint_b15.pkl \
