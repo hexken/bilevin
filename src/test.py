@@ -46,10 +46,7 @@ def test(
     local_search_results[:, :] = np.nan
     local_solved_problems = [False] * len(local_problems)
 
-    if rank == 0:
-        world_search_results = [None] * world_size
-    else:
-        world_search_results = None
+    world_search_results = [None] * world_size
 
     if rank == 0:
         print("Testing...")
@@ -112,8 +109,9 @@ def test(
                     f"Time budget increased from {current_time_budget / 2} to {current_time_budget}\n"
                 )
 
-    dist.gather_object(local_search_results, world_search_results)
-    # End testing
+    dist.gather_object(
+        local_search_results, world_search_results if rank == 0 else None
+    )
 
     if rank == 0:
         world_search_results_arr = np.vstack(world_search_results)

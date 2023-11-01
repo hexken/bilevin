@@ -19,18 +19,13 @@ class ProblemLoader:
         self.manual_advance = manual_advance
         self.stage = -1
         self.world_num_problems = world_num_problems
-        self.state = None
+        self.loaded_state = False
 
     def __len__(self):
         return self.world_num_problems
 
     def __iter__(self):
-        return self
-
-    def __call__(self, rank, state=None):
-        if state is not None:
-            self.load_state(state, rank)
-        else:
+        if not self.loaded_state:
             self.goto_next_stage = True
             self.stage = -1
         return self
@@ -51,6 +46,7 @@ class ProblemLoader:
         self.stage = state["stage"]
         self.rng = state["rng"]
         self.goto_next_stage = state["goto_next_stage"]
+        self.loaded_state = True
 
         probs: list[Problem] = self.problems[self.stage]
         self.stage_problems = np.empty(len(probs), dtype=object)

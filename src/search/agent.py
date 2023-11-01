@@ -28,10 +28,6 @@ class Agent(ABC):
             self.model.load_state_dict(to.load(args.model_path))
             print(f"Loaded model\n  {str(args.model_path)}")
 
-        # init_model = self.logdir / f"model_init.pt"
-        # to.save(self.model.state_dict(), init_model)
-        # print(f"Saved init model\n  to {str(init_model)}")
-
         # Set up the optimizer and loss_fn
         if args.mode == "train":
             assert self.model

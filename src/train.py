@@ -1,3 +1,4 @@
+from argparse import Namespace
 from pathlib import Path
 import pickle
 import sys
@@ -21,12 +22,11 @@ from search.utils import (
 
 
 def train(
-    args,
+    args: Namespace,
     rank: int,
     agent: Agent,
     train_loader: ProblemLoader,
     valid_loader: ProblemLoader,
-    seed: int,
 ):
     logdir = args.logdir
     batch_size = args.world_size
@@ -43,10 +43,6 @@ def train(
     optimizer = agent.optimizer
     loss_fn = agent.loss_fn
 
-    for param in model.parameters():
-        if not param.grad:
-            param.grad = to.zeros_like(param)
-
     solved_flag = to.zeros(1, dtype=to.uint8)
     local_opt_results = to.zeros(4, dtype=to.float64)
 
@@ -61,6 +57,9 @@ def train(
     best_valid_expanded = max_valid_expanded + 1
 
     if args.checkpoint_path is None:
+        for param in model.parameters():
+            if not param.grad:
+                param.grad = to.zeros_like(param)
         ids = []
         times = []
         lens = []
@@ -81,6 +80,8 @@ def train(
         stage_problems_this_budget = 0
     else:
         chkpt_dict = pickle.load(args.checkpoint_path.open("rb"))
+        model.load_state_dict(chkpt_dict["model_state"])
+        optimizer.load_state_dict(chkpt_dict["optimizer_state"])
         ids = chkpt_dict["ids"]
         times = chkpt_dict["times"]
         lens = chkpt_dict["lens"]
@@ -104,26 +105,27 @@ def train(
         stage_problems_seen = chkpt_dict["stage_problems_seen"]
         stage_problems_this_budget = chkpt_dict["stage_problems_this_budget"]
         expansion_budget = chkpt_dict["current_exp_budget"]
+        train_loader.load_state(loader_state, rank)
+
+        if rank == 0:
+            print(
+                "----------------------------------------------------------------------------"
+            )
+            print(
+                f"Continuing from stage {train_loader.stage} using checkpoint {args.checkpoint_path}"
+            )
+            print(
+                "----------------------------------------------------------------------------"
+            )
 
     stage_start_time = 0
 
     old_checkpoint_path = logdir / f"dummy_chkpt"
 
     old_stage = train_loader.stage
-    if old_stage != -1 and rank == 0:
-        print(
-            "----------------------------------------------------------------------------"
-        )
-        print(
-            f"Continuing from stage {old_stage} using checkpoint {args.checkpoint_path}"
-        )
-        print(
-            "----------------------------------------------------------------------------"
-        )
 
-    for problem in train_loader(state=loader_state, rank=rank):
-        # todo fix for checkpoint
-        if old_stage != train_loader.stage and old_stage != -1:
+    for problem in train_loader:
+        if old_stage != train_loader.stage:
             stage_start_time = timer()
             old_stage = train_loader.stage
 
@@ -170,7 +172,7 @@ def train(
         end_time = timer()
         solution_length = np.nan if not traj else len(traj[0])
 
-        # todo why?
+        # to clear the domain cache
         if bidirectional:
             problem.domain.reset()
 
@@ -455,7 +457,8 @@ def train(
 
             if rank == 0:
                 chkpt_dict = {
-                    "model_params": model.state_dict(),
+                    "model_state": model.state_dict(),
+                    "optimizer_state": optimizer.state_dict(),
                     "ids": ids,
                     "times": times,
                     "lens": lens,
@@ -479,5 +482,6 @@ def train(
                 new_checkpoint_path = logdir / f"checkpoint_b{batches_seen}.pkl"
                 with new_checkpoint_path.open("wb") as f:
                     pickle.dump(chkpt_dict, f)
-                old_checkpoint_path.unlink(missing_ok=True)
-                old_checkpoint_path = new_checkpoint_path
+                if not args.keep_all_checkpoints:
+                    old_checkpoint_path.unlink(missing_ok=True)
+                    old_checkpoint_path = new_checkpoint_path

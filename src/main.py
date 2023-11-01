@@ -3,7 +3,6 @@ import json
 import os
 from pathlib import Path
 import pickle
-import random
 import time
 from timeit import default_timer as timer
 
@@ -64,7 +63,6 @@ def split_by_rank(args, problems):
 
 def run(
     rank,
-    run_name,
     agent,
     args,
     local_train_problems,
@@ -106,7 +104,6 @@ def run(
             agent,
             train_loader,
             valid_loader,
-            seed=local_seed,
         )
 
     elif args.mode == "test":
@@ -122,8 +119,7 @@ def run(
 
     if rank == 0:
         total_time = timer() - rel_start_time
-        print("Finished!")
-        print(f"Total time: {total_time:.2f} seconds")
+        print(f"Finished!\nTotal time: {total_time:.2f} seconds")
         with (logdir / "total_time_seconds.txt").open("w") as f:
             f.write(f"{total_time:.2f}")
 
@@ -204,7 +200,6 @@ if __name__ == "__main__":
             target=run,
             args=(
                 rank,
-                run_name,
                 agent,
                 args,
                 problems[rank],
