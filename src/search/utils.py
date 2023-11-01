@@ -59,7 +59,6 @@ def print_model_train_summary(
             bacc = model_train_df["bacc"].mean()
             print(f"Bloss: {bloss:.3f}")
             print(f"Bacc: {bacc:.3f}")
-        print(f"Opt steps: {len(model_train_df)}")
 
 
 def print_search_summary(

@@ -56,10 +56,11 @@ def train(
     max_valid_expanded = num_valid_problems * expansion_budget
     best_valid_expanded = max_valid_expanded + 1
 
+    for param in model.parameters():
+        if not param.grad:
+            param.grad = to.zeros_like(param)
+
     if args.checkpoint_path is None:
-        for param in model.parameters():
-            if not param.grad:
-                param.grad = to.zeros_like(param)
         ids = []
         times = []
         lens = []
@@ -76,6 +77,7 @@ def train(
         baccs = []
 
         loader_state = None
+        stage_start_time = 0
         stage_problems_seen = 0
         stage_problems_this_budget = 0
     else:
@@ -97,14 +99,14 @@ def train(
         blosses = chkpt_dict["blosses"]
         baccs = chkpt_dict["baccs"]
 
-        batches_seen = chkpt_dict["batches_seen"]
+        expansion_budget = chkpt_dict["current_exp_budget"]
+        best_valid_expanded = chkpt_dict["best_valid_expanded"]
+        stage_start_time = timer() - chkpt_dict["time_in_stage"]
         stage_problems_seen = chkpt_dict["stage_problems_seen"]
         stage_problems_this_budget = chkpt_dict["stage_problems_this_budget"]
+        batches_seen = chkpt_dict["batches_seen"]
 
         loader_state = chkpt_dict["loader_state"]
-        stage_problems_seen = chkpt_dict["stage_problems_seen"]
-        stage_problems_this_budget = chkpt_dict["stage_problems_this_budget"]
-        expansion_budget = chkpt_dict["current_exp_budget"]
         train_loader.load_state(loader_state, rank)
 
         if rank == 0:
@@ -117,8 +119,6 @@ def train(
             print(
                 "----------------------------------------------------------------------------"
             )
-
-    stage_start_time = 0
 
     old_checkpoint_path = logdir / f"dummy_chkpt"
 
@@ -426,6 +426,7 @@ def train(
                 (
                     valid_solved,
                     valid_total_expanded,
+                    valid_total_time,
                 ) = valid_results
 
                 if valid_total_expanded <= best_valid_expanded:
@@ -440,6 +441,7 @@ def train(
                 print(
                     "----------------------------------------------------------------------------"
                 )
+                stage_start_time += valid_total_time
                 sys.stdout.flush()
 
             dist.monitored_barrier()
@@ -474,6 +476,7 @@ def train(
                     "baccs": baccs,
                     "current_exp_budget": expansion_budget,
                     "best_valid_expanded": best_valid_expanded,
+                    "time_in_stage": timer() - stage_start_time,
                     "stage_problems_seen": stage_problems_seen,
                     "stage_problems_this_budget": stage_problems_this_budget,
                     "batches_seen": batches_seen,
@@ -485,3 +488,4 @@ def train(
                 if not args.keep_all_checkpoints:
                     old_checkpoint_path.unlink(missing_ok=True)
                     old_checkpoint_path = new_checkpoint_path
+                print(f"\nCheckpoint saved to {str(new_checkpoint_path)}")

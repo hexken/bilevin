@@ -38,6 +38,7 @@ def test(
         model.eval()
 
     total_num_expanded = 0
+    total_time = 0
 
     local_problems = problems_loader.problems[0]  # test/valid problems have one stage
     local_search_results = np.zeros(
@@ -151,7 +152,8 @@ def test(
             )
 
         print_search_summary(stage_search_df, bidirectional)
-        print(f"\nTime: {timer() - test_start_time:.2f}s")
+        total_time = timer() - test_start_time
+        print(f"\nTime: {total_time:.2f}s")
         if not batch:
             pth = logdir / f"test.pkl"
         else:
@@ -160,10 +162,9 @@ def test(
         with pth.open("wb") as f:
             pickle.dump(stage_search_df, f)
 
-    if rank == 0:
-        return (
-            current_num_solved,
-            total_num_expanded,
-        )
-
-    return None, None
+    # only correct for rank 0
+    return (
+        current_num_solved,
+        total_num_expanded,
+        total_time,
+    )

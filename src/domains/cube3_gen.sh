@@ -3,23 +3,21 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export PYTHONPATH=$SCRIPT_DIR/../
 cd $SCRIPT_DIR/../../
 python src/domains/puzzle_generator.py \
---domain stp \
+--domain cube3 \
 --seed \
 9821 \
---width \
-4 \
 --output-path \
-problems/stp4/ \
+problems/cube3/ \
 --n-problems-per-stage \
-50000 \
+50 \
 --randomize-curriculum-steps \
 --stages-multiple \
-1000 \
+5 \
 --num-stages \
-1 \
+3 \
 --n-valid \
-1000 \
+100 \
 --n-test \
-1000 \
+100 \
 --test-steps \
-1000 \
+10 \
