@@ -41,8 +41,6 @@ class ProblemLoader:
             "_idx": self._idx,
             "stage": self.stage,
             "rng": self.rng,
-            "manual_advance": self.manual_advance,
-            "shuffle": self.shuffle,
             "goto_next_stage": self.goto_next_stage,
         }
         return state
@@ -52,8 +50,6 @@ class ProblemLoader:
         self._idx = state["_idx"]
         self.stage = state["stage"]
         self.rng = state["rng"]
-        self.manual_advance = state["manual_advance"]
-        self.shuffle = state["shuffle"]
         self.goto_next_stage = state["goto_next_stage"]
 
         probs: list[Problem] = self.problems[self.stage]

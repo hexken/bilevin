@@ -110,6 +110,7 @@ def run(
         )
 
     elif args.mode == "test":
+        # todo figure out where test results shoudl go
         test(
             args,
             rank,
@@ -121,6 +122,7 @@ def run(
 
     if rank == 0:
         total_time = timer() - rel_start_time
+        print("Finished!")
         print(f"Total time: {total_time:.2f} seconds")
         with (logdir / "total_time_seconds.txt").open("w") as f:
             f.write(f"{total_time:.2f}")

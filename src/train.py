@@ -96,6 +96,10 @@ def train(
         blosses = chkpt_dict["blosses"]
         baccs = chkpt_dict["baccs"]
 
+        batches_seen = chkpt_dict["batches_seen"]
+        stage_problems_seen = chkpt_dict["stage_problems_seen"]
+        stage_problems_this_budget = chkpt_dict["stage_problems_this_budget"]
+
         loader_state = chkpt_dict["loader_state"]
         stage_problems_seen = chkpt_dict["stage_problems_seen"]
         stage_problems_this_budget = chkpt_dict["stage_problems_this_budget"]
@@ -106,8 +110,20 @@ def train(
     old_checkpoint_path = logdir / f"dummy_chkpt"
 
     old_stage = train_loader.stage
+    if old_stage != -1 and rank == 0:
+        print(
+            "----------------------------------------------------------------------------"
+        )
+        print(
+            f"Continuing from stage {old_stage} using checkpoint {args.checkpoint_path}"
+        )
+        print(
+            "----------------------------------------------------------------------------"
+        )
+
     for problem in train_loader(state=loader_state, rank=rank):
-        if old_stage != train_loader.stage:
+        # todo fix for checkpoint
+        if old_stage != train_loader.stage and old_stage != -1:
             stage_start_time = timer()
             old_stage = train_loader.stage
 
@@ -154,6 +170,7 @@ def train(
         end_time = timer()
         solution_length = np.nan if not traj else len(traj[0])
 
+        # todo why?
         if bidirectional:
             problem.domain.reset()
 
@@ -464,5 +481,3 @@ def train(
                     pickle.dump(chkpt_dict, f)
                 old_checkpoint_path.unlink(missing_ok=True)
                 old_checkpoint_path = new_checkpoint_path
-    if rank == 0:
-        print("END TRAINING")

@@ -17,17 +17,18 @@ python src/main.py \
     --backward-policy-lr 0.001 \
     --batch-begin-validate 1 \
     --validate-every 100 \
-    --train-expansion-budget 16000 \
-    --test-expansion-budget 16000 \
+    --checkpoint-every 100 \
+    --train-expansion-budget 4 \
+    --test-expansion-budget 4 \
     --time-budget 300 \
     --grad-steps 10 \
     --seed 1 \
     --runsdir-path runs/ \
     --min-samples-per-stage 100 \
-    --min-solve-ratio 0.9 \
+    --min-solve-ratio 0 \
     --n-solve-ratio 100 \
-    --problems-path problems/stp4/1000-train.pkl \
-    --valid-path problems/stp4/100-valid.pkl \
+    --problems-path problems/cube3/1100-train.pkl \
+    --valid-path problems/cube3/100-valid.pkl \
     # --problems-path problems/cube3/1100000-train.pkl \
     # --valid-path problems/cube3/1000-valid.pkl \
     # --problemset-path fresh_problems/cube3/50000-train.json \
