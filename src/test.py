@@ -48,8 +48,6 @@ def test(
 
     world_search_results = [None] * world_size
 
-    if rank == 0:
-        print("Testing...")
     test_start_time = timer()
     while True:
         for i, problem in enumerate(local_problems):
@@ -67,7 +65,7 @@ def test(
                 time_budget=current_time_budget,
             )
             end_time = timer()
-            solution_length = 0 if not traj else len(traj[0])
+            sol_len = np.nan if not traj else len(traj[0])
 
             if bidirectional:
                 problem.domain.reset()
@@ -77,7 +75,7 @@ def test(
             local_search_results[i, 2] = n_forw_expanded + n_backw_expanded
             local_search_results[i, 3] = n_forw_expanded
             local_search_results[i, 4] = n_backw_expanded
-            local_search_results[i, 5] = solution_length
+            local_search_results[i, 5] = sol_len
 
             if traj:
                 f_traj, b_traj = traj

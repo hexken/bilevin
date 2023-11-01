@@ -233,7 +233,7 @@ def parse_args():
         "--increase-budget",
         action="store_true",
         default=False,
-        help="during testing (not validation), double the budget for each unsolved problem",
+        help="during testing (not validation), double the budget for each unsolved problem; during training double the budget every min-samples-per-stage when the solve ratio is below min-solve-ratio, and reset to expansion-budget at beginning of each stage",
     )
     parser.add_argument(
         "--time-budget",

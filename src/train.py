@@ -170,7 +170,7 @@ def train(
             time_budget=time_budget,
         )
         end_time = timer()
-        solution_length = np.nan if not traj else len(traj[0])
+        sol_len = np.nan if not traj else len(traj[0])
 
         # to clear the domain cache
         if bidirectional:
@@ -183,7 +183,7 @@ def train(
         local_search_results[2] = n_forw_expanded + n_backw_expanded
         local_search_results[3] = n_forw_expanded
         local_search_results[4] = n_backw_expanded
-        local_search_results[5] = solution_length
+        local_search_results[5] = sol_len
 
         if traj:
             solved_flag[0] = 1

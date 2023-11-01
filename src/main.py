@@ -65,8 +65,8 @@ def run(
     rank,
     agent,
     args,
-    local_train_problems,
-    world_num_train_problems,
+    local_problems,
+    world_num_problems,
     local_valid_problems,
     world_num_valid_problems,
 ):
@@ -83,38 +83,44 @@ def run(
     set_seeds(local_seed)
     to.set_num_threads(1)
 
-    train_loader = ProblemLoader(
-        world_num_train_problems,
-        local_train_problems,
+    problems_loader = ProblemLoader(
+        world_num_problems,
+        local_problems,
         seed=local_seed,
-        manual_advance=args.min_solve_ratio > 0
+        manual_advance=args.mode == "train"
+        and (args.min_solve_ratio > 0)
         and args.min_samples_per_stage is not None,
     )
-    valid_loader = ProblemLoader(
-        world_num_valid_problems, local_valid_problems, seed=local_seed
-    )
-
-    if args.n_solve_ratio < len(local_train_problems[0]):
-        args.n_solve_ratio = len(local_train_problems[0])
 
     if args.mode == "train":
+        if args.n_solve_ratio < len(local_problems[0]):
+            args.n_solve_ratio = len(local_problems[0])
+
+        valid_loader = ProblemLoader(
+            world_num_valid_problems,
+            local_valid_problems,
+            seed=local_seed,
+            shuffle=False,
+        )
+        if rank == 0:
+            print("\nTraining...")
         train(
             args,
             rank,
             agent,
-            train_loader,
+            problems_loader,
             valid_loader,
         )
-
-    elif args.mode == "test":
-        # todo figure out where test results shoudl go
+    else:
+        if rank == 0:
+            print("\nTesting...")
         test(
             args,
             rank,
             agent,
-            local_train_problems,
+            problems_loader,
             print_results=True,
-            epoch=None,
+            batch=None,
         )
 
     if rank == 0:
@@ -151,7 +157,7 @@ if __name__ == "__main__":
     elif args.mode == "test":
         logdir = (
             args.model_path.parent
-            / f"test_{args.model_suffix}_{args.seed}_{int(abs_start_time)}"
+            / f"test_{args.model_path.stem}_{args.seed}_{int(abs_start_time)}"
         )
         print(f"Loaded model {str(args.model_path)}")
     else:
