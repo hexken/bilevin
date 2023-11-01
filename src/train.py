@@ -105,9 +105,7 @@ def train(
         stage_problems_seen = chkpt_dict["stage_problems_seen"]
         stage_problems_this_budget = chkpt_dict["stage_problems_this_budget"]
         batches_seen = chkpt_dict["batches_seen"]
-
-        loader_state = chkpt_dict["loader_state"]
-        train_loader.load_state(loader_state, rank)
+        train_loader.load_state(chkpt_dict["loader_states"][rank])
 
         if rank == 0:
             print(
@@ -448,14 +446,10 @@ def train(
 
         # Checkpoint
         if batches_seen % args.checkpoint_every == 0:
-            # add indices of all ranks to loader_state
-            loader_state = train_loader.get_state()
-            indices = [None for _ in range(args.world_size)]
+            loader_states = [None] * args.world_size
             dist.gather_object(
-                loader_state["indices"], indices if rank == 0 else None, dst=0
+                train_loader.get_state(), loader_states if rank == 0 else None, dst=0
             )
-            loader_state = train_loader.get_state()
-            loader_state["indices"] = indices
 
             if rank == 0:
                 chkpt_dict = {
@@ -480,7 +474,7 @@ def train(
                     "stage_problems_seen": stage_problems_seen,
                     "stage_problems_this_budget": stage_problems_this_budget,
                     "batches_seen": batches_seen,
-                    "loader_state": loader_state,
+                    "loader_states": loader_states,
                 }
                 new_checkpoint_path = logdir / f"checkpoint_b{batches_seen}.pkl"
                 with new_checkpoint_path.open("wb") as f:

@@ -40,8 +40,8 @@ class ProblemLoader:
         }
         return state
 
-    def load_state(self, state, rank):
-        self._indices = state["indices"][rank]
+    def load_state(self, state):
+        self._indices = state["indices"]
         self._idx = state["_idx"]
         self.stage = state["stage"]
         self.rng = state["rng"]
