@@ -140,16 +140,24 @@ if __name__ == "__main__":
     pset_dict = pickle.load(args.problems_path.open("rb"))
     problems, world_num_problems = split_by_rank(args, pset_dict["problems"])
 
-    if args.checkpoint_path is not None:
-        run_name = str(args.checkpoint_path.parents[-1])
-        logdir = args.checkpoint_path.parent
-        print(f"Loaded checkpoint {str(args.checkpoint_path)}")
+    if args.mode == "train":
+        if args.checkpoint_path is None:
+            run_name = f"{args.problems_path.parent.stem}-{args.problems_path.stem}_{args.agent}_e{args.train_expansion_budget}_t{args.time_budget}{exp_name}_{args.seed}_{int(abs_start_time)}"
+            logdir = args.runsdir_path / run_name
+        else:
+            run_name = str(args.checkpoint_path.parents[-1])
+            logdir = args.checkpoint_path.parent
+            print(f"Loaded checkpoint {str(args.checkpoint_path)}")
+    elif args.mode == "test":
+        logdir = (
+            args.model_path.parent
+            / f"test_{args.model_suffix}_{args.seed}_{int(abs_start_time)}"
+        )
+        print(f"Loaded model {str(args.model_path)}")
     else:
-        run_name = f"{args.problems_path.parent.stem}-{args.problems_path.stem}_{args.agent}-e{args.train_expansion_budget}-t{args.time_budget}{exp_name}_{args.seed}_{int(abs_start_time)}"
+        raise ValueError(f"Unknown mode: {args.mode}")
 
-        logdir = args.runsdir_path / run_name
-        logdir.mkdir(parents=True, exist_ok=True)
-
+    logdir.mkdir(parents=True, exist_ok=True)
     print(f"Logging to {str(logdir)}")
 
     model_args = {
