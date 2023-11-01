@@ -198,10 +198,11 @@ def main():
     )
 
     curriculum_problems = []
-    num_curriculum_problems = len(stages) * args.n_problems_per_stage + (
+    total_num_curriculum_problems = len(stages) * args.n_problems_per_stage + (
         args.n_problems_per_stage if args.final_stage else 0
     )
-    with tqdm.tqdm(total=num_curriculum_problems) as pbar:
+    num_curriculum_problems = 0
+    with tqdm.tqdm(total=total_num_curriculum_problems) as pbar:
         pbar.set_description("Curriculum problems")
         for i in range(len(stages)):
             minsteps = stages[i - 1] + 1 if i > 0 else 1
