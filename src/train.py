@@ -60,7 +60,6 @@ def train(
     max_valid_expanded = num_valid_problems * expansion_budget
     best_valid_expanded = max_valid_expanded + 1
 
-    # to suppress possible unbound warnings
     if args.checkpoint_path is None:
         ids = []
         times = []
@@ -81,29 +80,30 @@ def train(
         stage_problems_seen = 0
         stage_problems_this_budget = 0
     else:
-        chkpt = pickle.load(args.checkpoint_path.open("rb"))
-        ids = chkpt["ids"]
-        times = chkpt["times"]
-        lens = chkpt["lens"]
-        fexps = chkpt["fexps"]
-        bexps = chkpt["bexps"]
-        fgs = chkpt["fgs"]
-        bgs = chkpt["bgs"]
-        fpnlls = chkpt["fpnlls"]
-        bpnlls = chkpt["bpnlls"]
+        chkpt_dict = pickle.load(args.checkpoint_path.open("rb"))
+        ids = chkpt_dict["ids"]
+        times = chkpt_dict["times"]
+        lens = chkpt_dict["lens"]
+        fexps = chkpt_dict["fexps"]
+        bexps = chkpt_dict["bexps"]
+        fgs = chkpt_dict["fgs"]
+        bgs = chkpt_dict["bgs"]
+        fpnlls = chkpt_dict["fpnlls"]
+        bpnlls = chkpt_dict["bpnlls"]
 
-        flosses = chkpt["flosses"]
-        faccs = chkpt["faccs"]
-        blosses = chkpt["blosses"]
-        baccs = chkpt["baccs"]
+        flosses = chkpt_dict["flosses"]
+        faccs = chkpt_dict["faccs"]
+        blosses = chkpt_dict["blosses"]
+        baccs = chkpt_dict["baccs"]
 
-        loader_state = chkpt["loader_state"]
-        stage_problems_seen = chkpt["stage_problems_seen"]
-        stage_problems_this_budget = chkpt["stage_problems_this_budget"]
+        loader_state = chkpt_dict["loader_state"]
+        stage_problems_seen = chkpt_dict["stage_problems_seen"]
+        stage_problems_this_budget = chkpt_dict["stage_problems_this_budget"]
+        expansion_budget = chkpt_dict["current_exp_budget"]
 
     stage_start_time = 0
 
-    old_checkpoint = logdir / f"dummy_chkpt"
+    old_checkpoint_path = logdir / f"dummy_chkpt"
 
     old_stage = train_loader.stage
     for problem in train_loader(state=loader_state, rank=rank):
@@ -309,7 +309,8 @@ def train(
         ):
             train_loader.goto_next_stage = True
         elif (
-            stage_problems_this_budget >= args.n_solve_ratio
+            args.increase_budget
+            and stage_problems_this_budget >= args.n_solve_ratio
             and stage_solve_ratio <= args.min_solve_ratio
         ):
             old_budget = expansion_budget
@@ -363,6 +364,10 @@ def train(
             )
             print(f"END STAGE {old_stage}\n")
             agent.save_model("latest", log=False)
+            with (logdir / f"search_train_s{old_stage}.pkl").open("wb") as f:
+                pickle.dump(stage_search_df, f)
+            with (logdir / f"model_train_s{old_stage}.pkl").open("wb") as f:
+                pickle.dump(stage_model_train_df, f)
             print_search_summary(
                 stage_search_df,
                 bidirectional,
@@ -371,15 +376,6 @@ def train(
                 stage_model_train_df,
                 bidirectional,
             )
-
-            if old_stage < train_loader.n_stages - 1:
-                search_data_path = logdir / f"search_train_{old_stage}.pkl"
-                model_data_path = logdir / f"model_train_{old_stage}.pkl"
-                with search_data_path.open("wb") as f:
-                    pickle.dump(stage_search_df, f)
-                with model_data_path.open("wb") as f:
-                    pickle.dump(stage_model_train_df, f)
-
             print(f"\nTime: {timer() - stage_start_time:.2f}")
             print(
                 "----------------------------------------------------------------------------"
@@ -433,13 +429,15 @@ def train(
         if batches_seen % args.checkpoint_every == 0:
             # add indices of all ranks to loader_state
             loader_state = train_loader.get_state()
-            indices = [None] * args.world_size
-            dist.gather_object(indices, loader_state["_indices"], dst=0)
+            indices = [None for _ in range(args.world_size)]
+            dist.gather_object(
+                loader_state["indices"], indices if rank == 0 else None, dst=0
+            )
             loader_state = train_loader.get_state()
             loader_state["indices"] = indices
 
             if rank == 0:
-                chkpt = {
+                chkpt_dict = {
                     "model_params": model.state_dict(),
                     "ids": ids,
                     "times": times,
@@ -454,16 +452,17 @@ def train(
                     "faccs": faccs,
                     "blosses": blosses,
                     "baccs": baccs,
+                    "current_exp_budget": expansion_budget,
                     "best_valid_expanded": best_valid_expanded,
                     "stage_problems_seen": stage_problems_seen,
                     "stage_problems_this_budget": stage_problems_this_budget,
                     "batches_seen": batches_seen,
                     "loader_state": loader_state,
                 }
-                new_checkpoint = logdir / f"chkpt_{batches_seen}.pkl"
-                with new_checkpoint.open("wb"):
-                    pickle.dump(chkpt, new_checkpoint)
-                old_checkpoint.unlink(missing_ok=True)
-                old_checkpoint = new_checkpoint
+                new_checkpoint_path = logdir / f"checkpoint_b{batches_seen}.pkl"
+                with new_checkpoint_path.open("wb") as f:
+                    pickle.dump(chkpt_dict, f)
+                old_checkpoint_path.unlink(missing_ok=True)
+                old_checkpoint_path = new_checkpoint_path
     if rank == 0:
         print("END TRAINING")

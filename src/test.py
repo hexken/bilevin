@@ -159,7 +159,7 @@ def test(
         if not batch:
             pth = logdir / f"test.pkl"
         else:
-            pth = logdir / f"search_valid_{batch}.pkl"
+            pth = logdir / f"search_valid_b{batch}.pkl"
 
         with pth.open("wb") as f:
             pickle.dump(stage_search_df, f)

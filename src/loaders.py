@@ -24,17 +24,15 @@ class ProblemLoader:
     def __len__(self):
         return self.world_num_problems
 
-    def __iter__(self, state=None):
-        if state is None:
-            self.goto_next_stage = True
-            self.stage = -1
-        else:
-            self.load_state(state)
+    def __iter__(self):
         return self
 
     def __call__(self, rank, state=None):
         if state is not None:
             self.load_state(state, rank)
+        else:
+            self.goto_next_stage = True
+            self.stage = -1
         return self
 
     def get_state(self):

@@ -35,7 +35,6 @@ class BiLevin(Agent):
         cost_fn = self.cost_fn
 
         problem_id = problem.id
-
         f_domain = problem.domain
         f_state = f_domain.reset()
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
