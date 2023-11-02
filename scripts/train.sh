@@ -27,4 +27,4 @@ python src/main.py \
     --n-solve-ratio 100 \
     --problems-path problems/cube3/150-train.pkl \
     --valid-path problems/cube3/100-valid.pkl \
-    --checkpoint-path runs/cube3-150-train_BiLevin_e2100_t300.0_1_1698874122/checkpoint_b15.pkl \
+    # --checkpoint-path runs/cube3-150-train_BiLevin_e2100_t300.0_1_1698874122/checkpoint_b15.pkl \
