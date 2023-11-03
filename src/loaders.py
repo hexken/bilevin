@@ -10,13 +10,11 @@ class ProblemLoader:
         local_problems: list[list[Problem]],
         shuffle: bool = True,
         seed: int = 1,
-        manual_advance: bool = False,
     ):
         self.rng = np.random.default_rng(seed)
         self.shuffle = shuffle
         self.problems = local_problems
         self.n_stages = len(self.problems)
-        self.manual_advance = manual_advance
         self.stage = -1
         self.world_num_problems = world_num_problems
         self.loaded_state = False
@@ -76,11 +74,8 @@ class ProblemLoader:
         problem = self.stage_problems[self._indices[self._idx]]
         self._idx += 1
         if self._idx == len(self.stage_problems):
-            if not self.manual_advance:
-                self.goto_next_stage = True
-            else:
-                if self.shuffle:
-                    self._indices = self.rng.permutation(len(self.stage_problems))
-                    self._idx = 0
+            if self.shuffle:
+                self._indices = self.rng.permutation(len(self.stage_problems))
+                self._idx = 0
         assert isinstance(problem, Problem)
         return problem

@@ -14,7 +14,7 @@ python src/main.py \
     --forward-policy-lr 0.001 \
     --backward-policy-lr 0.001 \
     --batch-begin-validate 1 \
-    --validate-every 10 \
+    --validate-every 25 \
     --checkpoint-every 5 \
     --train-expansion-budget 2 \
     --test-expansion-budget 500 \
@@ -22,9 +22,12 @@ python src/main.py \
     --grad-steps 10 \
     --seed 1 \
     --runsdir-path runs/ \
-    --min-samples-per-stage 100 \
-    --min-solve-ratio 0 \
-    --n-solve-ratio 0 \
-    --problems-path problems/cube3/1100000-train.pkl \
-    --valid-path problems/cube3/1000-valid.pkl \
+    --max-expansion-budget 16000 \
+    --min-samples-per-stage 400 \
+    --min-solve-ratio-stage 0 \
+    --min-solve-ratio-exp 0.1 \
+    --increase-budget \
+    --n-tail 20 \
+    --problems-path problems/stp4/100-train.pkl \
+    --valid-path problems/stp4/10-valid.pkl \
     # --checkpoint-path runs/cube3-150-train_BiLevin_e2100_t300.0_1_1698874122/checkpoint_b15.pkl \

@@ -312,35 +312,35 @@ def train(
         stage_problems_seen += batch_size
         stage_problems_this_budget += batch_size
 
-        if len(lens) >= args.n_solve_ratio:
-            stage_solve_ratio = (
-                ~np.isnan(np.array(lens[-args.n_solve_ratio :]))
-            ).mean()
-        else:
-            stage_solve_ratio = 0
+        solve_ratio = None
+        if (
+            stage_problems_seen >= args.min_samples_per_stage
+            and len(lens) >= args.n_tail
+        ):
+            solve_ratio = (~np.isnan(np.array(lens[-args.n_tail :]))).mean()
+            if solve_ratio >= args.min_solve_ratio_stage:
+                train_loader.goto_next_stage = True
 
         if (
-            train_loader.manual_advance
-            and stage_problems_seen >= args.min_samples_per_stage
-            and stage_solve_ratio >= args.min_solve_ratio
-        ):
-            train_loader.goto_next_stage = True
-        elif (
             args.increase_budget
-            and stage_problems_this_budget >= args.n_solve_ratio
-            and stage_solve_ratio < args.min_solve_ratio
+            and expansion_budget < args.max_expansion_budget
+            and not train_loader.goto_next_stage
+            and stage_problems_this_budget >= args.n_tail
         ):
-            old_budget = expansion_budget
-            expansion_budget *= 2
-            stage_problems_this_budget = 0
-            if rank == 0:
-                print(
-                    "----------------------------------------------------------------------------"
-                )
-                print(f"Budget increased from {old_budget} to {expansion_budget}")
-                print(
-                    "----------------------------------------------------------------------------"
-                )
+            if solve_ratio is None:
+                solve_ratio = (~np.isnan(np.array(lens[-args.n_tail :]))).mean()
+            if solve_ratio < args.min_solve_ratio_exp:
+                old_budget = expansion_budget
+                expansion_budget *= 2
+                stage_problems_this_budget = 0
+                if rank == 0:
+                    print(
+                        "----------------------------------------------------------------------------"
+                    )
+                    print(f"Budget increased from {old_budget} to {expansion_budget}")
+                    print(
+                        "----------------------------------------------------------------------------"
+                    )
 
         if rank == 0 and train_loader.goto_next_stage:
             stage_search_df = pd.DataFrame(

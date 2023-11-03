@@ -7,21 +7,27 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--min-solve-ratio",
+        "--min-solve-ratio-stage",
         type=float,
         default=0,
-        help="advance curriculum when this ratio of problems solved. 0 to ignore",
+        help="advance curriculum when this ratio of problems solved.",
     )
     parser.add_argument(
-        "--n-solve-ratio",
+        "--min-solve-ratio-exp",
+        type=float,
+        default=0,
+        help="advance curriculum when this ratio of problems solved.",
+    )
+    parser.add_argument(
+        "--n-tail",
         type=int,
-        default=1000,
-        help="compute solve ratio based on last n problems",
+        default=0,
+        help="compute solve ratios based on last n problems. 0 to use all stage problems seen till so far.",
     )
     parser.add_argument(
         "--min-samples-per-stage",
         type=int,
-        default=None,
+        default=0,
         help="minimum number of samples to use for each stage",
     )
     parser.add_argument(
@@ -220,6 +226,12 @@ def parse_args():
         help="port for multiprocessing communication",
     )
     parser.add_argument(
+        "--max-expansion-budget",
+        type=int,
+        default=100000000,
+        help="initial node expansion budget to solve a problem during training",
+    )
+    parser.add_argument(
         "--train-expansion-budget",
         type=int,
         help="initial node expansion budget to solve a problem during training",
@@ -238,7 +250,7 @@ def parse_args():
     parser.add_argument(
         "--time-budget",
         type=float,
-        default=300,
+        default=86400,
         help="time budget to solve a problem",
     )
     parser.add_argument(

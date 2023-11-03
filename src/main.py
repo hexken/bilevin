@@ -87,13 +87,9 @@ def run(
         world_num_problems,
         local_problems,
         seed=local_seed,
-        manual_advance=args.mode == "train" and args.min_samples_per_stage is not None,
     )
 
     if args.mode == "train":
-        if args.n_solve_ratio < len(local_problems[0]):
-            args.n_solve_ratio = len(local_problems[0])
-
         valid_loader = ProblemLoader(
             world_num_valid_problems,
             local_valid_problems,
@@ -135,11 +131,6 @@ if __name__ == "__main__":
     print(time.ctime(abs_start_time))
     set_seeds(args.seed)
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
-
-    if args.min_solve_ratio > 0 and args.min_samples_per_stage is None:
-        raise ValueError(
-            "Must provide --min-samples-per-stage when using --min-stage-solve-ratio"
-        )
 
     pset_dict = pickle.load(args.problems_path.open("rb"))
     problems, world_num_problems = split_by_rank(args, pset_dict["problems"])
