@@ -3,9 +3,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=0:10:00
+#SBATCH --time=120:00:00
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/oct/cube3
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/nov/cube3/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -33,18 +33,18 @@ python src/main.py \
     --backward-feature-net-lr 0.001\
     --forward-policy-lr 0.001 \
     --backward-policy-lr 0.001 \
-    --epochs 10 \
-    --epoch-reduce-lr 10000 \
-    --epoch-reduce-grad-steps 10000 \
-    --epoch-begin-validate 1 \
-    --validate-every 1 \
+    --batch-begin-validate 1 \
+    --validate-every 20000 \
     --time-budget 300 \
     --agent $1 \
     --problems-path $2 \
     --valid-path $3 \
-    --expansion-budget $4 \
+    --train-expansion-budget $4 \
+    --test-expansion-budget 21000 \
+    --increase-budget \
+    --min-samples-per-stage 100000 \
+    --min-solve-ratio 0.95 \
+    --n-solve-ratio 100000 \
     --seed $5 \
     --share-feature-net \
-    --runsdir-path runs/oct/cube3/
-    #--min-samples-per-stage 5000 \
-    #--min-stage-solve-ratio 0 \
+    --runsdir-path runs/nov/cube3/

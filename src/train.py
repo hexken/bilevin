@@ -328,7 +328,7 @@ def train(
         elif (
             args.increase_budget
             and stage_problems_this_budget >= args.n_solve_ratio
-            and stage_solve_ratio <= args.min_solve_ratio
+            and stage_solve_ratio < args.min_solve_ratio
         ):
             old_budget = expansion_budget
             expansion_budget *= 2

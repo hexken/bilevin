@@ -87,9 +87,7 @@ def run(
         world_num_problems,
         local_problems,
         seed=local_seed,
-        manual_advance=args.mode == "train"
-        and (args.min_solve_ratio > 0)
-        and args.min_samples_per_stage is not None,
+        manual_advance=args.mode == "train" and args.min_samples_per_stage is not None,
     )
 
     if args.mode == "train":

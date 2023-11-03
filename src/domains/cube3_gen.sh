@@ -16,7 +16,7 @@ problems/cube3/ \
 5 \
 --num-stages \
 10 \
---final-stage
+--final-stage \
 --n-valid \
 1000 \
 --n-test \

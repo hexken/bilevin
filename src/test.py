@@ -25,6 +25,7 @@ def test(
     current_exp_budget = args.test_expansion_budget
     current_time_budget = args.time_budget
     world_size = args.world_size
+    # todo don't hardcode increase budget
     increase_budget = False
     logdir = args.logdir
 
