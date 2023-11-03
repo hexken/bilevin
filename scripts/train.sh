@@ -27,7 +27,7 @@ python src/main.py \
     --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0.1 \
     --increase-budget \
-    --n-tail 20 \
+    --n-tail 10 \
     --problems-path problems/stp4/100-train.pkl \
     --valid-path problems/stp4/10-valid.pkl \
     # --checkpoint-path runs/cube3-150-train_BiLevin_e2100_t300.0_1_1698874122/checkpoint_b15.pkl \

@@ -3,9 +3,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=24:00:00
+#SBATCH --time=00:15:00
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/nov/stp4/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/nov/ce/stp4/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -23,7 +23,7 @@ export OMP_NUM_THREADS=1
 python src/main.py \
     --world-size 40 \
     --mode train \
-    --loss-fn levin_loss \
+    --loss-fn cross_entropy_avg_loss\
     --cost-fn levin_cost \
     --grad-steps 10 \
     --feature-net-lr 0.001 \
@@ -34,7 +34,8 @@ python src/main.py \
     --forward-policy-lr 0.001 \
     --backward-policy-lr 0.001 \
     --batch-begin-validate 1 \
-    --validate-every 10000 \
+    --validate-every 625  \
+    --checkpoint-every 50 \
     --time-budget 300 \
     --agent $1 \
     --problems-path $2 \
@@ -42,9 +43,10 @@ python src/main.py \
     --train-expansion-budget $4 \
     --test-expansion-budget 16000 \
     --increase-budget \
-    --min-samples-per-stage 2500000 \
-    --min-solve-ratio 0 \
-    --n-solve-ratio 0 \
+    --min-samples-per-stage 500000 \
+    --min-solve-ratio-stage 0 \
+    --min-solve-ratio-exp 0.1 \
+    --n-tail 1000 \
     --seed $5 \
     --share-feature-net \
-    --runsdir-path runs/nov/stp4/
+    --runsdir-path runs/nov/ce/stp4/
