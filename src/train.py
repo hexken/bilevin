@@ -347,9 +347,9 @@ def train(
                 {
                     "id": pd.Series(ids, dtype=pd.UInt32Dtype()),
                     "time": pd.Series(times, dtype=pd.Float32Dtype()),
-                    "len": pd.Series(lens, dtype=pd.UInt16Dtype()),
-                    "fexp": pd.Series(fexps, dtype=pd.UInt16Dtype()),
-                    "fg": pd.Series(fgs, dtype=pd.UInt16Dtype()),
+                    "len": pd.Series(lens, dtype=pd.UInt32Dtype()),
+                    "fexp": pd.Series(fexps, dtype=pd.UInt32Dtype()),
+                    "fg": pd.Series(fgs, dtype=pd.UInt32Dtype()),
                     "fpnll": pd.Series(fpnlls, dtype=pd.Float32Dtype()),
                     "stage": pd.Series(
                         [old_stage for _ in range(stage_problems_seen)],
@@ -368,8 +368,8 @@ def train(
                 }
             )
             if bidirectional:
-                stage_search_df["bexp"] = pd.Series(bexps, dtype=pd.UInt16Dtype())
-                stage_search_df["bg"] = pd.Series(bgs, dtype=pd.UInt16Dtype())
+                stage_search_df["bexp"] = pd.Series(bexps, dtype=pd.UInt32Dtype())
+                stage_search_df["bg"] = pd.Series(bgs, dtype=pd.UInt32Dtype())
                 stage_search_df["bpnll"] = pd.Series(bpnlls, dtype=pd.Float32Dtype())
                 stage_model_train_df["bloss"] = pd.Series(
                     blosses, dtype=pd.Float32Dtype()

@@ -139,7 +139,7 @@ def test(
             {
                 "id": world_results_df["id"].astype(pd.UInt32Dtype()),
                 "time": world_results_df["time"].astype(pd.Float32Dtype()),
-                "len": world_results_df["len"].astype(pd.UInt16Dtype()),
+                "len": world_results_df["len"].astype(pd.UInt32Dtype()),
                 "fexp": world_results_df["fexp"].astype(pd.UInt32Dtype()),
                 "fg": world_results_df["fg"].astype(pd.UInt32Dtype()),
                 "fpnll": world_results_df["fpnll"].astype(pd.Float32Dtype()),
@@ -147,7 +147,7 @@ def test(
         )
         if bidirectional:
             stage_search_df["bexp"] = world_results_df["bexp"].astype(pd.UInt32Dtype())
-            stage_search_df["bg"] = world_results_df["bg"].astype(pd.UInt16Dtype())
+            stage_search_df["bg"] = world_results_df["bg"].astype(pd.UInt32Dtype())
             stage_search_df["bpnll"] = world_results_df["bpnll"].astype(
                 pd.Float32Dtype()
             )
