@@ -4,15 +4,17 @@ from typing import Callable, Optional
 
 import torch as to
 import torch.distributed as dist
-
 from models import AgentModel
 import models.losses as losses
 import search.utils as sutils
 from search.utils import Problem, SearchNode, Trajectory
 
 
+# todo separate some things to model
+
 class Agent(ABC):
     def __init__(self, logdir, args, model_args):
+        # todo why this here?
         if not self.trainable:
             return
 
@@ -90,6 +92,18 @@ class Agent(ABC):
     @classmethod
     @abstractmethod
     def trainable(cls) -> bool:
+        pass
+
+    @abstractmethod
+    def get_start_node(self, *args, **kwargs) -> SearchNode:
+        pass
+
+    @abstractmethod
+    def get_child_node(self, *args, **kwargs) -> SearchNode:
+        pass
+
+    @abstractmethod
+    def evaluate_children(self, *args, **kwargs):
         pass
 
     @abstractmethod

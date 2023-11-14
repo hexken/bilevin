@@ -6,6 +6,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.functional import log_softmax
 
+# todo figure out good abstractions for separating models that
+# - featurize
+# - predict policy or heuristic
+# - require additional inputs for backward model
 
 class AgentModel(nn.Module):
     def __init__(self, model_args):
@@ -116,11 +120,13 @@ class AgentModel(nn.Module):
 
         return feats
 
-
 class StateHeuristic(nn.Module):
-    def __init__(self, num_features: int, hidden_layer_sizes: list[int] = [128]):
+    def __init__(
+        self, num_features: int, num_actions: int, hidden_layer_sizes: list[int] = [128]
+    ):
         super().__init__()
         self.num_features: int = num_features
+        self.num_actions: int = num_actions
 
         self.layers = nn.ModuleList([nn.Linear(num_features, hidden_layer_sizes[0])])
         self.layers.extend(
@@ -129,7 +135,7 @@ class StateHeuristic(nn.Module):
                 for i in range(len(hidden_layer_sizes) - 1)
             ]
         )
-        self.output_layer = nn.Linear(hidden_layer_sizes[-1], 1)
+        self.output_layer = nn.Linear(hidden_layer_sizes[-1], num_actions)
 
         # for i in range(len(self.layers)):
         #     to.nn.init.kaiming_uniform_(
@@ -143,9 +149,53 @@ class StateHeuristic(nn.Module):
         for l in self.layers:
             state_feats = F.relu(l(state_feats))
 
-        h = self.output_layer(state_feats)
+        logits = self.output_layer(state_feats)
 
-        return h
+        return logits
+
+
+class StateGoalHeuristic(nn.Module):
+    def __init__(
+        self,
+        num_features: int,
+        num_actions: int,
+        hidden_layer_sizes=[256, 192, 128],
+    ):
+        super().__init__()
+        self.num_features: int = num_features * 2
+        self.num_actions: int = num_actions
+
+        self.layers = nn.ModuleList(
+            [nn.Linear(self.num_features, hidden_layer_sizes[0])]
+        )
+        self.layers.extend(
+            [
+                nn.Linear(hidden_layer_sizes[i], hidden_layer_sizes[i + 1])
+                for i in range(len(hidden_layer_sizes) - 1)
+            ]
+        )
+        self.output_layer = nn.Linear(hidden_layer_sizes[-1], num_actions)
+
+        # for i in range(len(self.layers)):
+        #     to.nn.init.kaiming_uniform_(
+        #         self.layers[i].weight, mode="fan_in", nonlinearity="relu"
+        #     )
+        #     to.nn.init.constant_(self.layers[i].bias, 0.0)
+        # to.nn.init.xavier_uniform_(self.output_layer.weight)
+        # to.nn.init.constant_(self.output_layer.bias, 0.0)
+
+    def forward(self, state_feats: to.Tensor, goal_feats: to.Tensor):
+        bs = state_feats.shape[0]
+        if goal_feats.shape[0] != bs:
+            goal_feats = goal_feats.expand(bs, -1)
+
+        x = to.cat((state_feats, goal_feats), dim=-1)
+        for l in self.layers:
+            x = F.relu(l(x))
+
+        logits = self.output_layer(x)
+
+        return logits
 
 
 class StatePolicy(nn.Module):
