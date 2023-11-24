@@ -4,22 +4,16 @@ from timeit import default_timer as timer
 
 import torch as to
 
-from domains.domain import State
 from enums import TwoDir
 from search.agent import Agent
-from search.utils import SearchNode, Problem
+from search.utils import Problem
 
 
-class Bidir(Agent):
+class BiDir(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    @property
-    def bidirectional(cls):
-        return True
-
-    @property
-    def trainable(cls):
+    def is_bidirectional(self):
         return True
 
     def search(
@@ -31,7 +25,6 @@ class Bidir(Agent):
         """ """
         start_time = timer()
 
-        model = self.model
         cost_fn = self.cost_fn
 
         problem_id = problem.id
@@ -44,8 +37,8 @@ class Bidir(Agent):
         f_closed = {f_start_node: f_start_node}
         f_domain.update(f_start_node)
 
-        if model.requires_backward_goal:
-            b_goal_feats = model.backward_feature_net(f_state_t)
+        if self.model.requires_backward_goal:
+            b_goal_feats = self.model.backward_feature_net(f_state_t)
         else:
             b_goal_feats = None
 
@@ -82,6 +75,7 @@ class Bidir(Agent):
                 _open = f_open
                 _closed = f_closed
                 other_domain = b_domain
+                n_forw_expanded += 1
             else:
                 direction = TwoDir.BACKWARD
                 _domain = b_domain
@@ -89,12 +83,9 @@ class Bidir(Agent):
                 _open = b_open
                 _closed = b_closed
                 other_domain = f_domain
+                n_backw_expanded += 1
 
             node = heapq.heappop(_open)
-            if direction == TwoDir.FORWARD:
-                n_forw_expanded += 1
-            else:
-                n_backw_expanded += 1
             n_total_expanded += 1
 
             masks = []
@@ -109,10 +100,9 @@ class Bidir(Agent):
 
                 if new_node not in _closed:
                     trajs = _domain.try_make_solution(
-                        model,
                         new_node,
                         other_domain,
-                        n_forw_expanded + n_backw_expanded,
+                        n_total_expanded,
                     )
 
                     if trajs:  # solution found
@@ -132,7 +122,7 @@ class Bidir(Agent):
                         state_t_of_children_to_be_evaluated.append(state_t)
                         masks.append(mask)
 
-            if children_to_be_evaluated:
+            if len(children_to_be_evaluated) > 0:
                 self.evaluate_children(
                     direction,
                     children_to_be_evaluated,

@@ -62,8 +62,9 @@ class SlidingTilePuzzle(Domain):
         self._row_indices = np.repeat(width_indices, self.width)
         self._col_indices = np.tile(width_indices, self.width)
 
-        self.goal_state = get_goal_state(self.width)
-        self.goal_state_t = self.state_tensor(self.goal_state)
+        if self.forward:
+            self.goal_state = get_goal_state(self.width)
+            self.goal_state_t = self.state_tensor(self.goal_state)
         return self._reset()
 
     @property
@@ -107,11 +108,9 @@ class SlidingTilePuzzle(Domain):
 
     def backward_domain(self) -> SlidingTilePuzzle:
         assert self.forward
-        init_state = get_goal_state(self.width)
-        domain = SlidingTilePuzzle(init_state, forward=False)
+        domain = SlidingTilePuzzle(get_goal_state(self.width), forward=False)
         domain.goal_state = self.initial_state
-        domain.goal_state_t = self.state_tensor(init_state)
-
+        domain.goal_state_t = self.state_tensor(self.initial_state)
         return domain
 
     def _actions(

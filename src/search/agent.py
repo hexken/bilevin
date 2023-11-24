@@ -3,7 +3,9 @@ from pathlib import Path
 from typing import Callable, Optional
 
 import torch as to
-import torch.distributed as dist
+
+from domains.domain import State
+from enums import TwoDir
 from models import AgentModel
 import models.losses as losses
 import search.utils as sutils
@@ -12,13 +14,14 @@ from search.utils import Problem, SearchNode, Trajectory
 
 # todo separate some things to model
 
+
 class Agent(ABC):
     def __init__(self, logdir, args, model_args):
         # todo why this here?
-        if not self.trainable:
-            return
+        # if not self.trainable:
+        #     return
 
-        model_args["bidirectional"] = self.bidirectional
+        model_args["bidirectional"] = self.is_bidirectional
 
         self.logdir: Path = logdir
 
@@ -53,7 +56,7 @@ class Agent(ABC):
                     "weight_decay": args.weight_decay,
                 },
             ]
-            if self.bidirectional:
+            if self.is_bidirectional:
                 if not args.share_feature_net:
                     optimizer_params.append(
                         {
@@ -83,27 +86,42 @@ class Agent(ABC):
             print(f"Saved model\n  to {str(path)}")
 
     @property
-    @classmethod
     @abstractmethod
-    def bidirectional(cls) -> bool:
+    def is_bidirectional(self) -> bool:
         pass
 
-    @property
-    @classmethod
-    @abstractmethod
-    def trainable(cls) -> bool:
-        pass
+    # @property
+    # @abstractmethod
+    # def requires_backward_goal(self) -> bool:
+    #     pass
 
     @abstractmethod
-    def get_start_node(self, *args, **kwargs) -> SearchNode:
-        pass
-
-    @abstractmethod
-    def get_child_node(self, *args, **kwargs) -> SearchNode:
+    def get_start_node(
+        self, state: State, state_t: to.Tensor, actions: list[int], mask: to.Tensor
+    ) -> SearchNode:
         pass
 
     @abstractmethod
-    def evaluate_children(self, *args, **kwargs):
+    def get_child_node(
+        self,
+        parent_node: SearchNode,
+        parent_action: int,
+        actions: list[int],
+        mask: to.Tensor,
+        new_state: State,
+        cost_fn,
+    ) -> SearchNode:
+        pass
+
+    @abstractmethod
+    def evaluate_children(
+        self,
+        direction: TwoDir,
+        children: list[SearchNode],
+        children_state_ts: list[to.Tensor],
+        masks: list[to.Tensor],
+        goal_feats: to.Tensor | None,
+    ):
         pass
 
     @abstractmethod

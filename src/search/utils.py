@@ -8,9 +8,7 @@ import numpy as np
 import pandas as pd
 import torch as to
 from torch import Tensor
-from torch.nn.functional import nll_loss
 
-from models.models import AgentModel
 
 if TYPE_CHECKING:
     from domains.domain import Domain, State
@@ -98,7 +96,7 @@ class SearchNode:
         actions: list[int],
         actions_mask: Tensor,
         g_cost: int,
-        log_prob: Optional[float] = None,
+        log_prob: float = 0.0,
         log_action_probs: Optional[Tensor] = None,
         cost: Optional[float] = None,
     ):
@@ -163,20 +161,26 @@ class Trajectory:
     def from_goal_node(
         cls,
         domain: Domain,
-        final_node: SearchNode,
+        goal_node: SearchNode,
         num_expanded: int,
-        partial_g_cost: int,
-        partial_log_prob: float,
+        partial_g_cost: Optional[int] = None,
+        partial_log_prob: Optional[float] = None,
         goal_state_t: Optional[Tensor] = None,
         forward: bool = True,
-    ):
+    ) -> Trajectory:
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
         """
+        assert domain.is_goal(goal_node.state)
         goal_state_t = goal_state_t.unsqueeze(0) if goal_state_t is not None else None
-        action = final_node.parent_action
-        node = final_node.parent
+        action = goal_node.parent_action
+        node = goal_node.parent
+
+        if partial_g_cost is None:
+            partial_g_cost = goal_node.g_cost
+        if partial_log_prob is None:
+            partial_log_prob = goal_node.log_prob
 
         states = []
         actions = []
@@ -194,37 +198,6 @@ class Trajectory:
         actions = to.tensor(tuple(reversed(actions)))
         masks = to.stack(tuple(reversed(masks)))
 
-        # if model:
-        #     with to.no_grad():
-        #         # k = partial_g_cost
-        #         log_probs, _ = model(
-        #             states,
-        #             mask=masks,
-        #             forward=forward,
-        #             goal_state_t=goal_state_t,
-        #         )
-        #         # partial_nll = nll_loss(
-        #         #     log_probs[:k], actions[:k], reduction="sum"
-        #         # ).item()
-        #         # nll = (
-        #         #     partial_nll
-        #         #     + nll_loss(log_probs[k:], actions[k:], reduction="sum").item()
-        #         # )
-
-        #     lp = -nll_loss(log_probs, actions, reduction="sum").item()
-        #     # plp = -partial_nll
-
-        #     if log_prob and not np.isclose(log_prob, lp):
-        #         print(f"Warning: search log_prob != model log_prob {log_prob} {lp}")
-        #     else:
-        #         log_prob = lp
-        #     # if partial_log_prob and not np.isclose(partial_log_prob, plp):
-        #     #     print(
-        #     #         f"Warning: search partial_log_prob != model partial_log_prob {partial_log_prob} {plp}"
-        #     #     )
-        #     # else:
-        #     #     partial_log_prob = plp
-
         return cls(
             states=states,
             actions=actions,
@@ -238,27 +211,6 @@ class Trajectory:
 
     def __len__(self):
         return self._len
-
-    # def get_subgoal_trajs(self: Trajectory):
-    #     """
-    #     Generates all sub-trajectories of a trajectory.
-    #     """
-    #     sub_trajs = []
-    #     for goal_idx in range(len(self) - 1, 0, -1):
-    #         masks = self.masks[:goal_idx]
-
-    #         est_num_exp = int(self.num_expanded / (len(self) - goal_idx + 1))
-    #         sub_trajs.append(
-    #             Trajectory(
-    #                 self.states[:goal_idx],
-    #                 self.actions[:goal_idx],
-    #                 masks=masks,
-    #                 num_expanded=est_num_exp,
-    #                 forward=False,
-    #                 goal_state_t=self.states[goal_idx].unsqueeze(0),
-    #             )
-    #         )
-    #     return sub_trajs
 
 
 def set_seeds(seed):

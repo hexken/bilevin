@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Optional, Type
+from typing import Optional
 
 import torch as to
 from torch import Tensor, full
@@ -51,7 +51,6 @@ class Domain(ABC):
 
     def try_make_solution(
         self,
-        model: AgentModel,
         node: SearchNode,
         other_domain: Domain,
         num_expanded: int,
@@ -74,10 +73,9 @@ class Domain(ABC):
                 b_domain = self
 
             f_traj = get_merged_trajectory(
-                model, f_domain, f_common_node, b_common_node, num_expanded
+                f_domain, f_common_node, b_common_node, num_expanded
             )
             b_traj = get_merged_trajectory(
-                model,
                 b_domain,
                 b_common_node,
                 f_common_node,
@@ -140,7 +138,6 @@ class Domain(ABC):
 
 
 def get_merged_trajectory(
-    model: AgentModel,
     dir1_domain: Domain,
     dir1_common: SearchNode,
     dir2_common: SearchNode,
@@ -174,7 +171,7 @@ def get_merged_trajectory(
 
     return Trajectory.from_goal_node(
         domain=dir1_domain,
-        final_node=dir1_node,
+        goal_node=dir1_node,
         num_expanded=num_expanded,
         partial_g_cost=dir1_common.g_cost,
         partial_log_prob=dir1_common.log_prob,

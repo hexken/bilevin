@@ -90,8 +90,9 @@ class Cube3(Domain):
 
     def reset(self) -> State:
         self._actions_list = [i for i in range(self.num_actions)]
-        self.goal_state = get_goal_state()
-        self.goal_state_t = self.state_tensor(self.goal_state)
+        if self.forward:
+            self.goal_state = get_goal_state()
+            self.goal_state_t = self.state_tensor(self.goal_state)
         return self._reset()
 
     @property

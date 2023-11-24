@@ -14,8 +14,7 @@ import torch.multiprocessing as mp
 
 from args import parse_args
 from loaders import ProblemLoader
-from search.bilevin import BiLevin
-from search.levin import Levin
+from search.levin import Levin, BiLevin
 from search.utils import set_seeds
 from train import train
 

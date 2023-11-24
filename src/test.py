@@ -31,12 +31,11 @@ def test(
 
     world_num_problems = len(problems_loader)
 
-    bidirectional = agent.bidirectional
+    bidirectional = agent.is_bidirectional()
     model = agent.model
 
     to.set_grad_enabled(False)
-    if agent.trainable:
-        model.eval()
+    model.eval()
 
     total_num_expanded = 0
     total_time = 0

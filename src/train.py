@@ -38,7 +38,7 @@ def train(
     if rank == 0:
         best_models_log = best_models_log.open("a")
 
-    bidirectional = agent.bidirectional
+    bidirectional = agent.is_bidirectional()
     model = agent.model
     optimizer = agent.optimizer
     loss_fn = agent.loss_fn
