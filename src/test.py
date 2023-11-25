@@ -31,7 +31,7 @@ def test(
 
     world_num_problems = len(problems_loader)
 
-    bidirectional = agent.is_bidirectional()
+    bidirectional = agent.is_bidirectional
     model = agent.model
 
     to.set_grad_enabled(False)

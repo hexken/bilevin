@@ -28,7 +28,6 @@ class UniDir(Agent):
 
         problem_id = problem.id
         domain = problem.domain
-        cost_fn = self.cost_fn
 
         state = domain.reset()
         state_t = domain.state_tensor(state).unsqueeze(0)
@@ -58,7 +57,7 @@ class UniDir(Agent):
                 new_state_actions, mask = domain.actions(a, new_state)
 
                 new_node = self.get_child_node(
-                    node, a, new_state_actions, mask, new_state, cost_fn
+                    node, a, new_state_actions, mask, new_state,
                 )
 
                 if new_node not in closed:

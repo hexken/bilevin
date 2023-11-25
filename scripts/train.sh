@@ -7,7 +7,6 @@ python src/main.py \
     --mode train \
     --agent BiLevin \
     --loss-fn cross_entropy_avg_loss\
-    --cost-fn levin_cost \
     --feature-net-lr 0.001 \
     --forward-feature-net-lr 0.001 \
     --backward-feature-net-lr 0.001 \
@@ -15,14 +14,14 @@ python src/main.py \
     --backward-policy-lr 0.001 \
     --batch-begin-validate 1 \
     --validate-every 1000 \
-    --checkpoint-every 5 \
-    --train-expansion-budget 250 \
-    --test-expansion-budget 250 \
+    --checkpoint-every 10 \
+    --train-expansion-budget 2500 \
+    --test-expansion-budget 2500 \
     --time-budget 300 \
     --grad-steps 10 \
     --seed 1 \
     --runsdir-path runs/ \
-    --max-expansion-budget 250 \
+    --max-expansion-budget 2500 \
     --min-samples-per-stage 10000 \
     --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0 \

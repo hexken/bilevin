@@ -1,18 +1,3 @@
-# Copyright (C) 2021-2022, Ken Tjhia
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 from __future__ import annotations
 from collections import deque
 from copy import deepcopy
@@ -24,7 +9,7 @@ import torch as to
 
 from domains.domain import Domain, State
 from enums import Color, FourDir
-from models import AgentModel
+from models.models import AgentModel
 from search.utils import Problem, SearchNode, Trajectory
 
 
@@ -690,7 +675,7 @@ def get_merged_trajectory(
         actions, mask = dir1_domain.actions_unpruned(new_state)
         new_dir1_node = node_type(
             state=new_state,
-            g_cost=dir1_node.g_cost + 1,
+            g=dir1_node.g + 1,
             parent=dir1_node,
             parent_action=action,
             actions=actions,
@@ -704,7 +689,7 @@ def get_merged_trajectory(
         domain=dir1_domain,
         final_node=dir1_node,
         num_expanded=num_expanded,
-        partial_g_cost=dir1_common.g_cost,
+        partial_g_cost=dir1_common.g,
         partial_log_prob=dir1_common.log_prob,
         goal_state_t=goal_state_t,
         forward=forward,

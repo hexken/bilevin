@@ -38,10 +38,10 @@ def train(
     if rank == 0:
         best_models_log = best_models_log.open("a")
 
-    bidirectional = agent.is_bidirectional()
+    bidirectional = agent.is_bidirectional
     model = agent.model
-    optimizer = agent.optimizer
-    loss_fn = agent.loss_fn
+    optimizer = agent.model.optimizer
+    loss_fn = agent.model.loss_fn
 
     solved_flag = to.zeros(1, dtype=to.uint8)
     local_opt_results = to.zeros(4, dtype=to.float64)
@@ -76,36 +76,35 @@ def train(
         blosses = []
         baccs = []
 
-        loader_state = None
         stage_start_time = 0
         stage_problems_seen = 0
         stage_problems_this_budget = 0
     else:
-        chkpt_dict = pickle.load(args.checkpoint_path.open("rb"))
-        model.load_state_dict(chkpt_dict["model_state"])
-        optimizer.load_state_dict(chkpt_dict["optimizer_state"])
-        ids = chkpt_dict["ids"]
-        times = chkpt_dict["times"]
-        lens = chkpt_dict["lens"]
-        fexps = chkpt_dict["fexps"]
-        bexps = chkpt_dict["bexps"]
-        fgs = chkpt_dict["fgs"]
-        bgs = chkpt_dict["bgs"]
-        fpnlls = chkpt_dict["fpnlls"]
-        bpnlls = chkpt_dict["bpnlls"]
+        with args.checkpoint_path.open("rb") as f:
+            chkpt_dict = pickle.load(f)
+            optimizer.load_state_dict(chkpt_dict["optimizer_state"])
+            ids = chkpt_dict["ids"]
+            times = chkpt_dict["times"]
+            lens = chkpt_dict["lens"]
+            fexps = chkpt_dict["fexps"]
+            bexps = chkpt_dict["bexps"]
+            fgs = chkpt_dict["fgs"]
+            bgs = chkpt_dict["bgs"]
+            fpnlls = chkpt_dict["fpnlls"]
+            bpnlls = chkpt_dict["bpnlls"]
 
-        flosses = chkpt_dict["flosses"]
-        faccs = chkpt_dict["faccs"]
-        blosses = chkpt_dict["blosses"]
-        baccs = chkpt_dict["baccs"]
+            flosses = chkpt_dict["flosses"]
+            faccs = chkpt_dict["faccs"]
+            blosses = chkpt_dict["blosses"]
+            baccs = chkpt_dict["baccs"]
 
-        expansion_budget = chkpt_dict["current_exp_budget"]
-        best_valid_expanded = chkpt_dict["best_valid_expanded"]
-        stage_start_time = timer() - chkpt_dict["time_in_stage"]
-        stage_problems_seen = chkpt_dict["stage_problems_seen"]
-        stage_problems_this_budget = chkpt_dict["stage_problems_this_budget"]
-        batches_seen = chkpt_dict["batches_seen"]
-        train_loader.load_state(chkpt_dict["loader_states"][rank])
+            expansion_budget = chkpt_dict["current_exp_budget"]
+            best_valid_expanded = chkpt_dict["best_valid_expanded"]
+            stage_start_time = timer() - chkpt_dict["time_in_stage"]
+            stage_problems_seen = chkpt_dict["stage_problems_seen"]
+            stage_problems_this_budget = chkpt_dict["stage_problems_this_budget"]
+            batches_seen = chkpt_dict["batches_seen"]
+            train_loader.load_state(chkpt_dict["loader_states"][rank])
 
         if rank == 0:
             print(

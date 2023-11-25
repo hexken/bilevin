@@ -113,6 +113,12 @@ def parse_args():
         help="l2 regularization weight",
     )
     parser.add_argument(
+        "--no-feature-net",
+        action="store_true",
+        default=False,
+        help="do not use a feature net to extract features from states",
+    )
+    parser.add_argument(
         "--share-feature-net",
         action="store_true",
         default=False,
@@ -195,18 +201,18 @@ def parse_args():
         "-a",
         "--agent",
         type=str,
-        choices=["Levin", "BiLevin"],
+        choices=["Levin", "BiLevin", "AStar", "BiAStar", "BFS"],
         help="name of the search agent",
     )
-    parser.add_argument(
-        "--cost-fn",
-        type=str,
-        default="levin_cost",
-        choices=[
-            "levin_cost",
-        ],
-        help="cost function for best-first search",
-    )
+    # parser.add_argument(
+    #     "--cost-fn",
+    #     type=str,
+    #     default="levin_cost",
+    #     choices=[
+    #         "levin_cost",
+    #     ],
+    #     help="cost function for best-first search",
+    # )
     parser.add_argument(
         "--world-size",
         type=int,

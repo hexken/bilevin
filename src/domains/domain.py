@@ -5,7 +5,6 @@ from typing import Optional
 import torch as to
 from torch import Tensor, full
 
-from models import AgentModel
 from search.utils import SearchNode, Trajectory
 
 
@@ -144,7 +143,7 @@ def get_merged_trajectory(
     num_expanded: int,
     goal_state_t: Optional[Tensor] = None,
     forward: bool = True,
-):
+) -> Trajectory:
     """
     Returns a new trajectory going from dir1_start to dir2_start, passing through
     merge(dir1_common, dir2_common).
@@ -159,7 +158,7 @@ def get_merged_trajectory(
         actions, mask = dir1_domain.actions_unpruned(new_state)
         new_dir1_node = SearchNode(
             state=new_state,
-            g_cost=dir1_node.g_cost + 1,
+            g=dir1_node.g + 1,
             parent=dir1_node,
             parent_action=dir1_domain.reverse_action(dir2_parent_action),
             actions=actions,
@@ -173,7 +172,7 @@ def get_merged_trajectory(
         domain=dir1_domain,
         goal_node=dir1_node,
         num_expanded=num_expanded,
-        partial_g_cost=dir1_common.g_cost,
+        partial_g_cost=dir1_common.g,
         partial_log_prob=dir1_common.log_prob,
         goal_state_t=goal_state_t,
         forward=forward,

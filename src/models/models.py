@@ -1,4 +1,5 @@
 from pathlib import Path
+import pickle
 from typing import Optional
 
 import torch as to
@@ -6,15 +7,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.functional import log_softmax
 
-# todo figure out good abstractions for separating models that
-# - featurize
-# - predict policy or heuristic
-# - require additional inputs for backward model
+import models.losses as losses
+
 
 class AgentModel(nn.Module):
-    def __init__(self, model_args):
+    def __init__(self, args, model_args):
         super().__init__()
-        self.bidirectional: bool = model_args["bidirectional"]
+        self.is_bidirectional: bool = model_args["bidirectional"]
         self.model_args: dict = model_args
         self.num_actions: int = model_args["num_actions"]
 
@@ -29,6 +28,7 @@ class AgentModel(nn.Module):
         self.state_t_width: int = model_args["state_t_width"]
         reduced_width: int = self.state_t_width - 2 * self.kernel_size[0] + 2
 
+        # todo these size calculations are hacky
         if model_args["kernel_depth"] > 1:
             self.state_t_depth: int = model_args["state_t_depth"]
             self.kernel_depth = model_args["kernel_depth"]
@@ -44,25 +44,27 @@ class AgentModel(nn.Module):
             model_args["forward_hidden_layers"],
         )
 
-        self.forward_feature_net: nn.Module = ConvFeatureNet(
-            self.in_channels,
-            self.state_t_width,
-            self.kernel_size,
-            self.num_filters,
-            self.num_actions,
-        )
+        if not args.no_feature_net:
+            # todo only conv feature net for now
+            self.forward_feature_net: nn.Module = ConvFeatureNet(
+                self.in_channels,
+                self.state_t_width,
+                self.kernel_size,
+                self.num_filters,
+                self.num_actions,
+            )
 
-        if self.bidirectional:
-            if self.share_feature_net:
-                self.backward_feature_net: nn.Module = self.forward_feature_net
-            else:
-                self.backward_feature_net: nn.Module = ConvFeatureNet(
-                    self.in_channels,
-                    self.state_t_width,
-                    self.kernel_size,
-                    self.num_filters,
-                    self.num_actions,
-                )
+            if self.is_bidirectional:
+                if self.share_feature_net:
+                    self.backward_feature_net: nn.Module = self.forward_feature_net
+                else:
+                    self.backward_feature_net: nn.Module = ConvFeatureNet(
+                        self.in_channels,
+                        self.state_t_width,
+                        self.kernel_size,
+                        self.num_filters,
+                        self.num_actions,
+                    )
 
             if self.requires_backward_goal:
                 self.backward_policy: nn.Module = StateGoalPolicy(
@@ -76,11 +78,56 @@ class AgentModel(nn.Module):
                     self.num_actions,
                     model_args["backward_hidden_layers"],
                 )
-        else:
-            self.backward_policy = DummyPolicy()
-            self.backward_feature_net = DummyFeatureNet()
 
-        self.dummy_goal_feats: to.Tensor = to.zeros(1)
+        # load model if specified explicitly or from checkpoint
+        if args.model_path is not None:
+            self.load_state_dict(to.load(args.model_path))
+            print(f"Loaded model\n  {str(args.model_path)}")
+        elif args.checkpoint_path is not None:
+            with args.checkpoint_path.open("rb") as f:
+                chkpt_dict = pickle.load(f)
+                self.load_state_dict(chkpt_dict["model_state"])
+            print(f"Loaded model\n  {str(args.checkpoint_path)}")
+
+        # Set up the optimizer
+        if args.mode == "train":
+            self.loss_fn = getattr(losses, args.loss_fn)
+            if not args.share_feature_net:
+                flr = args.forward_feature_net_lr
+                blr = args.backward_feature_net_lr
+            else:
+                flr = args.feature_net_lr
+                blr = args.feature_net_lr
+
+            optimizer_params = [
+                {
+                    "params": self.forward_feature_net.parameters(),
+                    "lr": flr,
+                    "weight_decay": args.weight_decay,
+                },
+                {
+                    "params": self.forward_policy.parameters(),
+                    "lr": args.forward_policy_lr,
+                    "weight_decay": args.weight_decay,
+                },
+            ]
+            if self.is_bidirectional:
+                if not args.share_feature_net:
+                    optimizer_params.append(
+                        {
+                            "params": self.backward_feature_net.parameters(),
+                            "lr": blr,
+                            "weight_decay": args.weight_decay,
+                        }
+                    )
+                optimizer_params.append(
+                    {
+                        "params": self.backward_policy.parameters(),
+                        "lr": args.backward_policy_lr,
+                        "weight_decay": args.weight_decay,
+                    }
+                )
+            self.optimizer = to.optim.Adam(optimizer_params)
 
     def forward(
         self,
@@ -120,6 +167,7 @@ class AgentModel(nn.Module):
 
         return feats
 
+
 class StateHeuristic(nn.Module):
     def __init__(
         self, num_features: int, num_actions: int, hidden_layer_sizes: list[int] = [128]
@@ -135,23 +183,15 @@ class StateHeuristic(nn.Module):
                 for i in range(len(hidden_layer_sizes) - 1)
             ]
         )
-        self.output_layer = nn.Linear(hidden_layer_sizes[-1], num_actions)
-
-        # for i in range(len(self.layers)):
-        #     to.nn.init.kaiming_uniform_(
-        #         self.layers[i].weight, mode="fan_in", nonlinearity="relu"
-        #     )
-        #     to.nn.init.constant_(self.layers[i].bias, 0.0)
-        # to.nn.init.xavier_uniform_(self.output_layer.weight)
-        # to.nn.init.constant_(self.output_layer.bias, 0.0)
+        self.output_layer = nn.Linear(hidden_layer_sizes[-1], 1)
 
     def forward(self, state_feats: to.Tensor, goal_feats: Optional[to.Tensor] = None):
         for l in self.layers:
             state_feats = F.relu(l(state_feats))
 
-        logits = self.output_layer(state_feats)
+        h = self.output_layer(state_feats)
 
-        return logits
+        return h
 
 
 class StateGoalHeuristic(nn.Module):
@@ -174,15 +214,7 @@ class StateGoalHeuristic(nn.Module):
                 for i in range(len(hidden_layer_sizes) - 1)
             ]
         )
-        self.output_layer = nn.Linear(hidden_layer_sizes[-1], num_actions)
-
-        # for i in range(len(self.layers)):
-        #     to.nn.init.kaiming_uniform_(
-        #         self.layers[i].weight, mode="fan_in", nonlinearity="relu"
-        #     )
-        #     to.nn.init.constant_(self.layers[i].bias, 0.0)
-        # to.nn.init.xavier_uniform_(self.output_layer.weight)
-        # to.nn.init.constant_(self.output_layer.bias, 0.0)
+        self.output_layer = nn.Linear(hidden_layer_sizes[-1], 1)
 
     def forward(self, state_feats: to.Tensor, goal_feats: to.Tensor):
         bs = state_feats.shape[0]
@@ -193,9 +225,9 @@ class StateGoalHeuristic(nn.Module):
         for l in self.layers:
             x = F.relu(l(x))
 
-        logits = self.output_layer(x)
+        h = self.output_layer(x)
 
-        return logits
+        return h
 
 
 class StatePolicy(nn.Module):
@@ -214,14 +246,6 @@ class StatePolicy(nn.Module):
             ]
         )
         self.output_layer = nn.Linear(hidden_layer_sizes[-1], num_actions)
-
-        # for i in range(len(self.layers)):
-        #     to.nn.init.kaiming_uniform_(
-        #         self.layers[i].weight, mode="fan_in", nonlinearity="relu"
-        #     )
-        #     to.nn.init.constant_(self.layers[i].bias, 0.0)
-        # to.nn.init.xavier_uniform_(self.output_layer.weight)
-        # to.nn.init.constant_(self.output_layer.bias, 0.0)
 
     def forward(self, state_feats: to.Tensor, goal_feats: Optional[to.Tensor] = None):
         for l in self.layers:
@@ -253,14 +277,6 @@ class StateGoalPolicy(nn.Module):
             ]
         )
         self.output_layer = nn.Linear(hidden_layer_sizes[-1], num_actions)
-
-        # for i in range(len(self.layers)):
-        #     to.nn.init.kaiming_uniform_(
-        #         self.layers[i].weight, mode="fan_in", nonlinearity="relu"
-        #     )
-        #     to.nn.init.constant_(self.layers[i].bias, 0.0)
-        # to.nn.init.xavier_uniform_(self.output_layer.weight)
-        # to.nn.init.constant_(self.output_layer.bias, 0.0)
 
     def forward(self, state_feats: to.Tensor, goal_feats: to.Tensor):
         bs = state_feats.shape[0]
@@ -318,23 +334,3 @@ class ConvFeatureNet(nn.Module):
         x = x.flatten(1)
 
         return x
-
-
-class DummyFeatureNet(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.dummy_out: to.Tensor = to.zeros(1)
-
-    def forward(self, x: to.Tensor) -> to.Tensor:
-        return self.dummy_out
-
-
-class DummyPolicy(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.dummy_out: to.Tensor = to.zeros(1)
-
-    def forward(
-        self, state_feats: to.Tensor, goal_feats: Optional[to.Tensor] = None
-    ) -> to.Tensor:
-        return self.dummy_out

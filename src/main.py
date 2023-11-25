@@ -143,11 +143,19 @@ if __name__ == "__main__":
             logdir = args.checkpoint_path.parent
             print(f"Loaded checkpoint {str(args.checkpoint_path)}")
     elif args.mode == "test":
-        logdir = (
-            args.model_path.parent
-            / f"test_{args.model_path.stem}_{args.seed}_{int(abs_start_time)}"
-        )
-        print(f"Loaded model {str(args.model_path)}")
+        if args.model_path is not None:
+            logdir = args.model_path.parent
+        elif args.checkpoint_path is not None:
+            logdir = (
+                args.checkpoint_path.parent
+                / f"test_{args.model_path.stem}_{args.seed}_{int(abs_start_time)}"
+            )
+            print(f"Loaded checkpoint {str(args.checkpoint_path)}")
+        else:
+            raise ValueError(
+                "Must specify either model_path or checkpoint_path to test"
+            )
+        logdir /= f"test_{args.model_path.stem}_{args.seed}_{int(abs_start_time)}"
     else:
         raise ValueError(f"Unknown mode: {args.mode}")
 

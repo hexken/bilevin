@@ -25,8 +25,6 @@ class BiDir(Agent):
         """ """
         start_time = timer()
 
-        cost_fn = self.cost_fn
-
         problem_id = problem.id
         f_domain = problem.domain
         f_state = f_domain.reset()
@@ -95,7 +93,11 @@ class BiDir(Agent):
                 new_state = _domain.result(node.state, a)
                 new_state_actions, mask = _domain.actions(a, new_state)
                 new_node = self.get_child_node(
-                    node, a, new_state_actions, mask, new_state, cost_fn
+                    node,
+                    a,
+                    new_state_actions,
+                    mask,
+                    new_state,
                 )
 
                 if new_node not in _closed:

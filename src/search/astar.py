@@ -25,9 +25,9 @@ def _get_start_node(
         parent_action=None,
         actions=actions,
         actions_mask=mask,
-        g_cost=0,
+        g=0,
         log_prob=0.0,
-        cost=0.0,
+        f=0.0,
         log_action_probs=log_probs[0],
     )
     return start_node
@@ -40,7 +40,6 @@ def _get_child_node(
     actions: list[int],
     mask: to.Tensor,
     new_state: State,
-    cost_fn,
 ) -> SearchNode:
     if parent_node.log_action_probs is None:
         raise ValueError("Parent node has no log_action_probs")
@@ -48,7 +47,7 @@ def _get_child_node(
         raise ValueError("Parent node has no log_prob")
     new_node = SearchNode(
         new_state,
-        g_cost=parent_node.g_cost + 1,
+        g=parent_node.g + 1,
         parent=parent_node,
         parent_action=parent_action,
         actions=actions,
@@ -56,7 +55,7 @@ def _get_child_node(
         log_prob=parent_node.log_prob
         + parent_node.log_action_probs[parent_action].item(),
     )
-    new_node.cost = cost_fn(new_node)
+    new_node.f = 1
     return new_node
 
 
@@ -101,10 +100,9 @@ class Levin(UniDir):
         actions: list[int],
         mask: to.Tensor,
         new_state: State,
-        cost_fn,
     ) -> SearchNode:
         return _get_child_node(
-            self, parent_node, parent_action, actions, mask, new_state, cost_fn
+            self, parent_node, parent_action, actions, mask, new_state
         )
 
     def evaluate_children(
@@ -140,10 +138,9 @@ class BiLevin(BiDir):
         actions: list[int],
         mask: to.Tensor,
         new_state: State,
-        cost_fn,
     ) -> SearchNode:
         return _get_child_node(
-            self, parent_node, parent_action, actions, mask, new_state, cost_fn
+            self, parent_node, parent_action, actions, mask, new_state
         )
 
     def evaluate_children(

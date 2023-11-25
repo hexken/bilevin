@@ -95,20 +95,22 @@ class SearchNode:
         parent_action: Optional[int],
         actions: list[int],
         actions_mask: Tensor,
-        g_cost: int,
+        g: int,
         log_prob: float = 0.0,
         log_action_probs: Optional[Tensor] = None,
-        cost: Optional[float] = None,
+        h: Optional[float] = None,
+        f: Optional[float] = None,
     ):
         self.state = state
         self.parent = parent
         self.parent_action = parent_action
-        self.g_cost = g_cost
+        self.g = g
         self.log_prob = log_prob
         self.actions = actions
         self.actions_mask = actions_mask
         self.log_action_probs = log_action_probs
-        self.cost = g_cost if cost is None else cost
+        self.h = h
+        self.f = g if f is None else f
 
     def __eq__(self, other):
         """
@@ -121,7 +123,7 @@ class SearchNode:
         """
         less-than used by the heap
         """
-        return self.cost < other.cost
+        return self.f < other.f
 
     def __hash__(self):
         """
@@ -130,8 +132,6 @@ class SearchNode:
         return self.state.__hash__()
 
 
-def levin_cost(node: SearchNode):
-    return math.log(node.g_cost) - node.log_prob  # type:ignore
 
 
 class Trajectory:
@@ -178,7 +178,7 @@ class Trajectory:
         node = goal_node.parent
 
         if partial_g_cost is None:
-            partial_g_cost = goal_node.g_cost
+            partial_g_cost = goal_node.g
         if partial_log_prob is None:
             partial_log_prob = goal_node.log_prob
 

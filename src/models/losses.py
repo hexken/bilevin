@@ -1,13 +1,18 @@
+from math import floor
+from typing import TYPE_CHECKING
+
 import torch as to
 import torch.nn as nn
-from math import floor
 from torch.nn.functional import cross_entropy, log_softmax, nll_loss
 
-from models import AgentModel
 from search.utils import Trajectory
 
+if TYPE_CHECKING:
+    from models.models import AgentModel
 
-def cross_entropy_avg_loss(traj: Trajectory, model: AgentModel):
+
+
+def cross_entropy_avg_loss(traj: Trajectory, model: "AgentModel"):
     n_actions = len(traj)
     log_probs, _ = model(
         traj.states,
@@ -23,7 +28,7 @@ def cross_entropy_avg_loss(traj: Trajectory, model: AgentModel):
     return loss, avg_action_nll, acc
 
 
-def cross_entropy_sum_loss(traj: Trajectory, model: AgentModel):
+def cross_entropy_sum_loss(traj: Trajectory, model: "AgentModel"):
     n_actions = len(traj)
     log_probs, _ = model(
         traj.states,
@@ -39,7 +44,7 @@ def cross_entropy_sum_loss(traj: Trajectory, model: AgentModel):
     return loss, avg_action_nll, acc
 
 
-def cross_entropy_mid_loss(traj: Trajectory, model: AgentModel):
+def cross_entropy_mid_loss(traj: Trajectory, model: "AgentModel"):
     n_actions = len(traj)
     print(traj.states.shape)
     mp = floor(n_actions / 2)
@@ -63,7 +68,7 @@ def cross_entropy_mid_loss(traj: Trajectory, model: AgentModel):
     return loss, avg_action_nll, acc
 
 
-def levin_loss(traj: Trajectory, model: AgentModel):
+def levin_loss(traj: Trajectory, model: "AgentModel"):
     n_actions = len(traj)
     log_probs, _ = model(
         traj.states,
