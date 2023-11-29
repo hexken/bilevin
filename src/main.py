@@ -15,6 +15,7 @@ import torch.multiprocessing as mp
 from args import parse_args
 from loaders import ProblemLoader
 from search.levin import Levin, BiLevin
+from search.astar import AStar, BiAStar
 from search.utils import set_seeds
 from train import train
 
@@ -139,23 +140,22 @@ if __name__ == "__main__":
             run_name = f"{args.problems_path.parent.stem}-{args.problems_path.stem}_{args.agent}_e{args.train_expansion_budget}_t{args.time_budget}{exp_name}_{args.seed}_{int(abs_start_time)}"
             logdir = args.runsdir_path / run_name
         else:
-            run_name = str(args.checkpoint_path.parents[-1])
+            run_name = str(args.checkpoint_path.parent)
             logdir = args.checkpoint_path.parent
             print(f"Loaded checkpoint {str(args.checkpoint_path)}")
     elif args.mode == "test":
         if args.model_path is not None:
             logdir = args.model_path.parent
+            model_name = args.model_path.stem
         elif args.checkpoint_path is not None:
-            logdir = (
-                args.checkpoint_path.parent
-                / f"test_{args.model_path.stem}_{args.seed}_{int(abs_start_time)}"
-            )
+            logdir = args.checkpoint_path.parent
+            model_name = args.checkpoint_path.stem
             print(f"Loaded checkpoint {str(args.checkpoint_path)}")
         else:
             raise ValueError(
                 "Must specify either model_path or checkpoint_path to test"
             )
-        logdir /= f"test_{args.model_path.stem}_{args.seed}_{int(abs_start_time)}"
+        logdir /= f"test_{model_name}_{args.seed}_{int(abs_start_time)}"
     else:
         raise ValueError(f"Unknown mode: {args.mode}")
 
@@ -163,22 +163,27 @@ if __name__ == "__main__":
     print(f"Logging to {str(logdir)}")
 
     model_args = {
-        "kernel_size": (2, 2),
-        "num_filters": 32,
         "share_feature_net": args.share_feature_net,
+        "no_feature_net": args.no_feature_net,
+        "conditional_backward": args.conditional_backward,
         "forward_hidden_layers": args.forward_hidden_layers,
         "backward_hidden_layers": args.backward_hidden_layers,
         "state_t_width": pset_dict["state_t_width"],
         "state_t_depth": pset_dict["state_t_depth"],
         "num_actions": pset_dict["num_actions"],
         "in_channels": pset_dict["in_channels"],
+        "kernel_size": (2, 2),
+        "num_filters": 32,
         "kernel_depth": pset_dict["kernel_depth"],
-        "requires_backward_goal": pset_dict["requires_backward_goal"],
     }
 
     if args.agent == "Levin":
         agent = Levin(logdir, args, model_args)
     elif args.agent == "BiLevin":
+        agent = BiLevin(logdir, args, model_args)
+    elif args.agent == "AStar":
+        agent = BiLevin(logdir, args, model_args)
+    elif args.agent == "BiAStar":
         agent = BiLevin(logdir, args, model_args)
     else:
         raise ValueError(f"Unknown agent: {args.agent}")

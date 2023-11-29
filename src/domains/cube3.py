@@ -100,10 +100,6 @@ class Cube3(Domain):
         return 3
 
     @property
-    def requires_backward_goal(self) -> bool:
-        return True
-
-    @property
     def num_actions(cls) -> int:
         return 12
 

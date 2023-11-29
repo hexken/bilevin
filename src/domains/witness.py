@@ -1,7 +1,7 @@
 from __future__ import annotations
 from collections import deque
 from copy import deepcopy
-from typing import Callable, Optional, Type
+from typing import Optional, Type
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -135,10 +135,6 @@ class Witness(Domain):
             self.visited[head].append(node)
         else:
             self.visited[head] = [node]
-
-    @property
-    def requires_backward_goal(self):
-        return False
 
     @property
     def num_actions(cls) -> int:

@@ -1,4 +1,3 @@
-from pathlib import Path
 import pickle
 from typing import Optional
 
@@ -10,6 +9,7 @@ from torch.nn.functional import log_softmax
 import models.losses as losses
 
 
+# todo this module is poorly organized
 class AgentModel(nn.Module):
     def __init__(self, args, model_args):
         super().__init__()
@@ -17,8 +17,9 @@ class AgentModel(nn.Module):
         self.model_args: dict = model_args
         self.num_actions: int = model_args["num_actions"]
 
+        self.no_feature_net: bool = model_args["no_feature_net"]
         self.share_feature_net: bool = model_args["share_feature_net"]
-        self.requires_backward_goal: bool = model_args["requires_backward_goal"]
+        self.conditional_backward: bool = model_args["conditional_backward"]
 
         self.in_channels: int = model_args["in_channels"]
         self.num_filters: int = model_args["num_filters"]
@@ -28,7 +29,6 @@ class AgentModel(nn.Module):
         self.state_t_width: int = model_args["state_t_width"]
         reduced_width: int = self.state_t_width - 2 * self.kernel_size[0] + 2
 
-        # todo these size calculations are hacky
         if model_args["kernel_depth"] > 1:
             self.state_t_depth: int = model_args["state_t_depth"]
             self.kernel_depth = model_args["kernel_depth"]
@@ -138,9 +138,16 @@ class AgentModel(nn.Module):
         goal_state_t: Optional[to.Tensor] = None,
     ):
         if forward:
-            feats = self.forward_feature_net(state_t)
+            if self.forward_feature_net is not None:
+                feats = self.forward_feature_net(state_t)
+            else:
+                feats = state_t
             logits = self.forward_policy(feats)
         else:
+            if self.backward_feature_net is not None:
+                feats = self.backward_feature_net(state_t)
+            else:
+                feats = state_t
             feats = self.backward_feature_net(state_t)
             if goal_feats is not None:
                 logits = self.backward_policy(feats, goal_feats)
@@ -148,8 +155,7 @@ class AgentModel(nn.Module):
                 goal_feats = self.backward_feature_net(goal_state_t)
                 logits = self.backward_policy(feats, goal_feats)
             else:
-                # todo seems torchscript requires a dummy argument to compile the model
-                logits = self.backward_policy(feats, self.dummy_goal_feats)
+                logits = self.backward_policy(feats)
 
         if mask is not None:
             # mask[i] should be True if the action i is invalid, False otherwise

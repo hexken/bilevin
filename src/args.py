@@ -83,7 +83,7 @@ def parse_args():
         help="loss function",
     )
     parser.add_argument(
-        "--forward-hidden-layers",
+        "--policy-forward-layers",
         action="store",
         nargs="+",
         default=[128],
@@ -91,12 +91,28 @@ def parse_args():
         help="hidden layer sizes of forward policy",
     )
     parser.add_argument(
-        "--backward-hidden-layers",
+        "--policy-backward-layers",
         action="store",
         nargs="+",
         default=[256, 192, 128],
         type=int,
         help="hidden layer sizes of backward policy",
+    )
+    parser.add_argument(
+        "--heuristic-forward-layers",
+        action="store",
+        nargs="+",
+        default=[128],
+        type=int,
+        help="hidden layer sizes of forward heruistic",
+    )
+    parser.add_argument(
+        "--heuristic-backward-layers",
+        action="store",
+        nargs="+",
+        default=[256, 192, 128],
+        type=int,
+        help="hidden layer sizes of backward heruistic",
     )
     # parser.add_argument(
     #     "--kernel-dims",
@@ -110,7 +126,13 @@ def parse_args():
         "--weight-decay",
         type=float,
         default=0.001,
-        help="l2 regularization weight",
+        help="add L2 regularization to loss",
+    )
+    parser.add_argument(
+        "--conditional-backward",
+        action="store_true",
+        default=False,
+        help="pass the problems initial (forward) state to the backward policy/heuristic in addition to a current (backward) state",
     )
     parser.add_argument(
         "--no-feature-net",
@@ -122,7 +144,7 @@ def parse_args():
         "--share-feature-net",
         action="store_true",
         default=False,
-        help="use the same feature netword for forward and backward policies",
+        help="use the same feature netword for forward and backward policies/heuristics",
     )
     parser.add_argument(
         "--keep-all-checkpoints",

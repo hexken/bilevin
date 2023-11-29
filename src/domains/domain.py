@@ -102,11 +102,6 @@ class Domain(ABC):
     def state_width(self) -> int:
         pass
 
-    @property
-    @abstractmethod
-    def requires_backward_goal(self) -> bool:
-        pass
-
     @abstractmethod
     def is_goal(self, state: State) -> bool:
         pass

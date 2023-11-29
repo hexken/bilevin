@@ -1,4 +1,5 @@
 from __future__ import annotations
+from math import log
 
 import torch as to
 
@@ -6,7 +7,7 @@ from domains.domain import State
 from enums import TwoDir
 from search.agent import Agent
 from search.bidir import BiDir
-from search.udir import UniDir
+from search.unidir import UniDir
 from search.utils import SearchNode
 
 
@@ -55,7 +56,7 @@ def _get_child_node(
         log_prob=parent_node.log_prob
         + parent_node.log_action_probs[parent_action].item(),
     )
-    new_node.f = 1
+    new_node.f = log(new_node.g) - new_node.log_prob
     return new_node
 
 
@@ -80,7 +81,7 @@ def _evaluate_children(
         child.log_action_probs = lap
 
 
-class Levin(UniDir):
+class AStar(UniDir):
     @property
     def trainable(cls):
         return True
@@ -118,7 +119,7 @@ class Levin(UniDir):
         )
 
 
-class BiLevin(BiDir):
+class BiAStar(BiDir):
     @property
     def trainable(cls):
         return True

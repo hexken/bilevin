@@ -72,10 +72,6 @@ class SlidingTilePuzzle(Domain):
         return self.width
 
     @property
-    def requires_backward_goal(self):
-        return True
-
-    @property
     def num_actions(cls) -> int:
         return 4
 

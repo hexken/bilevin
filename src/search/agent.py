@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
 
 import torch as to
 
 from domains.domain import State
 from enums import TwoDir
 from models.models import AgentModel
-import search.utils as sutils
 from search.utils import Problem, SearchNode, Trajectory
 
 
@@ -32,6 +31,16 @@ class Agent(ABC):
     @property
     @abstractmethod
     def is_bidirectional(self) -> bool:
+        pass
+
+    @property
+    @abstractmethod
+    def has_policy(self) -> bool:
+        pass
+
+    @property
+    @abstractmethod
+    def has_herusitic(self) -> bool:
         pass
 
     @abstractmethod
