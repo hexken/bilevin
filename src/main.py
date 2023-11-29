@@ -172,9 +172,6 @@ if __name__ == "__main__":
         "state_t_depth": pset_dict["state_t_depth"],
         "num_actions": pset_dict["num_actions"],
         "in_channels": pset_dict["in_channels"],
-        "kernel_size": (2, 2),
-        "num_filters": 32,
-        "kernel_depth": pset_dict["kernel_depth"],
     }
 
     if args.agent == "Levin":

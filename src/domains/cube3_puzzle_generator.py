@@ -156,7 +156,6 @@ def main():
         "state_t_depth": 6,
         "num_actions": 12,
         "in_channels": 6,
-        "kernel_depth": 2,
         "requires_backward_goal": True,
         "seed": args.seed,
     }

@@ -114,14 +114,20 @@ def parse_args():
         type=int,
         help="hidden layer sizes of backward heruistic",
     )
-    # parser.add_argument(
-    #     "--kernel-dims",
-    #     action="store",
-    #     nargs="+",
-    #     default=[2, 2, 2],
-    #     type=int,
-    #     help="hidden layer sizes of backward policy",
-    # )
+    parser.add_argument(
+        "--kernel-size",
+        action="store",
+        nargs=2,
+        type=int,
+        help="depth x height/width of convolution kernel",
+    )
+    parser.add_argument(
+        "--num-kernels",
+        action="store",
+        default=32,
+        type=int,
+        help="number of convolution kernels",
+    )
     parser.add_argument(
         "--weight-decay",
         type=float,

@@ -29,9 +29,8 @@ class AgentModel(nn.Module):
         self.conditional_backward: bool = model_args["conditional_backward"]
 
         self.in_channels: int = model_args["in_channels"]
-        self.num_filters: int = model_args["num_filters"]
-        self.kernel_size: tuple[int, int] = model_args["kernel_size"]
-        self.kernel_depth = None
+        self.num_kernels: int = model_args["num_kernels"]
+        self.kernel_size: tuple[int, int] = args.kernel_size
 
         self.state_t_width: int = model_args["state_t_width"]
 
@@ -44,24 +43,21 @@ class AgentModel(nn.Module):
                 f_feat_lr = args.forward_feature_net_lr
                 b_feat_lr = args.backward_feature_net_lr
 
-            # particularly hacky
-            reduced_width: int = self.state_t_width - 2 * self.kernel_size[0] + 2
-            if model_args["kernel_depth"] > 1:
+            reduced_width: int = self.state_t_width - 2 * self.kernel_size[1] + 2
+            if self.kernel_size[0] > 1:
                 self.state_t_depth: int = model_args["state_t_depth"]
-                self.kernel_depth = model_args["kernel_depth"]
-                self.kernel_size = (self.kernel_depth, *self.kernel_size)
-                reduced_depth = self.state_t_depth - 2 * self.kernel_depth + 2
+                reduced_depth = self.state_t_depth - 2 * self.kernel_size[0] + 2
                 self.num_features = (
-                    self.num_filters * reduced_depth * reduced_width**2
+                    self.num_kernels * reduced_depth * reduced_width**2
                 )
             else:
-                self.num_features = self.num_filters * reduced_width**2
+                self.num_features = self.num_kernels * reduced_width**2
 
             self.forward_feature_net: nn.Module = ConvFeatureNet(
                 self.in_channels,
                 self.state_t_width,
                 self.kernel_size,
-                self.num_filters,
+                self.num_kernels,
                 self.num_actions,
             )
             learnable_params.append(
@@ -80,7 +76,7 @@ class AgentModel(nn.Module):
                         self.in_channels,
                         self.state_t_width,
                         self.kernel_size,
-                        self.num_filters,
+                        self.num_kernels,
                         self.num_actions,
                     )
                     learnable_params.append(
@@ -252,7 +248,7 @@ class StateHeuristic(nn.Module):
         )
         self.output_layer = nn.Linear(hidden_layer_sizes[-1], 1)
 
-    def forward(self, state_feats: to.Tensor, goal_feats: Optional[to.Tensor] = None):
+    def forward(self, state_feats: to.Tensor):
         for l in self.layers:
             state_feats = F.relu(l(state_feats))
 
@@ -314,7 +310,7 @@ class StatePolicy(nn.Module):
         )
         self.output_layer = nn.Linear(hidden_layer_sizes[-1], num_actions)
 
-    def forward(self, state_feats: to.Tensor, goal_feats: Optional[to.Tensor] = None):
+    def forward(self, state_feats: to.Tensor):
         for l in self.layers:
             state_feats = F.relu(l(state_feats))
 
@@ -366,7 +362,7 @@ class ConvFeatureNet(nn.Module):
         self,
         in_channels: int,
         state_t_width: int,
-        kernel_size: tuple[int, int] | tuple[int, int, int],
+        kernel_size: tuple[int, int],
         num_filters: int,
         num_actions: int,
     ):
@@ -375,24 +371,24 @@ class ConvFeatureNet(nn.Module):
         self._filters: int = num_filters
         self.num_actions: int = num_actions
 
-        if len(kernel_size) == 3:
+        if self._kernel_size[0] > 1:
+            ks = (*kernel_size, kernel_size[1])
             self.conv1 = nn.Conv3d(
-                in_channels, num_filters, kernel_size, padding="valid"
+                in_channels,
+                num_filters,
+                ks,
+                padding="valid",
             )
             self.conv2 = nn.Conv3d(
-                num_filters, num_filters, kernel_size, padding="valid"
-            )
-        elif len(kernel_size) == 2:
-            self.conv1 = nn.Conv2d(
-                in_channels, num_filters, kernel_size, padding="valid"
-            )
-            self.conv2 = nn.Conv2d(
-                num_filters, num_filters, kernel_size, padding="valid"
+                num_filters,
+                num_filters,
+                ks,
+                padding="valid",
             )
         else:
-            raise ValueError("kernel_size must be 2 or 3 dimensional")
-
-        self.reduced_size = (state_t_width - 2) ** 2
+            ks = (kernel_size[1], kernel_size[1])
+            self.conv1 = nn.Conv2d(in_channels, num_filters, ks, padding="valid")
+            self.conv2 = nn.Conv2d(num_filters, num_filters, ks, padding="valid")
 
     def forward(self, x: to.Tensor):
         x = F.relu(self.conv1(x))
