@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from argparse import Namespace
 from pathlib import Path
 from typing import Optional
 
@@ -11,8 +12,10 @@ from search.utils import Problem, SearchNode, Trajectory
 
 
 class Agent(ABC):
-    def __init__(self, logdir, args, model_args):
+    def __init__(self, logdir: Path, args: Namespace, model_args: dict):
         model_args["bidirectional"] = self.is_bidirectional
+        model_args["has_policy"] = self.has_policy
+        model_args["has_heuristic"] = self.has_heuristic
 
         self.logdir: Path = logdir
         self.model: AgentModel = AgentModel(args, model_args)
@@ -40,7 +43,7 @@ class Agent(ABC):
 
     @property
     @abstractmethod
-    def has_herusitic(self) -> bool:
+    def has_heuristic(self) -> bool:
         pass
 
     @abstractmethod

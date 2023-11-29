@@ -182,9 +182,9 @@ if __name__ == "__main__":
     elif args.agent == "BiLevin":
         agent = BiLevin(logdir, args, model_args)
     elif args.agent == "AStar":
-        agent = BiLevin(logdir, args, model_args)
+        agent = AStar(logdir, args, model_args)
     elif args.agent == "BiAStar":
-        agent = BiLevin(logdir, args, model_args)
+        agent = BiAStar(logdir, args, model_args)
     else:
         raise ValueError(f"Unknown agent: {args.agent}")
 

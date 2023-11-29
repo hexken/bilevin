@@ -1,3 +1,4 @@
+from argparse import Namespace
 import pickle
 from typing import Optional
 
@@ -11,13 +12,16 @@ import models.losses as losses
 
 # todo this module is poorly organized
 class AgentModel(nn.Module):
-    def __init__(self, args, model_args):
+    def __init__(
+        self,
+        args: Namespace,
+        model_args: dict,
+    ):
         super().__init__()
         self.is_bidirectional: bool = model_args["bidirectional"]
         self.model_args: dict = model_args
         self.num_actions: int = model_args["num_actions"]
 
-        self.no_feature_net: bool = model_args["no_feature_net"]
         self.share_feature_net: bool = model_args["share_feature_net"]
         self.conditional_backward: bool = model_args["conditional_backward"]
 
@@ -27,25 +31,22 @@ class AgentModel(nn.Module):
         self.kernel_depth = None
 
         self.state_t_width: int = model_args["state_t_width"]
-        reduced_width: int = self.state_t_width - 2 * self.kernel_size[0] + 2
 
-        if model_args["kernel_depth"] > 1:
-            self.state_t_depth: int = model_args["state_t_depth"]
-            self.kernel_depth = model_args["kernel_depth"]
-            self.kernel_size = (self.kernel_depth, *self.kernel_size)
-            reduced_depth = self.state_t_depth - 2 * self.kernel_depth + 2
-            self.num_features = self.num_filters * reduced_depth * reduced_width**2
-        else:
-            self.num_features = self.num_filters * reduced_width**2
-
-        self.forward_policy: nn.Module = StatePolicy(
-            self.num_features,
-            self.num_actions,
-            model_args["forward_hidden_layers"],
-        )
-
+        # create feature net if necessary
         if not args.no_feature_net:
-            # todo only conv feature net for now
+            reduced_width: int = self.state_t_width - 2 * self.kernel_size[0] + 2
+            # particularly hacky
+            if model_args["kernel_depth"] > 1:
+                self.state_t_depth: int = model_args["state_t_depth"]
+                self.kernel_depth = model_args["kernel_depth"]
+                self.kernel_size = (self.kernel_depth, *self.kernel_size)
+                reduced_depth = self.state_t_depth - 2 * self.kernel_depth + 2
+                self.num_features = (
+                    self.num_filters * reduced_depth * reduced_width**2
+                )
+            else:
+                self.num_features = self.num_filters * reduced_width**2
+
             self.forward_feature_net: nn.Module = ConvFeatureNet(
                 self.in_channels,
                 self.state_t_width,
@@ -66,18 +67,46 @@ class AgentModel(nn.Module):
                         self.num_actions,
                     )
 
-            if self.requires_backward_goal:
-                self.backward_policy: nn.Module = StateGoalPolicy(
+            # create policy/herusitic nets
+            if model_args["has_policy"]:
+                self.forward_policy: nn.Module = StatePolicy(
                     self.num_features,
                     self.num_actions,
-                    model_args["backward_hidden_layers"],
+                    model_args["forward_policy_layers"],
                 )
-            else:
-                self.backward_policy: nn.Module = StatePolicy(
+                if self.bidirectional:
+                    if self.conditional_backward:
+                        self.backward_policy: nn.Module = StateGoalPolicy(
+                            self.num_features,
+                            self.num_actions,
+                            model_args["backward_policy_layers"],
+                        )
+                    else:
+                        self.backward_policy: nn.Module = StatePolicy(
+                            self.num_features,
+                            self.num_actions,
+                            model_args["backward_policy_layers"],
+                        )
+
+            if model_args["has_heuristic"]:
+                self.forward_heuristic: nn.Module = StateHeuristic(
                     self.num_features,
                     self.num_actions,
-                    model_args["backward_hidden_layers"],
+                    model_args["forward_heuristic_layers"],
                 )
+                if self.bidirectional:
+                    if self.conditional_backward:
+                        self.backward_policy: nn.Module = StateGoalHeuristic(
+                            self.num_features,
+                            self.num_actions,
+                            model_args["backward_heuristic_layers"],
+                        )
+                    else:
+                        self.backward_policy: nn.Module = StatePolicy(
+                            self.num_features,
+                            self.num_actions,
+                            model_args["backward_heuristic_layers"],
+                        )
 
         # load model if specified explicitly or from checkpoint
         if args.model_path is not None:

@@ -22,7 +22,7 @@ class LevinBase(Agent):
     def has_heuristic(self):
         return False
 
-    def _get_start_node(
+    def get_start_node(
         self: Agent,
         state: State,
         state_t: to.Tensor,
@@ -44,7 +44,7 @@ class LevinBase(Agent):
         )
         return start_node
 
-    def _get_child_node(
+    def get_child_node(
         self: Agent,
         parent_node: SearchNode,
         parent_action: int,
@@ -69,7 +69,7 @@ class LevinBase(Agent):
         new_node.f = log(new_node.g) - new_node.log_prob
         return new_node
 
-    def _evaluate_children(
+    def evaluate_children(
         self: Agent,
         direction: TwoDir,
         children: list[SearchNode],
