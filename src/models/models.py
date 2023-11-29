@@ -19,6 +19,9 @@ class AgentModel(nn.Module):
     ):
         super().__init__()
         self.is_bidirectional: bool = model_args["bidirectional"]
+        self.has_policy: bool = model_args["has_policy"]
+        self.has_heuristic: bool = model_args["has_heuristic"]
+        self.has_feature_net: bool = not args.no_feature_net
         self.model_args: dict = model_args
         self.num_actions: int = model_args["num_actions"]
 
@@ -32,10 +35,17 @@ class AgentModel(nn.Module):
 
         self.state_t_width: int = model_args["state_t_width"]
 
+        learnable_params = []
         # create feature net if necessary
-        if not args.no_feature_net:
-            reduced_width: int = self.state_t_width - 2 * self.kernel_size[0] + 2
+        if self.has_feature_net:
+            if args.share_feature_net:
+                f_feat_lr = b_feat_lr = args.feature_net_lr
+            else:
+                f_feat_lr = args.forward_feature_net_lr
+                b_feat_lr = args.backward_feature_net_lr
+
             # particularly hacky
+            reduced_width: int = self.state_t_width - 2 * self.kernel_size[0] + 2
             if model_args["kernel_depth"] > 1:
                 self.state_t_depth: int = model_args["state_t_depth"]
                 self.kernel_depth = model_args["kernel_depth"]
@@ -54,6 +64,13 @@ class AgentModel(nn.Module):
                 self.num_filters,
                 self.num_actions,
             )
+            learnable_params.append(
+                {
+                    "params": self.forward_feature_net.parameters(),
+                    "lr": f_feat_lr,
+                    "weight_decay": args.weight_decay,
+                },
+            )
 
             if self.is_bidirectional:
                 if self.share_feature_net:
@@ -66,47 +83,86 @@ class AgentModel(nn.Module):
                         self.num_filters,
                         self.num_actions,
                     )
+                    learnable_params.append(
+                        {
+                            "params": self.backward_feature_net.parameters(),
+                            "lr": b_feat_lr,
+                            "weight_decay": args.weight_decay,
+                        },
+                    )
 
-            # create policy/herusitic nets
-            if model_args["has_policy"]:
-                self.forward_policy: nn.Module = StatePolicy(
-                    self.num_features,
-                    self.num_actions,
-                    model_args["forward_policy_layers"],
+        # create policy/herusitic nets
+        if self.has_policy:
+            self.forward_policy: nn.Module = StatePolicy(
+                self.num_features,
+                self.num_actions,
+                model_args["forward_policy_layers"],
+            )
+            learnable_params.append(
+                {
+                    "params": self.forward_policy.parameters(),
+                    "lr": args.forward_policy_lr,
+                    "weight_decay": args.weight_decay,
+                },
+            )
+            if self.bidirectional:
+                if self.conditional_backward:
+                    self.backward_policy: nn.Module = StateGoalPolicy(
+                        self.num_features,
+                        self.num_actions,
+                        model_args["backward_policy_layers"],
+                    )
+                else:
+                    self.backward_policy: nn.Module = StatePolicy(
+                        self.num_features,
+                        self.num_actions,
+                        model_args["backward_policy_layers"],
+                    )
+                learnable_params.append(
+                    {
+                        "params": self.backward_policy.parameters(),
+                        "lr": args.backward_policy_lr,
+                        "weight_decay": args.weight_decay,
+                    },
                 )
-                if self.bidirectional:
-                    if self.conditional_backward:
-                        self.backward_policy: nn.Module = StateGoalPolicy(
-                            self.num_features,
-                            self.num_actions,
-                            model_args["backward_policy_layers"],
-                        )
-                    else:
-                        self.backward_policy: nn.Module = StatePolicy(
-                            self.num_features,
-                            self.num_actions,
-                            model_args["backward_policy_layers"],
-                        )
 
-            if model_args["has_heuristic"]:
-                self.forward_heuristic: nn.Module = StateHeuristic(
-                    self.num_features,
-                    self.num_actions,
-                    model_args["forward_heuristic_layers"],
+        if self.has_heuristic:
+            self.forward_heuristic: nn.Module = StateHeuristic(
+                self.num_features,
+                self.num_actions,
+                model_args["forward_heuristic_layers"],
+            )
+            learnable_params.append(
+                {
+                    "params": self.forward_heuristic.parameters(),
+                    "lr": args.forward_heuristic_lr,
+                    "weight_decay": args.weight_decay,
+                },
+            )
+            if self.bidirectional:
+                if self.conditional_backward:
+                    self.backward_policy: nn.Module = StateGoalHeuristic(
+                        self.num_features,
+                        self.num_actions,
+                        model_args["backward_heuristic_layers"],
+                    )
+                else:
+                    self.backward_heuristic: nn.Module = StateHeuristic(
+                        self.num_features,
+                        self.num_actions,
+                        model_args["backward_heuristic_layers"],
+                    )
+                learnable_params.append(
+                    {
+                        "params": self.backward_heuristic.parameters(),
+                        "lr": args.backward_heuristic_lr,
+                        "weight_decay": args.weight_decay,
+                    },
                 )
-                if self.bidirectional:
-                    if self.conditional_backward:
-                        self.backward_policy: nn.Module = StateGoalHeuristic(
-                            self.num_features,
-                            self.num_actions,
-                            model_args["backward_heuristic_layers"],
-                        )
-                    else:
-                        self.backward_policy: nn.Module = StatePolicy(
-                            self.num_features,
-                            self.num_actions,
-                            model_args["backward_heuristic_layers"],
-                        )
+
+        if args.mode == "train":
+            self.optimizer = to.optim.Adam(learnable_params)
+            self.loss_fn = getattr(losses, args.loss_fn)
 
         # load model if specified explicitly or from checkpoint
         if args.model_path is not None:
@@ -118,46 +174,6 @@ class AgentModel(nn.Module):
                 self.load_state_dict(chkpt_dict["model_state"])
             print(f"Loaded model\n  {str(args.checkpoint_path)}")
 
-        # Set up the optimizer
-        if args.mode == "train":
-            self.loss_fn = getattr(losses, args.loss_fn)
-            if not args.share_feature_net:
-                flr = args.forward_feature_net_lr
-                blr = args.backward_feature_net_lr
-            else:
-                flr = args.feature_net_lr
-                blr = args.feature_net_lr
-
-            optimizer_params = [
-                {
-                    "params": self.forward_feature_net.parameters(),
-                    "lr": flr,
-                    "weight_decay": args.weight_decay,
-                },
-                {
-                    "params": self.forward_policy.parameters(),
-                    "lr": args.forward_policy_lr,
-                    "weight_decay": args.weight_decay,
-                },
-            ]
-            if self.is_bidirectional:
-                if not args.share_feature_net:
-                    optimizer_params.append(
-                        {
-                            "params": self.backward_feature_net.parameters(),
-                            "lr": blr,
-                            "weight_decay": args.weight_decay,
-                        }
-                    )
-                optimizer_params.append(
-                    {
-                        "params": self.backward_policy.parameters(),
-                        "lr": args.backward_policy_lr,
-                        "weight_decay": args.weight_decay,
-                    }
-                )
-            self.optimizer = to.optim.Adam(optimizer_params)
-
     def forward(
         self,
         state_t: to.Tensor,
@@ -166,33 +182,49 @@ class AgentModel(nn.Module):
         goal_feats: Optional[to.Tensor] = None,
         goal_state_t: Optional[to.Tensor] = None,
     ):
+        logits = log_probs = h = None
         if forward:
-            if self.forward_feature_net is not None:
+            if self.has_feature_net:
                 feats = self.forward_feature_net(state_t)
             else:
                 feats = state_t
-            logits = self.forward_policy(feats)
+            if self.has_policy:
+                logits = self.forward_policy(feats)
+            if self.has_heuristic:
+                h = self.forward_heuristic(feats)
+
         else:
-            if self.backward_feature_net is not None:
+            if self.has_feature_net:
                 feats = self.backward_feature_net(state_t)
             else:
                 feats = state_t
-            feats = self.backward_feature_net(state_t)
-            if goal_feats is not None:
-                logits = self.backward_policy(feats, goal_feats)
-            elif goal_state_t is not None:
+
+            if self.conditional_backward and goal_feats is None:
                 goal_feats = self.backward_feature_net(goal_state_t)
-                logits = self.backward_policy(feats, goal_feats)
-            else:
-                logits = self.backward_policy(feats)
 
-        if mask is not None:
-            # mask[i] should be True if the action i is invalid, False otherwise
-            logits = logits.masked_fill(mask, -1e9)
+            if self.has_policy:
+                if self.conditional_backward:
+                    logits = self.backward_policy(feats, goal_feats)
+                else:
+                    logits = self.backward_policy(feats)
 
-        log_probs = log_softmax(logits, dim=-1)
+            if self.has_heuristic:
+                if self.conditional_backward:
+                    goal_feats = self.forward_feature_net(goal_state_t)
+                    h = self.backward_heuristic(feats, goal_feats)
+                else:
+                    h = self.backward_heuristic(feats)
 
-        return log_probs, logits
+        if logits is not None:
+            if mask is not None:
+                # mask[i] should be True if the action i is invalid, False otherwise
+                logits = logits.masked_fill(mask, -1e9)
+            log_probs = log_softmax(logits, dim=-1)
+
+        if h is not None:
+            h = h.clip(min=0)
+
+        return log_probs, logits, h
 
     def get_feats(self, state_t: to.Tensor, forward: bool = True):
         if forward:

@@ -183,6 +183,18 @@ def parse_args():
         help="backward policu learning rate",
     )
     parser.add_argument(
+        "--forward-heuristic-lr",
+        type=float,
+        default=0.001,
+        help="forward heuristic learning rate",
+    )
+    parser.add_argument(
+        "--backward-heuristic-lr",
+        type=float,
+        default=0.001,
+        help="backward heuristic learning rate",
+    )
+    parser.add_argument(
         "-g",
         "--grad-steps",
         type=int,
