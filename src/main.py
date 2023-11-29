@@ -162,12 +162,12 @@ if __name__ == "__main__":
     logdir.mkdir(parents=True, exist_ok=True)
     print(f"Logging to {str(logdir)}")
 
-    model_args = {
-        "share_feature_net": args.share_feature_net,
-        "no_feature_net": args.no_feature_net,
-        "conditional_backward": args.conditional_backward,
-        "forward_hidden_layers": args.forward_hidden_layers,
-        "backward_hidden_layers": args.backward_hidden_layers,
+    # Witness domains don't support conditional backward search
+    conditional_backward = (
+        args.conditional_backward and pset_dict["domain_name"] != "Witness"
+    )
+    aux_args = {
+        "conditional_backward": conditional_backward,
         "state_t_width": pset_dict["state_t_width"],
         "state_t_depth": pset_dict["state_t_depth"],
         "num_actions": pset_dict["num_actions"],
@@ -175,15 +175,15 @@ if __name__ == "__main__":
     }
 
     if args.agent == "Levin":
-        agent = Levin(logdir, args, model_args)
+        agent = Levin(logdir, args, aux_args)
     elif args.agent == "BiLevin":
-        agent = BiLevin(logdir, args, model_args)
-    elif args.agent == "AStar":
-        agent = AStar(logdir, args, model_args)
-    elif args.agent == "BiAStar":
-        agent = BiAStar(logdir, args, model_args)
-    else:
-        raise ValueError(f"Unknown agent: {args.agent}")
+        agent = BiLevin(logdir, args, aux_args)
+    # elif args.agent == "AStar":
+    #     agent = AStar(logdir, args, model_args)
+    # elif args.agent == "BiAStar":
+    #     agent = BiAStar(logdir, args, model_args)
+    # else:
+    #     raise ValueError(f"Unknown agent: {args.agent}")
 
     if args.valid_path:
         vset_dict = pickle.load(args.valid_path.open("rb"))

@@ -29,7 +29,7 @@ class LevinBase(Agent):
         actions: list[int],
         mask: to.Tensor,
     ) -> SearchNode:
-        log_probs, _ = self.model(state_t, mask=mask)
+        log_probs, _, _ = self.model(state_t, mask=mask)
 
         start_node = SearchNode(
             state,
@@ -79,7 +79,7 @@ class LevinBase(Agent):
     ):
         children_state_t = to.stack(children_state_ts)
         masks_t = to.stack(masks)
-        log_probs, _ = self.model(
+        log_probs, _, _ = self.model(
             children_state_t,
             forward=direction == TwoDir.FORWARD,
             goal_feats=goal_feats,

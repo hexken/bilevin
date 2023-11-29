@@ -12,13 +12,13 @@ from search.utils import Problem, SearchNode, Trajectory
 
 
 class Agent(ABC):
-    def __init__(self, logdir: Path, args: Namespace, model_args: dict):
-        model_args["bidirectional"] = self.is_bidirectional
-        model_args["has_policy"] = self.has_policy
-        model_args["has_heuristic"] = self.has_heuristic
+    def __init__(self, logdir: Path, args: Namespace, aux_args: dict):
+        aux_args["bidirectional"] = self.is_bidirectional
+        aux_args["has_policy"] = self.has_policy
+        aux_args["has_heuristic"] = self.has_heuristic
 
         self.logdir: Path = logdir
-        self.model: AgentModel = AgentModel(args, model_args)
+        self.model: AgentModel = AgentModel(args, aux_args)
 
     def save_model(
         self,

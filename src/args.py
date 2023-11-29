@@ -83,7 +83,7 @@ def parse_args():
         help="loss function",
     )
     parser.add_argument(
-        "--policy-forward-layers",
+        "--forward-policy-layers",
         action="store",
         nargs="+",
         default=[128],
@@ -91,7 +91,7 @@ def parse_args():
         help="hidden layer sizes of forward policy",
     )
     parser.add_argument(
-        "--policy-backward-layers",
+        "--backward-policy-layers",
         action="store",
         nargs="+",
         default=[256, 192, 128],
@@ -99,7 +99,7 @@ def parse_args():
         help="hidden layer sizes of backward policy",
     )
     parser.add_argument(
-        "--heuristic-forward-layers",
+        "--forward-heuristic-layers",
         action="store",
         nargs="+",
         default=[128],
@@ -107,7 +107,7 @@ def parse_args():
         help="hidden layer sizes of forward heruistic",
     )
     parser.add_argument(
-        "--heuristic-backward-layers",
+        "--backward-heuristic-layers",
         action="store",
         nargs="+",
         default=[256, 192, 128],
@@ -119,6 +119,7 @@ def parse_args():
         action="store",
         nargs=2,
         type=int,
+        required=True,
         help="depth x height/width of convolution kernel",
     )
     parser.add_argument(
@@ -150,19 +151,13 @@ def parse_args():
         "--share-feature-net",
         action="store_true",
         default=False,
-        help="use the same feature netword for forward and backward policies/heuristics",
+        help="use the same feature netword for forward and backward policies/heuristics. In this case forward-feature-net-lr is used",
     )
     parser.add_argument(
         "--keep-all-checkpoints",
         action="store_true",
         default=False,
         help="save all checkpoints instead of just the most recent",
-    )
-    parser.add_argument(
-        "--feature-net-lr",
-        type=float,
-        default=0.001,
-        help="feature net learning rate",
     )
     parser.add_argument(
         "--forward-feature-net-lr",

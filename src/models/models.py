@@ -15,37 +15,38 @@ class AgentModel(nn.Module):
     def __init__(
         self,
         args: Namespace,
-        model_args: dict,
+        aux_args: dict,
     ):
         super().__init__()
-        self.is_bidirectional: bool = model_args["bidirectional"]
-        self.has_policy: bool = model_args["has_policy"]
-        self.has_heuristic: bool = model_args["has_heuristic"]
-        self.has_feature_net: bool = not args.no_feature_net
-        self.model_args: dict = model_args
-        self.num_actions: int = model_args["num_actions"]
 
-        self.share_feature_net: bool = model_args["share_feature_net"]
-        self.conditional_backward: bool = model_args["conditional_backward"]
+        self.is_bidirectional: bool = aux_args["bidirectional"]
 
-        self.in_channels: int = model_args["in_channels"]
-        self.num_kernels: int = model_args["num_kernels"]
+        self.num_actions: int = aux_args["num_actions"]
+        self.in_channels: int = aux_args["in_channels"]
+        self.state_t_width: int = aux_args["state_t_width"]
+        self.state_t_depth: int = aux_args["state_t_depth"]
         self.kernel_size: tuple[int, int] = args.kernel_size
+        self.num_kernels: int = args.num_kernels
 
-        self.state_t_width: int = model_args["state_t_width"]
+        self.has_policy: bool = aux_args["has_policy"]
+        self.has_heuristic: bool = aux_args["has_heuristic"]
+
+        self.has_feature_net: bool = not args.no_feature_net
+        self.share_feature_net: bool = args.share_feature_net
+        self.conditional_backward: bool = aux_args["conditional_backward"]
 
         learnable_params = []
         # create feature net if necessary
         if self.has_feature_net:
             if args.share_feature_net:
-                f_feat_lr = b_feat_lr = args.feature_net_lr
+                f_feat_lr = b_feat_lr = args.forward_feature_net_lr
             else:
                 f_feat_lr = args.forward_feature_net_lr
                 b_feat_lr = args.backward_feature_net_lr
 
             reduced_width: int = self.state_t_width - 2 * self.kernel_size[1] + 2
             if self.kernel_size[0] > 1:
-                self.state_t_depth: int = model_args["state_t_depth"]
+                self.state_t_depth: int = aux_args["state_t_depth"]
                 reduced_depth = self.state_t_depth - 2 * self.kernel_size[0] + 2
                 self.num_features = (
                     self.num_kernels * reduced_depth * reduced_width**2
@@ -92,7 +93,7 @@ class AgentModel(nn.Module):
             self.forward_policy: nn.Module = StatePolicy(
                 self.num_features,
                 self.num_actions,
-                model_args["forward_policy_layers"],
+                args.forward_policy_layers,
             )
             learnable_params.append(
                 {
@@ -101,18 +102,18 @@ class AgentModel(nn.Module):
                     "weight_decay": args.weight_decay,
                 },
             )
-            if self.bidirectional:
+            if self.is_bidirectional:
                 if self.conditional_backward:
                     self.backward_policy: nn.Module = StateGoalPolicy(
                         self.num_features,
                         self.num_actions,
-                        model_args["backward_policy_layers"],
+                        args.backward_policy_layers,
                     )
                 else:
                     self.backward_policy: nn.Module = StatePolicy(
                         self.num_features,
                         self.num_actions,
-                        model_args["backward_policy_layers"],
+                        args.backward_policy_layers,
                     )
                 learnable_params.append(
                     {
@@ -126,7 +127,7 @@ class AgentModel(nn.Module):
             self.forward_heuristic: nn.Module = StateHeuristic(
                 self.num_features,
                 self.num_actions,
-                model_args["forward_heuristic_layers"],
+                args.forward_heuristic_layers,
             )
             learnable_params.append(
                 {
@@ -135,18 +136,18 @@ class AgentModel(nn.Module):
                     "weight_decay": args.weight_decay,
                 },
             )
-            if self.bidirectional:
+            if self.is_bidirectional:
                 if self.conditional_backward:
                     self.backward_policy: nn.Module = StateGoalHeuristic(
                         self.num_features,
                         self.num_actions,
-                        model_args["backward_heuristic_layers"],
+                        args.backward_heuristic_layers,
                     )
                 else:
                     self.backward_heuristic: nn.Module = StateHeuristic(
                         self.num_features,
                         self.num_actions,
-                        model_args["backward_heuristic_layers"],
+                        args.backward_heuristic_layers,
                     )
                 learnable_params.append(
                     {
