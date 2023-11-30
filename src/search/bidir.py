@@ -30,7 +30,7 @@ class BiDir(Agent):
         f_state = f_domain.reset()
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
         f_actions, f_mask = f_domain.actions_unpruned(f_state)
-        f_start_node = self.get_start_node(f_state, f_state_t, f_actions, mask=f_mask)
+        f_start_node = self.make_start_node(f_state, f_state_t, f_actions, mask=f_mask)
         f_open = [f_start_node]
         f_closed = {f_start_node: f_start_node}
         f_domain.update(f_start_node)
@@ -45,7 +45,7 @@ class BiDir(Agent):
         b_state_t = b_domain.state_tensor(b_state).unsqueeze(0)
         b_actions, b_mask = b_domain.actions_unpruned(b_state)
 
-        b_start_node = self.get_start_node(b_state, b_state_t, b_actions, mask=b_mask)
+        b_start_node = self.make_start_node(b_state, b_state_t, b_actions, mask=b_mask)
         b_closed = {b_start_node: b_start_node}
         b_domain.update(b_start_node)
         b_open = [b_start_node]
@@ -92,7 +92,7 @@ class BiDir(Agent):
             for a in node.actions:
                 new_state = _domain.result(node.state, a)
                 new_state_actions, mask = _domain.actions(a, new_state)
-                new_node = self.get_child_node(
+                new_node = self.make_partial_child_node(
                     node,
                     a,
                     new_state_actions,
@@ -125,7 +125,7 @@ class BiDir(Agent):
                         masks.append(mask)
 
             if len(children_to_be_evaluated) > 0:
-                self.evaluate_children(
+                self.finalize_children_nodes(
                     direction,
                     children_to_be_evaluated,
                     state_t_of_children_to_be_evaluated,

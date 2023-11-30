@@ -32,7 +32,7 @@ class UniDir(Agent):
         state = domain.reset()
         state_t = domain.state_tensor(state).unsqueeze(0)
         actions, mask = domain.actions_unpruned(state)
-        node = self.get_start_node(state, state_t, actions, mask=mask)
+        node = self.make_start_node(state, state_t, actions, mask=mask)
 
         closed = {node: node}
         open = [node]
@@ -56,7 +56,7 @@ class UniDir(Agent):
                 new_state = domain.result(node.state, a)
                 new_state_actions, mask = domain.actions(a, new_state)
 
-                new_node = self.get_child_node(
+                new_node = self.make_partial_child_node(
                     node, a, new_state_actions, mask, new_state,
                 )
 
@@ -79,7 +79,7 @@ class UniDir(Agent):
                         masks.append(mask)
 
             if len(children_to_be_evaluated) > 0:
-                self.evaluate_children(
+                self.finalize_children_nodes(
                     TwoDir.FORWARD,
                     children_to_be_evaluated,
                     state_t_of_children_to_be_evaluated,

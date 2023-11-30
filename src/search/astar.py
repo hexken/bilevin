@@ -1,4 +1,3 @@
-from __future__ import annotations
 from math import log
 
 import torch as to
@@ -11,147 +10,93 @@ from search.unidir import UniDir
 from search.utils import SearchNode
 
 
-def _get_start_node(
-    self: Agent,
-    state: State,
-    state_t: to.Tensor,
-    actions: list[int],
-    mask: to.Tensor,
-) -> SearchNode:
-    log_probs, _ = self.model(state_t, mask=mask)
+class AStarBase(Agent):
+    def __init__(self, logdir, args, model_args):
+        super().__init__(logdir, args, model_args)
 
-    start_node = SearchNode(
-        state,
-        parent=None,
-        parent_action=None,
-        actions=actions,
-        actions_mask=mask,
-        g=0,
-        log_prob=0.0,
-        f=0.0,
-        log_action_probs=log_probs[0],
-    )
-    return start_node
-
-
-def _get_child_node(
-    self: Agent,
-    parent_node: SearchNode,
-    parent_action: int,
-    actions: list[int],
-    mask: to.Tensor,
-    new_state: State,
-) -> SearchNode:
-    if parent_node.log_action_probs is None:
-        raise ValueError("Parent node has no log_action_probs")
-    elif parent_node.log_prob is None:
-        raise ValueError("Parent node has no log_prob")
-    new_node = SearchNode(
-        new_state,
-        g=parent_node.g + 1,
-        parent=parent_node,
-        parent_action=parent_action,
-        actions=actions,
-        actions_mask=mask,
-        log_prob=parent_node.log_prob
-        + parent_node.log_action_probs[parent_action].item(),
-    )
-    new_node.f = log(new_node.g) - new_node.log_prob
-    return new_node
-
-
-def _evaluate_children(
-    self: Agent,
-    direction: TwoDir,
-    children: list[SearchNode],
-    children_state_ts: list[to.Tensor],
-    masks: list[to.Tensor],
-    goal_feats: to.Tensor | None,
-):
-    children_state_t = to.stack(children_state_ts)
-    masks_t = to.stack(masks)
-    log_probs, _ = self.model(
-        children_state_t,
-        forward=direction == TwoDir.FORWARD,
-        goal_feats=goal_feats,
-        mask=masks_t,
-    )
-
-    for child, lap in zip(children, log_probs):
-        child.log_action_probs = lap
-
-
-class AStar(UniDir):
     @property
-    def trainable(cls):
+    def has_policy(self):
+        return False
+
+    @property
+    def has_heuristic(self):
         return True
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def get_start_node(
-        self, state: State, state_t: to.Tensor, actions: list[int], mask: to.Tensor
+    def make_start_node(
+        self: Agent,
+        state: State,
+        state_t: to.Tensor,
+        actions: list[int],
+        mask: to.Tensor,
     ) -> SearchNode:
-        return _get_start_node(self, state, state_t, actions, mask)
+        _, _, h = self.model(state_t, mask=mask)
 
-    def get_child_node(
-        self,
+        h = h.item()
+        start_node = SearchNode(
+            state,
+            parent=None,
+            parent_action=None,
+            actions=actions,
+            actions_mask=mask,
+            g=0,
+            log_prob=0.0,
+            f=h,
+            h=h,
+            log_action_probs=None,
+        )
+        return start_node
+
+    def make_partial_child_node(
+        self: Agent,
         parent_node: SearchNode,
         parent_action: int,
         actions: list[int],
         mask: to.Tensor,
         new_state: State,
     ) -> SearchNode:
-        return _get_child_node(
-            self, parent_node, parent_action, actions, mask, new_state
+        if parent_node.action_hs is None:
+            raise ValueError("Parent node has child herusitics")
+        g = parent_node.g + 1
+        h = parent_node.action_hs[parent_action].item()
+        new_node = SearchNode(
+            new_state,
+            parent=parent_node,
+            parent_action=parent_action,
+            actions=actions,
+            actions_mask=mask,
+            g=g,
+            h=h,
+            f=g + h,
+            log_prob=0.0,
         )
+        return new_node
 
-    def evaluate_children(
-        self,
+    def finalize_children_nodes(
+        self: Agent,
         direction: TwoDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],
         masks: list[to.Tensor],
         goal_feats: to.Tensor | None,
     ):
-        _evaluate_children(
-            self, direction, children, children_state_ts, masks, goal_feats
+        children_state_t = to.stack(children_state_ts)
+        masks_t = to.stack(masks)
+        log_probs, _, _ = self.model(
+            children_state_t,
+            forward=direction == TwoDir.FORWARD,
+            goal_feats=goal_feats,
+            mask=masks_t,
         )
 
+        for child, lap in zip(children, log_probs):
+            child.log_action_probs = lap
 
-class BiAStar(BiDir):
-    @property
-    def trainable(cls):
-        return True
 
+class AStar(UniDir, AStarBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def get_start_node(
-        self, state: State, state_t: to.Tensor, actions: list[int], mask: to.Tensor
-    ) -> SearchNode:
-        return _get_start_node(self, state, state_t, actions, mask)
 
-    def get_child_node(
-        self,
-        parent_node: SearchNode,
-        parent_action: int,
-        actions: list[int],
-        mask: to.Tensor,
-        new_state: State,
-    ) -> SearchNode:
-        return _get_child_node(
-            self, parent_node, parent_action, actions, mask, new_state
-        )
-
-    def evaluate_children(
-        self,
-        direction: TwoDir,
-        children: list[SearchNode],
-        children_state_ts: list[to.Tensor],
-        masks: list[to.Tensor],
-        goal_feats: to.Tensor | None,
-    ):
-        _evaluate_children(
-            self, direction, children, children_state_ts, masks, goal_feats
-        )
+class BiAStar(BiDir, AStarBase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)

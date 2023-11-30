@@ -11,10 +11,9 @@ if TYPE_CHECKING:
     from models.models import AgentModel
 
 
-
 def cross_entropy_avg_loss(traj: Trajectory, model: "AgentModel"):
     n_actions = len(traj)
-    log_probs, _ = model(
+    log_probs, _, _ = model(
         traj.states,
         forward=traj.forward,
         goal_state_t=traj.goal_state_t,
@@ -30,7 +29,7 @@ def cross_entropy_avg_loss(traj: Trajectory, model: "AgentModel"):
 
 def cross_entropy_sum_loss(traj: Trajectory, model: "AgentModel"):
     n_actions = len(traj)
-    log_probs, _ = model(
+    log_probs, _, _ = model(
         traj.states,
         forward=traj.forward,
         goal_state_t=traj.goal_state_t,
@@ -44,6 +43,7 @@ def cross_entropy_sum_loss(traj: Trajectory, model: "AgentModel"):
     return loss, avg_action_nll, acc
 
 
+# todo
 def cross_entropy_mid_loss(traj: Trajectory, model: "AgentModel"):
     n_actions = len(traj)
     print(traj.states.shape)
@@ -70,7 +70,7 @@ def cross_entropy_mid_loss(traj: Trajectory, model: "AgentModel"):
 
 def levin_loss(traj: Trajectory, model: "AgentModel"):
     n_actions = len(traj)
-    log_probs, _ = model(
+    log_probs, _, _ = model(
         traj.states,
         forward=traj.forward,
         goal_state_t=traj.goal_state_t,

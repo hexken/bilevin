@@ -18,7 +18,7 @@ def save_problemset(pth, problemset_dict, suffix):
     path = pth / f"{n_problems}-{suffix}.pkl"
     with path.open("wb") as f:
         pickle.dump(problemset_dict, f)
-    print(f"Saved {n_problems} problems to {path}")
+    print(f"  Saved {n_problems} problems to {path}")
 
 
 def generate_step_problems(
@@ -191,8 +191,9 @@ def main():
     else:
         raise ValueError("Must specify either stages or stages_multiple and num_stages")
 
+    print(f"Saving problems to {args.output_path}")
     print(
-        f"Generating {args.n_problems_per_stage} problems for each of {len(stages)} stages: {stages}"
+        f"  {args.n_problems_per_stage} problems for each of {len(stages)} stages: {stages}"
     )
 
     curriculum_problems = []

@@ -22,7 +22,7 @@ class LevinBase(Agent):
     def has_heuristic(self):
         return False
 
-    def get_start_node(
+    def make_start_node(
         self: Agent,
         state: State,
         state_t: to.Tensor,
@@ -44,7 +44,7 @@ class LevinBase(Agent):
         )
         return start_node
 
-    def get_child_node(
+    def make_partial_child_node(
         self: Agent,
         parent_node: SearchNode,
         parent_action: int,
@@ -56,20 +56,23 @@ class LevinBase(Agent):
             raise ValueError("Parent node has no log_action_probs")
         elif parent_node.log_prob is None:
             raise ValueError("Parent node has no log_prob")
+        g = parent_node.g + 1
+        log_prob = (
+            parent_node.log_prob + parent_node.log_action_probs[parent_action].item()
+        )
         new_node = SearchNode(
             new_state,
-            g=parent_node.g + 1,
             parent=parent_node,
             parent_action=parent_action,
             actions=actions,
             actions_mask=mask,
-            log_prob=parent_node.log_prob
-            + parent_node.log_action_probs[parent_action].item(),
+            log_prob=log_prob,
+            g=g,
+            f=log(g) - log_prob,
         )
-        new_node.f = log(new_node.g) - new_node.log_prob
         return new_node
 
-    def evaluate_children(
+    def finalize_children_nodes(
         self: Agent,
         direction: TwoDir,
         children: list[SearchNode],
@@ -91,18 +94,10 @@ class LevinBase(Agent):
 
 
 class Levin(UniDir, LevinBase):
-    @property
-    def trainable(cls):
-        return True
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
 class BiLevin(BiDir, LevinBase):
-    @property
-    def trainable(cls):
-        return True
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

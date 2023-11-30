@@ -47,13 +47,13 @@ class Agent(ABC):
         pass
 
     @abstractmethod
-    def get_start_node(
+    def make_start_node(
         self, state: State, state_t: to.Tensor, actions: list[int], mask: to.Tensor
     ) -> SearchNode:
         pass
 
     @abstractmethod
-    def get_child_node(
+    def make_partial_child_node(
         self,
         parent_node: SearchNode,
         parent_action: int,
@@ -64,7 +64,7 @@ class Agent(ABC):
         pass
 
     @abstractmethod
-    def evaluate_children(
+    def finalize_children_nodes(
         self,
         direction: TwoDir,
         children: list[SearchNode],

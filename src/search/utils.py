@@ -96,8 +96,9 @@ class SearchNode:
         actions: list[int],
         actions_mask: Tensor,
         g: int,
-        log_prob: float = 0.0,
+        log_prob: float,
         log_action_probs: Optional[Tensor] = None,
+        action_hs: Optional[Tensor] = None,
         h: Optional[float] = None,
         f: Optional[float] = None,
     ):
@@ -109,6 +110,7 @@ class SearchNode:
         self.actions = actions
         self.actions_mask = actions_mask
         self.log_action_probs = log_action_probs
+        self.action_hs = action_hs
         self.h = h
         self.f = g if f is None else f
 
@@ -130,8 +132,6 @@ class SearchNode:
         Hash function used in the closed list
         """
         return self.state.__hash__()
-
-
 
 
 class Trajectory:
