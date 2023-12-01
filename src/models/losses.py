@@ -4,11 +4,25 @@ from typing import TYPE_CHECKING
 import torch as to
 import torch.nn as nn
 from torch.nn.functional import cross_entropy, log_softmax, nll_loss
+from torch.nn.functional import mse_loss as mse
 
 from search.utils import Trajectory
 
 if TYPE_CHECKING:
     from models.models import AgentModel
+
+
+def mse_loss(traj: Trajectory, model: "AgentModel"):
+    n_actions = len(traj)
+    _, _, h = model(
+        traj.states,
+        forward=traj.forward,
+        goal_state_t=traj.goal_state_t,
+        mask=traj.masks,
+    )
+    loss = nll_loss(h, traj.cost_to_gos, reduction="mean")
+
+    return loss, None, None
 
 
 def cross_entropy_avg_loss(traj: Trajectory, model: "AgentModel"):

@@ -152,7 +152,6 @@ class Trajectory:
         self.masks = masks
         self.goal_state_t = goal_state_t
         self.forward = forward
-        # todo have to work this out and double check which states are in the traj
         self.cost_to_gos = to.arange(len(self.states), 0, -1)
 
         self._len = len(self.actions)
@@ -171,6 +170,8 @@ class Trajectory:
         """
         Receives a SearchNode representing a solution to the problem.
         Backtracks the path performed by search, collecting state-action pairs along the way.
+
+        actions[i] is the action taken in state[i] to get to state[i+1]
         """
         assert domain.is_goal(goal_node.state)
         goal_state_t = goal_state_t.unsqueeze(0) if goal_state_t is not None else None
