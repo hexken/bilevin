@@ -1,3 +1,4 @@
+from heapq import heappush
 from math import log
 
 import torch as to
@@ -29,20 +30,20 @@ class AStarBase(Agent):
         actions: list[int],
         mask: to.Tensor,
     ) -> SearchNode:
-        _, _, h = self.model(state_t, mask=mask)
+        _, _, h = self.model(state_t)
 
-        h = h.item()
+        h = h[0].item()
         start_node = SearchNode(
             state,
             parent=None,
             parent_action=None,
             actions=actions,
             actions_mask=mask,
-            g=0,
             log_prob=0.0,
-            f=h,
-            h=h,
             log_action_probs=None,
+            g=0,
+            h=h,
+            f=h,
         )
         return start_node
 
@@ -54,25 +55,20 @@ class AStarBase(Agent):
         mask: to.Tensor,
         new_state: State,
     ) -> SearchNode:
-        if parent_node.action_hs is None:
-            raise ValueError("Parent node has child herusitics")
-        g = parent_node.g + 1
-        h = parent_node.action_hs[parent_action].item()
         new_node = SearchNode(
             new_state,
             parent=parent_node,
             parent_action=parent_action,
             actions=actions,
             actions_mask=mask,
-            g=g,
-            h=h,
-            f=g + h,
+            g=parent_node.g + 1,
             log_prob=0.0,
         )
         return new_node
 
     def finalize_children_nodes(
         self: Agent,
+        open_list: list[SearchNode],  # pq
         direction: TwoDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],
@@ -80,16 +76,16 @@ class AStarBase(Agent):
         goal_feats: to.Tensor | None,
     ):
         children_state_t = to.stack(children_state_ts)
-        masks_t = to.stack(masks)
-        log_probs, _, _ = self.model(
+        _, _, hs = self.model(
             children_state_t,
             forward=direction == TwoDir.FORWARD,
             goal_feats=goal_feats,
-            mask=masks_t,
         )
 
-        for child, lap in zip(children, log_probs):
-            child.log_action_probs = lap
+        for child, hs in zip(children, hs):
+            child.h = hs.item()
+            child.f = child.g + child.h
+            heappush(open_list, child)
 
 
 class AStar(UniDir, AStarBase):

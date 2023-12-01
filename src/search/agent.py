@@ -66,6 +66,7 @@ class Agent(ABC):
     @abstractmethod
     def finalize_children_nodes(
         self,
+        open_list: list[SearchNode], # PQ
         direction: TwoDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],

@@ -138,7 +138,7 @@ class AgentModel(nn.Module):
             )
             if self.is_bidirectional:
                 if self.conditional_backward:
-                    self.backward_policy: nn.Module = StateGoalHeuristic(
+                    self.backward_heuristic: nn.Module = StateGoalHeuristic(
                         self.num_features,
                         self.num_actions,
                         args.backward_heuristic_layers,

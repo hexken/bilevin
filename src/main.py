@@ -178,12 +178,12 @@ if __name__ == "__main__":
         agent = Levin(logdir, args, aux_args)
     elif args.agent == "BiLevin":
         agent = BiLevin(logdir, args, aux_args)
-    # elif args.agent == "AStar":
-    #     agent = AStar(logdir, args, model_args)
-    # elif args.agent == "BiAStar":
-    #     agent = BiAStar(logdir, args, model_args)
-    # else:
-    #     raise ValueError(f"Unknown agent: {args.agent}")
+    elif args.agent == "AStar":
+        agent = AStar(logdir, args, aux_args)
+    elif args.agent == "BiAStar":
+        agent = BiAStar(logdir, args, aux_args)
+    else:
+        raise ValueError(f"Unknown agent: {args.agent}")
 
     if args.valid_path:
         vset_dict = pickle.load(args.valid_path.open("rb"))

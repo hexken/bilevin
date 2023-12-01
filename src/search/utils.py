@@ -98,7 +98,6 @@ class SearchNode:
         g: int,
         log_prob: float,
         log_action_probs: Optional[Tensor] = None,
-        action_hs: Optional[Tensor] = None,
         h: Optional[float] = None,
         f: Optional[float] = None,
     ):
@@ -110,9 +109,8 @@ class SearchNode:
         self.actions = actions
         self.actions_mask = actions_mask
         self.log_action_probs = log_action_probs
-        self.action_hs = action_hs
         self.h = h
-        self.f = g if f is None else f
+        self.f = f
 
     def __eq__(self, other):
         """
@@ -154,6 +152,8 @@ class Trajectory:
         self.masks = masks
         self.goal_state_t = goal_state_t
         self.forward = forward
+        # todo have to work this out and double check which states are in the traj
+        self.cost_to_gos = to.arange(len(self.states), 0, -1)
 
         self._len = len(self.actions)
 

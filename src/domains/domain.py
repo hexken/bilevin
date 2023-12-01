@@ -158,6 +158,7 @@ def get_merged_trajectory(
             parent_action=dir1_domain.reverse_action(dir2_parent_action),
             actions=actions,
             actions_mask=mask,
+            log_prob=0.0,
         )
         dir1_node = new_dir1_node
         dir2_parent_action = dir2_parent_node.parent_action

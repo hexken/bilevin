@@ -118,7 +118,6 @@ class BiDir(Agent):
                     _domain.update(new_node)
 
                     if new_state_actions:
-                        heapq.heappush(_open, new_node)
                         children_to_be_evaluated.append(new_node)
                         state_t = _domain.state_tensor(new_state)
                         state_t_of_children_to_be_evaluated.append(state_t)
@@ -126,6 +125,7 @@ class BiDir(Agent):
 
             if len(children_to_be_evaluated) > 0:
                 self.finalize_children_nodes(
+                    _open,
                     direction,
                     children_to_be_evaluated,
                     state_t_of_children_to_be_evaluated,

@@ -1,3 +1,4 @@
+from heapq import heappush
 from math import log
 
 import torch as to
@@ -74,6 +75,7 @@ class LevinBase(Agent):
 
     def finalize_children_nodes(
         self: Agent,
+        open_list: list[SearchNode],
         direction: TwoDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],
@@ -91,6 +93,7 @@ class LevinBase(Agent):
 
         for child, lap in zip(children, log_probs):
             child.log_action_probs = lap
+            heappush(open_list, child)
 
 
 class Levin(UniDir, LevinBase):

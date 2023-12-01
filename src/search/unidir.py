@@ -35,10 +35,10 @@ class UniDir(Agent):
         node = self.make_start_node(state, state_t, actions, mask=mask)
 
         closed = {node: node}
-        open = [node]
+        open_list = [node]
 
         num_expanded = 0
-        while len(open) > 0:
+        while len(open_list) > 0:
             if (
                 (exp_budget > 0 and num_expanded >= exp_budget)
                 or time_budget > 0
@@ -46,7 +46,7 @@ class UniDir(Agent):
             ):
                 return num_expanded, 0, None
 
-            node = heapq.heappop(open)
+            node = heapq.heappop(open_list)
             num_expanded += 1
 
             masks = []
@@ -57,7 +57,11 @@ class UniDir(Agent):
                 new_state_actions, mask = domain.actions(a, new_state)
 
                 new_node = self.make_partial_child_node(
-                    node, a, new_state_actions, mask, new_state,
+                    node,
+                    a,
+                    new_state_actions,
+                    mask,
+                    new_state,
                 )
 
                 if new_node not in closed:
@@ -72,7 +76,6 @@ class UniDir(Agent):
 
                     closed[new_node] = new_node
                     if new_state_actions:
-                        heapq.heappush(open, new_node)
                         children_to_be_evaluated.append(new_node)
                         state_t = domain.state_tensor(new_state)
                         state_t_of_children_to_be_evaluated.append(state_t)
@@ -80,6 +83,7 @@ class UniDir(Agent):
 
             if len(children_to_be_evaluated) > 0:
                 self.finalize_children_nodes(
+                    open_list,
                     TwoDir.FORWARD,
                     children_to_be_evaluated,
                     state_t_of_children_to_be_evaluated,
