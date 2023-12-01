@@ -14,6 +14,7 @@ class UniDir(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    @property
     def is_bidirectional(self):
         return False
 

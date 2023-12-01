@@ -45,23 +45,27 @@ int_columns = ["exp", "fexp", "bexp"]
 def print_model_train_summary(
     model_train_df,
     bidirectioal: bool,
+    policy_based: bool,
 ):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
         floss = model_train_df["floss"].mean()
         facc = model_train_df["facc"].mean()
         print(f"\nFloss: {floss:.3f}")
-        print(f"Facc: {facc:.3f}")
+        if policy_based:
+            print(f"Facc: {facc:.3f}")
         if bidirectioal:
             bloss = model_train_df["bloss"].mean()
             bacc = model_train_df["bacc"].mean()
             print(f"Bloss: {bloss:.3f}")
-            print(f"Bacc: {bacc:.3f}")
+            if policy_based:
+                print(f"Bacc: {bacc:.3f}")
 
 
 def print_search_summary(
     search_df,
     bidirectional: bool,
+    policy_based: bool,
 ):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -81,10 +85,11 @@ def print_search_summary(
         if bidirectional:
             fb_exp = (solved_df["fexp"] / solved_df["bexp"]).mean()
             fb_lens = (solved_df["fg"] / solved_df["bg"]).mean()
-            fb_pnll = (solved_df["fpnll"] / solved_df["bpnll"]).mean()
             print(f"\nFB Exp: {fb_exp:.3f}")
             print(f"FB Len: {fb_lens:.3f}")
-            print(f"FB Pnll: {fb_pnll:.3f}")
+            if policy_based:
+                fb_pnll = (solved_df["fpnll"] / solved_df["bpnll"]).mean()
+                print(f"FB Pnll: {fb_pnll:.3f}")
 
 
 class SearchNode:
@@ -152,7 +157,7 @@ class Trajectory:
         self.masks = masks
         self.goal_state_t = goal_state_t
         self.forward = forward
-        self.cost_to_gos = to.arange(len(self.states), 0, -1)
+        self.cost_to_gos = to.arange(len(self.states), 0, -1, dtype=to.float32)
 
         self._len = len(self.actions)
 

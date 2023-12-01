@@ -7,11 +7,11 @@ from timeit import default_timer as timer
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
-from test import test
 import torch as to
 import torch.distributed as dist
 
 from loaders import ProblemLoader
+from models.models import AgentModel
 from search.agent import Agent
 from search.utils import (
     int_columns,
@@ -19,6 +19,7 @@ from search.utils import (
     print_search_summary,
     search_result_header,
 )
+from test import test
 
 
 def train(
@@ -28,18 +29,19 @@ def train(
     train_loader: ProblemLoader,
     valid_loader: ProblemLoader,
 ):
-    logdir = args.logdir
-    batch_size = args.world_size
-    time_budget = args.time_budget
-    expansion_budget = args.train_expansion_budget
-    grad_steps = args.grad_steps
+    logdir: Path = args.logdir
+    batch_size: int = args.world_size
+    time_budget: float = args.time_budget
+    expansion_budget: int = args.train_expansion_budget
+    grad_steps: int = args.grad_steps
 
     best_models_log = logdir / "best_models.txt"
     if rank == 0:
         best_models_log = best_models_log.open("a")
 
-    bidirectional = agent.is_bidirectional
-    model = agent.model
+    bidirectional: bool = agent.is_bidirectional
+    policy_based: bool = agent.has_policy
+    model: AgentModel = agent.model
     optimizer = agent.model.optimizer
     loss_fn = agent.model.loss_fn
 
@@ -213,6 +215,14 @@ def train(
             print(f"\nBatch {batches_seen}")
 
         if rank == 0:
+            if not policy_based:
+                batch_print_df = batch_print_df.drop(
+                    columns=["facc", "fpnll", "bacc", "bpnll"], errors="ignore"
+                )
+            if not bidirectional:
+                batch_print_df = batch_print_df.drop(
+                    columns=["bexp", "bg", "bacc", "bpnll"], errors="ignore"
+                )
             print(
                 tabulate(
                     batch_print_df,
@@ -299,14 +309,16 @@ def train(
                         )
 
                         flosses.append(batch_floss)
-                        faccs.append(batch_facc)
                         print(f"floss: {batch_floss:.3f}")
-                        print(f"facc: {batch_facc:.3f}")
+                        if policy_based:
+                            faccs.append(batch_facc)
+                            print(f"facc: {batch_facc:.3f}")
                         if bidirectional:
                             blosses.append(batch_bloss)
-                            baccs.append(batch_bacc)
                             print(f"bloss: {batch_bloss:.3f}")
-                            print(f"bacc: {batch_bacc:.3f}")
+                            if policy_based:
+                                baccs.append(batch_bacc)
+                                print(f"bacc: {batch_bacc:.3f}")
 
         stage_problems_seen += batch_size
         stage_problems_this_budget += batch_size
@@ -349,7 +361,6 @@ def train(
                     "len": pd.Series(lens, dtype=pd.UInt32Dtype()),
                     "fexp": pd.Series(fexps, dtype=pd.UInt32Dtype()),
                     "fg": pd.Series(fgs, dtype=pd.UInt32Dtype()),
-                    "fpnll": pd.Series(fpnlls, dtype=pd.Float32Dtype()),
                     "stage": pd.Series(
                         [old_stage for _ in range(stage_problems_seen)],
                         dtype=pd.UInt8Dtype(),
@@ -359,21 +370,29 @@ def train(
             stage_model_train_df = pd.DataFrame(
                 {
                     "floss": pd.Series(flosses, dtype=pd.Float32Dtype()),
-                    "facc": pd.Series(faccs, dtype=pd.Float32Dtype()),
                     "stage": pd.Series(
                         [old_stage for _ in range(stage_problems_seen)],
                         dtype=pd.UInt8Dtype(),
                     ),
                 }
             )
+            if policy_based:
+                stage_search_df["fpnll"] = pd.Series(fpnlls, dtype=pd.Float32Dtype())
+                stage_model_train_df["facc"] = pd.Series(faccs, dtype=pd.Float32Dtype())
+
             if bidirectional:
                 stage_search_df["bexp"] = pd.Series(bexps, dtype=pd.UInt32Dtype())
                 stage_search_df["bg"] = pd.Series(bgs, dtype=pd.UInt32Dtype())
-                stage_search_df["bpnll"] = pd.Series(bpnlls, dtype=pd.Float32Dtype())
                 stage_model_train_df["bloss"] = pd.Series(
                     blosses, dtype=pd.Float32Dtype()
                 )
-                stage_model_train_df["bacc"] = pd.Series(baccs, dtype=pd.Float32Dtype())
+                if policy_based:
+                    stage_search_df["bpnll"] = pd.Series(
+                        bpnlls, dtype=pd.Float32Dtype()
+                    )
+                    stage_model_train_df["bacc"] = pd.Series(
+                        baccs, dtype=pd.Float32Dtype()
+                    )
 
             print(
                 "----------------------------------------------------------------------------"
@@ -387,10 +406,12 @@ def train(
             print_search_summary(
                 stage_search_df,
                 bidirectional,
+                policy_based,
             )
             print_model_train_summary(
                 stage_model_train_df,
                 bidirectional,
+                policy_based,
             )
             print(f"\nTime: {timer() - stage_start_time:.2f}")
             print(

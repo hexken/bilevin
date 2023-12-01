@@ -141,17 +141,21 @@ def test(
                 "len": world_results_df["len"].astype(pd.UInt32Dtype()),
                 "fexp": world_results_df["fexp"].astype(pd.UInt32Dtype()),
                 "fg": world_results_df["fg"].astype(pd.UInt32Dtype()),
-                "fpnll": world_results_df["fpnll"].astype(pd.Float32Dtype()),
             }
         )
+        if agent.has_policy:
+            stage_search_df["fpnll"] = world_results_df["fpnll"].astype(
+                pd.Float32Dtype()
+            )
         if bidirectional:
             stage_search_df["bexp"] = world_results_df["bexp"].astype(pd.UInt32Dtype())
             stage_search_df["bg"] = world_results_df["bg"].astype(pd.UInt32Dtype())
-            stage_search_df["bpnll"] = world_results_df["bpnll"].astype(
-                pd.Float32Dtype()
-            )
+            if agent.has_policy:
+                stage_search_df["bpnll"] = world_results_df["bpnll"].astype(
+                    pd.Float32Dtype()
+                )
 
-        print_search_summary(stage_search_df, bidirectional)
+        print_search_summary(stage_search_df, bidirectional, agent.has_policy)
         total_time = timer() - test_start_time
         print(f"\nTime: {total_time:.2f}s")
         if not batch:

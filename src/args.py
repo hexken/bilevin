@@ -79,6 +79,7 @@ def parse_args():
             "cross_entropy_sum_loss",
             "cross_entropy_avg_loss",
             "cross_entropy_mid_loss",
+            "mse_loss"
         ],
         help="loss function",
     )

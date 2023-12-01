@@ -10,7 +10,7 @@ python src/main.py \
     --world-size 4 \
     --mode train \
     --agent AStar \
-    --loss-fn cross_entropy_avg_loss\
+    --loss-fn mse_loss\
     --grad-steps 10 \
     \
     --share-feature-net \

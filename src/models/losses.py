@@ -13,16 +13,15 @@ if TYPE_CHECKING:
 
 
 def mse_loss(traj: Trajectory, model: "AgentModel"):
-    n_actions = len(traj)
     _, _, h = model(
         traj.states,
         forward=traj.forward,
         goal_state_t=traj.goal_state_t,
         mask=traj.masks,
     )
-    loss = nll_loss(h, traj.cost_to_gos, reduction="mean")
+    loss = mse(h, traj.cost_to_gos.unsqueeze(1))
 
-    return loss, None, None
+    return loss, 0.0, 0.0
 
 
 def cross_entropy_avg_loss(traj: Trajectory, model: "AgentModel"):
