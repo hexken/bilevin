@@ -207,7 +207,6 @@ class AgentModel(nn.Module):
 
             if self.has_heuristic:
                 if self.conditional_backward:
-                    goal_feats = self.forward_feature_net(goal_state_t)
                     h = self.backward_heuristic(feats, goal_feats)
                 else:
                     h = self.backward_heuristic(feats)
