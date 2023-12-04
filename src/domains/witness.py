@@ -1,16 +1,16 @@
 from __future__ import annotations
 from collections import deque
-from copy import deepcopy
 from typing import Optional, Type
 
 import matplotlib.pyplot as plt
 import numpy as np
+from torch import Tensor
 import torch as to
 
 from domains.domain import Domain, State
 from enums import Color, FourDir
 from models.models import AgentModel
-from search.utils import Problem, SearchNode, Trajectory
+from search.utils import SearchNode, Trajectory
 
 
 class WitnessState(State):
@@ -57,53 +57,41 @@ class WitnessState(State):
 
 
 class Witness(Domain):
-    """
-    An executor for a Witness problem.
-    """
-
     def __init__(
         self,
         puzzle: str,
-        width: int,
-        max_num_colors: int,
-        init: list[int],
-        goal: list[int],
-        colored_cells: list[str] = [],
+        initial_state: WitnessState,
+        goal_row: int,
+        goal_col: int,
+        markers: list[tuple[int, int, int]],
         forward: bool = True,
     ):
-        """
-        Initializes  a witness executor specific to a problem, and creates the initial state.
-        Note we hardcode max number of colors to 7 and max width to 10 cells (square problems only)
-
-        Parameters
-        ----------
-        puzzle :
-            A 3 element list of strings. The elements correspond to the Size, Init, Goal, and
-            Colors, as
-            specified in the witness puzzle dataset, or the generator script.
-        """
         super().__init__(forward=forward)
-        self.max_num_colors = max_num_colors
-        self.width = width
         self.puzzle = puzzle
+        self.initial_state: WitnessState = initial_state
+        self.goal_row = goal_row
+        self.goal_col = goal_col
+        self.markers = markers
 
-        if puzzle == "triangle" and self.max_num_colors > 3:
-            raise ValueError("Triangle puzzles can only have 3 colors")
+    def reset(self) -> State:
+        if self.puzzle == "triangle":
+            self.max_num_colors = 3  # blue, red, green
+        elif self.puzzle == "colors":
+            self.max_num_colors = 4  # blue, red, green, cyan
+        else:
+            raise ValueError("Invalid puzzle type")
 
-        self.start_row = init[0]
-        self.start_col = init[1]
-
-        self.goal_row = goal[0]
-        self.goal_col = goal[1]
+        self.width = self.initial_state.width
+        self.start_row = self.initial_state.head_row
+        self.start_col = self.initial_state.head_col
 
         self.cells = np.zeros((self.width, self.width), dtype=np.int32)
 
-        self.num_colors = 0
-        for cell in colored_cells:
-            values = [int(x) for x in cell.split()]
-            self.cells[values[0], values[1]] = values[2]
+        for cell in self.markers:
+            i, j, color = cell
+            self.cells[i, j] = color
 
-        if puzzle == "colors":
+        if self.puzzle == "colors":
             self.is_goal = self.colors_is_goal
             self._colored_idxs = [
                 (i, j)
@@ -111,7 +99,7 @@ class Witness(Domain):
                 for j in range(self.width)
                 if self.cells[i, j] != 0
             ]
-        elif puzzle == "triangles":
+        elif self.puzzle == "triangles":
             self.is_goal = self.triangles_is_goal
             self._triangles = [
                 (self.cells[i, j], i, j)
@@ -122,19 +110,15 @@ class Witness(Domain):
         else:
             raise ValueError("Invalid puzzle type")
 
-        self.initial_state: WitnessState = WitnessState(
-            self.width,
-            self.start_row,
-            self.start_col,
-        )
+        return self._reset()
 
     def update(self, node: SearchNode):
         state: WitnessState = node.state
         head = (state.head_row, state.head_col)
-        if head in self.visited:
-            self.visited[head].append(node)
+        if head in self.aux_closed:
+            self.aux_closed[head].append(node)
         else:
-            self.visited[head] = [node]
+            self.aux_closed[head] = [node]
 
     @property
     def num_actions(cls) -> int:
@@ -415,30 +399,20 @@ class Witness(Domain):
         reversing the head and goal (and updating grid to be consistent with this change).
         """
         assert self.forward
-        assert len(self.visited) == 0
 
-        b_domain = deepcopy(self)
+        goal_row = self.initial_state.head_row
+        goal_col = self.initial_state.head_col
+        initial_state = WitnessState(self.width, self.goal_row, self.goal_col)
+        domain = Witness(
+            self.puzzle,
+            initial_state,
+            goal_row,
+            goal_col,
+            self.markers,
+            forward=False,
+        )
 
-        state = b_domain.initial_state
-        # b_domain.goal_state_t = b_domain.state_tensor(state)
-        b_domain.forward = False
-
-        state.grid[self.start_row, self.start_col] = 0
-        state.grid[self.goal_row, self.goal_col] = 1
-
-        state.head_row = self.goal_row
-        state.head_col = self.goal_col
-
-        b_domain.start_row = self.goal_row
-        b_domain.start_col = self.goal_col
-
-        b_domain.goal_row = self.start_row
-        b_domain.goal_col = self.start_col
-
-        return b_domain
-
-    def __repr__(self) -> str:
-        return self.initial_state.__repr__()
+        return domain
 
     def plot(self, state: Optional[WitnessState] = None, filename=None):
         """
@@ -590,9 +564,9 @@ class Witness(Domain):
         """
         state: WitnessState = node.state
         head_dot = (state.head_row, state.head_col)
-        if head_dot not in other_domain.visited:
+        if head_dot not in other_domain.aux_closed:
             return None
-        for other_node in other_domain.visited[head_dot]:
+        for other_node in other_domain.aux_closed[head_dot]:
             other_state = other_node.state
 
             merged_state = WitnessState(
@@ -603,9 +577,9 @@ class Witness(Domain):
             )
 
             merged_state.grid = state.grid + other_state.grid
+            # make sure snakes do not overlap any where but the head
             merged_state.grid[head_dot] = 1
-            # todo is this sufficient and neccesry to prevent overlaps bessides at head?
-            if np.any(merged_state.grid > 1.5):
+            if (merged_state.grid > 1.5).any():
                 return None
 
             merged_state.v_segs = state.v_segs + other_state.v_segs
@@ -624,19 +598,15 @@ class Witness(Domain):
                     b_domain = self
 
                 f_traj = get_merged_trajectory(
-                    model,
                     f_domain,
                     f_common_node,
                     b_common_node,
-                    type(node),
                     num_expanded,
                 )
                 b_traj = get_merged_trajectory(
-                    model,
                     b_domain,
                     b_common_node,
                     f_common_node,
-                    type(node),
                     num_expanded,
                     forward=False,
                 )
@@ -646,11 +616,9 @@ class Witness(Domain):
 
 
 def get_merged_trajectory(
-    model: AgentModel,
     dir1_domain: Domain,
     dir1_common: SearchNode,
     dir2_common: SearchNode,
-    node_type: Type[SearchNode],
     num_expanded: int,
     goal_state_t: Optional[Tensor] = None,
     forward: bool = True,
@@ -669,13 +637,14 @@ def get_merged_trajectory(
         action = dir1_domain.reverse_action(dir2_parent_action)
         new_state = dir1_domain.result(dir1_node.state, action)
         actions, mask = dir1_domain.actions_unpruned(new_state)
-        new_dir1_node = node_type(
+        new_dir1_node = SearchNode(
             state=new_state,
             g=dir1_node.g + 1,
             parent=dir1_node,
             parent_action=action,
             actions=actions,
             actions_mask=mask,
+            log_prob=0.0,
         )
         dir1_node = new_dir1_node
         dir2_parent_action = dir2_parent_node.parent_action
@@ -683,49 +652,10 @@ def get_merged_trajectory(
 
     return Trajectory.from_goal_node(
         domain=dir1_domain,
-        final_node=dir1_node,
+        goal_node=dir1_node,
         num_expanded=num_expanded,
         partial_g_cost=dir1_common.g,
         partial_log_prob=dir1_common.log_prob,
         goal_state_t=goal_state_t,
         forward=forward,
     )
-
-
-def parse_problemset(problemset: dict):
-    width = problemset["width"]
-    max_num_colors = problemset["max_num_colors"]
-    puzzle = problemset["puzzle"]
-
-    def parse_specs(problem_specs):
-        problems = []
-        for spec in problem_specs:
-            problem = Problem(
-                id=spec["id"],
-                domain=Witness(
-                    puzzle=puzzle,
-                    width=width,
-                    max_num_colors=max_num_colors,
-                    init=spec["init"],
-                    goal=spec["goal"],
-                    colored_cells=spec["colored_cells"],
-                ),
-            )
-            problems.append(problem)
-        return problems
-
-    model_args = {
-        "num_actions": problemset["num_actions"],
-        "in_channels": problemset["in_channels"],
-        "state_t_width": problemset["state_t_width"],
-        "requires_backward_goal": False,
-    }
-
-    if "is_curriculum" in problemset:
-        problems = parse_specs(problemset["curriculum_problems"])
-        problemset["curriculum_problems"] = problems
-    else:
-        problems = parse_specs(problemset["problems"])
-        problemset["problems"] = problems
-
-    return problemset, model_args
