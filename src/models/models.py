@@ -10,7 +10,6 @@ from torch.nn.functional import log_softmax
 import models.losses as losses
 
 
-# todo this module is poorly organized
 class AgentModel(nn.Module):
     def __init__(
         self,

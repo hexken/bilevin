@@ -9,7 +9,7 @@ python src/main.py \
     --seed 1 \
     --world-size 4 \
     --mode train \
-    --agent AStar \
+    --agent BiAStar \
     --loss-fn mse_loss\
     --grad-steps 10 \
     \

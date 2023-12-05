@@ -1,24 +1,170 @@
 import argparse
 from collections import deque
-from copy import deepcopy
 from itertools import product
-import json
 from pathlib import Path
 import random
 
 import numpy as np
-from tqdm import tqdm
+import tqdm
 
-from domains import Witness
+from domains.puzzle_generator import save_problemset
+from domains.witness import Witness, WitnessState
+
+
+def triangle_puzzle_from_path(
+    rng, marker_prob, domain, state, min_path_ratio
+) -> None | list[tuple[int, int, int]]:
+    # heuristic to make sure the path is not too short
+    if (state.v_segs.sum() + state.h_segs.sum()) / state.grid.shape[
+        0
+    ] ** 2 < min_path_ratio:
+        return None
+
+    markers = []
+    for row, col in product(range(domain.width), range(domain.width)):
+        n_adj = int(
+            state.v_segs[row, col]
+            + state.v_segs[row, col + 1]
+            + state.h_segs[row, col]
+            + state.h_segs[row + 1, col]
+        )
+
+        if n_adj == 0:
+            continue
+        elif n_adj == 4:
+            domain.plot(state)
+            raise ValueError("cell has 4 adjacent segments")
+        if rng.random() <= marker_prob and n_adj >= 1:
+            markers.append(f"{row} {col} {n_adj}")
+
+    if len(markers) < domain.width // 2:
+        return None
+
+    return markers
+
+
+def colors_puzzle_from_path(
+    rng, marker_prob, domain, state
+) -> None | list[tuple[int, int, int]]:
+    regions = connected_components(domain, state)
+
+    min_num_regions = 2
+    if domain.width == 3:
+        min_num_regions = 2
+    if domain.width >= 4:
+        min_num_regions = 4
+    if domain.width == 10:
+        min_num_regions = 5
+
+    if len(regions) < min_num_regions:
+        return None
+
+    # fill regions with colors, only keep sufficiently non empty ones
+    colors = random.choices(range(1, domain.max_num_colors + 1), k=len(regions))
+    unique_colors_used = set()
+    markers = []
+    non_unit_regions_unique_colors = 0
+    for region in regions:
+        region_arr = np.array(sorted(region))
+        region_mask = rng.rand(len(region_arr)) < marker_prob
+        region_arr = region_arr[region_mask]
+        if len(region_arr):
+            color = colors.pop()
+            if len(region_arr) > 1 and color not in unique_colors_used:
+                non_unit_regions_unique_colors += 1
+            unique_colors_used.add(color)
+            markers.extend([f"{row} {col} {color}" for row, col in region_arr])
+
+    if non_unit_regions_unique_colors < domain.width // 2:
+        return None
+    return markers
+
+
+def generate_problems(
+    args,
+    rng,
+    goal_choices,
+    n_problems: int,
+    id_counter_start: int,
+    exclude_problemsepcs: set,
+    pbar,
+):
+    problems = []
+    problems_generated = 0
+    init_state = WitnessState(width=args.width, head_init_row=0, head_init_col=0)
+
+    while problems_generated < n_problems:
+        head_at_goal = False
+        goal = random.choice(goal_choices)
+        domain = Witness(
+            puzzle=args.puzzle,
+            initial_state=init_state,
+            goal_row=goal[0],
+            goal_col=goal[1],
+            markers=[],
+        )
+        # generate a path from start to goal
+        state: WitnessState = domain.reset()
+        while True:
+            actions, _ = domain.actions_unpruned(state)
+            if not actions:
+                break
+            action = rng.choice(actions)
+            state = domain.result(state, action)
+            if domain.is_head_at_goal(state):
+                head_at_goal = True
+                break
+
+        if not head_at_goal:
+            continue
+
+        if args.puzzle == "triangles":
+            markers = triangle_puzzle_from_path(
+                rng, args.marker_prob, domain, state, args.min_path_ratio
+            )
+        elif args.puzzle == "colors":
+            markers = colors_puzzle_from_path(rng, args.marker_prob, domain, state)
+        else:
+            raise ValueError(f"Unknown puzzle type {args.puzzle}")
+
+        if markers is None:
+            continue
+
+        hshable = (goal, tuple(markers))
+        if hshable in exclude_problemsepcs:
+            continue
+        else:
+            exclude_problemsepcs.add(hshable)
+
+        problem_init_state = WitnessState(
+            width=args.width, head_init_row=0, head_init_col=0
+        )
+        problem = Witness(
+            puzzle=args.puzzle,
+            initial_state=problem_init_state,
+            goal_row=goal[0],
+            goal_col=goal[1],
+            markers=markers,
+        )
+        problems.append(problem)
+        pbar.update(1)
+
+    return problems
 
 
 def main():
     """
-    Generate a dataset of Witness problems. A generated problem instance is only kept if
+    Generate a dataset of Witness colors problems. A generated problem instance is only kept if
     there least args.width // 2 colored regions of size at least 2, each with a unique color.
     """
     parser = argparse.ArgumentParser()
 
+    parser.add_argument(
+        "--puzzle",
+        type=str,
+        choices=["triangles", "colors"],
+        help="type of witness puzzle to generate",
+    )
     parser.add_argument(
         "-o",
         "--output-path",
@@ -68,169 +214,120 @@ def main():
         default=4,
         help="number of colors to use",
     )
-
     parser.add_argument(
         "-p",
-        "--bullet-prob",
+        "--marker-prob",
         type=float,
-        default=0.6,
-        help="probability of placing a bullet in each empty cell",
+        default=0.1,
+        help="probability of placing a marker in each snake adjacent cell",
+    )
+    parser.add_argument(
+        "--min-path-ratio",
+        type=float,
+        default=0.35,
+        help="path that generated problem must be >= this ratio of squared width",
     )
 
     args = parser.parse_args()
 
-    if args.max_num_colors < 2:
-        raise ValueError("Number of colors must be at least 2")
-
     args.output_path.mkdir(parents=True, exist_ok=True)
 
     random.seed(args.seed)
-    np.random.seed(args.seed)
+    rng = np.random.default_rng(args.seed)
 
-    goals = (
+    goals_dups = (
         [(0, i) for i in range(args.width + 1)]
         + [(i, 0) for i in range(args.width + 1)]
         + [(args.width, i) for i in range(args.width + 1)]
         + [(i, args.width) for i in range(args.width + 1)]
     )
+    goals = set()
+    for goal in goals_dups:
+        goals.add(goal)
     goals.remove((0, 0))
+    goals = list(goals)
 
     problem_specs = set()
 
-    problems = []
-
-    problem_id = 0
-    total_num_problems = args.n_train + args.n_valid + args.n_test
-
-    with tqdm(total=total_num_problems) as pbar:
-        prefix = "tr_"
-        while len(problem_specs) < total_num_problems:
-            if len(problem_specs) == args.n_train:
-                prefix = "te_"
-                problem_id = 0
-            head_at_goal = False
-            goal = random.choice(goals)
-            problem = {
-                "init": (0, 0),  # todo allow other initial pos?
-                "goal": goal,
-            }
-            wit = Witness(
-                puzzle="colors",
-                width=args.width,
-                max_num_colors=args.max_num_colors,
-                **problem,
-            )
-            # generate a path from start to goal
-            state = wit.reset()
-            while True:
-                actions, _ = wit.actions_unpruned(state)
-                if not actions:
-                    break
-                action = random.choice(actions)
-                state = wit.result(state, action)
-                if wit.is_head_at_goal(state):
-                    head_at_goal = True
-                    break
-
-            if not head_at_goal:
-                continue
-
-            regions = connected_components(wit, state)
-
-            min_num_regions = 2
-            if args.width == 3:
-                min_num_regions = 2
-            if args.width >= 4:
-                min_num_regions = 4
-            if args.width == 10:
-                min_num_regions = 5
-
-            if len(regions) < min_num_regions:
-                continue
-
-            # fill regions with colors, only keep sufficiently non empty ones
-            colors = random.choices(range(1, args.max_num_colors + 1), k=len(regions))
-            unique_colors_used = set()
-            colored_cells = []
-            non_unit_regions_unique_colors = 0
-            for region in regions:
-                region_arr = np.array(sorted(region))
-                region_mask = np.random.rand(len(region_arr)) < args.bullet_prob
-                region_arr = region_arr[region_mask]
-                if len(region_arr):
-                    color = colors.pop()
-                    if len(region_arr) > 1 and color not in unique_colors_used:
-                        non_unit_regions_unique_colors += 1
-                    unique_colors_used.add(color)
-                    colored_cells.extend(
-                        [f"{row} {col} {color}" for row, col in region_arr]
-                    )
-
-            if non_unit_regions_unique_colors < args.width // 2:
-                continue
-
-            problem["colored_cells"] = colored_cells
-            problem_str = str(problem)
-            if problem_str in problem_specs:
-                print("duplicate")
-                continue
-            else:
-                problem_specs.add(problem_str)
-                problem["id"] = f"{prefix}{problem_id}"
-                problem_id += 1
-                problems.append(problem)
-                pbar.update()
-
-    assert isinstance(wit, Witness)
-    num_actions = wit.num_actions
-    in_channels = wit.in_channels
-    width = wit.width
-    max_num_colors = wit.max_num_colors
-    state_t_width = wit.state_width
-
-    problemset_dict_template = {
-        "domain_module": "witness",
+    dummy_init_state = WitnessState(width=args.width, head_init_row=0, head_init_col=0)
+    dummy_domain = Witness(
+        puzzle=args.puzzle,
+        initial_state=dummy_init_state,
+        goal_row=0,
+        goal_col=0,
+        markers=[],
+    )
+    dummy_domain.reset()
+    problemset_dict = {
         "domain_name": "Witness",
-        "width": width,
-        "num_actions": num_actions,
-        "max_num_colors": max_num_colors,
-        "in_channels": in_channels,
-        "state_t_width": state_t_width,
+        "state_t_width": dummy_domain.state_width,
+        "in_channels": dummy_domain.in_channels,
+        "num_actions": dummy_domain.num_actions,
         "seed": args.seed,
-        "puzzle": "colors",
+        "puzzle": args.puzzle,
+        "marker_prob": args.marker_prob,
+        "min_path_ratio": args.min_path_ratio,
     }
 
-    for n, suffix in [
-        (args.n_train, "train"),
-        (args.n_valid, "valid"),
-        (args.n_test, "test"),
-    ]:
-        problemset_dict = deepcopy(problemset_dict_template)
-        if n == 0:
-            continue
-        elif suffix == "train":
-            problemset_dict["is_curriculum"] = True
-            problemset_dict["bootstrap_problems"] = []
-            problemset_dict["permutation_problems"] = []
+    with tqdm.tqdm(total=args.n_train) as pbar:
+        pbar.set_description("Curriculum problems")
+        curriculum_problems = generate_problems(
+            args,
+            rng,
+            goals,
+            args.n_train,
+            0,
+            problem_specs,
+            pbar,
+        )
+    problemset_dict["problems"] = [curriculum_problems]
+    save_problemset(args.output_path, problemset_dict, "train")
 
-            train_problems = problems[:n]
-            problemset_dict["curriculum_problems"] = train_problems
-            problemset_dict["curriculum"] = ["unfiltered"]
-            problemset_dict["problems_per_difficulty"] = len(train_problems)
-        else:
-            problemset_dict["problems"] = problems[:n]
-        path = args.output_path / f"{n}-{suffix}.json"
-        with path.open("w") as f:
-            json.dump(problemset_dict, f)
-        problems = problems[n:]
+    if args.n_valid > 0:
+        with tqdm.tqdm(total=args.n_valid) as pbar:
+            pbar.set_description("Valid problems")
+            valid_problems = generate_problems(
+                args,
+                rng,
+                goals,
+                args.n_train,
+                0,
+                problem_specs,
+                pbar,
+            )
+            problemset_dict["problems"] = [valid_problems]
+        save_problemset(
+            args.output_path,
+            problemset_dict,
+            "valid",
+        )
+
+    if args.n_test > 0:
+        with tqdm.tqdm(total=args.n_test) as pbar:
+            pbar.set_description("Test problems")
+            test_problems = generate_problems(
+                args,
+                rng,
+                goals,
+                args.n_train,
+                0,
+                problem_specs,
+                pbar,
+            )
+            problemset_dict["problems"] = [test_problems]
+        save_problemset(
+            args.output_path,
+            problemset_dict,
+            "test",
+        )
 
 
-def connected_components(wit, wit_state):
+def connected_components(domain, wit_state):
     """
     Compute the connected components of the grid, i.e. the regions separated by the path
     """
-    visited = np.zeros((wit.width, wit.width))
-    cell_states = [(i, j) for i, j in product(range(wit.width), range(wit.width))]
+    visited = np.zeros((domain.width, domain.width))
+    cell_states = [(i, j) for i, j in product(range(domain.width), range(domain.width))]
     regions = []
     while len(cell_states) != 0:
         root = cell_states.pop()
@@ -248,13 +345,13 @@ def connected_components(wit, wit_state):
                 neighbors = []
                 row, col = cell
                 # move up
-                if row + 1 < wit.width and wit_state.h_segs[row + 1, col] == 0:
+                if row + 1 < domain.width and wit_state.h_segs[row + 1, col] == 0:
                     neighbors.append((row + 1, col))
                 # move down
                 if row > 0 and wit_state.h_segs[row, col] == 0:
                     neighbors.append((row - 1, col))
                 # move right
-                if col + 1 < wit.width and wit_state.v_segs[row, col + 1] == 0:
+                if col + 1 < domain.width and wit_state.v_segs[row, col + 1] == 0:
                     neighbors.append((row, col + 1))
                 # move left
                 if col > 0 and wit_state.v_segs[row, col] == 0:

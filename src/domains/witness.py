@@ -1,6 +1,6 @@
 from __future__ import annotations
 from collections import deque
-from typing import Optional, Type
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,13 +25,13 @@ class WitnessState(State):
         width: int,
         head_init_row,
         head_init_col,
-        init_structs=True,
+        partial_init=False,
     ):
         self.head_row = head_init_row
         self.head_col = head_init_col
         self.width = width  # width of cells
 
-        if init_structs:
+        if not partial_init:
             self.grid = np.zeros((self.width + 1, self.width + 1))
             self.grid[self.head_row, self.head_col] = 1
 
@@ -74,7 +74,7 @@ class Witness(Domain):
         self.markers = markers
 
     def reset(self) -> State:
-        if self.puzzle == "triangle":
+        if self.puzzle == "triangles":
             self.max_num_colors = 3  # blue, red, green
         elif self.puzzle == "colors":
             self.max_num_colors = 4  # blue, red, green, cyan
@@ -281,10 +281,8 @@ class Witness(Domain):
         Applies a given action to the state. It modifies the segments visited by the snake (v_seg and h_seg),
         the intersections (grid), and the tip of the snake.
         """
-        # faster than deepcopy or np.ndarray.copy()
-        # todo make structs State constructor params
         new_state = WitnessState(
-            self.width, state.head_row, state.head_col, init_structs=False
+            self.width, state.head_row, state.head_col, partial_init=True
         )
         new_state.grid = np.array(state.grid)
         new_state.v_segs = np.array(state.v_segs)
@@ -550,7 +548,6 @@ class Witness(Domain):
 
     def try_make_solution(
         self,
-        model: AgentModel,
         node: SearchNode,
         other_domain: Witness,
         num_expanded: int,
@@ -573,7 +570,7 @@ class Witness(Domain):
                 self.width,
                 other_domain.start_row,
                 other_domain.start_col,
-                init_structs=False,
+                partial_init=False,
             )
 
             merged_state.grid = state.grid + other_state.grid
