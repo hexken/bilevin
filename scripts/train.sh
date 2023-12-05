@@ -4,13 +4,13 @@ export OMP_NUM_THREADS=1
 
 python src/main.py \
     --runsdir-path runs/ \
-    --problems-path problems/stp3_debug/500-train.pkl \
-    --valid-path problems/stp3_debug/100-valid.pkl \
+    --problems-path problems/wit_col4/500-train.pkl \
+    --valid-path problems/wit_col4/100-valid.pkl \
     --seed 1 \
     --world-size 4 \
     --mode train \
-    --agent BiAStar \
-    --loss-fn mse_loss\
+    --agent AStar \
+    --loss-fn mse_loss \
     --grad-steps 10 \
     \
     --share-feature-net \
