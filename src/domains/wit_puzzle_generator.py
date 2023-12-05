@@ -9,17 +9,12 @@ import tqdm
 
 from domains.puzzle_generator import save_problemset
 from domains.witness import Witness, WitnessState
+from search.utils import Problem
 
 
 def triangle_puzzle_from_path(
-    rng, marker_prob, domain, state, min_path_ratio
+    rng, marker_prob, domain, state
 ) -> None | list[tuple[int, int, int]]:
-    # heuristic to make sure the path is not too short
-    if (state.v_segs.sum() + state.h_segs.sum()) / state.grid.shape[
-        0
-    ] ** 2 < min_path_ratio:
-        return None
-
     markers = []
     for row, col in product(range(domain.width), range(domain.width)):
         n_adj = int(
@@ -35,7 +30,7 @@ def triangle_puzzle_from_path(
             domain.plot(state)
             raise ValueError("cell has 4 adjacent segments")
         if rng.random() <= marker_prob and n_adj >= 1:
-            markers.append(f"{row} {col} {n_adj}")
+            markers.append((row, col, n_adj))
 
     if len(markers) < domain.width // 2:
         return None
@@ -66,14 +61,14 @@ def colors_puzzle_from_path(
     non_unit_regions_unique_colors = 0
     for region in regions:
         region_arr = np.array(sorted(region))
-        region_mask = rng.rand(len(region_arr)) < marker_prob
+        region_mask = rng.random(len(region_arr)) < marker_prob
         region_arr = region_arr[region_mask]
         if len(region_arr):
             color = colors.pop()
             if len(region_arr) > 1 and color not in unique_colors_used:
                 non_unit_regions_unique_colors += 1
             unique_colors_used.add(color)
-            markers.extend([f"{row} {col} {color}" for row, col in region_arr])
+            markers.extend([(row, col, color) for row, col in region_arr])
 
     if non_unit_regions_unique_colors < domain.width // 2:
         return None
@@ -90,10 +85,10 @@ def generate_problems(
     pbar,
 ):
     problems = []
-    problems_generated = 0
+    id = id_counter_start
     init_state = WitnessState(width=args.width, head_init_row=0, head_init_col=0)
 
-    while problems_generated < n_problems:
+    while len(problems) < n_problems:
         head_at_goal = False
         goal = random.choice(goal_choices)
         domain = Witness(
@@ -118,10 +113,14 @@ def generate_problems(
         if not head_at_goal:
             continue
 
+        # heuristic to make sure the path is not too short
+        if (state.v_segs.sum() + state.h_segs.sum()) / state.grid.shape[
+            0
+        ] ** 2 < args.min_path_ratio:
+            continue
+
         if args.puzzle == "triangles":
-            markers = triangle_puzzle_from_path(
-                rng, args.marker_prob, domain, state, args.min_path_ratio
-            )
+            markers = triangle_puzzle_from_path(rng, args.marker_prob, domain, state)
         elif args.puzzle == "colors":
             markers = colors_puzzle_from_path(rng, args.marker_prob, domain, state)
         else:
@@ -139,14 +138,16 @@ def generate_problems(
         problem_init_state = WitnessState(
             width=args.width, head_init_row=0, head_init_col=0
         )
-        problem = Witness(
+        problem_domain = Witness(
             puzzle=args.puzzle,
             initial_state=problem_init_state,
             goal_row=goal[0],
             goal_col=goal[1],
             markers=markers,
         )
+        problem = Problem(domain=problem_domain, id=id)
         problems.append(problem)
+        id += 1
         pbar.update(1)
 
     return problems
@@ -207,24 +208,24 @@ def main():
         help="random seed",
     )
 
-    parser.add_argument(
-        "-c",
-        "--max-num-colors",
-        type=int,
-        default=4,
-        help="number of colors to use",
-    )
+    # parser.add_argument(
+    #     "-c",
+    #     "--max-num-colors",
+    #     type=int,
+    #     default=4,
+    #     help="number of colors to use",
+    # )
     parser.add_argument(
         "-p",
         "--marker-prob",
         type=float,
-        default=0.1,
+        default=0.6,
         help="probability of placing a marker in each snake adjacent cell",
     )
     parser.add_argument(
         "--min-path-ratio",
         type=float,
-        default=0.35,
+        default=0.8,
         help="path that generated problem must be >= this ratio of squared width",
     )
 
@@ -290,7 +291,7 @@ def main():
                 args,
                 rng,
                 goals,
-                args.n_train,
+                args.n_valid,
                 0,
                 problem_specs,
                 pbar,
@@ -309,7 +310,7 @@ def main():
                 args,
                 rng,
                 goals,
-                args.n_train,
+                args.n_test,
                 0,
                 problem_specs,
                 pbar,

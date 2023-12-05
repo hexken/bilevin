@@ -4,12 +4,12 @@ export PYTHONPATH=$SCRIPT_DIR/../src
 cd $SCRIPT_DIR/../
 
 python src/domains/wit_puzzle_generator.py \
---puzzle  "triangles" \
---seed  43276 \
+--puzzle  "colors" \
+--seed  12243 \
 --width  4 \
---output-path  problems/wit_tri4/ \
---marker-prob  0.4 \
---min-path-ratio 0.6 \
+--output-path  problems/wit_col4/ \
+--marker-prob  0.6 \
+--min-path-ratio 0.8 \
 --n-train 500 \
 --n-valid  100 \
 --n-test  100 \
