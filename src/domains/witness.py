@@ -121,6 +121,14 @@ class Witness(Domain):
             self.aux_closed[head] = [node]
 
     @property
+    def state_t_width(self) -> int:
+        return self.width + 1
+
+    @property
+    def state_t_depth(self) -> int:
+        return 1
+
+    @property
     def num_actions(cls) -> int:
         return 4
 
@@ -137,10 +145,6 @@ class Witness(Domain):
         """
         raise NotImplementedError
 
-    @property
-    def state_width(self) -> int:
-        return self.width + 1
-
     def state_tensor(self, state: WitnessState) -> to.Tensor:
         """
         Generates an image representation for the puzzle. one channel for each color; one channel with 1's
@@ -154,7 +158,7 @@ class Witness(Domain):
 
         # defining the 3-dimnesional array that will be filled with the puzzle's information
         arr = np.zeros(
-            (self.in_channels, self.state_width, self.state_width), dtype=np.float32
+            (self.in_channels, self.state_t_width, self.state_t_width), dtype=np.float32
         )
 
         for i in range(self.width):

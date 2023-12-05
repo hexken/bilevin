@@ -99,7 +99,12 @@ class Domain(ABC):
 
     @property
     @abstractmethod
-    def state_width(self) -> int:
+    def state_t_width(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def state_t_depth(self) -> int:
         pass
 
     @abstractmethod

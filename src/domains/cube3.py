@@ -96,8 +96,12 @@ class Cube3(Domain):
         return self._reset()
 
     @property
-    def state_width(self) -> int:
+    def state_t_width(self) -> int:
         return 3
+
+    @property
+    def state_t_depth(self) -> int:
+        return 6
 
     @property
     def num_actions(cls) -> int:

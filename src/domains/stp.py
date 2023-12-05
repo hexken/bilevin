@@ -68,8 +68,12 @@ class SlidingTilePuzzle(Domain):
         return self._reset()
 
     @property
-    def state_width(self) -> int:
+    def state_t_width(self) -> int:
         return self.width
+
+    @property
+    def state_t_depth(self) -> int:
+        return 1
 
     @property
     def num_actions(cls) -> int:

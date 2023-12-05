@@ -160,11 +160,6 @@ def main():
     if args.domain == "cube3":
         problemset_dict = {
             "domain_name": "Cube3",
-            "state_t_width": 3,
-            "state_t_depth": 6,
-            "num_actions": 12,
-            "in_channels": 6,
-            "requires_backward_goal": True,
             "seed": args.seed,
         }
         domain = Cube3(cube3ggs())
@@ -172,11 +167,6 @@ def main():
     elif args.domain == "stp":
         problemset_dict = {
             "domain_name": "SlidingTilePuzzle",
-            "state_t_width": args.width,
-            "state_t_depth": 1,
-            "num_actions": 4,
-            "in_channels": int(args.width**2),
-            "requires_backward_goal": True,
             "seed": args.seed,
         }
         domain = SlidingTilePuzzle(stpggs(args.width))

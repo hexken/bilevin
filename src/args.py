@@ -79,7 +79,7 @@ def parse_args():
             "cross_entropy_sum_loss",
             "cross_entropy_avg_loss",
             "cross_entropy_mid_loss",
-            "mse_loss"
+            "mse_loss",
         ],
         help="loss function",
     )
@@ -131,7 +131,7 @@ def parse_args():
         help="number of convolution kernels",
     )
     parser.add_argument(
-        "--weight-decay",
+        "--weight_decay",
         type=float,
         default=0.001,
         help="add L2 regularization to loss",

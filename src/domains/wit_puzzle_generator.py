@@ -261,9 +261,6 @@ def main():
     dummy_domain.reset()
     problemset_dict = {
         "domain_name": "Witness",
-        "state_t_width": dummy_domain.state_width,
-        "in_channels": dummy_domain.in_channels,
-        "num_actions": dummy_domain.num_actions,
         "seed": args.seed,
         "puzzle": args.puzzle,
         "marker_prob": args.marker_prob,
