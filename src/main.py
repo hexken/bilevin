@@ -7,16 +7,16 @@ import time
 from timeit import default_timer as timer
 
 import numpy as np
-from test import test
 import torch as to
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
 from args import parse_args
 from loaders import ProblemLoader
-from search.levin import Levin, BiLevin
 from search.astar import AStar, BiAStar
+from search.levin import BiLevin, Levin
 from search.utils import set_seeds
+from test import test
 from train import train
 
 

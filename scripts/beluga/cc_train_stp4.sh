@@ -3,9 +3,10 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=00:15:00
+#SBATCH --time=12:00:00
+#SBATCH --array=1-4
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/nov/ce/stp4/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp4/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -20,33 +21,54 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
+argfile=/scratch/tjhia/bilevin/scripts/beluga/algs_seeds_losses.txt
+args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
+seed=$(echo $args | cut -d' ' -f1)
+agent=$(echo $args | cut -d' ' -f2)
+loss=$(echo $args | cut -d' ' -f3)
+
+
 python src/main.py \
+    --agent $agent \
+    --seed $seed \
+    --runsdir-path runs/stp4 \
+    --problems-path problems/stp4/50000-train.pkl \
+    --valid-path problems/stp4/1000-valid.pkl \
     --world-size 40 \
     --mode train \
-    --loss-fn cross_entropy_avg_loss\
-    --cost-fn levin_cost \
+    --loss-fn $loss \
     --grad-steps 10 \
-    --feature-net-lr 0.001 \
-    --forward-hidden-layers 128 \
-    --backward-hidden-layers 256 192 128 \
-    --forward-feature-net-lr 0.001 \
-    --backward-feature-net-lr 0.001\
-    --forward-policy-lr 0.001 \
-    --backward-policy-lr 0.001 \
-    --batch-begin-validate 1 \
-    --validate-every 625  \
-    --checkpoint-every 50 \
-    --time-budget 300 \
-    --agent $1 \
-    --problems-path $2 \
-    --valid-path $3 \
-    --train-expansion-budget $4 \
-    --test-expansion-budget 16000 \
-    --increase-budget \
-    --min-samples-per-stage 500000 \
-    --min-solve-ratio-stage 0 \
-    --min-solve-ratio-exp 0.1 \
-    --n-tail 1000 \
-    --seed $5 \
+    \
     --share-feature-net \
-    --runsdir-path runs/nov/ce/stp4/
+    --num-kernels 32 \
+    --kernel-size 1 2 \
+    \
+    --conditional-backward \
+    \
+    --forward-feature-net-lr 0.001 \
+    --forward-policy-layers 128 \
+    --forward-policy-lr 0.001 \
+    --forward-heuristic-layers 128 \
+    --forward-heuristic-lr 0.001 \
+    \
+    --backward-feature-net-lr 0.001 \
+    --backward-policy-layers 256 198 128 \
+    --backward-policy-lr 0.001 \
+    --backward-heuristic-layers 256 298 128 \
+    --backward-heuristic-lr 0.001 \
+    \
+    --batch-begin-validate 1 \
+    --validate-every 125 \
+    --checkpoint-every 10 \
+    \
+    --time-budget 300 \
+    --train-expansion-budget 24000 \
+    --max-expansion-budget 24000 \
+    --test-expansion-budget 24000 \
+    \
+    --min-samples-per-stage 250000 \
+    --min-solve-ratio-stage 0 \
+    --min-solve-ratio-exp 0 \
+    \
+    --n-tail 1000 \
+    \

@@ -6,8 +6,7 @@ problemset=problems/stp4/50000-train.pkl
 validset=problems/stp4/1000-valid.pkl
 
 
-agents="BiLevin Levin"
-exp_budgets="16000"
+agents="BiLevin Levin AStar BiAStar"
 seeds="713"
 
 for agent in $agents; do
@@ -17,4 +16,4 @@ for agent in $agents; do
 		done
 	done
 done
-	
+

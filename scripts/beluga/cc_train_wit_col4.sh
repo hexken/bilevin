@@ -3,9 +3,10 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=00:15:00
+#SBATCH --time=12:00:00
+#SBATCH --array=1-4
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp5/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/wit_col4/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -26,15 +27,13 @@ seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
 loss=$(echo $args | cut -d' ' -f3)
 
-cd /scratch/tjhia/bilevin
-export OMP_NUM_THREADS=1
 
 python src/main.py \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/stp5 \
-    --problems-path problems/stp5/50000-train.pkl \
-    --valid-path problems/stp5/1000-valid.pkl \
+    --runsdir-path runs/wit_col4 \
+    --problems-path problems/wit_col4/50000-train.pkl \
+    --valid-path problems/wit_col4/1000-valid.pkl \
     --world-size 40 \
     --mode train \
     --loss-fn $loss \
@@ -62,10 +61,10 @@ python src/main.py \
     --validate-every 125 \
     --checkpoint-every 10 \
     \
-    --time-budget 300 \
-    --train-expansion-budget 64000 \
-    --max-expansion-budget 64000 \
-    --test-expansion-budget 64000 \
+    --time-budget 5 \
+    --train-expansion-budget 200000 \
+    --max-expansion-budget 200000 \
+    --test-expansion-budget 200000 \
     \
     --min-samples-per-stage 250000 \
     --min-solve-ratio-stage 0 \
