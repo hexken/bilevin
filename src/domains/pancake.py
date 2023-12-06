@@ -70,7 +70,8 @@ class PancakePuzzle(Domain):
         self,
         state: PancakePuzzleState,
     ) -> to.Tensor:
-        return transpose(one_hot(from_numpy(state.pancakes)).float(), 1, 0)
+        t =  transpose(one_hot(from_numpy(state.pancakes)).float(), 1, 0)
+        return t
 
     def reverse_action(self, action: int) -> int:
         return action
@@ -92,7 +93,6 @@ class PancakePuzzle(Domain):
         pancakes = state.pancakes.copy()
         pancakes[action:] = np.flip(state.pancakes[action:])
         new_state = PancakePuzzleState(pancakes)
-        print(pancakes.__repr__())
         return new_state
 
     def is_goal(self, state: PancakePuzzleState) -> bool:

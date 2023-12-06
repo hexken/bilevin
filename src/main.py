@@ -167,13 +167,14 @@ if __name__ == "__main__":
         args.conditional_backward and pset_dict["domain_name"] != "Witness"
     )
     dummy_domain = pset_dict["problems"][0][0].domain
-    dummy_domain.reset()
+    num_features = dummy_domain.state_tensor(dummy_domain.reset()).size().numel()
     aux_args = {
         "conditional_backward": conditional_backward,
         "state_t_width": dummy_domain.state_t_width,
         "state_t_depth": dummy_domain.state_t_depth,
         "num_actions": dummy_domain.num_actions,
         "in_channels": dummy_domain.in_channels,
+        "num_features": num_features,
     }
 
     if args.agent == "Levin":

@@ -36,6 +36,7 @@ class AgentModel(nn.Module):
 
         learnable_params = []
         # create feature net if necessary
+        # assumes 2d or 3d tensor of one_hot tensors
         if self.has_feature_net:
             if args.share_feature_net:
                 f_feat_lr = b_feat_lr = args.forward_feature_net_lr
@@ -88,10 +89,7 @@ class AgentModel(nn.Module):
                     )
         else:
             # no feature net
-            self.num_features = (
-                self.in_channels * self.state_t_width * self.state_t_depth
-            )
-
+            self.num_features = aux_args["num_features"]
         # create policy/herusitic nets
         if self.has_policy:
             self.forward_policy: nn.Module = StatePolicy(
@@ -188,18 +186,17 @@ class AgentModel(nn.Module):
             if self.has_feature_net:
                 feats = self.forward_feature_net(state_t)
             else:
-                feats = state_t.flatten()
+                feats = state_t.flatten(start_dim=1)
             if self.has_policy:
                 logits = self.forward_policy(feats)
             if self.has_heuristic:
-                print(forward, feats.shape)
                 h = self.forward_heuristic(feats)
 
         else:
             if self.has_feature_net:
                 feats = self.backward_feature_net(state_t)
             else:
-                feats = state_t.flatten()
+                feats = state_t.flatten(start_dim=1)
 
             # set goal_feats
             if self.conditional_backward:
@@ -208,7 +205,7 @@ class AgentModel(nn.Module):
                     if self.has_feature_net:
                         goal_feats = self.backward_feature_net(goal_state_t)
                     else:
-                        goal_feats = goal_state_t.flatten()
+                        goal_feats = goal_state_t.flatten(start_dim=1)
 
             if self.has_policy:
                 if self.conditional_backward:
