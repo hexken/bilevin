@@ -86,6 +86,11 @@ class AgentModel(nn.Module):
                             "weight_decay": args.weight_decay,
                         },
                     )
+        else:
+            # no feature net
+            self.num_features = (
+                self.in_channels * self.state_t_width * self.state_t_depth
+            )
 
         # create policy/herusitic nets
         if self.has_policy:
@@ -183,20 +188,27 @@ class AgentModel(nn.Module):
             if self.has_feature_net:
                 feats = self.forward_feature_net(state_t)
             else:
-                feats = state_t
+                feats = state_t.flatten()
             if self.has_policy:
                 logits = self.forward_policy(feats)
             if self.has_heuristic:
+                print(forward, feats.shape)
                 h = self.forward_heuristic(feats)
 
         else:
             if self.has_feature_net:
                 feats = self.backward_feature_net(state_t)
             else:
-                feats = state_t
+                feats = state_t.flatten()
 
-            if self.conditional_backward and goal_feats is None:
-                goal_feats = self.backward_feature_net(goal_state_t)
+            # set goal_feats
+            if self.conditional_backward:
+                if goal_state_t is not None:
+                    # goal_feats is None
+                    if self.has_feature_net:
+                        goal_feats = self.backward_feature_net(goal_state_t)
+                    else:
+                        goal_feats = goal_state_t.flatten()
 
             if self.has_policy:
                 if self.conditional_backward:

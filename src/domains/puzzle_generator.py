@@ -10,6 +10,8 @@ from domains.cube3 import Cube3
 from domains.cube3 import get_goal_state as cube3ggs
 from domains.stp import SlidingTilePuzzle
 from domains.stp import get_goal_state as stpggs
+from domains.pancake import PancakePuzzle
+from domains.pancake import get_goal_state as pancakeggs
 from search.utils import Problem
 
 
@@ -72,7 +74,7 @@ def main():
     parser.add_argument(
         "--domain",
         type=str,
-        choices=["cube3", "stp"],
+        choices=["cube3", "stp", "pancake"],
         help="domain",
     )
     parser.add_argument(
@@ -157,20 +159,19 @@ def main():
 
     rng = np.random.default_rng(args.seed)
 
+    problemset_dict = {"seed": args.seed}
     if args.domain == "cube3":
-        problemset_dict = {
-            "domain_name": "Cube3",
-            "seed": args.seed,
-        }
+        problemset_dict["domain_name"] = "Cube3"
         domain = Cube3(cube3ggs())
         domain_class = Cube3
     elif args.domain == "stp":
-        problemset_dict = {
-            "domain_name": "SlidingTilePuzzle",
-            "seed": args.seed,
-        }
+        problemset_dict["domain_name"] = "SlidingTilePuzzle"
         domain = SlidingTilePuzzle(stpggs(args.width))
         domain_class = SlidingTilePuzzle
+    elif args.domain == "pancake":
+        problemset_dict["domain_name"] = "PancakePuzzle"
+        domain = PancakePuzzle(pancakeggs(args.width))
+        domain_class = PancakePuzzle
     else:
         raise ValueError(f"Unknown domain {args.domain}")
 

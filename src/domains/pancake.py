@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 import torch as to
+from torch import from_numpy, transpose
+from torch.nn.functional import one_hot
 
 from domains.domain import Domain, State
 from enums import FourDir
@@ -68,98 +70,29 @@ class PancakePuzzle(Domain):
         self,
         state: PancakePuzzleState,
     ) -> to.Tensor:
-        arr = np.zeros((self.num_pancakes, self.num_pancakes), dtype=np.float32)
-        indices = state.pancakes.reshape(-1)
-        arr[indices,] = 1
-        return to.from_numpy(arr)
+        return transpose(one_hot(from_numpy(state.pancakes)).float(), 1, 0)
 
-    def reverse_action(self, action: FourDir) -> FourDir:
-        if action == FourDir.UP:
-            return FourDir.DOWN
-        elif action == FourDir.DOWN:
-            return FourDir.UP
-        elif action == FourDir.LEFT:
-            return FourDir.RIGHT
-        elif action == FourDir.RIGHT:
-            return FourDir.LEFT
+    def reverse_action(self, action: int) -> int:
+        return action
 
     def backward_domain(self) -> PancakePuzzle:
         assert self.forward
-        domain = PancakePuzzle(get_goal_state(self.width), forward=False)
+        domain = PancakePuzzle(get_goal_state(self.num_pancakes), forward=False)
         domain.goal_state = self.initial_state
         domain.goal_state_t = self.state_tensor(self.initial_state)
         return domain
 
-    def _actions(
-        self, parent_action: FourDir, state: PancakePuzzleState
-    ) -> list[FourDir]:
-        actions = []
-
-        if parent_action != FourDir.LEFT and state.blank_col != self.width - 1:
-            actions.append(FourDir.RIGHT)
-
-        if parent_action != FourDir.DOWN and state.blank_row != 0:
-            actions.append(FourDir.UP)
-
-        if parent_action != FourDir.RIGHT and state.blank_col != 0:
-            actions.append(FourDir.LEFT)
-
-        if parent_action != FourDir.UP and state.blank_row != self.width - 1:
-            actions.append(FourDir.DOWN)
-
-        return actions
+    def _actions(self, parent_action: int, state: PancakePuzzleState) -> list[int]:
+        return [i for i in range(self.num_actions) if i != parent_action]
 
     def _actions_unpruned(self, state: PancakePuzzleState):
-        actions = []
-
-        if state.blank_col != self.width - 1:
-            actions.append(FourDir.RIGHT)
-
-        if state.blank_row != 0:
-            actions.append(FourDir.UP)
-
-        if state.blank_col != 0:
-            actions.append(FourDir.LEFT)
-
-        if state.blank_row != self.width - 1:
-            actions.append(FourDir.DOWN)
-
-        return actions
+        return [i for i in range(self.num_actions)]
 
     def result(self, state: PancakePuzzleState, action: FourDir) -> PancakePuzzleState:
-        tiles = np.array(state.tiles)
-        blank_row = state.blank_row
-        blank_col = state.blank_col
-
-        if action == FourDir.UP:
-            tiles[blank_row, blank_col], tiles[blank_row - 1, blank_col] = (
-                tiles[blank_row - 1, blank_col],
-                tiles[blank_row, blank_col],
-            )
-            blank_row -= 1
-
-        elif action == FourDir.DOWN:
-            tiles[blank_row, blank_col], tiles[blank_row + 1, blank_col] = (
-                tiles[blank_row + 1, blank_col],
-                tiles[blank_row, blank_col],
-            )
-            blank_row += 1
-
-        elif action == FourDir.RIGHT:
-            tiles[blank_row, blank_col], tiles[blank_row, blank_col + 1] = (
-                tiles[blank_row, blank_col + 1],
-                tiles[blank_row, blank_col],
-            )
-            blank_col += 1
-
-        elif action == FourDir.LEFT:
-            tiles[blank_row, blank_col], tiles[blank_row, blank_col - 1] = (
-                tiles[blank_row, blank_col - 1],
-                tiles[blank_row, blank_col],
-            )
-            blank_col -= 1
-
-        new_state = PancakePuzzleState(tiles, blank_row, blank_col)
+        pancakes = state.pancakes.copy()
+        pancakes[action:] = np.flip(state.pancakes[action:])
+        new_state = PancakePuzzleState(pancakes)
+        print(pancakes.__repr__())
         return new_state
 
     def is_goal(self, state: PancakePuzzleState) -> bool:

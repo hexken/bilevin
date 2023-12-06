@@ -9,4 +9,4 @@
 source $HOME/bilevin-env2/bin/activate
 
 cd /scratch/tjhia/bilevin
-./src/domains/cube3_gen.sh
+./scripts/cube3_gen.sh

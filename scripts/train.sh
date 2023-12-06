@@ -4,10 +4,11 @@ export OMP_NUM_THREADS=1
 
 python src/main.py \
     --runsdir-path runs/ \
-    --problems-path problems/wit_col4/500-train.pkl \
-    --valid-path problems/wit_col4/100-valid.pkl \
+    --problems-path problems/pancake4_debug/500-train.pkl \
+    --valid-path problems/pancake4_debug/100-valid.pkl \
+    --no-feature-net \
     --seed 1 \
-    --world-size 4 \
+    --world-size 1 \
     --mode train \
     --agent AStar \
     --loss-fn mse_loss \

@@ -18,7 +18,7 @@ python src/domains/wit_puzzle_generator.py \
 --puzzle  "triangles" \
 --seed  1743 \
 --width  4 \
---output-path  problems/wit_tru4/ \
+--output-path  problems/wit_tri4/ \
 --marker-prob  0.6 \
 --min-path-ratio 0.8 \
 --n-train 50000 \

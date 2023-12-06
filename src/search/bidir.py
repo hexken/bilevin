@@ -37,7 +37,10 @@ class BiDir(Agent):
         f_domain.update(f_start_node)
 
         if self.model.conditional_backward:
-            b_goal_feats = self.model.backward_feature_net(f_state_t)
+            if self.model.has_feature_net:
+                b_goal_feats = self.model.backward_feature_net(f_state_t)
+            else:
+                b_goal_feats = f_state_t.flatten()
         else:
             b_goal_feats = None
 
