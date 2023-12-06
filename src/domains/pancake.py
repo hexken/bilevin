@@ -60,7 +60,8 @@ class PancakePuzzle(Domain):
 
     @property
     def num_actions(self) -> int:
-        return self.num_pancakes
+        # don't include flipping the top pancake, which does nothing
+        return self.num_pancakes - 1
 
     @property
     def in_channels(self) -> int:
