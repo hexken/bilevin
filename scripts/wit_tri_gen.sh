@@ -49,7 +49,7 @@ elif [ $1 = "6" ]; then
     --output-path  problems/wit_tri6/ \
     --marker-prob  0.5 \
     --min-path-ratio 0.7 \
-    --n-train 50 \
+    --n-train 50000 \
     --n-valid  1000 \
     --n-test  1000
 fi
