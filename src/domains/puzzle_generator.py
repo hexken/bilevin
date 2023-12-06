@@ -36,9 +36,8 @@ def generate_step_problems(
     pbar,
 ):
     problems = []
-    problems_generated = 0
     id_counter = id_counter_start
-    while problems_generated < n_problems:
+    while len(problems) < n_problems:
         if randomize:
             steps = rng.integers(min_steps, max_steps + 1)
         else:
@@ -56,7 +55,6 @@ def generate_step_problems(
             new_domain = domain_class(initial_state=state)
             problem = Problem(id=id_counter, domain=new_domain)
             problems.append(problem)
-            problems_generated += 1
             id_counter += 1
             pbar.update(1)
     return problems
@@ -242,7 +240,7 @@ def main():
                 domain_class,
                 rng,
                 args.n_valid,
-                args.test_steps,
+                1,
                 args.test_steps,
                 0,
                 exclude_problemspecs,
@@ -266,7 +264,7 @@ def main():
                 domain_class,
                 rng,
                 args.n_test,
-                args.test_steps,
+                1,
                 args.test_steps,
                 0,
                 exclude_problemspecs,

@@ -236,6 +236,8 @@ def main():
     random.seed(args.seed)
     rng = np.random.default_rng(args.seed)
 
+    print(f"Saving problems to {args.output_path}")
+
     goals_dups = (
         [(0, i) for i in range(args.width + 1)]
         + [(i, 0) for i in range(args.width + 1)]

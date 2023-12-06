@@ -6,6 +6,19 @@ cd $SCRIPT_DIR/../
 python src/domains/puzzle_generator.py \
 --domain cube3 \
 --seed 3541 \
+--output-path  problems/cube3_debug/ \
+--n-problems-per-stage  200 \
+--randomize-curriculum-steps \
+--stages-multiple  5 \
+--num-stages  10 \
+--final-stage \
+--n-valid  100 \
+--n-test  100 \
+--test-steps 100 \
+
+python src/domains/puzzle_generator.py \
+--domain cube3 \
+--seed 3541 \
 --output-path  problems/cube3/ \
 --n-problems-per-stage  100000 \
 --randomize-curriculum-steps \
