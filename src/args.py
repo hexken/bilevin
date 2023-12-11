@@ -7,6 +7,12 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
+        "--weight-astar",
+        type=float,
+        default=1,
+        help="weight to use for weighted A*",
+    )
+    parser.add_argument(
         "--min-solve-ratio-stage",
         type=float,
         default=0,
@@ -131,7 +137,7 @@ def parse_args():
         help="number of convolution kernels",
     )
     parser.add_argument(
-        "--weight_decay",
+        "--weight-decay",
         type=float,
         default=0.001,
         help="add L2 regularization to loss",

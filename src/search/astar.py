@@ -14,6 +14,7 @@ from search.utils import SearchNode
 class AStarBase(Agent):
     def __init__(self, logdir, args, model_args):
         super().__init__(logdir, args, model_args)
+        self.w = args.weight_astar
 
     @property
     def has_policy(self):
@@ -24,7 +25,7 @@ class AStarBase(Agent):
         return True
 
     def make_start_node(
-        self: Agent,
+        self,
         state: State,
         state_t: to.Tensor,
         actions: list[int],
@@ -43,7 +44,7 @@ class AStarBase(Agent):
             log_action_probs=None,
             g=0,
             h=h,
-            f=h,
+            f=self.w * h,
         )
         return start_node
 
@@ -67,7 +68,7 @@ class AStarBase(Agent):
         return new_node
 
     def finalize_children_nodes(
-        self: Agent,
+        self,
         open_list: list[SearchNode],  # pq
         direction: TwoDir,
         children: list[SearchNode],
@@ -84,7 +85,7 @@ class AStarBase(Agent):
 
         for child, hs in zip(children, hs):
             child.h = hs.item()
-            child.f = child.g + child.h
+            child.f = child.g + self.w * child.h
             heappush(open_list, child)
 
 
