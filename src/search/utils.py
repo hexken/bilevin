@@ -50,15 +50,15 @@ def print_model_train_summary(
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
         floss = model_train_df["floss"].mean()
-        facc = model_train_df["facc"].mean()
         print(f"\nFloss: {floss:.3f}")
         if policy_based:
+            facc = model_train_df["facc"].mean()
             print(f"Facc: {facc:.3f}")
         if bidirectioal:
             bloss = model_train_df["bloss"].mean()
-            bacc = model_train_df["bacc"].mean()
             print(f"Bloss: {bloss:.3f}")
             if policy_based:
+                bacc = model_train_df["bacc"].mean()
                 print(f"Bacc: {bacc:.3f}")
 
 

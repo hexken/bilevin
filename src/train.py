@@ -77,6 +77,7 @@ def train(
         faccs = []
         blosses = []
         baccs = []
+        batches = []
 
         stage_start_time = 0
         stage_problems_seen = 0
@@ -99,6 +100,7 @@ def train(
             faccs = chkpt_dict["faccs"]
             blosses = chkpt_dict["blosses"]
             baccs = chkpt_dict["baccs"]
+            batches = chkpt_dict["batches"]
 
             expansion_budget = chkpt_dict["current_exp_budget"]
             best_valid_expanded = chkpt_dict["best_valid_expanded"]
@@ -142,6 +144,7 @@ def train(
             faccs = []
             blosses = []
             baccs = []
+            batches = []
 
             stage_problems_seen = 0
             stage_problems_this_budget = 0
@@ -308,6 +311,7 @@ def train(
                             local_opt_results[3].item() / num_procs_found_solution
                         )
 
+                        batches.append(batches_seen)
                         flosses.append(batch_floss)
                         print(f"floss: {batch_floss:.3f}")
                         if policy_based:
@@ -361,20 +365,13 @@ def train(
                     "len": pd.Series(lens, dtype=pd.UInt32Dtype()),
                     "fexp": pd.Series(fexps, dtype=pd.UInt32Dtype()),
                     "fg": pd.Series(fgs, dtype=pd.UInt32Dtype()),
-                    "stage": pd.Series(
-                        [old_stage for _ in range(stage_problems_seen)],
-                        dtype=pd.UInt8Dtype(),
-                    ),
                 }
             )
             stage_model_train_df = pd.DataFrame(
                 {
                     "floss": pd.Series(flosses, dtype=pd.Float32Dtype()),
-                    "stage": pd.Series(
-                        [old_stage for _ in range(stage_problems_seen)],
-                        dtype=pd.UInt8Dtype(),
-                    ),
-                }
+                },
+                index=pd.Index(batches, name="batch"),
             )
             if policy_based:
                 stage_search_df["fpnll"] = pd.Series(fpnlls, dtype=pd.Float32Dtype())
@@ -465,7 +462,10 @@ def train(
             dist.monitored_barrier()
 
         # Checkpoint
-        if batches_seen % args.checkpoint_every == 0:
+        if (batches_seen % args.checkpoint_every == 0) or (
+            train_loader.goto_next_stage
+            and train_loader.stage == train_loader.n_stages - 1
+        ):
             loader_states = [None] * args.world_size
             dist.gather_object(
                 train_loader.get_state(), loader_states if rank == 0 else None, dst=0
@@ -484,6 +484,7 @@ def train(
                     "bgs": bgs,
                     "fpnlls": fpnlls,
                     "bpnlls": bpnlls,
+                    "batches": batches,
                     "flosses": flosses,
                     "faccs": faccs,
                     "blosses": blosses,
