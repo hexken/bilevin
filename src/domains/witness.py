@@ -637,8 +637,7 @@ def get_merged_trajectory(
     if agent.has_policy:
         partial_pred = -1 * dir1_common.log_prob
     else:
-        # todo agents exclusively have either a policy or heuristic
-        partial_pred = dir1_common.h
+        partial_pred = None
 
     dir1_node = dir1_common
 

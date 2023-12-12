@@ -147,6 +147,7 @@ class Trajectory:
         num_expanded: int,
         partial_g_cost: int,  # g_cost of node that generated sol.
         partial_pred: float,  # probability of node that generates sol.
+        start_pred: Optional[float] = None,
         goal_state_t: Optional[Tensor] = None,
         forward: bool = True,
     ):
@@ -183,16 +184,8 @@ class Trajectory:
         assert domain.is_goal(goal_node.state)
         goal_state_t = goal_state_t.unsqueeze(0) if goal_state_t is not None else None
         action = goal_node.parent_action
+        start_node = goal_node  # will be start after the loop
         node = goal_node.parent
-
-        if partial_g_cost is None:
-            partial_g_cost = goal_node.g
-        if partial_pred is None:
-            if agent.has_policy:
-                partial_pred = goal_node.log_prob
-            else:
-                # todo agents exclusively have either a policy or heuristic
-                partial_pred = goal_node.h
 
         states = []
         actions = []
@@ -204,11 +197,22 @@ class Trajectory:
             actions.append(action)
             masks.append(node.actions_mask)
             action = node.parent_action
+            start_node = node
             node = node.parent
 
         states = to.stack(tuple(reversed(states)))
         actions = to.tensor(tuple(reversed(actions)))
         masks = to.stack(tuple(reversed(masks)))
+
+        if partial_g_cost is None:
+            partial_g_cost = goal_node.g
+
+        if partial_pred is None:
+            if agent.has_policy:
+                partial_pred = goal_node.log_prob
+            else:
+                # todo agents exclusively have either a policy or heuristic
+                partial_pred = start_node.h
 
         return cls(
             states=states,

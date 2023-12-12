@@ -220,7 +220,7 @@ def train(
         if rank == 0:
             if not policy_based:
                 batch_print_df = batch_print_df.drop(
-                    columns=["facc", "fpp", "bacc", "bpp"], errors="ignore"
+                    columns=["facc", "bacc"], errors="ignore"
                 )
             if not bidirectional:
                 batch_print_df = batch_print_df.drop(
