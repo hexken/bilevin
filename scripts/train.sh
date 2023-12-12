@@ -3,15 +3,17 @@
 export OMP_NUM_THREADS=1
 
 python src/main.py \
-    --runsdir-path runs/ \
-    --problems-path problems/pancake4_debug/500-train.pkl \
-    --valid-path problems/pancake4_debug/100-valid.pkl \
+    --runsdir-path runs/stp4_debug \
+    --exp-name "lr1" \
+    --problems-path problems/stp4_debug/500-train.pkl \
+    --valid-path problems/stp4_debug/100-valid.pkl \
     --no-feature-net \
     --seed 1 \
-    --world-size 1 \
+    --world-size 4 \
     --mode train \
-    --agent AStar \
-    --loss-fn mse_loss \
+    --agent BiLevin \
+    --weight-astar 2 \
+    --loss-fn cross_entropy_avg_loss \
     --grad-steps 10 \
     \
     --share-feature-net \
@@ -34,14 +36,14 @@ python src/main.py \
     \
     --batch-begin-validate 1 \
     --validate-every 1000 \
-    --checkpoint-every 10 \
+    --checkpoint-every 30 \
     \
     --time-budget 300 \
-    --train-expansion-budget 2500 \
+    --train-expansion-budget 128000 \
     --max-expansion-budget 2500 \
     --test-expansion-budget 2500 \
     \
-    --min-samples-per-stage 10000 \
+    --min-samples-per-stage 1000 \
     --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0 \
     --increase-budget \

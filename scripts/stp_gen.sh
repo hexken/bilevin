@@ -36,6 +36,20 @@ elif [ "$1" = "4" ]; then
     --n-test 1000 \
     --randomize-test-steps \
     --test-steps  1000
+elif [ "$1" = "4c" ]; then
+    python src/domains/puzzle_generator.py \
+    --domain stp \
+    --output-path  problems/stp4c/ \
+    --seed 658 \
+    --width  4 \
+    --n-problems-per-stage  5000 \
+    --randomize-curriculum-steps \
+    --stages-multiple  100 \
+    --num-stages  10 \
+    --n-valid  1000 \
+    --n-test 1000 \
+    --randomize-test-steps \
+    --test-steps  1000
 elif [ $1 = "5" ]; then
     python src/domains/puzzle_generator.py \
     --domain stp \

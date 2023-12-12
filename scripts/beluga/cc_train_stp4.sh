@@ -4,9 +4,9 @@
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
 #SBATCH --time=12:00:00
-#SBATCH --array=1-4
+#SBATCH --array=1-2
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp4/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp4c/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -26,14 +26,17 @@ args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
 loss=$(echo $args | cut -d' ' -f3)
+lr=$(echo $args | cut -d' ' -f4)
+expname=lr${lr}
 
 
 python src/main.py \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/stp4 \
-    --problems-path problems/stp4/50000-train.pkl \
-    --valid-path problems/stp4/1000-valid.pkl \
+    --runsdir-path runs/stp4c \
+    --exp-name $expname \
+    --problems-path problems/stp4c/50000-train.pkl \
+    --valid-path problems/stp4c/1000-valid.pkl \
     --world-size 40 \
     --mode train \
     --loss-fn $loss \
@@ -45,26 +48,26 @@ python src/main.py \
     \
     --conditional-backward \
     \
-    --forward-feature-net-lr 0.001 \
+    --forward-feature-net-lr $lr \
     --forward-policy-layers 128 \
-    --forward-policy-lr 0.001 \
+    --forward-policy-lr $lr \
     --forward-heuristic-layers 128 \
-    --forward-heuristic-lr 0.001 \
+    --forward-heuristic-lr $lr \
     \
-    --backward-feature-net-lr 0.001 \
+    --backward-feature-net-lr $lr \
     --backward-policy-layers 256 198 128 \
-    --backward-policy-lr 0.001 \
-    --backward-heuristic-layers 256 298 128 \
-    --backward-heuristic-lr 0.001 \
+    --backward-policy-lr $lr \
+    --backward-heuristic-layers 256 198 128 \
+    --backward-heuristic-lr $lr \
     \
     --batch-begin-validate 1 \
     --validate-every 125 \
-    --checkpoint-every 10 \
+    --checkpoint-every 50 \
     \
-    --time-budget 300 \
-    --train-expansion-budget 24000 \
-    --max-expansion-budget 24000 \
-    --test-expansion-budget 24000 \
+    --time-budget 600 \
+    --train-expansion-budget 32000 \
+    --max-expansion-budget 32000 \
+    --test-expansion-budget 32000 \
     \
     --min-samples-per-stage 250000 \
     --min-solve-ratio-stage 0 \
