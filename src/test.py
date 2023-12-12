@@ -144,14 +144,14 @@ def test(
             }
         )
         if agent.has_policy:
-            stage_search_df["fpnll"] = world_results_df["fpnll"].astype(
+            stage_search_df["fpp"] = world_results_df["fpp"].astype(
                 pd.Float32Dtype()
             )
         if bidirectional:
             stage_search_df["bexp"] = world_results_df["bexp"].astype(pd.UInt32Dtype())
             stage_search_df["bg"] = world_results_df["bg"].astype(pd.UInt32Dtype())
             if agent.has_policy:
-                stage_search_df["bpnll"] = world_results_df["bpnll"].astype(
+                stage_search_df["bpp"] = world_results_df["bpp"].astype(
                     pd.Float32Dtype()
                 )
 

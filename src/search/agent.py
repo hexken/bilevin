@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from argparse import Namespace
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import torch as to
 
@@ -66,7 +66,7 @@ class Agent(ABC):
     @abstractmethod
     def finalize_children_nodes(
         self,
-        open_list: list[SearchNode], # PQ
+        open_list: list[SearchNode],  # PQ
         direction: TwoDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],

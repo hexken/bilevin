@@ -70,8 +70,8 @@ def train(
         bexps = []
         fgs = []
         bgs = []
-        fpnlls = []
-        bpnlls = []
+        fpps = []
+        bpps = []
 
         flosses = []
         faccs = []
@@ -93,8 +93,8 @@ def train(
             bexps = chkpt_dict["bexps"]
             fgs = chkpt_dict["fgs"]
             bgs = chkpt_dict["bgs"]
-            fpnlls = chkpt_dict["fpnlls"]
-            bpnlls = chkpt_dict["bpnlls"]
+            fpps = chkpt_dict["fpps"]
+            bpps = chkpt_dict["bpps"]
 
             flosses = chkpt_dict["flosses"]
             faccs = chkpt_dict["faccs"]
@@ -137,8 +137,8 @@ def train(
             bexps = []
             fgs = []
             bgs = []
-            fpnlls = []
-            bpnlls = []
+            fpps = []
+            bpps = []
 
             flosses = []
             faccs = []
@@ -191,10 +191,10 @@ def train(
             solved_flag[0] = 1
             f_traj, b_traj = traj
             local_search_results[6] = f_traj.partial_g_cost
-            local_search_results[8] = -1 * f_traj.partial_log_prob
+            local_search_results[8] = f_traj.partial_pred
             if b_traj:
                 local_search_results[7] = b_traj.partial_g_cost
-                local_search_results[9] = -1 * b_traj.partial_log_prob
+                local_search_results[9] = b_traj.partial_pred
 
         else:
             local_search_results[6:] = np.nan
@@ -220,11 +220,11 @@ def train(
         if rank == 0:
             if not policy_based:
                 batch_print_df = batch_print_df.drop(
-                    columns=["facc", "fpnll", "bacc", "bpnll"], errors="ignore"
+                    columns=["facc", "fpp", "bacc", "bpp"], errors="ignore"
                 )
             if not bidirectional:
                 batch_print_df = batch_print_df.drop(
-                    columns=["bexp", "bg", "bacc", "bpnll"], errors="ignore"
+                    columns=["bexp", "bg", "bacc", "bpp"], errors="ignore"
                 )
             print(
                 tabulate(
@@ -243,8 +243,8 @@ def train(
             bexps.append(batch_results_arr[i, 4])
             fgs.append(batch_results_arr[i, 6])
             bgs.append(batch_results_arr[i, 7])
-            fpnlls.append(batch_results_arr[i, 8])
-            bpnlls.append(batch_results_arr[i, 9])
+            fpps.append(batch_results_arr[i, 8])
+            bpps.append(batch_results_arr[i, 9])
 
         if num_procs_found_solution > 0:
             to.set_grad_enabled(True)
@@ -374,7 +374,7 @@ def train(
                 index=pd.Index(batches, name="batch"),
             )
             if policy_based:
-                stage_search_df["fpnll"] = pd.Series(fpnlls, dtype=pd.Float32Dtype())
+                stage_search_df["fpp"] = pd.Series(fpps, dtype=pd.Float32Dtype())
                 stage_model_train_df["facc"] = pd.Series(faccs, dtype=pd.Float32Dtype())
 
             if bidirectional:
@@ -384,8 +384,8 @@ def train(
                     blosses, dtype=pd.Float32Dtype()
                 )
                 if policy_based:
-                    stage_search_df["bpnll"] = pd.Series(
-                        bpnlls, dtype=pd.Float32Dtype()
+                    stage_search_df["bpp"] = pd.Series(
+                        bpps, dtype=pd.Float32Dtype()
                     )
                     stage_model_train_df["bacc"] = pd.Series(
                         baccs, dtype=pd.Float32Dtype()
@@ -482,8 +482,8 @@ def train(
                     "bexps": bexps,
                     "fgs": fgs,
                     "bgs": bgs,
-                    "fpnlls": fpnlls,
-                    "bpnlls": bpnlls,
+                    "fpps": fpps,
+                    "bpps": bpps,
                     "batches": batches,
                     "flosses": flosses,
                     "faccs": faccs,

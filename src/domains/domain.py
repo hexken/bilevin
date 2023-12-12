@@ -1,11 +1,13 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import torch as to
 from torch import Tensor, full
 
 from search.utils import SearchNode, Trajectory
+if TYPE_CHECKING:
+    from search.agent import Agent
 
 
 class State(ABC):
@@ -50,6 +52,7 @@ class Domain(ABC):
 
     def try_make_solution(
         self,
+        agent: Agent,
         node: SearchNode,
         other_domain: Domain,
         num_expanded: int,
@@ -72,9 +75,10 @@ class Domain(ABC):
                 b_domain = self
 
             f_traj = get_merged_trajectory(
-                f_domain, f_common_node, b_common_node, num_expanded
+                agent, f_domain, f_common_node, b_common_node, num_expanded
             )
             b_traj = get_merged_trajectory(
+                agent,
                 b_domain,
                 b_common_node,
                 f_common_node,
@@ -137,6 +141,7 @@ class Domain(ABC):
 
 
 def get_merged_trajectory(
+    agent: Agent,
     dir1_domain: Domain,
     dir1_common: SearchNode,
     dir2_common: SearchNode,
@@ -148,6 +153,12 @@ def get_merged_trajectory(
     Returns a new trajectory going from dir1_start to dir2_start, passing through
     merge(dir1_common, dir2_common).
     """
+    if agent.has_policy:
+        partial_pred = -1 * dir1_common.log_prob
+    else:
+        # todo agents exclusively have either a policy or heuristic
+        partial_pred = dir1_common.h
+
     dir1_node = dir1_common
 
     dir2_parent_node = dir2_common.parent
@@ -170,11 +181,12 @@ def get_merged_trajectory(
         dir2_parent_node = dir2_parent_node.parent
 
     return Trajectory.from_goal_node(
+        agent,
         domain=dir1_domain,
         goal_node=dir1_node,
         num_expanded=num_expanded,
         partial_g_cost=dir1_common.g,
-        partial_log_prob=dir1_common.log_prob,
+        partial_pred=partial_pred,
         goal_state_t=goal_state_t,
         forward=forward,
     )

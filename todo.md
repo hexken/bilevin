@@ -8,3 +8,4 @@
   the analysis, though maybe we can do analysis using the generated also?
 - should we compute probability of the start/goal nodes? instead of considering them 1?
 - expand might be causing issues
+- ensure h is set!

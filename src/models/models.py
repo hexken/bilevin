@@ -90,6 +90,7 @@ class AgentModel(nn.Module):
         else:
             # no feature net
             self.num_features = aux_args["num_features"]
+
         # create policy/herusitic nets
         if self.has_policy:
             self.forward_policy: nn.Module = StatePolicy(
@@ -229,14 +230,6 @@ class AgentModel(nn.Module):
             h = h.clip(min=0)
 
         return log_probs, logits, h
-
-    def get_feats(self, state_t: to.Tensor, forward: bool = True):
-        if forward:
-            feats = self.forward_feature_net(state_t)
-        else:
-            feats = self.backward_feature_net(state_t)
-
-        return feats
 
 
 class StateHeuristic(nn.Module):

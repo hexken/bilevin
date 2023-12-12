@@ -11,6 +11,7 @@ from torch import Tensor
 
 
 if TYPE_CHECKING:
+    from search.agent import Agent
     from domains.domain import Domain, State
 
 
@@ -35,8 +36,8 @@ search_result_header = [
     "len",
     "fg",
     "bg",
-    "fpnll",
-    "bpnll",
+    "fpp",
+    "bpp",
 ]
 
 int_columns = ["exp", "fexp", "bexp"]
@@ -88,8 +89,8 @@ def print_search_summary(
             print(f"\nFB Exp: {fb_exp:.3f}")
             print(f"FB Len: {fb_lens:.3f}")
             if policy_based:
-                fb_pnll = (solved_df["fpnll"] / solved_df["bpnll"]).mean()
-                print(f"FB Pnll: {fb_pnll:.3f}")
+                fb_pp = (solved_df["fpp"] / solved_df["bpp"]).mean()
+                print(f"FB PP: {fb_pp:.3f}")
 
 
 class SearchNode:
@@ -145,7 +146,7 @@ class Trajectory:
         masks: Tensor,
         num_expanded: int,
         partial_g_cost: int,  # g_cost of node that generated sol.
-        partial_log_prob: float,  # probability of node that generates sol.
+        partial_pred: float,  # probability of node that generates sol.
         goal_state_t: Optional[Tensor] = None,
         forward: bool = True,
     ):
@@ -153,7 +154,7 @@ class Trajectory:
         self.actions = actions
         self.num_expanded = num_expanded
         self.partial_g_cost = partial_g_cost
-        self.partial_log_prob = partial_log_prob
+        self.partial_pred = partial_pred
         self.masks = masks
         self.goal_state_t = goal_state_t
         self.forward = forward
@@ -164,11 +165,12 @@ class Trajectory:
     @classmethod
     def from_goal_node(
         cls,
+        agent: Agent,
         domain: Domain,
         goal_node: SearchNode,
         num_expanded: int,
         partial_g_cost: Optional[int] = None,
-        partial_log_prob: Optional[float] = None,
+        partial_pred: Optional[float] = None,
         goal_state_t: Optional[Tensor] = None,
         forward: bool = True,
     ) -> Trajectory:
@@ -185,8 +187,12 @@ class Trajectory:
 
         if partial_g_cost is None:
             partial_g_cost = goal_node.g
-        if partial_log_prob is None:
-            partial_log_prob = goal_node.log_prob
+        if partial_pred is None:
+            if agent.has_policy:
+                partial_pred = goal_node.log_prob
+            else:
+                # todo agents exclusively have either a policy or heuristic
+                partial_pred = goal_node.h
 
         states = []
         actions = []
@@ -210,7 +216,7 @@ class Trajectory:
             masks=masks,
             num_expanded=num_expanded,
             partial_g_cost=partial_g_cost,
-            partial_log_prob=partial_log_prob,
+            partial_pred=partial_pred,
             goal_state_t=goal_state_t,
             forward=forward,
         )

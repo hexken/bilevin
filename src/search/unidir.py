@@ -68,6 +68,7 @@ class UniDir(Agent):
                 if new_node not in closed:
                     if domain.is_goal(new_state):
                         traj = Trajectory.from_goal_node(
+                            self,
                             domain=domain,
                             goal_node=new_node,
                             num_expanded=num_expanded,

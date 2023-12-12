@@ -83,8 +83,8 @@ class AStarBase(Agent):
             goal_feats=goal_feats,
         )
 
-        for child, hs in zip(children, hs):
-            child.h = hs.item()
+        for child, h in zip(children, hs):
+            child.h = h.item()
             child.f = child.g + self.w * child.h
             heappush(open_list, child)
 

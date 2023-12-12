@@ -106,6 +106,7 @@ class BiDir(Agent):
 
                 if new_node not in _closed:
                     trajs = _domain.try_make_solution(
+                        self,
                         new_node,
                         other_domain,
                         n_total_expanded,

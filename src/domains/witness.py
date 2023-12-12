@@ -10,6 +10,7 @@ import torch as to
 from domains.domain import Domain, State
 from enums import Color, FourDir
 from models.models import AgentModel
+from search.agent import Agent
 from search.utils import SearchNode, Trajectory
 
 
@@ -552,6 +553,7 @@ class Witness(Domain):
 
     def try_make_solution(
         self,
+        agent: Agent,
         node: SearchNode,
         other_domain: Witness,
         num_expanded: int,
@@ -599,12 +601,14 @@ class Witness(Domain):
                     b_domain = self
 
                 f_traj = get_merged_trajectory(
+                    agent,
                     f_domain,
                     f_common_node,
                     b_common_node,
                     num_expanded,
                 )
                 b_traj = get_merged_trajectory(
+                    agent,
                     b_domain,
                     b_common_node,
                     f_common_node,
@@ -617,6 +621,7 @@ class Witness(Domain):
 
 
 def get_merged_trajectory(
+    agent: Agent,
     dir1_domain: Domain,
     dir1_common: SearchNode,
     dir2_common: SearchNode,
@@ -629,6 +634,12 @@ def get_merged_trajectory(
     merge(dir1_common, dir2_common).
     NOTE only differs from Domain.get_merged_trajectory in how we construct the new state
     """
+    if agent.has_policy:
+        partial_pred = -1 * dir1_common.log_prob
+    else:
+        # todo agents exclusively have either a policy or heuristic
+        partial_pred = dir1_common.h
+
     dir1_node = dir1_common
 
     dir2_parent_node = dir2_common.parent
@@ -652,11 +663,12 @@ def get_merged_trajectory(
         dir2_parent_node = dir2_parent_node.parent
 
     return Trajectory.from_goal_node(
+        agent,
         domain=dir1_domain,
         goal_node=dir1_node,
         num_expanded=num_expanded,
         partial_g_cost=dir1_common.g,
-        partial_log_prob=dir1_common.log_prob,
+        partial_pred=partial_pred,
         goal_state_t=goal_state_t,
         forward=forward,
     )
