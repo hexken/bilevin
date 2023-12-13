@@ -473,6 +473,7 @@ def train(
 
             if rank == 0:
                 chkpt_dict = {
+                    "stage": train_loader.stage,
                     "model_state": model.state_dict(),
                     "optimizer_state": optimizer.state_dict(),
                     "ids": ids,

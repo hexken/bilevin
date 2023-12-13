@@ -6,7 +6,8 @@ todo.txt
 __pycache__/
 *.py[cod]
 .idea
+*.jpg
+*.pdf
 problems
-plots
 runs
 wandb
