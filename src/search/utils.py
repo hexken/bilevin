@@ -209,7 +209,7 @@ class Trajectory:
 
         if partial_pred is None:
             if agent.has_policy:
-                partial_pred = goal_node.log_prob
+                partial_pred = -1 * goal_node.log_prob
             else:
                 # todo agents exclusively have either a policy or heuristic
                 partial_pred = start_node.h

@@ -82,10 +82,10 @@ def test(
                 f_traj, b_traj = traj
                 local_solved_problems[i] = True
                 local_search_results[i, 6] = f_traj.partial_g_cost
-                local_search_results[i, 8] = -1 * f_traj.partial_log_prob
+                local_search_results[i, 8] = f_traj.partial_pred
                 if b_traj:
                     local_search_results[i, 7] = b_traj.partial_g_cost
-                    local_search_results[i, 9] = -1 * b_traj.partial_log_prob
+                    local_search_results[i, 9] = b_traj.partial_pred
 
         dist.monitored_barrier()
 
