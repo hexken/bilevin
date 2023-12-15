@@ -1,8 +1,10 @@
 import itertools
 from pathlib import Path
 import re
+import warnings
 
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from natsort import natsorted
 import numpy as np
 import pickle as pkl
@@ -21,20 +23,22 @@ def plot_single(y, x_label, y_label, title, aggr_size=1, y_min=None, y_max=None)
         ax.set_ylim(y_min, y_max)
 
 
-def plot_single_ax(ax, y, aggr_size=40):
+def plot_single_ax(ax, y: pd.Series, aggr_size=1, start=1, color=None):
     """Plot a single line on an existing axis, aggregating over aggr_size and ignoring nans."""
-    y = np.array(pd.to_numeric(y, errors="coerce"))
+    aggr_y = y.astype(np.float64)
     if aggr_size != 1:
-        max_aggr_idx = (len(y) // aggr_size) * aggr_size
-        y = y[:max_aggr_idx]
-        y = np.array(y).reshape(-1, aggr_size)
-        y = np.nanmean(y, axis=1)
+        max_aggr_idx = (len(aggr_y) // aggr_size) * aggr_size
+        aggr_y = aggr_y[:max_aggr_idx]
+        aggr_y = np.array(aggr_y).reshape(-1, aggr_size)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            aggr_y = np.nanmean(aggr_y, axis=1)
+    x = np.arange(start, start + len(aggr_y))
+    mask = np.isfinite(aggr_y)
+    if color is not None:
+        ax.plot(x[mask], aggr_y[mask], color=color)
     else:
-        y = np.nanmean(y, axis=1)
-    x = np.arange(1, len(y) + 1)
-    print(y)
-    mask = np.isfinite(y)
-    ax.plot(x[mask], y[mask])
+        ax.plot(x[mask], aggr_y[mask])
 
 
 def plot_valid_single(
@@ -68,13 +72,19 @@ def astar_group_key(pth):
 def plot_runs_separate_seed(run_name, run_paths, batch_size=40):
     # model plots
     if "Bi" in run_name:
-        model_fig, model_ax = plt.subplots(2, 2, sharex=True)
+        model_fig, model_ax = plt.subplots(
+            2,
+            2,
+        )
         model_ax[0, 1].set_title("Backward")
         model_ax[0, 0].set_title("Forward")
         model_ax[0, 0].set_ylabel("Loss", rotation=0, labelpad=30, size=12)
         model_ax[1, 0].set_ylabel("Accuracy", rotation=0, labelpad=50, size=12)
     else:
-        model_fig, model_ax = plt.subplots(2, 1, sharex=True)
+        model_fig, model_ax = plt.subplots(
+            2,
+            1,
+        )
         model_ax[0].set_title("Forward")
         model_ax[0].set_ylabel("Loss", rotation=0, labelpad=30, size=12)
         model_ax[1].set_ylabel("Accuracy", rotation=0, labelpad=50, size=12)
@@ -84,16 +94,21 @@ def plot_runs_separate_seed(run_name, run_paths, batch_size=40):
 
     # search plots
     if "Bi" in run_name:
-        search_fig, search_ax = plt.subplots(5, 1, sharex=True)
+        search_fig, search_ax = plt.subplots(6, 1)
         search_ax[4].set_ylabel("F/B Exp", rotation=0, labelpad=30, size=12)
+        search_ax[5].set_ylabel("F/B Len", rotation=0, labelpad=30, size=12)
     else:
-        search_fig, search_ax = plt.subplots(4, 1, sharex=True)
+        search_fig, search_ax = plt.subplots(4, 1)
     search_ax[0].set_ylabel("Solve", rotation=0, labelpad=30, size=12)
     search_ax[1].set_ylabel("Len", rotation=0, labelpad=30, size=12)
     if "Levin" in run_name:
-        search_ax[2].set_ylabel("Sol. prob.", rotation=0, labelpad=30, size=12)
+        search_ax[2].set_ylabel(
+            "Solution\nprobability.", rotation=0, labelpad=40, size=12
+        )
     else:
-        search_ax[2].set_ylabel("Start heur.", rotation=0, labelpad=30, size=12)
+        search_ax[2].set_ylabel(
+            "Avg. start node\nheuristic error (l1)", rotation=0, labelpad=30, size=12
+        )
     search_ax[3].set_ylabel("Exp", rotation=0, labelpad=30, size=12)
     search_fig.suptitle("Search " + run_name)
     search_fig.supxlabel("Batch")
@@ -101,10 +116,12 @@ def plot_runs_separate_seed(run_name, run_paths, batch_size=40):
 
     # valid plots
     if "Bi" in run_name:
-        valid_fig, valid_ax = plt.subplots(4, 1, sharex=True)
+        valid_fig, valid_ax = plt.subplots(5, 1)
         valid_ax[3].set_ylabel("F/B Exp", rotation=0, labelpad=30, size=12)
+        valid_ax[4].set_ylabel("F/B Len", rotation=0, labelpad=30, size=12)
     else:
-        valid_fig, valid_ax = plt.subplots(3, 1, sharex=True)
+        valid_fig, valid_ax = plt.subplots(3, 1)
+
     valid_ax[0].set_ylabel("Solve", rotation=0, labelpad=30, size=12)
     valid_ax[1].set_ylabel("Len", rotation=0, labelpad=30, size=12)
     valid_ax[2].set_ylabel("Exp", rotation=0, labelpad=30, size=12)
@@ -112,7 +129,9 @@ def plot_runs_separate_seed(run_name, run_paths, batch_size=40):
     valid_fig.supxlabel("Batch")
     valid_fig.tight_layout()
 
-    for pth in run_paths:
+    colors = ["b", "c"]
+    for i, pth in enumerate(run_paths):
+        color = colors[i]
         search_trains = [
             pkl.load(p.open("rb"))
             for p in natsorted(list(pth.glob("search_train*.pkl")))
@@ -129,13 +148,56 @@ def plot_runs_separate_seed(run_name, run_paths, batch_size=40):
         # model plots
         for model_train in model_trains:
             if "Bi" in run_name:
-                plot_single_ax(model_ax[0, 0], model_train["floss"])
-                plot_single_ax(model_ax[1, 0], model_train["facc"])
-                plot_single_ax(model_ax[0, 1], model_train["bloss"])
-                plot_single_ax(model_ax[1, 1], model_train["bacc"])
+                plot_single_ax(model_ax[0, 0], model_train["floss"], color=color)
+                plot_single_ax(model_ax[1, 0], model_train["facc"], color=color)
+                plot_single_ax(model_ax[0, 1], model_train["bloss"], color=color)
+                plot_single_ax(model_ax[1, 1], model_train["bacc"], color=color)
             else:
-                plot_single_ax(model_ax[0], model_train["floss"])
-                plot_single_ax(model_ax[1], model_train["facc"])
+                plot_single_ax(model_ax[0], model_train["floss"], color=color)
+                plot_single_ax(model_ax[1], model_train["facc"], color=color)
+
+        # search plots
+        for i, search_train in enumerate(search_trains):
+            solved = search_train["len"].fillna(0)
+            solved[solved > 0] = 1
+            assert len(solved) % batch_size == 0
+            if i == 0:
+                start = 1
+            else:
+                start = i * (len(search_trains[i - 1]) // batch_size) + 1
+            plot_single_ax(
+                search_ax[0], solved, aggr_size=batch_size, start=start, color=color
+            )
+            plot_single_ax(
+                search_ax[1],
+                search_train["len"],
+                aggr_size=batch_size,
+                start=start,
+                color=color,
+            )
+            preds = search_train["fpp"]
+
+
+            if "Bi" in run_name:
+                exps = search_train["fexp"] + search_train["bexp"]
+            else:
+                exps = search_train["fexp"]
+            plot_single_ax(
+                search_ax[3],
+                exps,
+                aggr_size=batch_size,
+                start=start,
+                color=color,
+            )
+            plot_single_ax(
+                search_ax[3],
+                search_train["fexp"],
+                aggr_size=batch_size,
+                start=start,
+                color=color,
+            )
+            # if "Bi" in run_name:
+            #     plot_single_ax(search_ax[4], search_train["fbexp"], aggr_size=batch_size)
     plt.show()
 
 
