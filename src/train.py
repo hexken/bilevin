@@ -365,30 +365,32 @@ def train(
                     "len": pd.Series(lens, dtype=pd.UInt32Dtype()),
                     "fexp": pd.Series(fexps, dtype=pd.UInt32Dtype()),
                     "fg": pd.Series(fgs, dtype=pd.UInt32Dtype()),
+                    "fpp": pd.Series(fpps, dtype=pd.Float32Dtype()),
                 }
             )
             stage_model_train_df = pd.DataFrame(
                 {
-                    "floss": pd.Series(flosses, dtype=pd.Float32Dtype()),
+                    "floss": pd.Series(flosses, dtype=pd.Float32Dtype(), index=batches),
                 },
-                index=pd.Index(batches, name="batch"),
             )
+
             if policy_based:
-                stage_search_df["fpp"] = pd.Series(fpps, dtype=pd.Float32Dtype())
-                stage_model_train_df["facc"] = pd.Series(faccs, dtype=pd.Float32Dtype())
+                stage_model_train_df["facc"] = pd.Series(
+                    faccs, dtype=pd.Float32Dtype(), index=batches
+                )
 
             if bidirectional:
                 stage_search_df["bexp"] = pd.Series(bexps, dtype=pd.UInt32Dtype())
                 stage_search_df["bg"] = pd.Series(bgs, dtype=pd.UInt32Dtype())
+                stage_search_df["bpp"] = pd.Series(bpps, dtype=pd.Float32Dtype())
+
                 stage_model_train_df["bloss"] = pd.Series(
-                    blosses, dtype=pd.Float32Dtype()
+                    blosses, dtype=pd.Float32Dtype(), index=batches
                 )
                 if policy_based:
-                    stage_search_df["bpp"] = pd.Series(bpps, dtype=pd.Float32Dtype())
                     stage_model_train_df["bacc"] = pd.Series(
-                        baccs, dtype=pd.Float32Dtype()
+                        baccs, dtype=pd.Float32Dtype(), index=batches
                     )
-
             print(
                 "----------------------------------------------------------------------------"
             )

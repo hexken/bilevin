@@ -147,7 +147,6 @@ class Trajectory:
         num_expanded: int,
         partial_g_cost: int,  # g_cost of node that generated sol.
         partial_pred: float,  # probability of node that generates sol.
-        start_pred: Optional[float] = None,
         goal_state_t: Optional[Tensor] = None,
         forward: bool = True,
     ):
