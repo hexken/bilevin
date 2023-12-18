@@ -384,9 +384,7 @@ def train(
                     blosses, dtype=pd.Float32Dtype()
                 )
                 if policy_based:
-                    stage_search_df["bpp"] = pd.Series(
-                        bpps, dtype=pd.Float32Dtype()
-                    )
+                    stage_search_df["bpp"] = pd.Series(bpps, dtype=pd.Float32Dtype())
                     stage_model_train_df["bacc"] = pd.Series(
                         baccs, dtype=pd.Float32Dtype()
                     )
@@ -473,7 +471,7 @@ def train(
 
             if rank == 0:
                 chkpt_dict = {
-                    "stage": train_loader.stage,
+                    "stage": old_stage,
                     "model_state": model.state_dict(),
                     "optimizer_state": optimizer.state_dict(),
                     "ids": ids,
