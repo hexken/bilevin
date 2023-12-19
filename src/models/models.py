@@ -226,9 +226,6 @@ class AgentModel(nn.Module):
                 logits = logits.masked_fill(mask, -1e9)
             log_probs = log_softmax(logits, dim=-1)
 
-        if h is not None:
-            h = h.clip(min=0)
-
         return log_probs, logits, h
 
 
