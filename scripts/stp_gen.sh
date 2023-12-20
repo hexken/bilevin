@@ -78,4 +78,18 @@ elif [ $1 = "5" ]; then
     --n-test 1000 \
     --randomize-test-steps \
     --test-steps  1000
+elif [ $1 = "5c" ]; then
+    python src/domains/puzzle_generator.py \
+    --domain stp \
+    --output-path  problems/stp5c/ \
+    --seed 3238 \
+    --width  5 \
+    --n-problems-per-stage  5000 \
+    --randomize-curriculum-steps \
+    --stages-multiple  100 \
+    --num-stages  10 \
+    --n-valid  1000 \
+    --n-test 1000 \
+    --randomize-test-steps \
+    --test-steps  1000
 fi
