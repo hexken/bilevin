@@ -1,27 +1,17 @@
 import itertools
 from pathlib import Path
+import pickle as pkl
 import re
+import subprocess
+from typing import Optional
 import warnings
 
-import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 from natsort import natsorted
 import numpy as np
-from typing import Optional
-import pickle as pkl
 import pandas as pd
-
-
-def plot_single(y, x_label, y_label, title, aggr_size=1, y_min=None, y_max=None):
-    fig, ax = plt.subplot()
-    if aggr_size != 1:
-        max_aggr_idx = (len(y) // aggr_size) * aggr_size
-        y = y[:max_aggr_idx]
-        y = np.mean(np.array(y).reshape(-1, aggr_size), axis=1)
-    x = np.arange(1, len(y) + 1)
-    ax.plot(x, y)
-    if y_min and y_max:
-        ax.set_ylim(y_min, y_max)
 
 
 def plot_single_ax(
@@ -36,7 +26,10 @@ def plot_single_ax(
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
             aggr_y = np.nanmean(aggr_y, axis=1)
-    x = np.arange(start, start + len(aggr_y))
+    if xs is None:
+        x = np.arange(start, start + len(aggr_y))
+    else:
+        x = xs
     mask = np.isfinite(aggr_y)
     if color is not None:
         ax.plot(x[mask], aggr_y[mask], color=color)
@@ -44,23 +37,10 @@ def plot_single_ax(
         ax.plot(x[mask], aggr_y[mask])
 
 
-def plot_valid_single(
-    datadir, key1, key2, x_label, y_label, title, y_min=None, y_max=None
-):
-    all_pds = natsorted(datadir.glob("search_valid_b*.pkl"))
-    if key2 is None:
-        means = [pkl.load(pd.open("rb"))[key1].mean() for pd in all_pds]
-    else:
-        means = []
-        for pd in all_pds:
-            pd = pkl.load(pd.open("rb"))
-            means.append((pd[key1] + pd[key2]).mean())
-    plot_single(means, x_label, y_label, title, 1, y_min, y_max)
-
-
 def levin_group_key(pth):
     s = str(pth)
     r = re.search(".*_((Bi)?Levin).*(lr0.\d+)", s)
+    # r = re.search(".*_((Bi)?Levin).*", s)
     if r:
         return " ".join(r.group(1, 3))
 
@@ -68,11 +48,12 @@ def levin_group_key(pth):
 def astar_group_key(pth):
     s = str(pth)
     r = re.search(".*_((Bi)?AStar).*(lr0.\d+).*(w\d\.?\d?)", s)
+    # r = re.search(".*_((Bi)?AStar).*", s)
     if r:
         return " ".join(r.group(1, 3, 4))
 
 
-def plot_runs_separate_seed(run_name, run_paths, batch_size=40):
+def plot_same_axes(run_name, run_paths, batch_size=40):
     # model plots
     model_fig, model_ax = plt.subplots(2, 2)
     model_ax[0, 1].set_title("Backward")
@@ -140,12 +121,17 @@ def plot_runs_separate_seed(run_name, run_paths, batch_size=40):
 
         # fill model plots
         for i, model_train in enumerate(model_trains):
-            print(model_train)
-            xs = model_train.index.to_series()
+            xs = model_train.index.values
+            # print(xs)
             plot_single_ax(model_ax[0, 0], model_train["floss"], xs=xs, color=color)
-            plot_single_ax(model_ax[1, 0], model_train["facc"], xs=xs, color=color)
-            plot_single_ax(model_ax[0, 1], model_train["bloss"], xs=xs, color=color)
-            plot_single_ax(model_ax[1, 1], model_train["bacc"], xs=xs, color=color)
+            if "Levin" in run_name:
+                plot_single_ax(model_ax[1, 0], model_train["facc"], xs=xs, color=color)
+            if "Bi" in run_name:
+                plot_single_ax(model_ax[0, 1], model_train["bloss"], xs=xs, color=color)
+                if "Levin" in run_name:
+                    plot_single_ax(
+                        model_ax[1, 1], model_train["bacc"], xs=xs, color=color
+                    )
 
         # fill search plots
         for i, search_train in enumerate(search_trains):
@@ -275,30 +261,79 @@ def plot_runs_separate_seed(run_name, run_paths, batch_size=40):
             # plot F/B len
             plot_single_ax(valid_ax[1, 1], pd.Series(valid_fb_lens), color=color)
 
-    plt.show()
+    return model_fig, search_fig, valid_fig
 
 
-def plot_all_runs(path, sort_key_func):
+def group_and_plot(path, group_key_func, batch_size=40):
     runpaths = list(path.glob("*"))
+    print(runpaths)
     runnames = []
     rundata = []
-    runs = sorted(runpaths, key=sort_key_func)
-    for k, g in itertools.groupby(runs, sort_key_func):
+    runs = sorted(runpaths, key=group_key_func)
+    for k, g in itertools.groupby(runs, group_key_func):
         runnames.append(k)
         rundata.append(list(g))
 
-    for run_name, run_paths in zip(runnames[1:2], rundata[1:2]):
-        plot_runs_separate_seed(run_name, run_paths)
+    figs = []
+    for run_name, run_paths in zip(runnames, rundata):
+        model_fig, search_fig, valid_fig = plot_same_axes(
+            run_name, run_paths, batch_size
+        )
+        figs.append((run_name, model_fig, search_fig, valid_fig))
+
+    return figs
+
+
+class PdfTemplate:
+    def __init__(self, figs, filename, toc=True):
+        self.figs = figs
+        self.toc = toc
+        self.filename = filename
+        self.text = []
+
+    def render(self):
+        self._pagebreak()
+        for fig in self.figs:
+            self._h1(fig.split(".")[0])
+            self._img(os.path.join("fig", fig))
+            self._pagebreak()
+        self.text = "\n\n".join(self.text)
+
+    def export(self):
+        md_file = f"{self.filename}.md"
+        pdf_file = f"{self.filename}.pdf"
+        pandoc = ["pandoc", f"{md_file}", f"-o {pdf_file}"]
+        with open(md_file, "w") as f:
+            f.write(self.text)
+        if self.toc:
+            pandoc.append("--toc")
+        os.system(" ".join(pandoc))
+
+    def _pagebreak(self):
+        self.text.append("\pagebreak")
+
+    def _h1(self, text):
+        self.text.append(f"# {text}")
+
+    def _img(self, img):
+        self.text.append(f"![]({img})")
 
 
 def main():
-    levin_runs = Path("../sweep_runs/stp4c_levin")
-    astar_runs = Path("../sweep_runs/stp4c_astar")
-    astar_noclip_runs = Path("../sweep_runs/stp4c_astar_noclip")
+    levin_runs = Path("../stp4c_sweep/stp4c_levin")
+    astar_runs = Path("../stp4c_sweep/stp4c_astar")
+    # astar_noclip_runs = Path("../sweep_runs/stp4c_astar_noclip")
 
-    plot_all_runs(levin_runs, levin_group_key)
-    # plot_all_runs(astar_runs, astar_group_key)
-    # plot_all_runs(astar_noclip_runs, astar_group_key)
+    levin_figs = group_and_plot(levin_runs, levin_group_key, batch_size=40)
+    astar_figs = group_and_plot(astar_runs, astar_group_key, batch_size=40)
+    figs = levin_figs + astar_figs
+
+    fig_dir = Path("fig").mkdir(exist_ok=True)
+    figs = natsorted(figs, key=lambda x: x[0])
+    for run_name, (model_fig, search_fig, valid_fig) in figs:
+        model_fig.savefig(f"fig/{run_name.replace(' ', '_')}_model.png")
+        search_fig.savefig(f"fig/{run_name.replace(' ', '_')}_search.png")
+        valid_fig.savefig(f"fig/{run_name.replace(' ', '_')}_valid.png")
 
 
 if __name__ == "__main__":
