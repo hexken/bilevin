@@ -1,4 +1,4 @@
-from math import floor
+from math import ceil
 from typing import TYPE_CHECKING
 
 import torch as to
@@ -24,7 +24,7 @@ def mse_loss(traj: Trajectory, model: "AgentModel"):
     return loss, 0.0, 0.0
 
 
-def cross_entropy_avg_loss(traj: Trajectory, model: "AgentModel"):
+def cross_entropy_loss(traj: Trajectory, model: "AgentModel"):
     n_actions = len(traj)
     log_probs, _, _ = model(
         traj.states,
@@ -40,43 +40,21 @@ def cross_entropy_avg_loss(traj: Trajectory, model: "AgentModel"):
     return loss, avg_action_nll, acc
 
 
-def cross_entropy_sum_loss(traj: Trajectory, model: "AgentModel"):
-    n_actions = len(traj)
-    log_probs, _, _ = model(
-        traj.states,
-        forward=traj.forward,
-        goal_state_t=traj.goal_state_t,
-        mask=traj.masks,
-    )
-    loss = nll_loss(log_probs, traj.actions, reduction="sum")
-
-    avg_action_nll = loss.item() / n_actions
-    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
-
-    return loss, avg_action_nll, acc
-
-
-# todo
 def cross_entropy_mid_loss(traj: Trajectory, model: "AgentModel"):
-    n_actions = len(traj)
-    print(traj.states.shape)
-    mp = floor(n_actions / 2)
-    goal_state_t = traj.states[mp]
-    states = traj.states[:mp]
-    print(states.shape)
-    actions = traj.actions[:mp]
-    masks = traj.masks[:mp]
-
-    log_probs, _ = model(
+    mid_idx = ceil(len(traj) / 2)
+    mask = traj.masks[:mid_idx]
+    actions = traj.actions[:mid_idx]
+    states = traj.states[:mid_idx]
+    log_probs, _, _ = model(
         states,
         forward=traj.forward,
-        goal_state_t=goal_state_t,
-        mask=masks,
+        goal_state_t=traj.goal_state_t,
+        mask=mask,
     )
-    loss = nll_loss(log_probs, actions, reduction="sum")
+    loss = nll_loss(log_probs, actions, reduction="mean")
 
-    avg_action_nll = loss.item() / n_actions
-    acc = (log_probs.detach().argmax(dim=1) == actions).sum().item() / n_actions
+    avg_action_nll = loss.item()
+    acc = (log_probs.detach().argmax(dim=1) == actions).sum().item() / mid_idx
 
     return loss, avg_action_nll, acc
 
