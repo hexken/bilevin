@@ -3,10 +3,10 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=12:00:00
-#SBATCH --array=1-4
+#SBATCH --time=3:00:00
+#SBATCH --array=1-16
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/wit_col4/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/col4_levin/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -21,17 +21,20 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/beluga/algs_seeds_losses.txt
+argfile=/scratch/tjhia/bilevin/scripts/beluga/levin_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
 loss=$(echo $args | cut -d' ' -f3)
+lr=$(echo $args | cut -d' ' -f4)
+expname=lr${lr}
 
 
 python src/main.py \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/wit_col4 \
+    --runsdir-path runs/col4_levin \
+    --exp-name $expname \
     --problems-path problems/wit_col4/50000-train.pkl \
     --valid-path problems/wit_col4/1000-valid.pkl \
     --world-size 40 \
@@ -45,30 +48,30 @@ python src/main.py \
     \
     --conditional-backward \
     \
-    --forward-feature-net-lr 0.001 \
+    --forward-feature-net-lr $lr \
     --forward-policy-layers 128 \
-    --forward-policy-lr 0.001 \
+    --forward-policy-lr $lr \
     --forward-heuristic-layers 128 \
-    --forward-heuristic-lr 0.001 \
+    --forward-heuristic-lr $lr \
     \
-    --backward-feature-net-lr 0.001 \
+    --backward-feature-net-lr $lr \
     --backward-policy-layers 256 198 128 \
-    --backward-policy-lr 0.001 \
-    --backward-heuristic-layers 256 298 128 \
-    --backward-heuristic-lr 0.001 \
+    --backward-policy-lr $lr \
+    --backward-heuristic-layers 256 198 128 \
+    --backward-heuristic-lr $lr \
     \
     --batch-begin-validate 1 \
     --validate-every 125 \
-    --checkpoint-every 10 \
+    --checkpoint-every 50 \
     \
     --time-budget 5 \
     --train-expansion-budget 200000 \
     --max-expansion-budget 200000 \
     --test-expansion-budget 200000 \
     \
-    --min-samples-per-stage 250000 \
+    --min-samples-per-stage 50000 \
     --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0 \
     \
-    --n-tail 1000 \
+    --n-tail 0 \
     \

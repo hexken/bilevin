@@ -1,3 +1,0 @@
-BiLevin 2000 300 runs/sok_rand/Sokoban-april-train_BiLevin-e2000-t300_313_1686116034 april-train_BiLevin-e2000-t300_313_1686116034
-BiLevin 2000 300 runs/sok_rand/Sokoban-april-train_BiLevin-e2000-t300_rand_313_1686115681 april-train_BiLevin-e2000-t300_rand_313_1686115681
-Levin 2000 300 runs/sok_rand/Sokoban-april-train_Levin-e2000-t300_313_1686116404 april-train_Levin-e2000-t300_313_1686116404

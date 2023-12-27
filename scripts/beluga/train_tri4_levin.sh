@@ -3,10 +3,10 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=12:00:00
-#SBATCH --array=1-64
+#SBATCH --time=3:00:00
+#SBATCH --array=1-16
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp4c_astar/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/tri4_levin/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -21,24 +21,22 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/beluga/astar_args.txt
+argfile=/scratch/tjhia/bilevin/scripts/beluga/levin_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
 loss=$(echo $args | cut -d' ' -f3)
 lr=$(echo $args | cut -d' ' -f4)
-weight_astar=$(echo $args | cut -d' ' -f5)
-expname=lr${lr}_w${weight_astar}
+expname=lr${lr}
 
 
 python src/main.py \
-    --weight-astar $weight_astar \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/stp4c_astar \
+    --runsdir-path runs/tri4_levin \
     --exp-name $expname \
-    --problems-path problems/stp4c/50000-train.pkl \
-    --valid-path problems/stp4c/1000-valid.pkl \
+    --problems-path problems/wit_tri4/50000-train.pkl \
+    --valid-path problems/wit_tri4/1000-valid.pkl \
     --world-size 40 \
     --mode train \
     --loss-fn $loss \
@@ -66,14 +64,14 @@ python src/main.py \
     --validate-every 125 \
     --checkpoint-every 50 \
     \
-    --time-budget 600 \
-    --train-expansion-budget 32000 \
-    --max-expansion-budget 32000 \
-    --test-expansion-budget 32000 \
+    --time-budget 5 \
+    --train-expansion-budget 200000 \
+    --max-expansion-budget 200000 \
+    --test-expansion-budget 200000 \
     \
-    --min-samples-per-stage 5000 \
+    --min-samples-per-stage 50000 \
     --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0 \
     \
-    --n-tail 1000 \
+    --n-tail 0 \
     \

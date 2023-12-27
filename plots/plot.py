@@ -6,8 +6,6 @@ import subprocess
 from typing import Optional
 import warnings
 
-from matplotlib.backends.backend_pdf import PdfPages
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 from natsort import natsorted
 import numpy as np
@@ -18,7 +16,7 @@ def plot_single_ax(
     ax, y: pd.Series, aggr_size=1, start=1, xs: Optional[pd.Series] = None, color=None
 ):
     """Plot a single line on an existing axis, aggregating over aggr_size and ignoring nans."""
-    aggr_y = y.astype(np.float64)
+    aggr_y = y.astype("Float64").to_numpy(dtype=np.float64, na_value=np.nan)
     if aggr_size != 1:
         max_aggr_idx = (len(aggr_y) // aggr_size) * aggr_size
         aggr_y = aggr_y[:max_aggr_idx]
@@ -55,17 +53,16 @@ def astar_group_key(pth):
 
 def plot_same_axes(run_name, run_paths, batch_size=40):
     # model plots
-    model_fig, model_ax = plt.subplots(2, 2)
+    model_fig, model_ax = plt.subplots(2, 2, tight_layout=True, figsize=(8, 11))
     model_ax[0, 1].set_title("Backward")
     model_ax[0, 0].set_title("Forward")
     model_ax[0, 0].set_ylabel("Loss", rotation=0, labelpad=30, size=12)
     model_ax[1, 0].set_ylabel("Accuracy", rotation=0, labelpad=50, size=12)
-    model_fig.suptitle("Model " + run_name)
+    # model_fig.suptitle("Model " + run_name)
     model_fig.supxlabel("Batch")
-    model_fig.tight_layout()
 
     # search plots
-    search_fig, search_ax = plt.subplots(4, 2)
+    search_fig, search_ax = plt.subplots(4, 2, tight_layout=True, figsize=(8, 11))
     search_fig.delaxes(search_ax[3, 1])
     search_ax[0, 0].set_ylabel("Solve", rotation=0, labelpad=30, size=12)
     search_ax[1, 0].set_ylabel("Len", rotation=0, labelpad=30, size=12)
@@ -75,7 +72,7 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
         )
     else:
         search_ax[2, 0].set_ylabel(
-            "Start node\nheuristic abs. error", rotation=0, labelpad=50, size=12
+            "Start node\nheuristic abs.\n error", rotation=0, labelpad=50, size=12
         )
     search_ax[3, 0].set_ylabel("Exp", rotation=0, labelpad=30, size=12)
     search_ax[0, 1].set_ylabel("F/B Exp", rotation=0, labelpad=30, size=12)
@@ -84,26 +81,24 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
         search_ax[2, 1].set_ylabel("F/B sol.\nprob.", rotation=0, labelpad=30, size=12)
     else:
         search_ax[2, 1].set_ylabel(
-            "F/B start node\nheuristic abs. error", rotation=0, labelpad=60, size=12
+            "F/B start node\nheuristic abs.\n error", rotation=0, labelpad=60, size=12
         )
 
-    search_fig.suptitle("Search " + run_name)
+    # search_fig.suptitle("Search " + run_name)
     search_fig.supxlabel("Batch")
-    search_fig.tight_layout()
 
     # valid plots
-    valid_fig, valid_ax = plt.subplots(3, 2)
+    valid_fig, valid_ax = plt.subplots(3, 2, tight_layout=True, figsize=(8, 11))
     valid_fig.delaxes(valid_ax[2, 1])
     valid_ax[0, 0].set_ylabel("Solve", rotation=0, labelpad=30, size=12)
     valid_ax[1, 0].set_ylabel("Len", rotation=0, labelpad=30, size=12)
     valid_ax[2, 0].set_ylabel("Exp", rotation=0, labelpad=30, size=12)
     valid_ax[0, 1].set_ylabel("F/B Exp", rotation=0, labelpad=30, size=12)
     valid_ax[1, 1].set_ylabel("F/B Len", rotation=0, labelpad=30, size=12)
-    valid_fig.suptitle("Valid " + run_name)
+    # valid_fig.suptitle("Valid " + run_name)
     valid_fig.supxlabel("Valid run")
-    valid_fig.tight_layout()
 
-    colors = ["b", "c"]
+    colors = ["b", "c", "g", "m"]
     for pth in run_paths:
         color = colors.pop()
         search_trains = [
@@ -122,7 +117,6 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
         # fill model plots
         for i, model_train in enumerate(model_trains):
             xs = model_train.index.values
-            # print(xs)
             plot_single_ax(model_ax[0, 0], model_train["floss"], xs=xs, color=color)
             if "Levin" in run_name:
                 plot_single_ax(model_ax[1, 0], model_train["facc"], xs=xs, color=color)
@@ -161,7 +155,7 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
             if "Levin" in run_name:
                 preds = np.exp(-search_train["fpp"])
             else:
-                preds = search_train["fpp"]
+                preds = abs(search_train["fpp"] - search_train["len"])
             plot_single_ax(
                 search_ax[2, 0],
                 preds,
@@ -208,8 +202,8 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
                     fpreds = np.exp(-search_train["fpp"])
                     bpreds = np.exp(-search_train["bpp"])
                 else:
-                    fpreds = search_train["fpp"]
-                    bpreds = search_train["bpp"]
+                    fpreds = abs(search_train["fpp"] - search_train["len"])
+                    bpreds = abs(search_train["bpp"] - search_train["len"])
                 fb_pp = fpreds / bpreds
                 plot_single_ax(
                     search_ax[2, 1],
@@ -261,12 +255,12 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
             # plot F/B len
             plot_single_ax(valid_ax[1, 1], pd.Series(valid_fb_lens), color=color)
 
+    plt.close("all")
     return model_fig, search_fig, valid_fig
 
 
 def group_and_plot(path, group_key_func, batch_size=40):
-    runpaths = list(path.glob("*"))
-    print(runpaths)
+    runpaths = list(path.glob("*/"))
     runnames = []
     rundata = []
     runs = sorted(runpaths, key=group_key_func)
@@ -276,6 +270,7 @@ def group_and_plot(path, group_key_func, batch_size=40):
 
     figs = []
     for run_name, run_paths in zip(runnames, rundata):
+        print(f"Found {len(run_paths)} runs of {run_name}")
         model_fig, search_fig, valid_fig = plot_same_axes(
             run_name, run_paths, batch_size
         )
@@ -285,38 +280,39 @@ def group_and_plot(path, group_key_func, batch_size=40):
 
 
 class PdfTemplate:
-    def __init__(self, figs, filename, toc=True):
-        self.figs = figs
+    def __init__(self, figsdir: Path, outfile: str, toc=True):
+        self.figs = figsdir
         self.toc = toc
-        self.filename = filename
-        self.text = []
+        self.outfile = outfile
+        self.latex_cmds: list = []
+        self.text: str = ""
 
     def render(self):
         self._pagebreak()
-        for fig in self.figs:
-            self._h1(fig.split(".")[0])
-            self._img(os.path.join("fig", fig))
+        for fig in sorted(self.figs.glob("*.png"), key=lambda x: x.stem):
+            self._h1(fig.stem.replace("_", " "))
+            self._img(str(fig))
             self._pagebreak()
-        self.text = "\n\n".join(self.text)
+        self.text = "\n\n".join(self.latex_cmds)
 
     def export(self):
-        md_file = f"{self.filename}.md"
-        pdf_file = f"{self.filename}.pdf"
-        pandoc = ["pandoc", f"{md_file}", f"-o {pdf_file}"]
+        md_file = f"{self.outfile}.md"
+        pdf_file = f"{self.outfile}.pdf"
+        pandoc = ["pandoc", f"{md_file}", "-V geometry:margin=0.5in", f"-o {pdf_file}"]
         with open(md_file, "w") as f:
             f.write(self.text)
         if self.toc:
             pandoc.append("--toc")
-        os.system(" ".join(pandoc))
+        subprocess.run(pandoc)
 
     def _pagebreak(self):
-        self.text.append("\pagebreak")
+        self.latex_cmds.append("\pagebreak")
 
     def _h1(self, text):
-        self.text.append(f"# {text}")
+        self.latex_cmds.append(f"# {text}")
 
     def _img(self, img):
-        self.text.append(f"![]({img})")
+        self.latex_cmds.append(f"![]({img}){{width=600px height=700px}}")
 
 
 def main():
@@ -328,12 +324,16 @@ def main():
     astar_figs = group_and_plot(astar_runs, astar_group_key, batch_size=40)
     figs = levin_figs + astar_figs
 
-    fig_dir = Path("fig").mkdir(exist_ok=True)
-    figs = natsorted(figs, key=lambda x: x[0])
-    for run_name, (model_fig, search_fig, valid_fig) in figs:
-        model_fig.savefig(f"fig/{run_name.replace(' ', '_')}_model.png")
-        search_fig.savefig(f"fig/{run_name.replace(' ', '_')}_search.png")
-        valid_fig.savefig(f"fig/{run_name.replace(' ', '_')}_valid.png")
+    figs_dir = Path("stp4c_figs")
+    figs_dir.mkdir(exist_ok=True)
+    for run_name, model_fig, search_fig, valid_fig in figs:
+        model_fig.savefig(figs_dir / f"{run_name.replace(' ', '_')}_model.png")
+        search_fig.savefig(figs_dir / f"{run_name.replace(' ', '_')}_search.png")
+        valid_fig.savefig(figs_dir / f"{run_name.replace(' ', '_')}_valid.png")
+
+    pdf = PdfTemplate(figs_dir, "stp4c_sweep")
+    pdf.render()
+    pdf.export()
 
 
 if __name__ == "__main__":
