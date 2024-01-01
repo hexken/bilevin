@@ -45,8 +45,8 @@ def split_by_rank(args, problems):
 
     # turn stages x problems into stages x ranks x problems
     stages_x_ranks_x_problems = []
-    for stage in range(num_stages):
-        stages_x_ranks_x_problems.append(split_by_rank(stages_x_problems[stage]))
+    for stage_problems in stages_x_problems:
+        stages_x_ranks_x_problems.append(split_by_rank(stage_problems))
 
     world_num_problems = 0
     ranks_x_stages_x_problems = []

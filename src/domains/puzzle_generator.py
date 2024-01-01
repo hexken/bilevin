@@ -87,12 +87,24 @@ def main():
         default=False,
         help="randomize the number of steps away from the goal for the curriculum",
     )
+    # parser.add_argument(
+    #     "--final-stage",
+    #     action="store_true",
+    #     default=False,
+    #     help="insert a final stage with the maximum number of steps away from the goal, not randomized",
+    # )
     parser.add_argument(
-        "--final-stage",
-        action="store_true",
-        default=False,
-        help="insert a final stage with the maximum number of steps away from the goal, not randomized",
+        "--n-problems-final-stage",
+        type=int,
+        default=-1,
+        help="number of problems for the final stage. Set to -1 to use n-problems-per-stage. Final stage problems are generated in the same way as the test problems.",
     )
+    # parser.add_argument(
+    #     "--randomize-final-stage",
+    #     action="store_true",
+    #     default=False,
+    #     help="randomize the number of steps away from the goal for the final stage",
+    # )
     parser.add_argument(
         "--stages",
         nargs="+",
@@ -186,8 +198,14 @@ def main():
     )
 
     curriculum_problems = []
-    total_num_curriculum_problems = len(stages) * args.n_problems_per_stage + (
-        args.n_problems_per_stage if args.final_stage else 0
+    n_problems_final_stage = (
+        args.n_problems_per_stage
+        if args.n_problems_final_stage < 0
+        else args.n_problems_final_stage
+    )
+    print(f"  {n_problems_final_stage} problems for final stage.")
+    total_num_curriculum_problems = (
+        len(stages) * args.n_problems_per_stage + n_problems_final_stage
     )
     num_curriculum_problems = 0
     with tqdm.tqdm(total=total_num_curriculum_problems) as pbar:
@@ -209,17 +227,17 @@ def main():
             )
             curriculum_problems.append(stage_problems)
             num_curriculum_problems += len(stage_problems)
-        if args.final_stage:
+        if n_problems_final_stage > 0:
             stage_problems = generate_step_problems(
                 domain,
                 domain_class,
                 rng,
-                args.n_problems_per_stage,
-                stages[-1],
-                stages[-1],
+                n_problems_final_stage,
+                1,
+                args.test_steps,
                 num_curriculum_problems,
                 exclude_problemspecs,
-                False,
+                args.randomize_test_steps,
                 pbar,
             )
             curriculum_problems.append(stage_problems)
@@ -229,6 +247,7 @@ def main():
     trainset_dict["randomize_steps"] = args.randomize_curriculum_steps
     trainset_dict["stages"] = stages
     trainset_dict["problems_per_stage"] = args.n_problems_per_stage
+    trainset_dict["n_problems_final_stage"] = n_problems_final_stage
     trainset_dict["problems"] = curriculum_problems
     save_problemset(args.output_path, trainset_dict, "train")
 
