@@ -13,7 +13,13 @@ import pandas as pd
 
 
 def plot_single_ax(
-    ax, y: pd.Series, aggr_size=1, start=1, xs: Optional[pd.Series] = None, color=None
+    ax,
+    y: pd.Series,
+    aggr_size=1,
+    start=1,
+    xs: Optional[pd.Series] = None,
+    color=None,
+    text=None,
 ):
     """Plot a single line on an existing axis, aggregating over aggr_size and ignoring nans."""
     aggr_y = y.astype("Float64").to_numpy(dtype=np.float64, na_value=np.nan)
@@ -33,6 +39,9 @@ def plot_single_ax(
         ax.plot(x[mask], aggr_y[mask], color=color)
     else:
         ax.plot(x[mask], aggr_y[mask])
+
+    if text is not None:
+        ax.text(text)
 
 
 def levin_group_key(pth):
@@ -228,6 +237,7 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
 
             valid_lens.append(search_valid["len"].mean())
 
+            total_exps = []
             if "Bi" in run_name:
                 exps = search_valid["fexp"] + search_valid["bexp"]
                 fb_exps = search_valid["fexp"] / search_valid["bexp"]
@@ -236,6 +246,7 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
                 valid_fb_lens.append(fb_lens.mean())
             else:
                 exps = search_valid["fexp"]
+            total_exps.append(exps.sum())
             valid_exps.append(exps.mean())
 
         # plot solved
@@ -245,7 +256,8 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
         plot_single_ax(valid_ax[1, 0], pd.Series(valid_lens), color=color)
 
         # plot exp
-        plot_single_ax(valid_ax[2, 0], pd.Series(valid_exps), color=color)
+        total_exp = sum(valid_exps)
+        plot_single_ax(valid_ax[2, 0], pd.Series(valid_exps), color=color, text=text)
 
         # plot fb exp and len
         if "Bi" in run_name:
@@ -316,22 +328,21 @@ class PdfTemplate:
 
 
 def main():
-    levin_runs = Path("../stp4c_sweep/stp4c_levin")
-    astar_runs = Path("../stp4c_sweep/stp4c_astar")
-    # astar_noclip_runs = Path("../sweep_runs/stp4c_astar_noclip")
+    levin_runs = Path("../tri4_levin")
+    astar_runs = Path("../tri4_astar")
 
     levin_figs = group_and_plot(levin_runs, levin_group_key, batch_size=40)
     astar_figs = group_and_plot(astar_runs, astar_group_key, batch_size=40)
     figs = levin_figs + astar_figs
 
-    figs_dir = Path("stp4c_figs")
+    figs_dir = Path("tri4_sweep")
     figs_dir.mkdir(exist_ok=True)
     for run_name, model_fig, search_fig, valid_fig in figs:
         model_fig.savefig(figs_dir / f"{run_name.replace(' ', '_')}_model.png")
         search_fig.savefig(figs_dir / f"{run_name.replace(' ', '_')}_search.png")
         valid_fig.savefig(figs_dir / f"{run_name.replace(' ', '_')}_valid.png")
 
-    pdf = PdfTemplate(figs_dir, "stp4c_sweep")
+    pdf = PdfTemplate(figs_dir, "tri4_sweep")
     pdf.render()
     pdf.export()
 

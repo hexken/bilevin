@@ -9,3 +9,22 @@
 - should we compute probability of the start/goal nodes? instead of considering them 1?
 - expand might be causing issues
 - ensure h is set!
+
+- stp4c
+- astar - lr 0.001 w2.5/3
+- biastar - they all suck, choose one with good loss?
+- bilevin  - lr 0.001
+- levin - lr 0.001
+
+col4
+- astar - lr 0.001 w1/w1.5
+- biastar - lr 0.001 w1, lr 0.1
+- bilevin- lr 0.001
+- levin - lr 0.001
+
+tri4
+- astar
+- biastar
+- bilevin
+- levin
+
