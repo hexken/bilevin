@@ -15,17 +15,18 @@ class ProblemLoader:
         self.shuffle = shuffle
         self.problems = local_problems
         self.n_stages = len(self.problems)
-        self.stage = -1
+        self.stage = 0
         self.world_num_problems = world_num_problems
         self.loaded_state = False
+        self.num_stages = len(self.problems)
 
     def __len__(self):
         return self.world_num_problems
 
     def __iter__(self):
         if not self.loaded_state:
-            self.goto_next_stage = True
-            self.stage = -1
+            self.stage_complete = True
+            self.repeat_stage = False
         return self
 
     def get_state(self):
@@ -34,7 +35,8 @@ class ProblemLoader:
             "_idx": self._idx,
             "stage": self.stage,
             "rng": self.rng,
-            "goto_next_stage": self.goto_next_stage,
+            "stage_complete": self.stage_complete,
+            "repeat_stage": self.repeat_stage,
         }
         return state
 
@@ -43,19 +45,19 @@ class ProblemLoader:
         self._idx = state["_idx"]
         self.stage = state["stage"]
         self.rng = state["rng"]
-        self.goto_next_stage = state["goto_next_stage"]
+        self.stage_complete = state["stage_complete"]
         self.loaded_state = True
 
-        probs: list[Problem] = self.problems[self.stage]
+        probs: list[Problem] = self.problems[self.stage - 1]
         self.stage_problems = np.empty(len(probs), dtype=object)
         self.stage_problems[:] = probs
 
     def _advance_stage(self) -> bool:
         """Returns True if there are no more stages"""
         self.stage += 1
-        if self.stage >= self.n_stages:
+        if self.stage > self.n_stages:
             return True
-        probs: list[Problem] = self.problems[self.stage]
+        probs: list[Problem] = self.problems[self.stage - 1]
         self.stage_problems = np.empty(len(probs), dtype=object)
         self.stage_problems[:] = probs
         if self.shuffle:
@@ -66,8 +68,13 @@ class ProblemLoader:
         return False
 
     def __next__(self):
-        if self.goto_next_stage:
-            self.goto_next_stage = False
+        if self.repeat_stage:
+            self.stage_complete = False
+            if self.shuffle:
+                self._indices = self.rng.permutation(len(self.stage_problems))
+                self._idx = 0
+        elif self.stage_complete:
+            self.stage_complete = False
             done = self._advance_stage()
             if done:
                 raise StopIteration

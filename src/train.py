@@ -50,8 +50,6 @@ def train(
         to.zeros(len(search_result_header), dtype=to.float64) for _ in range(batch_size)
     ]
 
-    batches_seen = 0
-
     num_valid_problems = len(valid_loader)
     max_valid_expanded = num_valid_problems * expansion_budget
     best_valid_expanded = max_valid_expanded + 1
@@ -76,6 +74,9 @@ def train(
         blosses = []
         baccs = []
         batches = []
+
+        final_stage_epoch = 0
+        batches_seen = 0
 
         stage_start_time = 0
         stage_problems_seen = 0
@@ -106,6 +107,7 @@ def train(
             stage_start_time = timer() - chkpt_dict["time_in_stage"]
             stage_problems_seen = chkpt_dict["stage_problems_seen"]
             stage_problems_this_budget = chkpt_dict["stage_problems_this_budget"]
+            final_stage_epoch = chkpt_dict["final_stage_epoch"]
             batches_seen = chkpt_dict["batches_seen"]
             train_loader.load_state(chkpt_dict["loader_states"][rank])
 
@@ -123,9 +125,11 @@ def train(
     old_checkpoint_path = args.logdir / f"dummy_chkpt"
 
     old_stage = train_loader.stage
+    done_training = False
 
     for problem in train_loader:
-        if old_stage != train_loader.stage:
+        if old_stage != train_loader.stage or train_loader.repeat_stage:
+            train_loader.repeat_stage = False
             stage_start_time = timer()
             old_stage = train_loader.stage
 
@@ -153,14 +157,12 @@ def train(
             batches = []
 
             if rank == 0:
+                estr = "" if final_stage_epoch == 0 else f" EPOCH {final_stage_epoch}"
                 print(
-                    "----------------------------------------------------------------------------"
+                    "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
                 )
-                print(f"START STAGE {old_stage}")
+                print(f"START STAGE {old_stage}{estr}")
                 expansion_budget = args.train_expansion_budget
-                print(
-                    "----------------------------------------------------------------------------"
-                )
         model.eval()
         to.set_grad_enabled(False)
 
@@ -334,12 +336,12 @@ def train(
         if stage_problems_seen >= min_problems_per_stage and len(lens) >= args.n_tail:
             solve_ratio = (~np.isnan(np.array(lens[-args.n_tail :]))).mean()
             if solve_ratio >= args.min_solve_ratio_stage:
-                train_loader.goto_next_stage = True
+                train_loader.stage_complete = True
 
         if (
             args.min_solve_ratio_exp > 0
             and expansion_budget < args.max_expansion_budget
-            and not train_loader.goto_next_stage
+            and not train_loader.stage_complete
             and stage_problems_this_budget >= args.n_tail
         ):
             if solve_ratio is None:
@@ -357,73 +359,93 @@ def train(
                         "----------------------------------------------------------------------------"
                     )
 
-        if rank == 0 and train_loader.goto_next_stage:
-            stage_search_df = pd.DataFrame(
-                {
-                    "id": pd.Series(ids, dtype=pd.UInt32Dtype()),
-                    "time": pd.Series(times, dtype=pd.Float32Dtype()),
-                    "len": pd.Series(lens, dtype=pd.UInt32Dtype()),
-                    "fexp": pd.Series(fexps, dtype=pd.UInt32Dtype()),
-                    "fg": pd.Series(fgs, dtype=pd.UInt32Dtype()),
-                    "fpp": pd.Series(fpps, dtype=pd.Float32Dtype()),
-                }
-            )
-            stage_model_train_df = pd.DataFrame(
-                {
-                    "floss": pd.Series(flosses, dtype=pd.Float32Dtype(), index=batches),
-                },
-            )
-
-            if policy_based:
-                stage_model_train_df["facc"] = pd.Series(
-                    faccs, dtype=pd.Float32Dtype(), index=batches
+        if train_loader.stage_complete:
+            if rank == 0:
+                stage_search_df = pd.DataFrame(
+                    {
+                        "id": pd.Series(ids, dtype=pd.UInt32Dtype()),
+                        "time": pd.Series(times, dtype=pd.Float32Dtype()),
+                        "len": pd.Series(lens, dtype=pd.UInt32Dtype()),
+                        "fexp": pd.Series(fexps, dtype=pd.UInt32Dtype()),
+                        "fg": pd.Series(fgs, dtype=pd.UInt32Dtype()),
+                        "fpp": pd.Series(fpps, dtype=pd.Float32Dtype()),
+                    }
+                )
+                stage_model_train_df = pd.DataFrame(
+                    {
+                        "floss": pd.Series(
+                            flosses, dtype=pd.Float32Dtype(), index=batches
+                        ),
+                    },
                 )
 
-            if bidirectional:
-                stage_search_df["bexp"] = pd.Series(bexps, dtype=pd.UInt32Dtype())
-                stage_search_df["bg"] = pd.Series(bgs, dtype=pd.UInt32Dtype())
-                stage_search_df["bpp"] = pd.Series(bpps, dtype=pd.Float32Dtype())
-
-                stage_model_train_df["bloss"] = pd.Series(
-                    blosses, dtype=pd.Float32Dtype(), index=batches
-                )
                 if policy_based:
-                    stage_model_train_df["bacc"] = pd.Series(
-                        baccs, dtype=pd.Float32Dtype(), index=batches
+                    stage_model_train_df["facc"] = pd.Series(
+                        faccs, dtype=pd.Float32Dtype(), index=batches
                     )
-            print(
-                "----------------------------------------------------------------------------"
-            )
-            print(f"END STAGE {old_stage}\n")
-            agent.save_model("latest", log=False)
-            with (args.logdir / f"search_train_s{old_stage}.pkl").open("wb") as f:
-                pickle.dump(stage_search_df, f)
-            with (args.logdir / f"model_train_s{old_stage}.pkl").open("wb") as f:
-                pickle.dump(stage_model_train_df, f)
-            print_search_summary(
-                stage_search_df,
-                bidirectional,
-                policy_based,
-            )
-            print_model_train_summary(
-                stage_model_train_df,
-                bidirectional,
-                policy_based,
-            )
-            print(f"\nTime: {timer() - stage_start_time:.2f}")
-            print(
-                "----------------------------------------------------------------------------"
-            )
-            # todo repeat final stage, figure out saving
-        sys.stdout.flush()
+
+                if bidirectional:
+                    stage_search_df["bexp"] = pd.Series(bexps, dtype=pd.UInt32Dtype())
+                    stage_search_df["bg"] = pd.Series(bgs, dtype=pd.UInt32Dtype())
+                    stage_search_df["bpp"] = pd.Series(bpps, dtype=pd.Float32Dtype())
+
+                    stage_model_train_df["bloss"] = pd.Series(
+                        blosses, dtype=pd.Float32Dtype(), index=batches
+                    )
+                    if policy_based:
+                        stage_model_train_df["bacc"] = pd.Series(
+                            baccs, dtype=pd.Float32Dtype(), index=batches
+                        )
+                estr = "" if final_stage_epoch == 0 else f" EPOCH {final_stage_epoch}"
+                print(f"\nEND STAGE {old_stage}{estr}\n")
+                estr = "" if final_stage_epoch == 0 else f" (_e{final_stage_epoch})"
+                agent.save_model("latest", log=False)
+                with (args.logdir / f"search_train_s{old_stage}{estr}.pkl").open(
+                    "wb"
+                ) as f:
+                    pickle.dump(stage_search_df, f)
+                with (args.logdir / f"model_train_s{old_stage}{estr}.pkl").open(
+                    "wb"
+                ) as f:
+                    pickle.dump(stage_model_train_df, f)
+                print_search_summary(
+                    stage_search_df,
+                    bidirectional,
+                    policy_based,
+                )
+                print_model_train_summary(
+                    stage_model_train_df,
+                    bidirectional,
+                    policy_based,
+                )
+                print(f"\nTime: {timer() - stage_start_time:.2f}")
+                print(
+                    "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+                )
+                sys.stdout.flush()
+
+            if train_loader.stage + 1 == train_loader.n_stages:
+                # about to begin 1st epoch of final stage
+                if args.n_final_stage_epochs > 0:
+                    final_stage_epoch = 1
+                else:
+                    done_training = True
+
+            if train_loader.stage == train_loader.n_stages:
+                # about to repeat final stage
+                if final_stage_epoch < args.n_final_stage_epochs:
+                    train_loader.repeat_stage = True
+                    final_stage_epoch += 1
+                else:
+                    done_training = True
 
         if (
             batches_seen >= args.batch_begin_validate
             and batches_seen % args.validate_every == 0
-        ):
+        ) or done_training:
             if rank == 0:
                 print(
-                    "----------------------------------------------------------------------------"
+                    ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                 )
                 print("VALIDATION")
 
@@ -455,7 +477,7 @@ def train(
 
                 best_models_log.flush()
                 print(
-                    "----------------------------------------------------------------------------"
+                    ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                 )
                 stage_start_time += valid_total_time
                 sys.stdout.flush()
@@ -463,10 +485,7 @@ def train(
             dist.monitored_barrier()
 
         # Checkpoint
-        if (batches_seen % args.checkpoint_every == 0) or (
-            train_loader.goto_next_stage
-            and train_loader.stage == train_loader.n_stages - 1
-        ):
+        if (batches_seen % args.checkpoint_every == 0) or done_training:
             loader_states = [None] * args.world_size
             dist.gather_object(
                 train_loader.get_state(), loader_states if rank == 0 else None, dst=0
@@ -498,6 +517,7 @@ def train(
                     "stage_problems_this_budget": stage_problems_this_budget,
                     "batches_seen": batches_seen,
                     "loader_states": loader_states,
+                    "done_training": done_training,
                 }
                 new_checkpoint_path = args.logdir / f"checkpoint_b{batches_seen}.pkl"
                 with new_checkpoint_path.open("wb") as f:
@@ -506,3 +526,6 @@ def train(
                     old_checkpoint_path.unlink(missing_ok=True)
                     old_checkpoint_path = new_checkpoint_path
                 print(f"\nCheckpoint saved to {str(new_checkpoint_path)}")
+
+        if done_training:
+            break

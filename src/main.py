@@ -97,7 +97,9 @@ def run(
             shuffle=False,
         )
         if rank == 0:
-            print("\nTraining...")
+            print(
+                f"\nTraining on {len(local_problems)} stages, {args.n_final_stage_epochs} epochs for final stage"
+            )
         train(
             args,
             rank,

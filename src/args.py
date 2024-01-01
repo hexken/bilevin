@@ -13,7 +13,7 @@ def parse_args():
         help="weight to use for weighted A*",
     )
     parser.add_argument(
-        "--final-stage-epochs",
+        "--n-final-stage-epochs",
         type=int,
         default=1,
         help="number of epochs to train on final curriculum stage",
