@@ -13,16 +13,22 @@ def parse_args():
         help="weight to use for weighted A*",
     )
     parser.add_argument(
+        "--final-stage-epochs",
+        type=int,
+        default=1,
+        help="number of epochs to train on final curriculum stage",
+    )
+    parser.add_argument(
         "--min-solve-ratio-stage",
         type=float,
         default=0,
-        help="advance curriculum when this ratio of problems solved.",
+        help="advance curriculum if the last n-tail problems has at least this solve ratio and at least min-problems-per-stage problems have been attempted",
     )
     parser.add_argument(
         "--min-solve-ratio-exp",
         type=float,
         default=0,
-        help="advance curriculum when this ratio of problems solved.",
+        help="increase budget during training if the last n-tail stage problems has below this solve ratio and at least min-problems-per-stage problems have been attempted. Budget resets with each curriculum stage.",
     )
     parser.add_argument(
         "--n-tail",
@@ -31,10 +37,10 @@ def parse_args():
         help="compute solve ratios based on last n problems. 0 to use all stage problems seen till so far.",
     )
     parser.add_argument(
-        "--min-samples-per-stage",
+        "--min-problems-per-stage",
         type=int,
-        default=0,
-        help="minimum number of samples to use for each stage",
+        default=-1,
+        help="minimum number of problems to attempt for each curriculum stage. Set to 0 for no minimum. Set to -1 to use the number of problems in the stage.",
     )
     parser.add_argument(
         "--checkpoint-path",
@@ -82,8 +88,7 @@ def parse_args():
         default="levin_loss",
         choices=[
             "levin_loss",
-            "cross_entropy_sum_loss",
-            "cross_entropy_avg_loss",
+            "cross_entropy_loss",
             "cross_entropy_mid_loss",
             "mse_loss",
         ],
@@ -289,12 +294,12 @@ def parse_args():
         type=int,
         help="initial node expansion budget to solve a problem during testing/validation",
     )
-    parser.add_argument(
-        "--increase-budget",
-        action="store_true",
-        default=False,
-        help="during testing (not validation), double the budget for each unsolved problem; during training double the budget every min-samples-per-stage when the solve ratio is below min-solve-ratio, and reset to expansion-budget at beginning of each stage",
-    )
+    # parser.add_argument(
+    #     "--increase-budget",
+    #     action="store_true",
+    #     default=False,
+    #     help="during training double the budget every min-problems-per-stage when the solve ratio is below min-solve-ratio-exp, and reset to expansion-budget at beginning of each stage",
+    # )
     parser.add_argument(
         "--time-budget",
         type=float,

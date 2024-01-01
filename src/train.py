@@ -29,13 +29,11 @@ def train(
     train_loader: ProblemLoader,
     valid_loader: ProblemLoader,
 ):
-    logdir: Path = args.logdir
     batch_size: int = args.world_size
-    time_budget: float = args.time_budget
     expansion_budget: int = args.train_expansion_budget
-    grad_steps: int = args.grad_steps
+    min_problems_per_stage: int = args.min_problems_per_stage
 
-    best_models_log = logdir / "best_models.txt"
+    best_models_log = args.logdir / "best_models.txt"
     if rank == 0:
         best_models_log = best_models_log.open("a")
 
@@ -101,6 +99,7 @@ def train(
             blosses = chkpt_dict["blosses"]
             baccs = chkpt_dict["baccs"]
             batches = chkpt_dict["batches"]
+            min_problems_per_stage = chkpt_dict["min_problems_per_stage"]
 
             expansion_budget = chkpt_dict["current_exp_budget"]
             best_valid_expanded = chkpt_dict["best_valid_expanded"]
@@ -121,7 +120,7 @@ def train(
                 "----------------------------------------------------------------------------"
             )
 
-    old_checkpoint_path = logdir / f"dummy_chkpt"
+    old_checkpoint_path = args.logdir / f"dummy_chkpt"
 
     old_stage = train_loader.stage
 
@@ -129,6 +128,13 @@ def train(
         if old_stage != train_loader.stage:
             stage_start_time = timer()
             old_stage = train_loader.stage
+
+            if args.min_problems_per_stage == -1:
+                min_problems_per_stage = (
+                    len(train_loader.stage_problems) * args.world_size
+                )
+            stage_problems_seen = 0
+            stage_problems_this_budget = 0
 
             ids = []
             times = []
@@ -145,9 +151,6 @@ def train(
             blosses = []
             baccs = []
             batches = []
-
-            stage_problems_seen = 0
-            stage_problems_this_budget = 0
 
             if rank == 0:
                 print(
@@ -169,7 +172,7 @@ def train(
         ) = agent.search(
             problem,
             expansion_budget,
-            time_budget=time_budget,
+            time_budget=args.time_budget,
         )
         end_time = timer()
         sol_len = np.nan if not traj else len(traj[0])
@@ -249,7 +252,7 @@ def train(
         if num_procs_found_solution > 0:
             to.set_grad_enabled(True)
             model.train()
-            for grad_step in range(1, grad_steps + 1):
+            for grad_step in range(1, args.grad_steps + 1):
                 optimizer.zero_grad(set_to_none=False)
                 if f_traj:
                     (
@@ -295,7 +298,7 @@ def train(
                 optimizer.step()
 
                 # print batch losses/accs
-                if grad_step == grad_steps:
+                if grad_step == args.grad_steps:
                     dist.all_reduce(local_opt_results, op=dist.ReduceOp.SUM)
                     if rank == 0:
                         batch_floss = (
@@ -328,16 +331,13 @@ def train(
         stage_problems_this_budget += batch_size
 
         solve_ratio = None
-        if (
-            stage_problems_seen >= args.min_samples_per_stage
-            and len(lens) >= args.n_tail
-        ):
+        if stage_problems_seen >= min_problems_per_stage and len(lens) >= args.n_tail:
             solve_ratio = (~np.isnan(np.array(lens[-args.n_tail :]))).mean()
             if solve_ratio >= args.min_solve_ratio_stage:
                 train_loader.goto_next_stage = True
 
         if (
-            args.increase_budget
+            args.min_solve_ratio_exp > 0
             and expansion_budget < args.max_expansion_budget
             and not train_loader.goto_next_stage
             and stage_problems_this_budget >= args.n_tail
@@ -396,9 +396,9 @@ def train(
             )
             print(f"END STAGE {old_stage}\n")
             agent.save_model("latest", log=False)
-            with (logdir / f"search_train_s{old_stage}.pkl").open("wb") as f:
+            with (args.logdir / f"search_train_s{old_stage}.pkl").open("wb") as f:
                 pickle.dump(stage_search_df, f)
-            with (logdir / f"model_train_s{old_stage}.pkl").open("wb") as f:
+            with (args.logdir / f"model_train_s{old_stage}.pkl").open("wb") as f:
                 pickle.dump(stage_model_train_df, f)
             print_search_summary(
                 stage_search_df,
@@ -414,6 +414,7 @@ def train(
             print(
                 "----------------------------------------------------------------------------"
             )
+            # todo repeat final stage, figure out saving
         sys.stdout.flush()
 
         if (
@@ -498,7 +499,7 @@ def train(
                     "batches_seen": batches_seen,
                     "loader_states": loader_states,
                 }
-                new_checkpoint_path = logdir / f"checkpoint_b{batches_seen}.pkl"
+                new_checkpoint_path = args.logdir / f"checkpoint_b{batches_seen}.pkl"
                 with new_checkpoint_path.open("wb") as f:
                     pickle.dump(chkpt_dict, f)
                 if not args.keep_all_checkpoints:
