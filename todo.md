@@ -23,8 +23,8 @@ col4
 - levin - lr 0.001
 
 tri4
-- astar
-- biastar
-- bilevin
-- levin
+- astar - lr 0.001 w2.5
+- biastar - lr 0.001 w2.5, or l3 0.01 all w
+- bilevin - lr 0.001
+- levin - lr 0.001
 
