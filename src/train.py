@@ -422,7 +422,6 @@ def train(
                 print(
                     "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
                 )
-                sys.stdout.flush()
 
             if train_loader.stage + 1 == train_loader.n_stages:
                 # about to begin 1st epoch of final stage
@@ -438,6 +437,8 @@ def train(
                     final_stage_epoch += 1
                 else:
                     done_training = True
+
+        sys.stdout.flush()
 
         if (
             batches_seen >= args.batch_begin_validate
