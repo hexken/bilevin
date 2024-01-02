@@ -1,0 +1,4 @@
+1 AStar mse_loss 0.001 1
+1 BiAStar mse_loss 0.001 1
+2 AStar mse_loss 0.001 1
+2 BiAStar mse_loss 0.001 1

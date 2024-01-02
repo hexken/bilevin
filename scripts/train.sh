@@ -4,16 +4,16 @@ export OMP_NUM_THREADS=1
 
 python src/main.py \
     --exp-name "" \
-    --runsdir-path runs/wit_tri4 \
-    --problems-path problems/wit_col4/50000-train.pkl \
-    --valid-path problems/wit_col4/1000-valid.pkl \
+    --runsdir-path runs/ \
+    --problems-path problems/stp4c_debug_final_stage/1200-train.pkl \
+    --valid-path problems/stp4c_debug_final_stage/100-valid.pkl \
     --no-feature-net \
     --seed 1 \
     --world-size 4 \
     --mode train \
-    --agent BiAStar \
+    --agent BiLevin \
     --weight-astar 2 \
-    --loss-fn mse_loss \
+    --loss-fn cross_entropy_loss \
     --grad-steps 10 \
     \
     --share-feature-net \
@@ -35,17 +35,18 @@ python src/main.py \
     --backward-heuristic-lr 0.001 \
     \
     --batch-begin-validate 1 \
-    --validate-every 25 \
+    --validate-every 33 \
     --checkpoint-every 30 \
     \
-    --time-budget 5 \
-    --train-expansion-budget 200000 \
+    --time-budget 300 \
+    --train-expansion-budget 2 \
     --max-expansion-budget 200000 \
-    --test-expansion-budget 200000 \
+    --test-expansion-budget 10 \
     \
-    --min-samples-per-stage 50000 \
+    --min-problems-per-stage -1 \
     --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0 \
+    --n-final-stage-epochs 2 \
     \
     --n-tail 0 \
     \
