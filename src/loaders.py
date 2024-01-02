@@ -46,6 +46,7 @@ class ProblemLoader:
         self.stage = state["stage"]
         self.rng = state["rng"]
         self.stage_complete = state["stage_complete"]
+        self.repeat_stage = state["repeat_stage"]
         self.loaded_state = True
 
         probs: list[Problem] = self.problems[self.stage - 1]

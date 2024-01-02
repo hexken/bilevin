@@ -516,6 +516,8 @@ def train(
                     "time_in_stage": timer() - stage_start_time,
                     "stage_problems_seen": stage_problems_seen,
                     "stage_problems_this_budget": stage_problems_this_budget,
+                    "min_problems_per_stage": min_problems_per_stage,
+                    "final_stage_epoch": final_stage_epoch,
                     "batches_seen": batches_seen,
                     "loader_states": loader_states,
                     "done_training": done_training,
