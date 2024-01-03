@@ -3,8 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=00:15:00
-#SBATCH --array=1-2
+#SBATCH --time=12:00:00
+#SBATCH --array=1-4
 #SBATCH --exclusive
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/col5_astar/%j.out
 
@@ -21,7 +21,7 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/beluga/astar_args.txt
+argfile=/scratch/tjhia/bilevin/scripts/beluga/col_astar_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
@@ -63,7 +63,7 @@ python src/main.py \
     --backward-heuristic-lr $lr \
     \
     --batch-begin-validate 1 \
-    --validate-every 125 \
+    --validate-every 250 \
     --checkpoint-every 50 \
     \
     --time-budget 10 \
@@ -74,7 +74,7 @@ python src/main.py \
     --min-problems-per-stage -1 \
     --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0 \
-    --n-final-stage-epochs 3 \
+    --n-final-stage-epochs 5 \
     \
     --n-tail 0 \
     \

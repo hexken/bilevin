@@ -5,8 +5,8 @@ export OMP_NUM_THREADS=1
 python src/main.py \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/stp4c_debug_final_stage/1200-train.pkl \
-    --valid-path problems/stp4c_debug_final_stage/100-valid.pkl \
+    --problems-path problems/wit_tri4_debug/500-train.pkl \
+    --valid-path problems/wit_tri4_debug/100-valid.pkl \
     --no-feature-net \
     --seed 1 \
     --world-size 4 \
@@ -38,10 +38,10 @@ python src/main.py \
     --validate-every 33 \
     --checkpoint-every 30 \
     \
-    --time-budget 300 \
-    --train-expansion-budget 2 \
+    --time-budget 0.1 \
+    --train-expansion-budget 200000 \
     --max-expansion-budget 200000 \
-    --test-expansion-budget 10 \
+    --test-expansion-budget 200000 \
     \
     --min-problems-per-stage -1 \
     --min-solve-ratio-stage 0 \
@@ -50,4 +50,3 @@ python src/main.py \
     \
     --n-tail 0 \
     \
-    # --checkpoint-path runs/cube3-150-train_BiLevin_e2100_t300.0_1_1698874122/checkpoint_b15.pkl \

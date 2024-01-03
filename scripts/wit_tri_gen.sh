@@ -3,9 +3,13 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export PYTHONPATH=$SCRIPT_DIR/../src
 cd $SCRIPT_DIR/../
 
-if [ $# -ne 1 ]; then
+usage() {
     echo "Usage: $0 [d|4|5|6]"
     exit 1
+}
+
+if [ $# -ne 1 ]; then
+    usage
 fi
 
 if [ "$1" = "d" ]; then
@@ -52,6 +56,8 @@ elif [ $1 = "6" ]; then
     --n-train 50000 \
     --n-valid  1000 \
     --n-test  1000
+else
+    usage
 fi
 
 
