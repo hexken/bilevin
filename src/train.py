@@ -481,6 +481,7 @@ def train(
 
         # Checkpoint
         if (batches_seen % args.checkpoint_every == 0) or done_training:
+            ts = timer()
             loader_states = [None] * args.world_size
             dist.gather_object(
                 train_loader.get_state(), loader_states if rank == 0 else None, dst=0
@@ -522,7 +523,7 @@ def train(
                 if not args.keep_all_checkpoints:
                     old_checkpoint_path.unlink(missing_ok=True)
                     old_checkpoint_path = new_checkpoint_path
-                print(f"\nCheckpoint saved to {str(new_checkpoint_path)}")
+                print(f"\nCheckpoint saved to {new_checkpoint_path.name}, took {timer() - ts:.2f}s")
 
         if done_training:
             break
