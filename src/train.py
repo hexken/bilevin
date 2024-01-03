@@ -398,7 +398,7 @@ def train(
                         )
                 estr = "" if final_stage_epoch == 0 else f" EPOCH {final_stage_epoch}"
                 print(f"\nEND STAGE {old_stage}{estr}\n")
-                estr = "" if final_stage_epoch == 0 else f" (_e{final_stage_epoch})"
+                estr = "" if final_stage_epoch == 0 else f"_e{final_stage_epoch}"
                 agent.save_model("latest", log=False)
                 with (args.logdir / f"search_train_s{old_stage}{estr}.pkl").open(
                     "wb"
