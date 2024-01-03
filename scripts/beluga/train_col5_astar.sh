@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=12:00:00
+#SBATCH --time=13:00:00
 #SBATCH --array=1-4
 #SBATCH --exclusive
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/col5_astar/%j.out
@@ -37,8 +37,8 @@ python src/main.py \
     --seed $seed \
     --runsdir-path runs/col5_astar \
     --exp-name $expname \
-    --problems-path problems/wit_col5/50000-train.pkl \
-    --valid-path problems/wit_col5/1000-valid.pkl \
+    --problems-path problems/col5/50000-train.pkl \
+    --valid-path problems/col5/1000-valid.pkl \
     --world-size 40 \
     --mode train \
     --loss-fn $loss \
@@ -63,7 +63,7 @@ python src/main.py \
     --backward-heuristic-lr $lr \
     \
     --batch-begin-validate 1 \
-    --validate-every 250 \
+    --validate-every 150 \
     --checkpoint-every 50 \
     \
     --time-budget 10 \
