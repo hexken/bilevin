@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=12:00:00
+#SBATCH --time=13:00:00
 #SBATCH --array=1-4
 #SBATCH --exclusive
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/tri5_levin/%j.out
@@ -35,8 +35,8 @@ python src/main.py \
     --seed $seed \
     --runsdir-path runs/tri5_levin \
     --exp-name $expname \
-    --problems-path problems/wit_tri5/50000-train.pkl \
-    --valid-path problems/wit_tri5/1000-valid.pkl \
+    --problems-path problems/tri5/50000-train.pkl \
+    --valid-path problems/tri5/1000-valid.pkl \
     --world-size 40 \
     --mode train \
     --loss-fn $loss \
@@ -61,7 +61,7 @@ python src/main.py \
     --backward-heuristic-lr $lr \
     \
     --batch-begin-validate 1 \
-    --validate-every 125 \
+    --validate-every 150 \
     --checkpoint-every 50 \
     \
     --time-budget 10 \
@@ -72,7 +72,7 @@ python src/main.py \
     --min-problems-per-stage -1 \
     --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0 \
-    --n-final-stage-epochs 3 \
+    --n-final-stage-epochs 5 \
     \
     --n-tail 0 \
     \

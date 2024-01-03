@@ -5,8 +5,8 @@ export OMP_NUM_THREADS=1
 python src/main.py \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/wit_tri4_debug/500-train.pkl \
-    --valid-path problems/wit_tri4_debug/100-valid.pkl \
+    --problems-path problems/stp4/50000-train.pkl \
+    --valid-path problems/stp4/1000-valid.pkl \
     --no-feature-net \
     --seed 1 \
     --world-size 4 \
@@ -35,13 +35,13 @@ python src/main.py \
     --backward-heuristic-lr 0.001 \
     \
     --batch-begin-validate 1 \
-    --validate-every 33 \
-    --checkpoint-every 30 \
+    --validate-every 1000 \
+    --checkpoint-every 100 \
     \
-    --time-budget 0.1 \
-    --train-expansion-budget 200000 \
+    --time-budget 10 \
+    --train-expansion-budget 2 \
     --max-expansion-budget 200000 \
-    --test-expansion-budget 200000 \
+    --test-expansion-budget 2 \
     \
     --min-problems-per-stage -1 \
     --min-solve-ratio-stage 0 \
