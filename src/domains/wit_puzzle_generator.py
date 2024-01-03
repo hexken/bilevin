@@ -11,6 +11,8 @@ from domains.puzzle_generator import save_problemset
 from domains.witness import Witness, WitnessState
 from search.utils import Problem
 
+# todo allow randomized start location?
+
 
 def triangle_puzzle_from_path(
     rng, marker_prob, domain, state
@@ -80,6 +82,8 @@ def generate_problems(
     rng,
     goal_choices,
     n_problems: int,
+    marker_prob: float,
+    min_path_ratio: float,
     id_counter_start: int,
     exclude_problemsepcs: set,
     pbar,
@@ -116,13 +120,13 @@ def generate_problems(
         # heuristic to make sure the path is not too short
         if (state.v_segs.sum() + state.h_segs.sum()) / state.grid.shape[
             0
-        ] ** 2 < args.min_path_ratio:
+        ] ** 2 < min_path_ratio:
             continue
 
         if args.puzzle == "triangles":
-            markers = triangle_puzzle_from_path(rng, args.marker_prob, domain, state)
+            markers = triangle_puzzle_from_path(rng, marker_prob, domain, state)
         elif args.puzzle == "colors":
-            markers = colors_puzzle_from_path(rng, args.marker_prob, domain, state)
+            markers = colors_puzzle_from_path(rng, marker_prob, domain, state)
         else:
             raise ValueError(f"Unknown puzzle type {args.puzzle}")
 
@@ -182,12 +186,6 @@ def main():
     )
 
     parser.add_argument(
-        "--n-train",
-        type=int,
-        default=50000,
-        help="number of training puzzles to be generated",
-    )
-    parser.add_argument(
         "--n-valid",
         type=int,
         default=1000,
@@ -216,17 +214,49 @@ def main():
     #     help="number of colors to use",
     # )
     parser.add_argument(
-        "-p",
-        "--marker-prob",
+        "--n-problems-per-stage",
+        type=int,
+        default=50000,
+        help="number of training puzzles to be generated",
+    )
+    parser.add_argument(
+        "--marker-prob-limits",
+        type=float,
+        nargs="+",
+        default=[0.3, 0.6],
+        help="probability of placing a marker in each snake adjacent cell",
+    )
+    parser.add_argument(
+        "--test-marker-prob",
         type=float,
         default=0.6,
         help="probability of placing a marker in each snake adjacent cell",
     )
     parser.add_argument(
-        "--min-path-ratio",
+        "--min-path-ratio-limits",
         type=float,
+        nargs="+",
+        default=[0.4, 0.8],
+        help="path that generated problem must be >= this ratio of squared width",
+    )
+    parser.add_argument(
+        "--test-min-path-ratio",
+        type=float,
+        nargs="+",
         default=0.8,
         help="path that generated problem must be >= this ratio of squared width",
+    )
+    parser.add_argument(
+        "--n-stages",
+        type=int,
+        default=9,
+        help="number of stages in the curriculum",
+    )
+    parser.add_argument(
+        "--n-problems-final-stage",
+        type=int,
+        default=-1,
+        help="number of problems for the final stage. Set to -1 to use n-problems-per-stage. Final stage problems are generated in the same way as the test problems.",
     )
 
     args = parser.parse_args()
@@ -235,8 +265,6 @@ def main():
 
     random.seed(args.seed)
     rng = np.random.default_rng(args.seed)
-
-    print(f"Saving problems to {args.output_path}")
 
     goals_dups = (
         [(0, i) for i in range(args.width + 1)]
@@ -261,28 +289,84 @@ def main():
         markers=[],
     )
     dummy_domain.reset()
-    problemset_dict = {
+
+    curriculum_problems = []
+    num_curriculum_problems = 0
+    assert len(args.marker_prob_limits) == 2
+    assert len(args.min_path_ratio_limits) == 2
+
+    marker_probs = np.linspace(
+        args.marker_prob_limits[0], args.marker_prob_limits[1], args.n_stages - 1
+    )
+    min_path_ratios = np.linspace(
+        args.min_path_ratio_limits[0], args.min_path_ratio_limits[1], args.n_stages - 1
+    )
+
+    trainset_dict = {
         "domain_name": "Witness",
         "seed": args.seed,
         "puzzle": args.puzzle,
-        "marker_prob": args.marker_prob,
-        "min_path_ratio": args.min_path_ratio,
+        "marker_probs": marker_probs.tolist(),
+        "min_path_ratios": min_path_ratios.tolist(),
+        "n_problems_per_stage": args.n_problems_per_stage,
+        "n_problems_final_stage": args.n_problems_final_stage,
     }
 
-    with tqdm.tqdm(total=args.n_train) as pbar:
-        pbar.set_description("Curriculum problems")
-        curriculum_problems = generate_problems(
-            args,
-            rng,
-            goals,
-            args.n_train,
-            0,
-            problem_specs,
-            pbar,
-        )
-    problemset_dict["problems"] = [curriculum_problems]
-    save_problemset(args.output_path, problemset_dict, "train")
+    n_problems_final_stage = (
+        args.n_problems_per_stage
+        if args.n_problems_final_stage < 0
+        else args.n_problems_final_stage
+    )
+    total_num_curriculum_problems = (
+        len(marker_probs) * args.n_problems_per_stage + n_problems_final_stage
+    )
 
+    print(f"Saving problems to {args.output_path}")
+    print(f"  {args.n_problems_per_stage} problems for each of {len(marker_probs)}")
+    print(f" marker probs: {marker_probs.tolist()}")
+    print(f" min path ratios: {min_path_ratios.tolist()}")
+    print(f"  {n_problems_final_stage} problems for final stage.")
+
+    with tqdm.tqdm(total=total_num_curriculum_problems) as pbar:
+        pbar.set_description("Curriculum problems")
+        for i in range(len(marker_probs)):
+            stage_problems = generate_problems(
+                args,
+                rng,
+                goals,
+                args.n_problems_per_stage,
+                marker_probs[i],
+                min_path_ratios[i],
+                num_curriculum_problems,
+                problem_specs,
+                pbar,
+            )
+            curriculum_problems.append(stage_problems)
+            num_curriculum_problems += len(stage_problems)
+        if n_problems_final_stage > 0:
+            stage_problems = generate_problems(
+                args,
+                rng,
+                goals,
+                n_problems_final_stage,
+                args.test_marker_prob,
+                args.test_min_path_ratio,
+                num_curriculum_problems,
+                problem_specs,
+                pbar,
+            )
+            curriculum_problems.append(stage_problems)
+            num_curriculum_problems += len(stage_problems)
+    trainset_dict["problems"] = curriculum_problems
+    save_problemset(args.output_path, trainset_dict, "train")
+
+    testset_dict = {
+        "domain_name": "Witness",
+        "seed": args.seed,
+        "puzzle": args.puzzle,
+        "marker_prob": args.test_marker_prob,
+        "min_path_ratio": args.test_min_path_ratio,
+    }
     if args.n_valid > 0:
         with tqdm.tqdm(total=args.n_valid) as pbar:
             pbar.set_description("Valid problems")
@@ -291,14 +375,16 @@ def main():
                 rng,
                 goals,
                 args.n_valid,
+                args.test_marker_prob,
+                args.test_min_path_ratio,
                 0,
                 problem_specs,
                 pbar,
             )
-            problemset_dict["problems"] = [valid_problems]
+            testset_dict["problems"] = [valid_problems]
         save_problemset(
             args.output_path,
-            problemset_dict,
+            testset_dict,
             "valid",
         )
 
@@ -310,14 +396,16 @@ def main():
                 rng,
                 goals,
                 args.n_test,
+                args.test_marker_prob,
+                args.test_min_path_ratio,
                 0,
                 problem_specs,
                 pbar,
             )
-            problemset_dict["problems"] = [test_problems]
+            testset_dict["problems"] = [test_problems]
         save_problemset(
             args.output_path,
-            problemset_dict,
+            testset_dict,
             "test",
         )
 
