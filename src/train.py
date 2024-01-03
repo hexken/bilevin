@@ -75,7 +75,7 @@ def train(
         baccs = []
         batches = []
 
-        final_stage_epoch = 0
+        final_stage_epoch = 1 if train_loader.n_stages == 1 else 0
         batches_seen = 0
 
         stage_start_time = 0
@@ -112,11 +112,12 @@ def train(
             train_loader.load_state(chkpt_dict["loader_states"][rank])
 
         if rank == 0:
+            estr = "" if final_stage_epoch == 0 else f" epoch {final_stage_epoch}"
             print(
                 "----------------------------------------------------------------------------"
             )
             print(
-                f"Continuing from stage {train_loader.stage} using checkpoint {args.checkpoint_path}"
+                f"Continuing from stage {train_loader.stage}{estr} using checkpoint {args.checkpoint_path}"
             )
             print(
                 "----------------------------------------------------------------------------"
@@ -422,13 +423,6 @@ def train(
                 print(
                     "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
                 )
-
-            if train_loader.stage + 1 == train_loader.n_stages:
-                # about to begin 1st epoch of final stage
-                if args.n_final_stage_epochs > 0:
-                    final_stage_epoch = 1
-                else:
-                    done_training = True
 
             if train_loader.stage == train_loader.n_stages:
                 # about to repeat final stage
