@@ -71,7 +71,7 @@ python src/main.py \
     --max-expansion-budget 200000 \
     --test-expansion-budget 200000 \
     \
-    --min-samples-per-stage 50000 \
+    --min-problems-per-stage 50000 \
     --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0 \
     --n-final-stage-epochs 5 \
