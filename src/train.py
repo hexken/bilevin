@@ -424,7 +424,13 @@ def train(
                     "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
                 )
 
-            if train_loader.stage == train_loader.n_stages:
+            if train_loader.stage + 1 == train_loader.n_stages:
+                # about to begin 1st epoch of final stage when n_stages > 1
+                if args.n_final_stage_epochs > 0:
+                    final_stage_epoch = 1
+                else:
+                    done_training = True
+            elif train_loader.stage == train_loader.n_stages:
                 # about to repeat final stage
                 if final_stage_epoch < args.n_final_stage_epochs:
                     train_loader.repeat_stage = True
@@ -523,7 +529,9 @@ def train(
                 if not args.keep_all_checkpoints:
                     old_checkpoint_path.unlink(missing_ok=True)
                     old_checkpoint_path = new_checkpoint_path
-                print(f"\nCheckpoint saved to {new_checkpoint_path.name}, took {timer() - ts:.2f}s")
+                print(
+                    f"\nCheckpoint saved to {new_checkpoint_path.name}, took {timer() - ts:.2f}s"
+                )
 
         if done_training:
             break
