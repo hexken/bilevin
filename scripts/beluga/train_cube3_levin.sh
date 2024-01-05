@@ -4,7 +4,7 @@
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
 #SBATCH --time=8:00:00
-#SBATCH --array=1-2
+#SBATCH --array=1-3
 #SBATCH --exclusive
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/cube3_levin/%j.out
 
@@ -44,7 +44,7 @@ python src/main.py \
     \
     --share-feature-net \
     --num-kernels 32 \
-    --kernel-size 1 2 \
+    --kernel-size 2 2 \
     \
     --conditional-backward \
     \

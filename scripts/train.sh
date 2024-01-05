@@ -5,28 +5,26 @@ export OMP_NUM_THREADS=1
 python src/main.py \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/pancake12/50000-train.pkl \
-    --valid-path problems/pancake12/1000-valid.pkl \
-    --no-feature-net \
+    --problems-path problems/cube3/50000-train.pkl \
+    --valid-path problems/cube3/1000-valid.pkl \
     --seed 1 \
     --world-size 4 \
     --mode train \
-    --no-feature-net \
-    --agent AStar \
+    --agent BiLevinBFS \
     --weight-astar 2 \
-    --loss-fn mse_loss \
+    --loss-fn cross_entropy_loss \
     --grad-steps 10 \
     \
     --share-feature-net \
     --num-kernels 32 \
-    --kernel-size 1 2 \
+    --kernel-size 2 2 \
     \
     --conditional-backward \
     \
     --forward-feature-net-lr 0.001 \
-    --forward-policy-layers 128 128 \
+    --forward-policy-layers 128 \
     --forward-policy-lr 0.001 \
-    --forward-heuristic-layers 128 128 \
+    --forward-heuristic-layers 128 \
     --forward-heuristic-lr 0.001 \
     \
     --backward-feature-net-lr 0.001 \

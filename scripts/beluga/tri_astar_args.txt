@@ -1,6 +1,4 @@
 1 AStar mse_loss 0.001 2.5
-1 BiAStarBFS mse_loss 0.001 2.5
 1 BiAStarAlt mse_loss 0.001 2.5
 2 AStar mse_loss 0.001 2.5
-2 BiAStarBFS mse_loss 0.001 2.5
 2 BiAStarAlt mse_loss 0.001 2.5

@@ -3,8 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=7:00:00
-#SBATCH --array=1-2
+#SBATCH --time=3:00:00
+#SBATCH --array=3
 #SBATCH --exclusive
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/pancake12_levin/%j.out
 
