@@ -7,6 +7,7 @@ from domains.domain import State
 from enums import TwoDir
 from search.agent import Agent
 from search.bidir_bfs import BiDirBFS
+from search.bidir_alt import BiDirAlt
 from search.unidir import UniDir
 from search.utils import SearchNode
 
@@ -104,6 +105,10 @@ class Levin(UniDir, LevinBase):
         super().__init__(*args, **kwargs)
 
 
-class BiLevin(BiDirBFS, LevinBase):
+class BiLevinBFS(BiDirBFS, LevinBase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+class BiLevinAlt(BiDirAlt, LevinBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

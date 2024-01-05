@@ -14,7 +14,7 @@ import torch.multiprocessing as mp
 from args import parse_args
 from loaders import ProblemLoader
 from search.astar import AStar, BiAStarAlt, BiAStarBFS
-from search.levin import BiLevin, Levin
+from search.levin import BiLevinAlt, BiLevinBFS, Levin
 from search.utils import set_seeds
 from test import test
 from train import train

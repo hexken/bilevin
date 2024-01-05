@@ -248,7 +248,14 @@ def parse_args():
         "-a",
         "--agent",
         type=str,
-        choices=["Levin", "BiLevin", "AStar", "BiAStarBFS", "BiAStarAlt"],
+        choices=[
+            "Levin",
+            "BiLevinBFS",
+            "BiLevinAlt",
+            "AStar",
+            "BiAStarBFS",
+            "BiAStarAlt",
+        ],
         help="name of the search agent to use",
     )
     # parser.add_argument(
