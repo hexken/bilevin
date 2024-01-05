@@ -3,10 +3,10 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=7:00:00
-#SBATCH --array=1-4
+#SBATCH --time=8:00:00
+#SBATCH --array=1-2
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp4_astar/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/cube3_levin/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -21,24 +21,22 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/beluga/stp_astar_args.txt
+argfile=/scratch/tjhia/bilevin/scripts/beluga/levin_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
 loss=$(echo $args | cut -d' ' -f3)
 lr=$(echo $args | cut -d' ' -f4)
-weight_astar=$(echo $args | cut -d' ' -f5)
-expname=lr${lr}_w${weight_astar}
+expname=lr${lr}
 
 
 python src/main.py \
-    --weight-astar $weight_astar \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/stp4_astar \
+    --runsdir-path runs/cube3_levin \
     --exp-name $expname \
-    --problems-path problems/stp4/50000-train.pkl \
-    --valid-path problems/stp4/1000-valid.pkl \
+    --problems-path problems/cube3/50000-train.pkl \
+    --valid-path problems/cube3/1000-valid.pkl \
     --world-size 40 \
     --mode train \
     --loss-fn $loss \
@@ -66,7 +64,7 @@ python src/main.py \
     --validate-every 150 \
     --checkpoint-every 50 \
     \
-    --time-budget 10 \
+    --time-budget 20 \
     --train-expansion-budget 200000 \
     --max-expansion-budget 200000 \
     --test-expansion-budget 200000 \
