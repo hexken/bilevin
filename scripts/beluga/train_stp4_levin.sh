@@ -4,9 +4,9 @@
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
 #SBATCH --time=6:00:00
-#SBATCH --array=1-16
+#SBATCH --array=1-2
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp4c_levin/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp4_levin/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -33,10 +33,10 @@ expname=lr${lr}
 python src/main.py \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/stp4c_levin \
+    --runsdir-path runs/stp4_levin \
     --exp-name $expname \
-    --problems-path problems/stp4c/50000-train.pkl \
-    --valid-path problems/stp4c/1000-valid.pkl \
+    --problems-path problems/stp4/50000-train.pkl \
+    --valid-path problems/stp4/1000-valid.pkl \
     --world-size 40 \
     --mode train \
     --loss-fn $loss \
@@ -61,17 +61,18 @@ python src/main.py \
     --backward-heuristic-lr $lr \
     \
     --batch-begin-validate 1 \
-    --validate-every 125 \
+    --validate-every 150 \
     --checkpoint-every 50 \
     \
-    --time-budget 600 \
-    --train-expansion-budget 32000 \
-    --max-expansion-budget 32000 \
-    --test-expansion-budget 32000 \
+    --time-budget 10 \
+    --train-expansion-budget 200000 \
+    --max-expansion-budget 200000 \
+    --test-expansion-budget 200000 \
     \
-    --min-samples-per-stage 5000 \
+    --min-problems-per-stage -1 \
     --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0 \
+    --n-final-stage-epochs 5 \
     \
     --n-tail 0 \
     \

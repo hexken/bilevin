@@ -49,8 +49,8 @@ elif [ $1 = "5" ]; then
     --output-path  problems/col5/ \
     --n-stages 26 \
     --n-problems-per-stage 1000 \
-    --marker-prob-limits  0.3 0.6 \
-    --min-path-ratio-limits 0.4 0.8 \
+    --marker-prob-limits  0.3 0.59 \
+    --min-path-ratio-limits 0.4 0.79 \
     --n-problems-final-stage 25000 \
     --test-marker-prob 0.55 \
     --test-min-path-ratio 0.75 \

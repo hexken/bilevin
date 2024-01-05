@@ -5,15 +5,15 @@ export OMP_NUM_THREADS=1
 python src/main.py \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/stp4/50000-train.pkl \
-    --valid-path problems/stp4/1000-valid.pkl \
+    --problems-path problems/cube3d/1240-train.pkl \
+    --valid-path problems/cube3d/100-valid.pkl \
     --no-feature-net \
     --seed 1 \
     --world-size 4 \
     --mode train \
-    --agent BiLevin \
+    --agent BiAStarBFS \
     --weight-astar 2 \
-    --loss-fn cross_entropy_loss \
+    --loss-fn mse_loss \
     --grad-steps 10 \
     \
     --share-feature-net \
@@ -39,9 +39,9 @@ python src/main.py \
     --checkpoint-every 100 \
     \
     --time-budget 10 \
-    --train-expansion-budget 2 \
+    --train-expansion-budget 200000 \
     --max-expansion-budget 200000 \
-    --test-expansion-budget 2 \
+    --test-expansion-budget 200000 \
     \
     --min-problems-per-stage -1 \
     --min-solve-ratio-stage 0 \

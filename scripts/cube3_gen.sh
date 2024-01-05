@@ -15,28 +15,28 @@ if [ "$1" = "d" ]; then
     python src/domains/puzzle_generator.py \
     --domain cube3 \
     --seed 3541 \
-    --output-path  problems/cube3_debug/ \
-    --n-problems-per-stage  200 \
+    --output-path  problems/cube3d/ \
+    --n-problems-per-stage  10 \
+    --stages-multiple  1 \
+    --n-stages  100 \
     --randomize-curriculum-steps \
-    --stages-multiple  5 \
-    --num-stages  10 \
-    --final-stage \
+    --n-problems-final-stage  250 \
     --n-valid  100 \
     --n-test  100 \
-    --test-steps 100
-else
+    --test-steps 100 \
+    --randomize-test-steps
+elif [ "$1" = "3" ]; then
     python src/domains/puzzle_generator.py \
     --domain cube3 \
     --seed 3541 \
     --output-path  problems/cube3/ \
-    --n-problems-per-stage  100000 \
-    --randomize-curriculum-steps \
-    --stages-multiple  5 \
-    --num-stages  10 \
-    --final-stage \
+    --n-problems-per-stage  500 \
+    --stages-multiple  1 \
+    --n-stages  51 \
+    --n-problems-final-stage  25000 \
     --n-valid  1000 \
     --n-test  1000 \
-    --test-steps  100
+    --test-steps  50
 else
     usage
 fi

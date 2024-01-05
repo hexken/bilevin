@@ -39,34 +39,6 @@ elif [ "$1" = "8" ]; then
     --n-test 1000 \
     --randomize-test-steps \
     --test-steps  1000
-elif [ "$1" = "12" ]; then
-    python src/domains/puzzle_generator.py \
-    --domain pancake \
-    --output-path  problems/pancake12 \
-    --seed 128 \
-    --width  12 \
-    --n-problems-per-stage  50000 \
-    --randomize-curriculum-steps \
-    --stages-multiple  1000 \
-    --num-stages  1 \
-    --n-valid  1000 \
-    --n-test 1000 \
-    --randomize-test-steps \
-    --test-steps  1000
-elif [ "$1" = "16" ]; then
-    python src/domains/puzzle_generator.py \
-    --domain pancake \
-    --output-path  problems/pancake16 \
-    --seed 518 \
-    --width  16 \
-    --n-problems-per-stage  50000 \
-    --randomize-curriculum-steps \
-    --stages-multiple  1000 \
-    --num-stages  1 \
-    --n-valid  1000 \
-    --n-test 1000 \
-    --randomize-test-steps \
-    --test-steps  1000
 else
     usage
 fi

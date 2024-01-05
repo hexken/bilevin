@@ -1,4 +1,5 @@
-1 AStar mse_loss 0.001 1
-1 BiAStar mse_loss 0.001 1
-2 AStar mse_loss 0.001 1
-2 BiAStar mse_loss 0.001 1
+1 AStar mse_loss 0.001 1 runs/col5_astar/col5-50000-train_AStar_e200000_t10.0_lr0.001_w1_1_1704332248/checkpoint_b3700.pkl
+1 BiAStar mse_loss 0.001 1 runs/col5_astar/col5-50000-train_BiAStar_e200000_t10.0_lr0.001_w1_1_1704332252/checkpoint_b3700.pkl
+2 AStar mse_loss 0.001 1 runs/col5_astar/col5-50000-train_AStar_e200000_t10.0_lr0.001_w1_2_1704335348/checkpoint_b3700.pkl
+2 BiAStar mse_loss 0.001 1 runs/col5_astar/col5-50000-train_BiAStar_e200000_t10.0_lr0.001_w1_2_1704338959/checkpoint_b3700.pkl
+
