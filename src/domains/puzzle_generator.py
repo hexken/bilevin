@@ -31,6 +31,7 @@ def generate_step_problems(
     min_steps: int,
     max_steps: int,
     id_counter_start: int,
+    check_exclude: bool,
     exclude_problemspecs: set,
     randomize: bool,
     pbar,
@@ -43,20 +44,27 @@ def generate_step_problems(
         else:
             steps = max_steps
         state = init_domain.reset()
-        for _ in range(steps):
-            actions, _ = init_domain.actions_unpruned(state)
-            random_action = rng.choice(actions)
+        avail_actions, _ = init_domain.actions_unpruned(state)
+        action = rng.choice(avail_actions)
+        state = init_domain.result(state, action)
+        for _ in range(steps - 1):
+            avail_actions, _ = init_domain.actions(action, state)
+            random_action = rng.choice(avail_actions)
             state = init_domain.result(state, random_action)
 
-        if state in exclude_problemspecs or init_domain.is_goal(state):
+        if init_domain.is_goal(state):
             continue
-        else:
+
+        if exclude_problemspecs is not None:
+            if check_exclude and state in exclude_problemspecs:
+                continue
             exclude_problemspecs.add(state)
-            new_domain = domain_class(initial_state=state)
-            problem = Problem(id=id_counter, domain=new_domain)
-            problems.append(problem)
-            id_counter += 1
-            pbar.update(1)
+
+        new_domain = domain_class(initial_state=state)
+        problem = Problem(id=id_counter, domain=new_domain)
+        problems.append(problem)
+        id_counter += 1
+        pbar.update(1)
     return problems
 
 
@@ -86,6 +94,12 @@ def main():
         action="store_true",
         default=False,
         help="randomize the number of steps away from the goal for the curriculum",
+    )
+    parser.add_argument(
+        "--increasing-minstep",
+        action="store_true",
+        default=False,
+        help="lower bound on steps away from goal increases with each stage",
     )
     # parser.add_argument(
     #     "--final-stage",
@@ -118,7 +132,7 @@ def main():
         help="multiple of steps to use when generating a curriculum",
     )
     parser.add_argument(
-        "--num-stages",
+        "--n-stages",
         type=int,
         default=1,
         help="number of stages to use when generating a curriculum",
@@ -185,12 +199,12 @@ def main():
     else:
         raise ValueError(f"Unknown domain {args.domain}")
 
-    if args.stages_multiple > 0 and args.num_stages > 0:
-        stages = [args.stages_multiple * i for i in range(1, args.num_stages + 1)]
+    if args.stages_multiple > 0 and args.n_stages > 0:
+        stages = [args.stages_multiple * i for i in range(1, args.n_stages)]
     elif len(args.stages) > 0:
         stages = args.stages
     else:
-        raise ValueError("Must specify either stages or stages_multiple and num_stages")
+        raise ValueError("Must specify either stages or stages_multiple and n_stages")
 
     print(f"Saving problems to {args.output_path}")
     print(
@@ -211,8 +225,12 @@ def main():
     with tqdm.tqdm(total=total_num_curriculum_problems) as pbar:
         pbar.set_description("Curriculum problems")
         for i in range(len(stages)):
-            minsteps = stages[i - 1] + 1 if i > 0 else 1
+            minsteps = stages[i - 1] + 1 if (i > 0 and args.increasing_minstep) else 1
             maxsteps = stages[i]
+            if args.domain == "cube3" and maxsteps < 20:
+                check_exclude = False
+            else:
+                check_exclude = True
             stage_problems = generate_step_problems(
                 domain,
                 domain_class,
@@ -221,6 +239,7 @@ def main():
                 minsteps,
                 maxsteps,
                 num_curriculum_problems,
+                check_exclude,
                 exclude_problemspecs,
                 args.randomize_curriculum_steps,
                 pbar,
@@ -236,6 +255,7 @@ def main():
                 1,
                 args.test_steps,
                 num_curriculum_problems,
+                True,
                 exclude_problemspecs,
                 args.randomize_test_steps,
                 pbar,
@@ -262,6 +282,7 @@ def main():
                 1,
                 args.test_steps,
                 0,
+                True,
                 exclude_problemspecs,
                 args.randomize_test_steps,
                 pbar,
@@ -286,6 +307,7 @@ def main():
                 1,
                 args.test_steps,
                 0,
+                True,
                 exclude_problemspecs,
                 args.randomize_test_steps,
                 pbar,

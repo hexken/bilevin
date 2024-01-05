@@ -260,6 +260,7 @@ class Witness(Domain):
 
     def _actions_unpruned(self, state: WitnessState) -> list[FourDir]:
         actions = []
+        # should return the same actions as pruned
         # moving up
         if (
             state.head_row + 1 < state.grid.shape[0]

@@ -104,8 +104,11 @@ def generate_problems(
         )
         # generate a path from start to goal
         state: WitnessState = domain.reset()
+        actions, _ = domain.actions_unpruned(state)
+        action = rng.choice(actions)
+        state = domain.result(state, action)
         while True:
-            actions, _ = domain.actions_unpruned(state)
+            actions, _ = domain.actions(action, state)
             if not actions:
                 break
             action = rng.choice(actions)
