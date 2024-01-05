@@ -248,8 +248,8 @@ def parse_args():
         "-a",
         "--agent",
         type=str,
-        choices=["Levin", "BiLevin", "AStar", "BiAStar", "BFS"],
-        help="name of the search agent",
+        choices=["Levin", "BiLevin", "AStar", "BiAStarBFS", "BiAStarAlt"],
+        help="name of the search agent to use",
     )
     # parser.add_argument(
     #     "--cost-fn",

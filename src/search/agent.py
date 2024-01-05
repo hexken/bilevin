@@ -48,7 +48,13 @@ class Agent(ABC):
 
     @abstractmethod
     def make_start_node(
-        self, state: State, state_t: to.Tensor, actions: list[int], mask: to.Tensor
+        self,
+        state: State,
+        state_t: to.Tensor,
+        actions: list[int],
+        mask: to.Tensor,
+        forward: bool,
+        goal_feats: to.Tensor | None,
     ) -> SearchNode:
         pass
 

@@ -9,7 +9,7 @@ from search.agent import Agent
 from search.utils import Problem
 
 
-class BiDir(Agent):
+class BiDirAlt(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -31,7 +31,9 @@ class BiDir(Agent):
         f_state = f_domain.reset()
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
         f_actions, f_mask = f_domain.actions_unpruned(f_state)
-        f_start_node = self.make_start_node(f_state, f_state_t, f_actions, mask=f_mask)
+        f_start_node = self.make_start_node(
+            f_state, f_state_t, f_actions, mask=f_mask, forward=True, goal_feats=None
+        )
         f_open = [f_start_node]
         f_closed = {f_start_node: f_start_node}
         f_domain.update(f_start_node)
@@ -49,7 +51,14 @@ class BiDir(Agent):
         b_state_t = b_domain.state_tensor(b_state).unsqueeze(0)
         b_actions, b_mask = b_domain.actions_unpruned(b_state)
 
-        b_start_node = self.make_start_node(b_state, b_state_t, b_actions, mask=b_mask)
+        b_start_node = self.make_start_node(
+            b_state,
+            b_state_t,
+            b_actions,
+            mask=b_mask,
+            forward=False,
+            goal_feats=b_goal_feats,
+        )
         b_closed = {b_start_node: b_start_node}
         b_domain.update(b_start_node)
         b_open = [b_start_node]
@@ -58,6 +67,7 @@ class BiDir(Agent):
         n_forw_expanded = 0
         n_backw_expanded = 0
 
+        next_direction = TwoDir.FORWARD
         while len(f_open) > 0 and len(b_open) > 0:
             if (
                 (exp_budget > 0 and n_total_expanded >= exp_budget)
@@ -70,8 +80,10 @@ class BiDir(Agent):
                     None,
                 )
 
-            if f_open[0] < b_open[0]:
-                direction = TwoDir.FORWARD
+            direction = next_direction
+
+            if direction == TwoDir.FORWARD:
+                next_direction = TwoDir.BACKWARD
                 _goal_feats = None
                 _domain = f_domain
                 _open = f_open
@@ -79,7 +91,7 @@ class BiDir(Agent):
                 other_domain = b_domain
                 n_forw_expanded += 1
             else:
-                direction = TwoDir.BACKWARD
+                next_direction = TwoDir.FORWARD
                 _domain = b_domain
                 _goal_feats = b_goal_feats
                 _open = b_open

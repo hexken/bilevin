@@ -100,7 +100,7 @@ class SearchNode:
         parent: Optional[SearchNode],
         parent_action: Optional[int],
         actions: list[int],
-        actions_mask: Tensor,
+        actions_mask: Tensor | None,
         g: int,
         log_prob: float,
         log_action_probs: Optional[Tensor] = None,

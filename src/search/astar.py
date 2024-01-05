@@ -6,7 +6,8 @@ import torch as to
 from domains.domain import State
 from enums import TwoDir
 from search.agent import Agent
-from search.bidir import BiDir
+from search.bidir_alt import BiDirAlt
+from search.bidir_bfs import BiDirBFS
 from search.unidir import UniDir
 from search.utils import SearchNode
 
@@ -30,10 +31,12 @@ class AStarBase(Agent):
         state_t: to.Tensor,
         actions: list[int],
         mask: to.Tensor,
+        forward: bool,
+        goal_feats: to.Tensor | None,
     ) -> SearchNode:
-        _, _, h = self.model(state_t)
+        _, _, h = self.model(state_t, forward=forward, goal_feats=goal_feats)
 
-        h = h[0].item()
+        h = h.item()
         start_node = SearchNode(
             state,
             parent=None,
@@ -84,8 +87,9 @@ class AStarBase(Agent):
         )
 
         for child, h in zip(children, hs):
-            child.h = h.item()
-            child.f = child.g + self.w * child.h
+            h = h.item()
+            child.h = h
+            child.f = child.g + self.w * h
             heappush(open_list, child)
 
 
@@ -94,6 +98,11 @@ class AStar(UniDir, AStarBase):
         super().__init__(*args, **kwargs)
 
 
-class BiAStar(BiDir, AStarBase):
+class BiAStarBFS(BiDirBFS, AStarBase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class BiAStarAlt(BiDirAlt, AStarBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

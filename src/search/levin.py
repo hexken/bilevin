@@ -6,7 +6,7 @@ import torch as to
 from domains.domain import State
 from enums import TwoDir
 from search.agent import Agent
-from search.bidir import BiDir
+from search.bidir_bfs import BiDirBFS
 from search.unidir import UniDir
 from search.utils import SearchNode
 
@@ -29,8 +29,12 @@ class LevinBase(Agent):
         state_t: to.Tensor,
         actions: list[int],
         mask: to.Tensor,
+        forward: bool,
+        goal_feats: to.Tensor | None,
     ) -> SearchNode:
-        log_probs, _, _ = self.model(state_t, mask=mask)
+        log_probs, _, _ = self.model(
+            state_t, mask=mask, forward=forward, goal_feats=goal_feats
+        )
 
         start_node = SearchNode(
             state,
@@ -52,11 +56,11 @@ class LevinBase(Agent):
         actions: list[int],
         mask: to.Tensor,
         new_state: State,
+        goal_feats: to.Tensor | None,
     ) -> SearchNode:
-        if parent_node.log_action_probs is None:
-            raise ValueError("Parent node has no log_action_probs")
-        elif parent_node.log_prob is None:
-            raise ValueError("Parent node has no log_prob")
+        assert parent_node.log_action_probs is not None
+        assert parent_node.log_prob is not None
+
         g = parent_node.g + 1
         log_prob = (
             parent_node.log_prob + parent_node.log_action_probs[parent_action].item()
@@ -101,6 +105,6 @@ class Levin(UniDir, LevinBase):
         super().__init__(*args, **kwargs)
 
 
-class BiLevin(BiDir, LevinBase):
+class BiLevin(BiDirBFS, LevinBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

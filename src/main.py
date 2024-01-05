@@ -13,7 +13,7 @@ import torch.multiprocessing as mp
 
 from args import parse_args
 from loaders import ProblemLoader
-from search.astar import AStar, BiAStar
+from search.astar import AStar, BiAStarAlt, BiAStarBFS
 from search.levin import BiLevin, Levin
 from search.utils import set_seeds
 from test import test
@@ -179,16 +179,8 @@ if __name__ == "__main__":
         "num_features": num_features,
     }
 
-    if args.agent == "Levin":
-        agent = Levin(logdir, args, aux_args)
-    elif args.agent == "BiLevin":
-        agent = BiLevin(logdir, args, aux_args)
-    elif args.agent == "AStar":
-        agent = AStar(logdir, args, aux_args)
-    elif args.agent == "BiAStar":
-        agent = BiAStar(logdir, args, aux_args)
-    else:
-        raise ValueError(f"Unknown agent: {args.agent}")
+    agent_class = globals()[args.agent]
+    agent = agent_class(logdir, args, aux_args)
 
     if args.valid_path:
         vset_dict = pickle.load(args.valid_path.open("rb"))
