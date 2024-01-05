@@ -5,13 +5,14 @@ export OMP_NUM_THREADS=1
 python src/main.py \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/cube3d/1240-train.pkl \
-    --valid-path problems/cube3d/100-valid.pkl \
+    --problems-path problems/pancake12/50000-train.pkl \
+    --valid-path problems/pancake12/1000-valid.pkl \
     --no-feature-net \
     --seed 1 \
     --world-size 4 \
     --mode train \
-    --agent BiAStarBFS \
+    --no-feature-net \
+    --agent AStar \
     --weight-astar 2 \
     --loss-fn mse_loss \
     --grad-steps 10 \
@@ -23,9 +24,9 @@ python src/main.py \
     --conditional-backward \
     \
     --forward-feature-net-lr 0.001 \
-    --forward-policy-layers 128 \
+    --forward-policy-layers 128 128 \
     --forward-policy-lr 0.001 \
-    --forward-heuristic-layers 128 \
+    --forward-heuristic-layers 128 128 \
     --forward-heuristic-lr 0.001 \
     \
     --backward-feature-net-lr 0.001 \
