@@ -37,6 +37,7 @@ elif [ "$1" = "3" ]; then
     --n-valid  1000 \
     --n-test  1000 \
     --test-steps  50
+    --randomize-test-steps
 else
     usage
 fi
