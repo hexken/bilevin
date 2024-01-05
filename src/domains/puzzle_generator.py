@@ -49,8 +49,8 @@ def generate_step_problems(
         state = init_domain.result(state, action)
         for _ in range(steps - 1):
             avail_actions, _ = init_domain.actions(action, state)
-            random_action = rng.choice(avail_actions)
-            state = init_domain.result(state, random_action)
+            action = rng.choice(avail_actions)
+            state = init_domain.result(state, action)
 
         if init_domain.is_goal(state):
             continue
@@ -206,6 +206,7 @@ def main():
     else:
         raise ValueError("Must specify either stages or stages_multiple and n_stages")
 
+    print(f"Increasing minstep: {args.increasing_minstep}")
     print(f"Saving problems to {args.output_path}")
     print(
         f"  {args.n_problems_per_stage} problems for each of {len(stages)} stages: {stages}"
