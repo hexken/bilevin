@@ -56,7 +56,6 @@ class LevinBase(Agent):
         actions: list[int],
         mask: to.Tensor,
         new_state: State,
-        goal_feats: to.Tensor | None,
     ) -> SearchNode:
         assert parent_node.log_action_probs is not None
         assert parent_node.log_prob is not None

@@ -33,7 +33,7 @@ class UniDir(Agent):
         state = domain.reset()
         state_t = domain.state_tensor(state).unsqueeze(0)
         actions, mask = domain.actions_unpruned(state)
-        node = self.make_start_node(state, state_t, actions, mask=mask)
+        node = self.make_start_node(state, state_t, actions, forward=True, mask=mask, goal_feats=None)
 
         closed = {node: node}
         open_list = [node]
