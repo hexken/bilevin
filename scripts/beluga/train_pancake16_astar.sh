@@ -3,10 +3,10 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=13:30:00
-#SBATCH --array=4-6
+#SBATCH --time=6:00:00
+#SBATCH --array=1-2
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp4_astar/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/pancake16_astar/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -21,7 +21,7 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/beluga/stp_astar_args.txt
+argfile=/scratch/tjhia/bilevin/scripts/beluga/pancake_astar_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
@@ -32,13 +32,14 @@ expname=lr${lr}_w${weight_astar}
 
 
 python src/main.py \
+    --no-feature-net \
     --weight-astar $weight_astar \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/stp4_astar \
+    --runsdir-path runs/pancake16_astar \
     --exp-name $expname \
-    --problems-path problems/stp4/50000-train.pkl \
-    --valid-path problems/stp4/1000-valid.pkl \
+    --problems-path problems/pancake16/50000-train.pkl \
+    --valid-path problems/pancake16/1000-valid.pkl \
     --world-size 40 \
     --mode train \
     --loss-fn $loss \
@@ -51,9 +52,9 @@ python src/main.py \
     --conditional-backward \
     \
     --forward-feature-net-lr $lr \
-    --forward-policy-layers 128 \
+    --forward-policy-layers 128 128 \
     --forward-policy-lr $lr \
-    --forward-heuristic-layers 128 \
+    --forward-heuristic-layers 128 128 \
     --forward-heuristic-lr $lr \
     \
     --backward-feature-net-lr $lr \
