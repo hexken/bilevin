@@ -5,19 +5,19 @@ export OMP_NUM_THREADS=1
 python src/main.py \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/cube3/50000-train.pkl \
-    --valid-path problems/cube3/1000-valid.pkl \
+    --problems-path problems/stp4/50000-train.pkl \
+    --valid-path problems/stp4/1000-valid.pkl \
     --seed 1 \
     --world-size 4 \
     --mode train \
-    --agent BiLevinBFS \
-    --weight-astar 2 \
-    --loss-fn cross_entropy_loss \
+    --agent BiAStarAlt \
+    --weight-astar 2.5 \
+    --loss-fn mse_loss \
     --grad-steps 10 \
     \
     --share-feature-net \
     --num-kernels 32 \
-    --kernel-size 2 2 \
+    --kernel-size 1 2 \
     \
     --conditional-backward \
     \

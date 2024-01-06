@@ -3,10 +3,10 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=27:00:00
-#SBATCH --array=1-6
+#SBATCH --time=6:00:00
+#SBATCH --array=1-3
 #SBATCH --exclusive
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp5_levin/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp5_astar/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -21,19 +21,21 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/beluga/levin_args.txt
+argfile=/scratch/tjhia/bilevin/scripts/beluga/stp_astar_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
 loss=$(echo $args | cut -d' ' -f3)
 lr=$(echo $args | cut -d' ' -f4)
-expname=lr${lr}
+weight_astar=$(echo $args | cut -d' ' -f5)
+expname=lr${lr}_w${weight_astar}
 
 
 python src/main.py \
+    --weight-astar $weight_astar \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/stp5_levin \
+    --runsdir-path runs/stp5_astar \
     --exp-name $expname \
     --problems-path problems/stp5/50000-train.pkl \
     --valid-path problems/stp5/1000-valid.pkl \

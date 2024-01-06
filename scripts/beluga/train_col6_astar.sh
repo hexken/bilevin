@@ -3,8 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
 #SBATCH --mem=186G
-#SBATCH --time=26:00:00
-#SBATCH --array=1-4
+#SBATCH --time=27:00:00
+#SBATCH --array=1-6
 #SBATCH --exclusive
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/col6_astar/%j.out
 
@@ -71,7 +71,7 @@ python src/main.py \
     --max-expansion-budget 200000 \
     --test-expansion-budget 200000 \
     \
-    --min-problems-per-stage 50000 \
+    --min-problems-per-stage -1 \
     --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0 \
     --n-final-stage-epochs 5 \
