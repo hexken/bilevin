@@ -1,4 +1,5 @@
 import itertools
+import json
 from pathlib import Path
 import pickle as pkl
 import re
@@ -18,8 +19,9 @@ def plot_single_ax(
     aggr_size=1,
     start=1,
     xs: Optional[pd.Series] = None,
+    stage_vlines=None,
+    epoch_vlines=None,
     color=None,
-    text=None,
 ):
     """Plot a single line on an existing axis, aggregating over aggr_size and ignoring nans."""
     aggr_y = y.astype("Float64").to_numpy(dtype=np.float64, na_value=np.nan)
@@ -40,16 +42,24 @@ def plot_single_ax(
     else:
         ax.plot(x[mask], aggr_y[mask])
 
-    if text is not None:
-        ax.text(text)
+
+def add_vlines(ax, stage_vlines=None, epoch_vlines=None):
+    if stage_vlines is not None:
+        for vline in stage_vlines:
+            ax.axvline(vline, color="k", linestyle=":", linewidth=0.1)
+    if epoch_vlines is not None:
+        for vline in epoch_vlines:
+            ax.axvline(vline, color="k", linestyle="-", linewidth=0.15)
 
 
 def levin_group_key(pth):
     s = str(pth)
     r = re.search(".*_((Bi)?Levin).*(lr0.\d+)", s)
+    # r = re.search(".*_((Bi)?Levin)", s)  # ".*(lr0.\d+)", s)
     # r = re.search(".*_((Bi)?Levin).*", s)
     if r:
         return " ".join(r.group(1, 3))
+        # return " ".join(r.group(1))
 
 
 def astar_group_key(pth):
@@ -60,7 +70,7 @@ def astar_group_key(pth):
         return " ".join(r.group(1, 3, 4))
 
 
-def plot_same_axes(run_name, run_paths, batch_size=40):
+def plot_same_axes(run_name, run_paths: list, batch_size=40):
     # model plots
     model_fig, model_ax = plt.subplots(2, 2, tight_layout=True, figsize=(8, 11))
     model_ax[0, 1].set_title("Backward")
@@ -108,12 +118,47 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
     valid_fig.supxlabel("Valid run")
 
     colors = ["b", "c", "g", "m"]
-    for pth in run_paths:
+
+    # find longest run, use to compute vlines
+    longest_run, longest_search = 0, 0
+    for i, pth in enumerate(run_paths):
+        search_len = len(list(pth.glob("search_train*.pkl")))
+        if search_len > longest_search:
+            longest_search = search_len
+            longest_run = i
+
+    search_stages = [
+        p
+        for p in run_paths[longest_run].glob("search_train_*.pkl")
+        if "_e" not in p.name
+    ]
+    n_search_stages = len(search_stages)
+    print(search_stages[0])
+    ssbi = len(pkl.load(search_stages[0].open("rb"))) // batch_size
+    stage_vlines = [ssbi * i for i in range(1, n_search_stages + 1)]
+
+    search_epochs = list(run_paths[longest_run].glob("search_train*_e*.pkl"))
+    n_search_epochs = len(search_epochs)
+
+    nssb = stage_vlines[-1]
+    sebi = len(pkl.load(search_epochs[0].open("rb"))) // batch_size
+    n_search_epochs = len(search_epochs)
+    epoch_vlines = [nssb + i * sebi for i in range(1, n_search_epochs + 1)]
+
+    n_valids = len(list(run_paths[0].glob("search_valid*.pkl")))
+    vbi: float = json.load((run_paths[0] / "args.json").open("r"))["validate_every"]
+    valid_xs = pd.Series([vbi * i for i in range(n_valids)])
+
+    train_dfs = []
+    valid_dfs = []
+
+    for ri, pth in enumerate(run_paths):
         color = colors.pop()
-        search_trains = [
-            pkl.load(p.open("rb"))
-            for p in natsorted(list(pth.glob("search_train*.pkl")))
-        ]
+        search_paths = natsorted(list(pth.glob("search_train*.pkl")))
+        for p in search_paths:
+            print(p.name)
+        print("")
+        search_trains = [pkl.load(p.open("rb")) for p in search_paths]
         model_trains = [
             pkl.load(p.open("rb"))
             for p in natsorted(list(pth.glob("model_train*.pkl")))
@@ -124,33 +169,86 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
         ]
 
         # fill model plots
-        for i, model_train in enumerate(model_trains):
+        for mi, model_train in enumerate(model_trains):
             xs = model_train.index.values
-            plot_single_ax(model_ax[0, 0], model_train["floss"], xs=xs, color=color)
+            plot_single_ax(
+                model_ax[0, 0],
+                model_train["floss"],
+                xs=xs,
+                color=color,
+            )
+            if ri == 0 and mi == 0:
+                add_vlines(
+                    model_ax[0, 0], stage_vlines=stage_vlines, epoch_vlines=epoch_vlines
+                )
             if "Levin" in run_name:
-                plot_single_ax(model_ax[1, 0], model_train["facc"], xs=xs, color=color)
+                plot_single_ax(
+                    model_ax[1, 0],
+                    model_train["facc"],
+                    xs=xs,
+                    color=color,
+                )
+                if ri == 0 and mi == 0:
+                    add_vlines(
+                        model_ax[1, 0],
+                        stage_vlines=stage_vlines,
+                        epoch_vlines=epoch_vlines,
+                    )
             if "Bi" in run_name:
-                plot_single_ax(model_ax[0, 1], model_train["bloss"], xs=xs, color=color)
+                plot_single_ax(
+                    model_ax[0, 1],
+                    model_train["bloss"],
+                    xs=xs,
+                    color=color,
+                )
+                if ri == 0 and mi == 0:
+                    add_vlines(
+                        model_ax[0, 1],
+                        stage_vlines=stage_vlines,
+                        epoch_vlines=epoch_vlines,
+                    )
                 if "Levin" in run_name:
                     plot_single_ax(
-                        model_ax[1, 1], model_train["bacc"], xs=xs, color=color
+                        model_ax[1, 1],
+                        model_train["bacc"],
+                        xs=xs,
+                        color=color,
                     )
+                    if ri == 0 and mi == 0:
+                        add_vlines(
+                            model_ax[1, 1],
+                            stage_vlines=stage_vlines,
+                            epoch_vlines=epoch_vlines,
+                        )
 
         # fill search plots
-        for i, search_train in enumerate(search_trains):
+        seed_trains = []
+        for si, search_train in enumerate(search_trains):
+            seed_trains.append(search_train)
+
             # offset batch axis by stage
-            if i == 0:
+            if si == 0:
                 start = 1
             else:
-                start = i * (len(search_trains[i - 1]) // batch_size) + 1
+                start = sum(len(s) // batch_size for s in search_trains[:si]) + 1
 
             # plot solved
             solved = search_train["len"].fillna(0)
             solved[solved > 0] = 1
             assert len(solved) % batch_size == 0
             plot_single_ax(
-                search_ax[0, 0], solved, aggr_size=batch_size, start=start, color=color
+                search_ax[0, 0],
+                solved,
+                aggr_size=batch_size,
+                start=start,
+                color=color,
             )
+            if ri == 0 and si == 0:
+                add_vlines(
+                    search_ax[0, 0],
+                    stage_vlines=stage_vlines,
+                    epoch_vlines=epoch_vlines,
+                )
             # plot Len
             plot_single_ax(
                 search_ax[1, 0],
@@ -159,6 +257,12 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
                 start=start,
                 color=color,
             )
+            if ri == 0 and si == 0:
+                add_vlines(
+                    search_ax[1, 0],
+                    stage_vlines=stage_vlines,
+                    epoch_vlines=epoch_vlines,
+                )
 
             # plot preds
             if "Levin" in run_name:
@@ -172,6 +276,12 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
                 start=start,
                 color=color,
             )
+            if ri == 0 and si == 0:
+                add_vlines(
+                    search_ax[2, 0],
+                    stage_vlines=stage_vlines,
+                    epoch_vlines=epoch_vlines,
+                )
 
             # plot exp
             if "Bi" in run_name:
@@ -185,6 +295,12 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
                 start=start,
                 color=color,
             )
+            if ri == 0 and si == 0:
+                add_vlines(
+                    search_ax[3, 0],
+                    stage_vlines=stage_vlines,
+                    epoch_vlines=epoch_vlines,
+                )
             if "Bi" in run_name:
                 # plot F/B exp
                 fb_exps = search_train["fexp"] / search_train["bexp"]
@@ -195,6 +311,12 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
                     start=start,
                     color=color,
                 )
+                if ri == 0 and si == 0:
+                    add_vlines(
+                        search_ax[0, 1],
+                        stage_vlines=stage_vlines,
+                        epoch_vlines=epoch_vlines,
+                    )
 
                 # plot F/B len
                 fb_lens = search_train["fg"] / search_train["bg"]
@@ -205,6 +327,12 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
                     start=start,
                     color=color,
                 )
+                if ri == 0 and si == 0:
+                    add_vlines(
+                        search_ax[1, 1],
+                        stage_vlines=stage_vlines,
+                        epoch_vlines=epoch_vlines,
+                    )
 
                 # plot F/B preds
                 if "Levin" in run_name:
@@ -220,7 +348,17 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
                     aggr_size=batch_size,
                     start=start,
                     color=color,
+                    stage_vlines=stage_vlines,
+                    epoch_vlines=epoch_vlines,
                 )
+                if ri == 0 and si == 0:
+                    add_vlines(
+                        search_ax[2, 1],
+                        stage_vlines=stage_vlines,
+                        epoch_vlines=epoch_vlines,
+                    )
+
+        seed_train_df = pd.concat(seed_trains, ignore_index=True)
 
         # fill valid plots
         # plot solved
@@ -229,7 +367,9 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
         valid_exps = []
         valid_fb_lens = []
         valid_fb_exps = []
+        seed_valids = []
         for search_valid in valids:
+            seed_valids.append(search_valid)
             solved = search_valid["len"].fillna(0)
             solved[solved > 0] = 1
             assert len(solved) % batch_size == 0
@@ -249,26 +389,76 @@ def plot_same_axes(run_name, run_paths, batch_size=40):
             total_exps.append(exps.sum())
             valid_exps.append(exps.mean())
 
+        seed_valid_df = pd.concat(seed_valids, ignore_index=True)
+
         # plot solved
-        plot_single_ax(valid_ax[0, 0], pd.Series(valid_solved), color=color)
+        plot_single_ax(
+            valid_ax[0, 0],
+            pd.Series(valid_solved),
+            color=color,
+            xs=valid_xs,
+        )
+        if ri == 0:
+            add_vlines(
+                valid_ax[0, 0], stage_vlines=stage_vlines, epoch_vlines=epoch_vlines
+            )
 
         # plot Len
-        plot_single_ax(valid_ax[1, 0], pd.Series(valid_lens), color=color)
+        plot_single_ax(
+            valid_ax[1, 0],
+            pd.Series(valid_lens),
+            color=color,
+            xs=valid_xs,
+        )
+        if ri == 0:
+            add_vlines(
+                valid_ax[1, 0], stage_vlines=stage_vlines, epoch_vlines=epoch_vlines
+            )
 
         # plot exp
         total_exp = sum(valid_exps)
-        plot_single_ax(valid_ax[2, 0], pd.Series(valid_exps), color=color, text=text)
+        plot_single_ax(
+            valid_ax[2, 0],
+            pd.Series(valid_exps),
+            color=color,
+            xs=valid_xs,
+        )
+        if ri == 0:
+            add_vlines(
+                valid_ax[2, 0], stage_vlines=stage_vlines, epoch_vlines=epoch_vlines
+            )
 
         # plot fb exp and len
         if "Bi" in run_name:
             # plot F/B exp
-            plot_single_ax(valid_ax[0, 1], pd.Series(valid_fb_exps), color=color)
+            plot_single_ax(
+                valid_ax[0, 1],
+                pd.Series(valid_fb_exps),
+                color=color,
+                xs=valid_xs,
+            )
+            if ri == 0:
+                add_vlines(
+                    valid_ax[0, 1], stage_vlines=stage_vlines, epoch_vlines=epoch_vlines
+                )
 
             # plot F/B len
-            plot_single_ax(valid_ax[1, 1], pd.Series(valid_fb_lens), color=color)
+            plot_single_ax(
+                valid_ax[1, 1],
+                pd.Series(valid_fb_lens),
+                color=color,
+                xs=valid_xs,
+            )
+            if ri == 0:
+                add_vlines(
+                    valid_ax[1, 1], stage_vlines=stage_vlines, epoch_vlines=epoch_vlines
+                )
+
+        train_dfs.append(seed_train_df)
+        valid_dfs.append(seed_valid_df)
 
     plt.close("all")
-    return model_fig, search_fig, valid_fig
+    return model_fig, search_fig, valid_fig, train_dfs, valid_dfs
 
 
 def group_and_plot(path, group_key_func, batch_size=40):
@@ -281,14 +471,18 @@ def group_and_plot(path, group_key_func, batch_size=40):
         rundata.append(list(g))
 
     figs = []
+    all_train_dfs = []
+    all_valid_dfs = []
     for run_name, run_paths in zip(runnames, rundata):
         print(f"Found {len(run_paths)} runs of {run_name}")
-        model_fig, search_fig, valid_fig = plot_same_axes(
+        model_fig, search_fig, valid_fig, train_dfs, valid_dfs = plot_same_axes(
             run_name, run_paths, batch_size
         )
         figs.append((run_name, model_fig, search_fig, valid_fig))
+        all_train_dfs.append((run_name, train_dfs))
+        all_valid_dfs.append((run_name, valid_dfs))
 
-    return figs
+    return figs, all_train_dfs, all_valid_dfs
 
 
 class PdfTemplate:
@@ -310,7 +504,7 @@ class PdfTemplate:
     def export(self):
         md_file = f"{self.outfile}.md"
         pdf_file = f"{self.outfile}.pdf"
-        pandoc = ["pandoc", f"{md_file}", "-V geometry:margin=0.5in", f"-o {pdf_file}"]
+        pandoc = ["pandoc", f"{md_file}", "-V geometry:margin=1cm", f"-o{pdf_file}"]
         with open(md_file, "w") as f:
             f.write(self.text)
         if self.toc:
@@ -328,23 +522,65 @@ class PdfTemplate:
 
 
 def main():
-    levin_runs = Path("../tri4_levin")
-    astar_runs = Path("../tri4_astar")
+    time_window = 150
+    batch_size = 40
+    levin_runs = Path("../final_runs/tri4_levin/")
+    astar_runs = Path("../final_runs/tri4_astar/")
+    figs_dir = Path("final_runs_tri4")
+    exps_dir = figs_dir / "solved_vs_exps"
 
-    levin_figs = group_and_plot(levin_runs, levin_group_key, batch_size=40)
-    astar_figs = group_and_plot(astar_runs, astar_group_key, batch_size=40)
+    figs_dir.mkdir(exist_ok=True)
+
+    levin_figs, levin_train_dfs, levin_valid_dfs = group_and_plot(
+        levin_runs, levin_group_key, batch_size=batch_size
+    )
+    astar_figs, astar_train_dfs, astar_valid_dfs = group_and_plot(
+        astar_runs, astar_group_key, batch_size=batch_size
+    )
     figs = levin_figs + astar_figs
 
-    figs_dir = Path("tri4_sweep")
-    figs_dir.mkdir(exist_ok=True)
-    for run_name, model_fig, search_fig, valid_fig in figs:
-        model_fig.savefig(figs_dir / f"{run_name.replace(' ', '_')}_model.png")
-        search_fig.savefig(figs_dir / f"{run_name.replace(' ', '_')}_search.png")
-        valid_fig.savefig(figs_dir / f"{run_name.replace(' ', '_')}_valid.png")
+    # for run_name, model_fig, search_fig, valid_fig in figs:
+    #     model_fig.savefig(figs_dir / f"{run_name.replace(' ', '_')}_model.png")
+    #     search_fig.savefig(figs_dir / f"{run_name.replace(' ', '_')}_search.png")
+    #     valid_fig.savefig(figs_dir / f"{run_name.replace(' ', '_')}_valid.png")
 
-    pdf = PdfTemplate(figs_dir, "tri4_sweep")
-    pdf.render()
-    pdf.export()
+    # pdf = PdfTemplate(figs_dir, str(figs_dir))
+    # pdf.render()
+    # pdf.export()
+
+    # plot solved vs exps
+    fig, ax = plt.subplots(tight_layout=True, figsize=(8, 11))
+
+    labels = []
+    for run_name, dfs in itertools.chain(levin_train_dfs, astar_train_dfs):
+        print(run_name)
+        labels.append(run_name)
+        solveds = []
+        cols = []
+        for i, df in enumerate(dfs):
+            df = df[["time", "len"]].copy()
+            df["len"] = df["len"].apply(pd.notna)
+            dfg = df.groupby(df.index // batch_size)
+            dfs = dfg.aggregate({"time": "max", "len": "mean"})
+            dfs["time"] = dfs["time"].cumsum()
+            x = dfs.groupby(dfs["time"] // time_window)["len"].mean()
+            x.index = x.index.map(lambda x: (x + 1) * time_window)
+            solveds.append(x)
+            cols.append(i)
+
+        df = pd.concat(solveds, axis=1)
+        df.columns = cols
+        df["mean"] = df.mean(axis=1)
+        df["min"] = df.min(axis=1)
+        df["max"] = df.max(axis=1)
+
+        ax.plot(df.index.values, df["mean"], label=run_name)
+        plt.fill_between(
+            np.array(df.index.values, dtype=np.float32), df["min"], df["max"], alpha=0.1
+        )
+
+    ax.legend(labels=labels)
+    plt.show()
 
 
 if __name__ == "__main__":
