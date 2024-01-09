@@ -40,6 +40,25 @@ def cross_entropy_loss(traj: Trajectory, model: "AgentModel"):
     return loss, avg_action_nll, acc
 
 
+def cross_entropy_mse_loss(traj: Trajectory, model: "AgentModel"):
+    n_actions = len(traj)
+    log_probs, _, hs = model(
+        traj.states,
+        forward=traj.forward,
+        goal_state_t=traj.goal_state_t,
+        mask=traj.masks,
+    )
+    ce_loss = nll_loss(log_probs, traj.actions, reduction="mean")
+
+    avg_action_nll = ce_loss.item()
+    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
+
+    mse_loss = mse(hs, traj.cost_to_gos.unsqueeze(1))
+    loss = ce_loss + mse_loss
+
+    return loss, avg_action_nll, acc
+
+
 def cross_entropy_mid_loss(traj: Trajectory, model: "AgentModel"):
     mid_idx = ceil(len(traj) / 2)
     mask = traj.masks[:mid_idx]

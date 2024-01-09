@@ -10,9 +10,9 @@ python src/main.py \
     --seed 1 \
     --world-size 4 \
     --mode train \
-    --agent BiAStarAlt \
+    --agent PHS \
     --weight-astar 2.5 \
-    --loss-fn mse_loss \
+    --loss-fn cross_entropy_mse_loss \
     --grad-steps 10 \
     \
     --share-feature-net \
@@ -37,7 +37,7 @@ python src/main.py \
     --validate-every 1000 \
     --checkpoint-every 100 \
     \
-    --time-budget 10 \
+    --time-budget 0.1 \
     --train-expansion-budget 200000 \
     --max-expansion-budget 200000 \
     --test-expansion-budget 200000 \

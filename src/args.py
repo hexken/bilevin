@@ -90,6 +90,7 @@ def parse_args():
             "levin_loss",
             "cross_entropy_loss",
             "cross_entropy_mid_loss",
+            "cross_entropy_mse_loss",
             "mse_loss",
         ],
         help="loss function",
@@ -255,6 +256,9 @@ def parse_args():
             "AStar",
             "BiAStarBFS",
             "BiAStarAlt",
+            "PHS",
+            "BiPHSBFS",
+            "BiPHSAlt",
         ],
         help="name of the search agent to use",
     )
