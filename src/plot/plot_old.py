@@ -1,4 +1,5 @@
 import itertools
+import matplotlib.colors as mcolors
 import json
 from pathlib import Path
 import pickle as pkl
@@ -524,10 +525,10 @@ class PdfTemplate:
 def main():
     time_window = 150
     batch_size = 40
-    levin_runs = Path("../final_runs/tri4_levin/")
-    astar_runs = Path("../final_runs/tri4_astar/")
-    figs_dir = Path("final_runs_tri4")
-    exps_dir = figs_dir / "solved_vs_exps"
+    exp_name = "pancake16"
+    levin_runs = Path(f"../final_runs/{exp_name}_levin/")
+    astar_runs = Path(f"../final_runs/{exp_name}_astar/")
+    figs_dir = Path(f"final_runs_{exp_name}")
 
     figs_dir.mkdir(exist_ok=True)
 
@@ -549,15 +550,26 @@ def main():
     # pdf.export()
 
     # plot solved vs exps
-    fig, ax = plt.subplots(tight_layout=True, figsize=(8, 11))
+    fig, ax = plt.subplots(tight_layout=True, figsize=(8, 6))
 
+    # tab_colors = mcolors.TABLEAU_COLORS
+    # colors = [
+    #     tab_colors["tab:blue"],
+    #     tab_colors["tab:green"],
+    #     tab_colors["tab:red"],
+    #     tab_colors["tab:orange"],
+    # ]
+    colors = ["b", "c", "g", "m"]
     labels = []
-    for run_name, dfs in itertools.chain(levin_train_dfs, astar_train_dfs):
+    for run_name, dfs in itertools.chain(astar_train_dfs, levin_train_dfs):
         print(run_name)
-        labels.append(run_name)
         solveds = []
         cols = []
+        curr_lens = len(dfs[0])
+        end_curr = -1
         for i, df in enumerate(dfs):
+            if end_curr < 0 and len(df) != curr_lens:
+                end_curr = i
             df = df[["time", "len"]].copy()
             df["len"] = df["len"].apply(pd.notna)
             dfg = df.groupby(df.index // batch_size)
@@ -574,13 +586,28 @@ def main():
         df["min"] = df.min(axis=1)
         df["max"] = df.max(axis=1)
 
-        ax.plot(df.index.values, df["mean"], label=run_name)
+        # color = tab_colors.popitem()[1]
+        color = colors.pop()
+        ax.plot(df.index.values, df["mean"], label=run_name, color=color)
         plt.fill_between(
-            np.array(df.index.values, dtype=np.float32), df["min"], df["max"], alpha=0.1
+            np.array(df.index.values, dtype=np.float32),
+            df["min"],
+            df["max"],
+            alpha=0.1,
+            color=color,
+            label=run_name,
         )
+        labels.append(run_name)
 
-    ax.legend(labels=labels)
-    plt.show()
+    handler, labeler = ax.get_legend_handles_labels()
+    it = iter(handler)
+    hd = [(a, next(it)) for a in it]
+    ax.legend(hd, labels)
+    ax.set_xlabel("Time (s)", size=12)
+    ax.set_ylabel("Solved", rotation=0, labelpad=30, size=12)
+    ax.set_title("Solved vs. time")
+    plt.savefig(figs_dir/ f"svt_{str(exp_name)}.pdf")
+    # plt.show()
 
 
 if __name__ == "__main__":
