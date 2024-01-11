@@ -1,6 +1,7 @@
 import itertools
 from pathlib import Path
 import pickle as pkl
+from collections.abc import Iterable
 import re
 import json
 import subprocess
@@ -9,46 +10,24 @@ from natsort import natsorted
 import pandas as pd
 
 
-def levin_group_key(pth):
-    s = str(pth)
-    r = re.search(".*_((Bi)?Levin.*)_e.*(lr0.\d+)", s)
-    # r = re.search(".*_((Bi)?Levin)", s)  # ".*(lr0.\d+)", s)
-    # r = re.search(".*_((Bi)?Levin).*", s)
-    if r:
-        return " ".join(r.group(1, 3))
-        # return " ".join(r.group(1))
-
-
-def phs_group_key(pth):
-    s = str(pth)
-    r = re.search(".*_((Bi)?PHS.*)_e.*(lr0.\d+)", s)
-    # r = re.search(".*_((Bi)?Levin)", s)  # ".*(lr0.\d+)", s)
-    # r = re.search(".*_((Bi)?Levin).*", s)
-    if r:
-        return " ".join(r.group(1, 3))
-        # return " ".join(r.group(1))
-
-
-def astar_group_key(pth):
-    s = str(pth)
-    r = re.search(".*_((Bi)?AStar.*)_e.*(lr0.\d+).*(w\d\.?\d?)", s)
-    # r = re.search(".*_((Bi)?AStar).*", s)
-    if r:
-        return " ".join(r.group(1, 3, 4))
-
-
 def all_group_key(pth):
-    s = str(pth)
-    r = re.search(".*_((Bi)?AStar.*)_e.*(lr0.\d+).*(w\d\.?\d?)", s)
-    # r = re.search(".*_((Bi)?AStar).*", s)
+    r = re.search(
+        "^.*_((?:Bi)?AStar.*)?((?:Bi)?Levin.*)?((?:Bi)?PHS.*)?_e\d+_t\d+.\d+_(lr\d+\.\d+)(?:_)(w\d+\.?\d*)?.*",
+        str(pth),
+    )
     if r:
-        return " ".join(r.group(1, 3, 4))
+        return " ".join([g for g in r.groups() if g is not None])
 
 
-def get_runs_data(pth: Path, group_key) -> dict:
+def get_runs_data(pth: Path | Iterable[Path], group_key) -> dict:
     batch_regex = re.compile(".*_b(\d+).pkl")
     # get list of paths for each run_name, specified by group_key (should correpsond to seeds)
-    all_runs_paths = list(pth.glob("*/"))
+    if isinstance(pth, Path):
+        pth = [pth]
+    all_runs_paths = []
+    for p in pth:
+        all_runs_paths.extend(list(p.glob("*/")))
+
     runs_names = []
     runs_paths = []
     all_runs_paths = sorted(all_runs_paths, key=group_key)
