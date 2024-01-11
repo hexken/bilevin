@@ -15,7 +15,7 @@ from natsort import natsorted
 import numpy as np
 import pandas as pd
 
-from utils import PdfTemplate, all_group_key, get_runs_data, ColorMapper
+from utils import PdfTemplate, all_group_key, get_runs_data, LineStyleMapper
 
 cmap = mpl.colormaps["tab20"]
 mpl.rcParams["axes.prop_cycle"] = cycler(color=cmap.colors)
@@ -27,10 +27,10 @@ def plot_solve_vs_time(runs_data, batch_size=40, window_size=150):
     fig, ax = plt.subplots(figsize=(8, 6))
     labels = []
 
-    cmapper = ColorMapper()
+    ls_mapper = LineStyleMapper()
 
     for run_name, run_data in runs_data.items():
-        color = cmapper.get_color(run_name)
+        c, ls = ls_mapper.get_ls(run_name)
         dfs = run_data["search"]
         solveds = []
         cols = []
@@ -53,13 +53,13 @@ def plot_solve_vs_time(runs_data, batch_size=40, window_size=150):
 
         # color = tab_colors.popitem()[1]
         # color = colors.pop()
-        ax.plot(df.index.values, df["mean"], label=run_name, color=color)
+        ax.plot(df.index.values, df["mean"], label=run_name, color=c, linestyle=ls)
         plt.fill_between(
             np.array(df.index.values, dtype=np.float32),
             df["min"],
             df["max"],
             alpha=0.1,
-            color=color,
+            color=c,
             label=run_name,
         )
         labels.append(run_name)

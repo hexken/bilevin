@@ -12,28 +12,44 @@ from natsort import natsorted
 import pandas as pd
 
 
-class ColorMapper:
+# todo use same color for each major alg, different linestyle for minor
+class LineStyleMapper:
     def __init__(self):
-        self.cmap = mpl.colormaps["tab20c"]
-        self.astar_s = 0
-        self.levin_s = 4
-        self.phs_s = 8
+        self.cmap = mpl.colormaps["tab10"]
+        self.astar_c = 0
+        self.levin_c = 1
+        self.phs_c = 2
+        self.uni_ls = "-"
+        self.bibfs_ls = "--"
+        self.bialt_ls = "-."
+        self.used_colors = set()
 
-        self.astar_i = 0
-        self.levin_i = 0
-        self.phs_i = 0
-
-    def get_color(self, s: str):
+    def get_ls(self, s: str):
         if "AStar" in s:
-            i = self.astar_s + self.astar_i
-            self.astar_i += 1
+            c = self.cmap.colors[self.astar_c]
         elif "Levin" in s:
-            i = self.levin_s + self.levin_i
-            self.levin_i += 1
+            c = self.cmap.colors[self.levin_c]
         elif "PHS" in s:
-            i = self.phs_s + self.phs_i
-            self.phs_i += 1
-        return self.cmap.colors[i]
+            c = self.cmap.colors[self.phs_c]
+        else:
+            i = 3
+            while i in self.used_colors:
+                i += 1
+            if i >= len(self.cmap.colors):
+                c = 0
+            else:
+                c = self.cmap.colors[i]
+
+        self.used_colors.add(c)
+
+        if "Alt" in s:
+            ls = self.bialt_ls
+        elif "BFS" in s:
+            ls = self.bibfs_ls
+        else:
+            ls = self.uni_ls
+
+        return c, ls
 
 
 def all_group_key(pth):
