@@ -14,7 +14,26 @@ import pandas as pd
 
 class ColorMapper:
     def __init__(self):
-        self.cmap = mpl.colormaps["tab20"]
+        self.cmap = mpl.colormaps["tab20c"]
+        self.astar_s = 0
+        self.levin_s = 4
+        self.phs_s = 8
+
+        self.astar_i = 0
+        self.levin_i = 0
+        self.phs_i = 0
+
+    def get_color(self, s: str):
+        if "AStar" in s:
+            i = self.astar_s + self.astar_i
+            self.astar_i += 1
+        elif "Levin" in s:
+            i = self.levin_s + self.levin_i
+            self.levin_i += 1
+        elif "PHS" in s:
+            i = self.phs_s + self.phs_i
+            self.phs_i += 1
+        return self.cmap.colors[i]
 
 
 def all_group_key(pth):
