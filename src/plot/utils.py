@@ -36,6 +36,7 @@ def astar_group_key(pth):
     if r:
         return " ".join(r.group(1, 3, 4))
 
+
 def all_group_key(pth):
     s = str(pth)
     r = re.search(".*_((Bi)?AStar.*)_e.*(lr0.\d+).*(w\d\.?\d?)", s)
@@ -46,20 +47,21 @@ def all_group_key(pth):
 
 def get_runs_data(pth: Path, group_key) -> dict:
     batch_regex = re.compile(".*_b(\d+).pkl")
-    runpaths = list(pth.glob("*/"))
-    runnames = []
-    runpaths = []
-    runs = sorted(runpaths, key=group_key)
-    for k, g in itertools.groupby(runs, group_key):
-        runnames.append(k)
-        runpaths.append(list(g))
+    # get list of paths for each run_name, specified by group_key (should correpsond to seeds)
+    all_runs_paths = list(pth.glob("*/"))
+    runs_names = []
+    runs_paths = []
+    all_runs_paths = sorted(all_runs_paths, key=group_key)
+    for k, g in itertools.groupby(all_runs_paths, group_key):
+        runs_names.append(k)
+        runs_paths.append(list(g))
 
-    runs = {}
-    for run_name, run_paths in zip(runnames, runpaths):
+    runs_data = {}
+    for run_name, run_paths in zip(runs_names, runs_paths):
+        print(f"Found {len(run_paths)} runs of {run_name}")
         train_dfs = []
         search_dfs = []
         valid_dfs = []
-        print(f"Found {len(run_paths)} runs of {run_name}")
         for rp in run_paths:
             run_train_curr_dfs = [
                 pkl.load(p.open("rb"))
@@ -89,7 +91,6 @@ def get_runs_data(pth: Path, group_key) -> dict:
                 tdf["epoch"] = 1
                 sdf["epoch"] = 1
                 i += 1
-            i += 1
             for j, (tdf, sdf) in enumerate(
                 zip(run_train_fs_dfs, run_search_fs_dfs), start=1
             ):
@@ -98,28 +99,37 @@ def get_runs_data(pth: Path, group_key) -> dict:
                 tdf["epoch"] = j
                 sdf["epoch"] = j
 
+            run_train_df = pd.concat(
+                run_train_curr_dfs + run_train_fs_dfs, ignore_index=True
+            )
+            run_train_df.index = run_train_df.index + 1
+            run_train_df.index = run_train_df.index.rename("batch")
+            train_dfs.append(run_train_df)
+
+            run_search_df = pd.concat(
+                run_search_curr_dfs + run_search_fs_dfs, ignore_index=True
+            )
+            run_search_df.index = run_search_df.index + 1
+            run_search_df.index = run_search_df.index.rename("batch")
+            search_dfs.append(run_search_df)
+
             run_valid_df_paths = natsorted(rp.glob("search_valid*.pkl"))
             run_valid_dfs = [pkl.load(p.open("rb")) for p in run_valid_df_paths]
-
-            train_dfs.append(
-                pd.concat(run_train_curr_dfs + run_train_fs_dfs, ignore_index=True)
-            )
-            search_dfs.append(
-                pd.concat(run_search_curr_dfs + run_search_fs_dfs, ignore_index=True)
-            )
-            valid_dfs.append(pd.concat(run_valid_dfs, ignore_index=True))
-            validate_batches = [
+            batches = [
                 int(batch_regex.match(p.name).group(1)) for p in run_valid_df_paths
             ]
-            valid_dfs.index = validate_batches
+            for df, batch in zip(run_valid_dfs, batches):
+                df["batch"] = batch
 
-        runs[run_name] = {
+            valid_dfs.append(pd.concat(run_valid_dfs, ignore_index=True))
+
+        runs_data[run_name] = {
             "train": train_dfs,
             "search": search_dfs,
             "valid": valid_dfs,
         }
 
-    return runs
+    return runs_data
 
 
 class PdfTemplate:
