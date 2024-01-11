@@ -1,13 +1,20 @@
+from collections import OrderedDict
+from collections.abc import Iterable
 import itertools
+import json
 from pathlib import Path
 import pickle as pkl
-from collections.abc import Iterable
 import re
-import json
 import subprocess
 
+import matplotlib as mpl
 from natsort import natsorted
 import pandas as pd
+
+
+class ColorMapper:
+    def __init__(self):
+        self.cmap = mpl.colormaps["tab20"]
 
 
 def all_group_key(pth):
@@ -17,6 +24,31 @@ def all_group_key(pth):
     )
     if r:
         return " ".join([g for g in r.groups() if g is not None])
+
+
+def alg_sort_key(s: str):
+    if "PHS" in s:
+        key1 = 3
+    elif "Levin" in s:
+        key1 = 2
+    elif "AStar" in s:
+        key1 = 0
+    else:
+        raise ValueError("Unknown alg")
+
+    if "Bi" in s:
+        key2 = 1
+    else:
+        key2 = 0
+
+    if "Alt" in s:
+        key3 = 0
+    elif "BFS" in s:
+        key3 = 1
+    else:
+        key3 = 3
+
+    return key1, key2, key3
 
 
 def get_runs_data(pth: Path | Iterable[Path], group_key) -> dict:
@@ -35,7 +67,13 @@ def get_runs_data(pth: Path | Iterable[Path], group_key) -> dict:
         runs_names.append(k)
         runs_paths.append(list(g))
 
-    runs_data = {}
+    # sort again by algorithm for plotting
+    runs_combined = sorted(
+        zip(runs_names, runs_paths), key=lambda x: alg_sort_key(x[0])
+    )
+    runs_names, runs_paths = zip(*runs_combined)
+
+    runs_data = OrderedDict()
     for run_name, run_paths in zip(runs_names, runs_paths):
         print(f"Found {len(run_paths)} runs of {run_name}")
         train_dfs = []
