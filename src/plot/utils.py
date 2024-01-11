@@ -21,7 +21,7 @@ class LineStyleMapper:
         self.phs_c = 2
         self.uni_ls = "-"
         self.bibfs_ls = "--"
-        self.bialt_ls = "-."
+        self.bialt_ls = ":"
         self.used_colors = set()
 
     def get_ls(self, s: str):

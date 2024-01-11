@@ -25,10 +25,7 @@ mpl.rc("lines", linewidth=2, linestyle="-")
 
 def plot_solve_vs_time(runs_data, batch_size=40, window_size=150):
     fig, ax = plt.subplots(figsize=(8, 6))
-    labels = []
-
     ls_mapper = LineStyleMapper()
-
     for run_name, run_data in runs_data.items():
         c, ls = ls_mapper.get_ls(run_name)
         dfs = run_data["search"]
@@ -62,21 +59,20 @@ def plot_solve_vs_time(runs_data, batch_size=40, window_size=150):
             color=c,
             label=run_name,
         )
-        labels.append(run_name)
 
     handler, labeler = ax.get_legend_handles_labels()
     it = iter(handler)
     hd = [(a, next(it)) for a in it]
-    ax.legend(hd, labels)
-    ax.set_xlabel("Time (s)", size=12)
-    ax.set_ylabel("Solved", rotation=0, labelpad=30, size=12)
+    ax.legend(hd, labeler[::2], loc="upper right", fontsize=12)
+    ax.set_xlabel("Time (s)", size=14)
+    ax.set_ylabel("Solved", rotation=0, labelpad=30, size=14)
     ax.set_title("Solved vs. time")
     plt.show()
     # plt.savefig(figs_dir / f"svt_{str(exp_name)}.pdf")
 
 
 def main():
-    all_runs_pth = Path("/home/ken/Projects/bilevin/final_runs_test/").glob("stp4*")
+    all_runs_pth = Path("/home/ken/Projects/bilevin/final_runs_test/").glob("col4*")
     all_runs = get_runs_data(all_runs_pth, all_group_key)
     plot_solve_vs_time(all_runs, batch_size=40, window_size=150)
     # plt.show()
