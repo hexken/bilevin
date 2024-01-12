@@ -163,6 +163,9 @@ def get_runs_data(pth: Path | Iterable[Path], group_key) -> dict:
             )
             run_search_df.index = run_search_df.index + 1
             run_search_df.index = run_search_df.index.rename("batch")
+            run_search_df["solved"] = run_search_df["len"].map(pd.notna)
+            run_search_df = make_exp_col(run_search_df)
+            run_search_df = int_cols_to_float(run_search_df)
             search_dfs.append(run_search_df)
 
             run_valid_df_paths = natsorted(rp.glob("search_valid*.pkl"))
@@ -173,7 +176,11 @@ def get_runs_data(pth: Path | Iterable[Path], group_key) -> dict:
             for df, batch in zip(run_valid_dfs, batches):
                 df["batch"] = batch
 
-            valid_dfs.append(pd.concat(run_valid_dfs, ignore_index=True))
+            run_valid_df = pd.concat(run_valid_dfs, ignore_index=True)
+            run_valid_df["solved"] = run_valid_df["len"].map(pd.notna)
+            run_valid_df = make_exp_col(run_valid_df)
+            run_valid_df = int_cols_to_float(run_valid_df)
+            valid_dfs.append(run_valid_df)
 
         runs_data[run_name] = {
             "train": train_dfs,
@@ -184,6 +191,21 @@ def get_runs_data(pth: Path | Iterable[Path], group_key) -> dict:
     return runs_data
 
 
+def make_exp_col(df: pd.DataFrame) -> pd.DataFrame:
+    if "fexp" in df.columns and "bexp" in df.columns:
+        df["exp"] = df["fexp"] + df["bexp"]
+    else:
+        df["exp"] = df["fexp"]
+    return df
+
+
+def int_cols_to_float(df: pd.DataFrame) -> pd.DataFrame:
+    for col in df.columns:
+        if df[col].dtype == pd.UInt32Dtype() or df[col].dtype == pd.UInt64Dtype():
+            df[col] = df[col].astype(float)
+    return df
+
+
 class PdfTemplate:
     def __init__(self, figsdir: Path, outfile: str, toc=True):
         self.figs = figsdir
@@ -191,6 +213,9 @@ class PdfTemplate:
         self.outfile = outfile
         self.latex_cmds: list = []
         self.text: str = ""
+
+    def page_sort_key(self, s: str):
+        pass
 
     def render(self):
         self._pagebreak()
