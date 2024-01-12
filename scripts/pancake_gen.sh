@@ -14,9 +14,9 @@ fi
 if [ "$1" = "d" ]; then
     python src/domains/puzzle_generator.py \
     --domain pancake \
-    --output-path  problems/pancake12d/ \
+    --output-path  problems/pancake16d/ \
     --seed 658 \
-    --width  8 \
+    --width  16 \
     --n-problems-per-stage  25 \
     --randomize-curriculum-steps \
     --stages-multiple  1 \

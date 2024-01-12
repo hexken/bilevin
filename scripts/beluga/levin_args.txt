@@ -4,3 +4,7 @@
 2 BiLevinBFS cross_entropy_loss 0.001
 3 Levin cross_entropy_loss 0.001
 3 BiLevinBFS cross_entropy_loss 0.001
+4 Levin cross_entropy_loss 0.001
+4 BiLevinBFS cross_entropy_loss 0.001
+5 Levin cross_entropy_loss 0.001
+5 BiLevinBFS cross_entropy_loss 0.001
