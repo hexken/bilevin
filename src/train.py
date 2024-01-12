@@ -254,6 +254,7 @@ def train(
                     headers="keys",
                     tablefmt="psql",
                     showindex=False,
+                    floatfmt=".2f",
                 )
             )
 

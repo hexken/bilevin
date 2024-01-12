@@ -104,7 +104,7 @@ class Cube3(Domain):
         return 6
 
     @property
-    def num_actions(cls) -> int:
+    def num_actions(self) -> int:
         return 12
 
     @property

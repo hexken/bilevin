@@ -6,12 +6,12 @@ from numpy import nan
 import torch as to
 from torch import Tensor
 from torch.nn.functional import nll_loss
+from search.node import SearchNode
 
 
 if TYPE_CHECKING:
     from search.agent import Agent
     from domains.domain import Domain
-    from search.node import SearchNode
 
 
 class Trajectory:

@@ -5,9 +5,11 @@ from typing import Optional, TYPE_CHECKING
 import torch as to
 from torch import Tensor, full
 
+from search.traj import from_common_node
+
 if TYPE_CHECKING:
+    from search.traj import Trajectory
     from search.node import SearchNode
-    from search.traj import Trajectory, from_common_node
     from search.agent import Agent
 
 
