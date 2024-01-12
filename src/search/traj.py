@@ -130,7 +130,7 @@ def from_goal_node(
     masks = to.stack(tuple(reversed(masks)))
 
     log_probs, h = agent.model(
-        states, mask=masks, forward=forward, goal_feats=goal_state_t
+        states, mask=masks, forward=forward, goal_state_t=goal_state_t
     )
     if agent.has_policy:
         nlls = nll_loss(log_probs, actions, reduction="none")
