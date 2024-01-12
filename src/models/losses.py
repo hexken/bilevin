@@ -6,14 +6,14 @@ import torch.nn as nn
 from torch.nn.functional import cross_entropy, log_softmax, nll_loss
 from torch.nn.functional import mse_loss as mse
 
-from search.utils import Trajectory
+from search.traj import Trajectory
 
 if TYPE_CHECKING:
-    from models.models import AgentModel
+    from models.models import SuperModel
 
 
-def mse_loss(traj: Trajectory, model: "AgentModel"):
-    _, _, h = model(
+def mse_loss(traj: Trajectory, model: "SuperModel"):
+    _, h = model(
         traj.states,
         forward=traj.forward,
         goal_state_t=traj.goal_state_t,
@@ -24,9 +24,9 @@ def mse_loss(traj: Trajectory, model: "AgentModel"):
     return loss, 0.0, 0.0
 
 
-def cross_entropy_loss(traj: Trajectory, model: "AgentModel"):
+def cross_entropy_loss(traj: Trajectory, model: "SuperModel"):
     n_actions = len(traj)
-    log_probs, _, _ = model(
+    log_probs, _ = model(
         traj.states,
         forward=traj.forward,
         goal_state_t=traj.goal_state_t,
@@ -40,9 +40,9 @@ def cross_entropy_loss(traj: Trajectory, model: "AgentModel"):
     return loss, avg_action_nll, acc
 
 
-def cross_entropy_mse_loss(traj: Trajectory, model: "AgentModel"):
+def cross_entropy_mse_loss(traj: Trajectory, model: "SuperModel"):
     n_actions = len(traj)
-    log_probs, _, hs = model(
+    log_probs, hs = model(
         traj.states,
         forward=traj.forward,
         goal_state_t=traj.goal_state_t,
@@ -59,12 +59,12 @@ def cross_entropy_mse_loss(traj: Trajectory, model: "AgentModel"):
     return loss, avg_action_nll, acc
 
 
-def cross_entropy_mid_loss(traj: Trajectory, model: "AgentModel"):
+def cross_entropy_mid_loss(traj: Trajectory, model: "SuperModel"):
     mid_idx = ceil(len(traj) / 2)
     mask = traj.masks[:mid_idx]
     actions = traj.actions[:mid_idx]
     states = traj.states[:mid_idx]
-    log_probs, _, _ = model(
+    log_probs, _ = model(
         states,
         forward=traj.forward,
         goal_state_t=traj.goal_state_t,
@@ -78,9 +78,9 @@ def cross_entropy_mid_loss(traj: Trajectory, model: "AgentModel"):
     return loss, avg_action_nll, acc
 
 
-def levin_loss(traj: Trajectory, model: "AgentModel"):
+def levin_loss(traj: Trajectory, model: "SuperModel"):
     n_actions = len(traj)
-    log_probs, _, _ = model(
+    log_probs, _ = model(
         traj.states,
         forward=traj.forward,
         goal_state_t=traj.goal_state_t,

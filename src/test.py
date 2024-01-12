@@ -1,3 +1,4 @@
+from pathlib import Path
 import pickle
 from timeit import default_timer as timer
 from typing import Optional
@@ -10,6 +11,7 @@ import torch.distributed as dist
 
 from loaders import ProblemLoader
 from search.agent import Agent
+from models.models import SuperModel
 from search.utils import print_search_summary
 from search.utils import int_columns, search_result_header
 
@@ -22,23 +24,25 @@ def test(
     print_results: bool = True,
     batch: Optional[int] = None,
 ):
-    current_exp_budget = args.test_expansion_budget
-    current_time_budget = args.time_budget
-    world_size = args.world_size
-    # todo don't hardcode increase budget
-    increase_budget = False
-    logdir = args.logdir
+    current_exp_budget: int = args.test_expansion_budget
+    current_time_budget: float = args.time_budget
+    world_size: int = args.world_size
+    # todo don't hardcode increase budget?
+    increase_budget: bool = False
+    logdir: Path = args.logdir
 
-    world_num_problems = len(problems_loader)
+    world_num_problems: int = len(problems_loader)
 
-    bidirectional = agent.is_bidirectional
-    model = agent.model
+    model: SuperModel = agent.model
+    bidirectional: bool = agent.is_bidirectional
+    policy_based: bool = agent.has_policy
+    heuristic_based: bool = agent.has_heuristic
 
     to.set_grad_enabled(False)
     model.eval()
 
-    total_num_expanded = 0
-    total_time = 0
+    total_num_expanded: int = 0
+    total_time: float = 0
 
     local_problems = problems_loader.problems[0]  # test/valid problems have one stage
     local_search_results = np.zeros(
@@ -73,19 +77,20 @@ def test(
 
             local_search_results[i, 0] = problem.id
             local_search_results[i, 1] = end_time - start_time
-            local_search_results[i, 2] = n_forw_expanded + n_backw_expanded
-            local_search_results[i, 3] = n_forw_expanded
-            local_search_results[i, 4] = n_backw_expanded
-            local_search_results[i, 5] = sol_len
+            local_search_results[i, 2] = n_forw_expanded
+            local_search_results[i, 3] = n_backw_expanded
+            local_search_results[i, 4] = sol_len
 
             if traj:
                 f_traj, b_traj = traj
                 local_solved_problems[i] = True
-                local_search_results[i, 6] = f_traj.partial_g_cost
-                local_search_results[i, 8] = f_traj.partial_pred
+                local_search_results[i, 5] = f_traj.partial_g_cost
+                local_search_results[i, 6] = f_traj.avg_action_prob
+                local_search_results[i, 7] = f_traj.avg_h_abs_error
                 if b_traj:
-                    local_search_results[i, 7] = b_traj.partial_g_cost
-                    local_search_results[i, 9] = b_traj.partial_pred
+                    local_search_results[i, 8] = b_traj.partial_g_cost
+                    local_search_results[i, 9] = b_traj.avg_action_prob
+                    local_search_results[i, 10] = b_traj.avg_h_abs_error
 
         dist.monitored_barrier()
 
@@ -143,19 +148,22 @@ def test(
                 "fg": world_results_df["fg"].astype(pd.UInt32Dtype()),
             }
         )
-        if agent.has_policy:
-            stage_search_df["fpp"] = world_results_df["fpp"].astype(
-                pd.Float32Dtype()
-            )
+        if policy_based:
+            stage_search_df["fap"] = world_results_df["fap"].astype(pd.Float32Dtype())
+        if heuristic_based:
+            stage_search_df["fhe"] = world_results_df["fh"].astype(pd.Float32Dtype())
         if bidirectional:
             stage_search_df["bexp"] = world_results_df["bexp"].astype(pd.UInt32Dtype())
             stage_search_df["bg"] = world_results_df["bg"].astype(pd.UInt32Dtype())
-            if agent.has_policy:
-                stage_search_df["bpp"] = world_results_df["bpp"].astype(
+            if policy_based:
+                stage_search_df["bap"] = world_results_df["bap"].astype(
+                    pd.Float32Dtype()
+                )
+                stage_search_df["bhe"] = world_results_df["bhe"].astype(
                     pd.Float32Dtype()
                 )
 
-        print_search_summary(stage_search_df, bidirectional, agent.has_policy)
+        print_search_summary(stage_search_df, bidirectional)
         total_time = timer() - test_start_time
         print(f"\nTime: {total_time:.2f}s")
         if not batch:

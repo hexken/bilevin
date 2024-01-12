@@ -9,7 +9,7 @@ from search.agent import Agent
 from search.bidir_bfs import BiDirBFS
 from search.bidir_alt import BiDirAlt
 from search.unidir import UniDir
-from search.utils import SearchNode
+from search.node import SearchNode
 
 
 class LevinBase(Agent):
@@ -33,7 +33,7 @@ class LevinBase(Agent):
         forward: bool,
         goal_feats: to.Tensor | None,
     ) -> SearchNode:
-        log_probs, _, _ = self.model(
+        log_probs, _ = self.model(
             state_t, mask=mask, forward=forward, goal_feats=goal_feats
         )
 
@@ -88,7 +88,7 @@ class LevinBase(Agent):
     ):
         children_state_t = to.stack(children_state_ts)
         masks_t = to.stack(masks)
-        log_probs, _, _ = self.model(
+        log_probs, _ = self.model(
             children_state_t,
             forward=direction == TwoDir.FORWARD,
             goal_feats=goal_feats,
@@ -108,6 +108,7 @@ class Levin(UniDir, LevinBase):
 class BiLevinBFS(BiDirBFS, LevinBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
 
 class BiLevinAlt(BiDirAlt, LevinBase):
     def __init__(self, *args, **kwargs):

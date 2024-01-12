@@ -9,7 +9,7 @@ from search.agent import Agent
 from search.bidir_bfs import BiDirBFS
 from search.bidir_alt import BiDirAlt
 from search.unidir import UniDir
-from search.utils import SearchNode
+from search.node import SearchNode
 
 
 class PHSBase(Agent):
@@ -33,11 +33,11 @@ class PHSBase(Agent):
         forward: bool,
         goal_feats: to.Tensor | None,
     ) -> SearchNode:
-        log_probs, _, h = self.model(
+        log_probs, h = self.model(
             state_t, mask=mask, forward=forward, goal_feats=goal_feats
         )
 
-        # todo could get negative arg to log
+        h = h.item()
         log_g_plus_h = -1e9 if 1 + h <= 0 else log(1 + h)
         start_node = SearchNode(
             state,
@@ -89,7 +89,7 @@ class PHSBase(Agent):
     ):
         children_state_t = to.stack(children_state_ts)
         masks_t = to.stack(masks)
-        log_probs, _, hs = self.model(
+        log_probs, hs = self.model(
             children_state_t,
             forward=direction == TwoDir.FORWARD,
             goal_feats=goal_feats,
@@ -97,6 +97,7 @@ class PHSBase(Agent):
         )
 
         for child, lap, h in zip(children, log_probs, hs):
+            h = h.item()
             pg = child.g + 1
             log_g_plus_h = -1e9 if pg + h <= 0 else log(pg + h)
             child.log_action_probs = lap

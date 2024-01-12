@@ -1,6 +1,6 @@
 from __future__ import annotations
 from collections import deque
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,9 +9,8 @@ import torch as to
 
 from domains.domain import Domain, State
 from enums import Color, FourDir
-from models.models import AgentModel
-from search.agent import Agent
-from search.utils import SearchNode, Trajectory
+if TYPE_CHECKING:
+    from search.node import SearchNode
 
 
 class WitnessState(State):
@@ -75,6 +74,7 @@ class Witness(Domain):
         self.markers = markers
 
     def reset(self) -> State:
+        self.goal_state_t = None
         if self.puzzle == "triangles":
             self.max_num_colors = 3  # blue, red, green
         elif self.puzzle == "colors":
@@ -130,7 +130,7 @@ class Witness(Domain):
         return 1
 
     @property
-    def num_actions(cls) -> int:
+    def num_actions(self) -> int:
         return 4
 
     @property
@@ -552,21 +552,7 @@ class Witness(Domain):
         else:
             plt.show()
 
-    def try_make_solution(
-        self,
-        agent: Agent,
-        node: SearchNode,
-        other_domain: Witness,
-        num_expanded: int,
-    ) -> Optional[tuple[Trajectory, Trajectory]]:
-        """
-        Tries to create a solution from the current node and the nodes visited by the other search
-        direction. Check if the heads coincide, and if so create a single node with its trajectory
-        in the direction specified by self. Check if the merged state is a goal state and create a
-        forward and backward Trajectory if so.
-
-        """
-        state: WitnessState = node.state
+    def is_merge_goal(self, state, other_domain) -> Optional[SearchNode]:
         head_dot = (state.head_row, state.head_col)
         if head_dot not in other_domain.aux_closed:
             return None
@@ -588,87 +574,9 @@ class Witness(Domain):
 
             merged_state.v_segs = state.v_segs + other_state.v_segs
             merged_state.h_segs = state.h_segs + other_state.h_segs
-
             if self.is_goal(merged_state):
-                if self.forward:
-                    f_common_node = node
-                    b_common_node = other_node
-                    f_domain = self
-                    b_domain = other_domain
-                else:
-                    f_common_node = other_node
-                    b_common_node = node
-                    f_domain = other_domain
-                    b_domain = self
-
-                f_traj = get_merged_trajectory(
-                    agent,
-                    f_domain,
-                    f_common_node,
-                    b_common_node,
-                    num_expanded,
-                )
-                b_traj = get_merged_trajectory(
-                    agent,
-                    b_domain,
-                    b_common_node,
-                    f_common_node,
-                    num_expanded,
-                    forward=False,
-                )
-                return (f_traj, b_traj)
-
+                return other_node
         return None
 
-
-def get_merged_trajectory(
-    agent: Agent,
-    dir1_domain: Domain,
-    dir1_common: SearchNode,
-    dir2_common: SearchNode,
-    num_expanded: int,
-    goal_state_t: Optional[Tensor] = None,
-    forward: bool = True,
-):
-    """
-    Returns a new trajectory going from dir1_start to dir2_start, passing through
-    merge(dir1_common, dir2_common).
-    NOTE only differs from Domain.get_merged_trajectory in how we construct the new state
-    """
-    if agent.has_policy:
-        partial_pred = -1 * dir1_common.log_prob
-    else:
-        partial_pred = None
-
-    dir1_node = dir1_common
-
-    dir2_parent_node = dir2_common.parent
-    dir2_parent_action = dir2_common.parent_action
-
-    while dir2_parent_node:
-        action = dir1_domain.reverse_action(dir2_parent_action)
-        new_state = dir1_domain.result(dir1_node.state, action)
-        actions, mask = dir1_domain.actions_unpruned(new_state)
-        new_dir1_node = SearchNode(
-            state=new_state,
-            g=dir1_node.g + 1,
-            parent=dir1_node,
-            parent_action=action,
-            actions=actions,
-            actions_mask=mask,
-            log_prob=0.0,
-        )
-        dir1_node = new_dir1_node
-        dir2_parent_action = dir2_parent_node.parent_action
-        dir2_parent_node = dir2_parent_node.parent
-
-    return Trajectory.from_goal_node(
-        agent,
-        domain=dir1_domain,
-        goal_node=dir1_node,
-        num_expanded=num_expanded,
-        partial_g_cost=dir1_common.g,
-        partial_pred=partial_pred,
-        goal_state_t=goal_state_t,
-        forward=forward,
-    )
+    def get_merge_state(self, dir1_state, dir2_parent_state, action) -> State:
+        return self.result(dir1_state, action)

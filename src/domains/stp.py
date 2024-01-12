@@ -71,7 +71,7 @@ class SlidingTilePuzzle(Domain):
         return 1
 
     @property
-    def num_actions(cls) -> int:
+    def num_actions(self) -> int:
         return 4
 
     @property

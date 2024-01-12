@@ -124,7 +124,7 @@ class BiDirAlt(Agent):
                         n_total_expanded,
                     )
 
-                    if trajs:  # solution found
+                    if trajs is not None:  # solution found
                         return (
                             n_forw_expanded,
                             n_backw_expanded,

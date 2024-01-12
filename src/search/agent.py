@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from argparse import Namespace
 from pathlib import Path
@@ -7,8 +8,12 @@ import torch as to
 
 from domains.domain import State
 from enums import TwoDir
-from models.models import AgentModel
-from search.utils import Problem, SearchNode, Trajectory
+from models.models import SuperModel
+from search.node import SearchNode
+from search.utils import Problem
+
+if TYPE_CHECKING:
+    from search.traj import Trajectory
 
 
 class Agent(ABC):
@@ -18,7 +23,7 @@ class Agent(ABC):
         aux_args["has_heuristic"] = self.has_heuristic
 
         self.logdir: Path = logdir
-        self.model: AgentModel = AgentModel(args, aux_args)
+        self.model: SuperModel = SuperModel(args, aux_args)
 
     def save_model(
         self,
@@ -83,6 +88,6 @@ class Agent(ABC):
 
     @abstractmethod
     def search(
-        self, problem: Problem, expansion_budget: int, time_budget: float
+        self, problem: Problem, exp_budget: int, time_budget: float
     ) -> tuple[int, int, tuple[Trajectory, Optional[Trajectory]]]:
         pass

@@ -5,15 +5,15 @@ from typing import Optional, TYPE_CHECKING
 import torch as to
 from torch import Tensor, full
 
-from search.utils import SearchNode, Trajectory
-
 if TYPE_CHECKING:
+    from search.node import SearchNode
+    from search.traj import Trajectory, from_common_node
     from search.agent import Agent
 
 
 class State(ABC):
     @abstractmethod
-    def __eq__(self) -> bool:
+    def __eq__(self, other) -> bool:
         pass
 
     @abstractmethod
@@ -51,6 +51,14 @@ class Domain(ABC):
         mask[actions] = False
         return actions, mask
 
+    def is_merge_goal(self, state, other_domain) -> Optional[SearchNode]:
+        hsh = state.__hash__()
+        if hsh in other_domain.aux_closed:  # solution found
+            other_node = other_domain.aux_closed[hsh]
+            return other_node
+        else:
+            return None
+
     def try_make_solution(
         self,
         agent: Agent,
@@ -61,9 +69,8 @@ class Domain(ABC):
         """
         Returns a trajectory if state is a solution to this problem, None otherwise.
         """
-        hsh = node.state.__hash__()
-        if hsh in other_domain.aux_closed:  # solution found
-            other_node = other_domain.aux_closed[hsh]
+        other_node = self.is_merge_goal(node.state, other_domain)
+        if other_node is not None:
             if self.forward:
                 f_common_node = node
                 b_common_node = other_node
@@ -75,10 +82,10 @@ class Domain(ABC):
                 f_domain = other_domain
                 b_domain = self
 
-            f_traj = get_merged_trajectory(
+            f_traj = from_common_node(
                 agent, f_domain, f_common_node, b_common_node, num_expanded
             )
-            b_traj = get_merged_trajectory(
+            b_traj = from_common_node(
                 agent,
                 b_domain,
                 b_common_node,
@@ -140,54 +147,5 @@ class Domain(ABC):
     def result(self, state: State, action) -> State:
         pass
 
-
-def get_merged_trajectory(
-    agent: Agent,
-    dir1_domain: Domain,
-    dir1_common: SearchNode,
-    dir2_common: SearchNode,
-    num_expanded: int,
-    goal_state_t: Optional[Tensor] = None,
-    forward: bool = True,
-) -> Trajectory:
-    """
-    Returns a new trajectory going from dir1_start to dir2_start, passing through
-    merge(dir1_common, dir2_common).
-    """
-    if agent.has_policy:
-        partial_pred = -1 * dir1_common.log_prob
-    else:
-        # todo agents exclusively have either a policy or heuristic
-        partial_pred = None
-
-    dir1_node = dir1_common
-
-    dir2_parent_node = dir2_common.parent
-    dir2_parent_action = dir2_common.parent_action
-
-    while dir2_parent_node:
-        new_state = dir2_parent_node.state
-        actions, mask = dir1_domain.actions_unpruned(new_state)
-        new_dir1_node = SearchNode(
-            state=new_state,
-            g=dir1_node.g + 1,
-            parent=dir1_node,
-            parent_action=dir1_domain.reverse_action(dir2_parent_action),
-            actions=actions,
-            actions_mask=mask,
-            log_prob=0.0,
-        )
-        dir1_node = new_dir1_node
-        dir2_parent_action = dir2_parent_node.parent_action
-        dir2_parent_node = dir2_parent_node.parent
-
-    return Trajectory.from_goal_node(
-        agent,
-        domain=dir1_domain,
-        goal_node=dir1_node,
-        num_expanded=num_expanded,
-        partial_g_cost=dir1_common.g,
-        partial_pred=partial_pred,
-        goal_state_t=goal_state_t,
-        forward=forward,
-    )
+    def get_merge_state(self, dir1_state, dir2_parent_state, action) -> State:
+        return dir2_parent_state

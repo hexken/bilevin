@@ -11,7 +11,7 @@ import torch as to
 import torch.distributed as dist
 
 from loaders import ProblemLoader
-from models.models import AgentModel
+from models.models import SuperModel
 from search.agent import Agent
 from search.utils import (
     int_columns,
@@ -37,9 +37,10 @@ def train(
     if rank == 0:
         best_models_log = best_models_log.open("a")
 
+    model: SuperModel = agent.model
     bidirectional: bool = agent.is_bidirectional
     policy_based: bool = agent.has_policy
-    model: AgentModel = agent.model
+    heuristic_based: bool = agent.has_heuristic
     optimizer = agent.model.optimizer
     loss_fn = agent.model.loss_fn
 
@@ -66,8 +67,10 @@ def train(
         bexps = []
         fgs = []
         bgs = []
-        fpps = []
-        bpps = []
+        faps = []  # forward avg. action probs
+        baps = []
+        fhes = []  # forward avg. abs. heuristic errors
+        bhes = []
 
         flosses = []
         faccs = []
@@ -92,8 +95,10 @@ def train(
             bexps = chkpt_dict["bexps"]
             fgs = chkpt_dict["fgs"]
             bgs = chkpt_dict["bgs"]
-            fpps = chkpt_dict["fpps"]
-            bpps = chkpt_dict["bpps"]
+            faps = chkpt_dict["faps"]
+            baps = chkpt_dict["baps"]
+            fhes = chkpt_dict["fhes"]
+            bhes = chkpt_dict["bhes"]
 
             flosses = chkpt_dict["flosses"]
             faccs = chkpt_dict["faccs"]
@@ -148,8 +153,10 @@ def train(
             bexps = []
             fgs = []
             bgs = []
-            fpps = []
-            bpps = []
+            faps = []
+            baps = []
+            fhes = []
+            bhes = []
 
             flosses = []
             faccs = []
@@ -188,22 +195,22 @@ def train(
         local_search_results[:] = np.nan
         local_search_results[0] = problem.id
         local_search_results[1] = end_time - start_time
-        local_search_results[2] = n_forw_expanded + n_backw_expanded
-        local_search_results[3] = n_forw_expanded
-        local_search_results[4] = n_backw_expanded
-        local_search_results[5] = sol_len
+        local_search_results[2] = n_forw_expanded
+        local_search_results[3] = n_backw_expanded
+        local_search_results[4] = sol_len
 
         if traj:
             solved_flag[0] = 1
             f_traj, b_traj = traj
-            local_search_results[6] = f_traj.partial_g_cost
-            local_search_results[8] = f_traj.partial_pred
+            local_search_results[5] = f_traj.partial_g_cost
+            local_search_results[6] = f_traj.avg_action_prob
+            local_search_results[7] = f_traj.avg_h_abs_error
             if b_traj:
-                local_search_results[7] = b_traj.partial_g_cost
-                local_search_results[9] = b_traj.partial_pred
+                local_search_results[8] = b_traj.partial_g_cost
+                local_search_results[9] = b_traj.avg_action_prob
+                local_search_results[10] = b_traj.avg_h_abs_error
 
         else:
-            local_search_results[6:] = np.nan
             f_traj = b_traj = None
             solved_flag[0] = 0
 
@@ -218,6 +225,11 @@ def train(
         batch_print_df = pd.DataFrame(batch_results_arr, columns=search_result_header)
         for col in int_columns:
             batch_print_df[col] = batch_print_df[col].astype(pd.UInt32Dtype())
+        if bidirectional:
+            exp = batch_print_df["fexp"] + batch_print_df["bexp"]
+        else:
+            exp = batch_print_df["fexp"]
+        batch_print_df.insert(2, "exp", exp)
         batch_print_df = batch_print_df.sort_values("exp")
 
         if rank == 0:
@@ -226,11 +238,15 @@ def train(
         if rank == 0:
             if not policy_based:
                 batch_print_df = batch_print_df.drop(
-                    columns=["facc", "bacc"], errors="ignore"
+                    columns=["facc", "fap", "bap", "bacc"], errors="ignore"
+                )
+            if not heuristic_based:
+                batch_print_df = batch_print_df.drop(
+                    columns=["fhe", "bhe"], errors="ignore"
                 )
             if not bidirectional:
                 batch_print_df = batch_print_df.drop(
-                    columns=["bexp", "bg", "bacc", "bpp"], errors="ignore"
+                    columns=["bexp", "bg", "bacc", "bap", "bhe"], errors="ignore"
                 )
             print(
                 tabulate(
@@ -244,13 +260,15 @@ def train(
         for i in range(batch_size):
             ids.append(batch_results_arr[i, 0])
             times.append(batch_results_arr[i, 1])
-            lens.append(batch_results_arr[i, 5])
-            fexps.append(batch_results_arr[i, 3])
-            bexps.append(batch_results_arr[i, 4])
-            fgs.append(batch_results_arr[i, 6])
-            bgs.append(batch_results_arr[i, 7])
-            fpps.append(batch_results_arr[i, 8])
-            bpps.append(batch_results_arr[i, 9])
+            fexps.append(batch_results_arr[i, 2])
+            bexps.append(batch_results_arr[i, 3])
+            lens.append(batch_results_arr[i, 4])
+            fgs.append(batch_results_arr[i, 5])
+            faps.append(batch_results_arr[i, 6])
+            fhes.append(batch_results_arr[i, 7])
+            bgs.append(batch_results_arr[i, 8])
+            baps.append(batch_results_arr[i, 9])
+            bhes.append(batch_results_arr[i, 10])
 
         if num_procs_found_solution > 0:
             to.set_grad_enabled(True)
@@ -369,7 +387,6 @@ def train(
                         "len": pd.Series(lens, dtype=pd.UInt32Dtype()),
                         "fexp": pd.Series(fexps, dtype=pd.UInt32Dtype()),
                         "fg": pd.Series(fgs, dtype=pd.UInt32Dtype()),
-                        "fpp": pd.Series(fpps, dtype=pd.Float32Dtype()),
                     }
                 )
                 stage_model_train_df = pd.DataFrame(
@@ -381,14 +398,16 @@ def train(
                 )
 
                 if policy_based:
+                    stage_search_df["fap"] = pd.Series(faps, dtype=pd.Float32Dtype())
                     stage_model_train_df["facc"] = pd.Series(
                         faccs, dtype=pd.Float32Dtype(), index=batches
                     )
+                if heuristic_based:
+                    stage_search_df["fhe"] = pd.Series(fhes, dtype=pd.Float32Dtype())
 
                 if bidirectional:
                     stage_search_df["bexp"] = pd.Series(bexps, dtype=pd.UInt32Dtype())
                     stage_search_df["bg"] = pd.Series(bgs, dtype=pd.UInt32Dtype())
-                    stage_search_df["bpp"] = pd.Series(bpps, dtype=pd.Float32Dtype())
 
                     stage_model_train_df["bloss"] = pd.Series(
                         blosses, dtype=pd.Float32Dtype(), index=batches
@@ -397,6 +416,14 @@ def train(
                         stage_model_train_df["bacc"] = pd.Series(
                             baccs, dtype=pd.Float32Dtype(), index=batches
                         )
+                        stage_search_df["bap"] = pd.Series(
+                            baps, dtype=pd.Float32Dtype()
+                        )
+                    if heuristic_based:
+                        stage_search_df["bhe"] = pd.Series(
+                            bhes, dtype=pd.Float32Dtype()
+                        )
+
                 estr = "" if final_stage_epoch == 0 else f" EPOCH {final_stage_epoch}"
                 print(f"\nEND STAGE {old_stage}{estr}\n")
                 estr = "" if final_stage_epoch == 0 else f"_e{final_stage_epoch}"
@@ -412,7 +439,6 @@ def train(
                 print_search_summary(
                     stage_search_df,
                     bidirectional,
-                    policy_based,
                 )
                 print_model_train_summary(
                     stage_model_train_df,
@@ -505,8 +531,10 @@ def train(
                     "bexps": bexps,
                     "fgs": fgs,
                     "bgs": bgs,
-                    "fpps": fpps,
-                    "bpps": bpps,
+                    "faps": faps,
+                    "baps": baps,
+                    "fhes": fhes,
+                    "bhes": bhes,
                     "batches": batches,
                     "flosses": flosses,
                     "faccs": faccs,

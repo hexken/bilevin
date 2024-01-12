@@ -10,7 +10,7 @@ from torch.nn.functional import log_softmax
 import models.losses as losses
 
 
-class AgentModel(nn.Module):
+class SuperModel(nn.Module):
     def __init__(
         self,
         args: Namespace,
@@ -226,7 +226,7 @@ class AgentModel(nn.Module):
                 logits = logits.masked_fill(mask, -1e9)
             log_probs = log_softmax(logits, dim=-1)
 
-        return log_probs, logits, h
+        return log_probs, h
 
 
 class StateHeuristic(nn.Module):

@@ -7,7 +7,8 @@ import torch as to
 
 from enums import TwoDir
 from search.agent import Agent
-from search.utils import Problem, Trajectory
+from search.traj import from_goal_node
+from search.utils import Problem
 
 
 class UniDir(Agent):
@@ -33,7 +34,9 @@ class UniDir(Agent):
         state = domain.reset()
         state_t = domain.state_tensor(state).unsqueeze(0)
         actions, mask = domain.actions_unpruned(state)
-        node = self.make_start_node(state, state_t, actions, forward=True, mask=mask, goal_feats=None)
+        node = self.make_start_node(
+            state, state_t, actions, forward=True, mask=mask, goal_feats=None
+        )
 
         closed = {node: node}
         open_list = [node]
@@ -67,11 +70,12 @@ class UniDir(Agent):
 
                 if new_node not in closed:
                     if domain.is_goal(new_state):
-                        traj = Trajectory.from_goal_node(
+                        traj = from_goal_node(
                             self,
                             domain=domain,
                             goal_node=new_node,
                             num_expanded=num_expanded,
+                            partial_g_cost=new_node.g,
                         )
                         traj = (traj, None)
                         return num_expanded, 0, traj

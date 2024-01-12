@@ -1,15 +1,19 @@
+from __future__ import annotations
 from heapq import heappush
 from math import log
+from typing import TYPE_CHECKING
 
 import torch as to
 
 from domains.domain import State
 from enums import TwoDir
-from search.agent import Agent
 from search.bidir_alt import BiDirAlt
 from search.bidir_bfs import BiDirBFS
+from search.node import SearchNode
 from search.unidir import UniDir
-from search.utils import SearchNode
+
+from search.agent import Agent
+# if TYPE_CHECKING:
 
 
 class AStarBase(Agent):
@@ -34,7 +38,7 @@ class AStarBase(Agent):
         forward: bool,
         goal_feats: to.Tensor | None,
     ) -> SearchNode:
-        _, _, h = self.model(state_t, forward=forward, goal_feats=goal_feats)
+        _, h = self.model(state_t, forward=forward, goal_feats=goal_feats)
 
         h = h.item()
         start_node = SearchNode(
@@ -80,7 +84,7 @@ class AStarBase(Agent):
         goal_feats: to.Tensor | None,
     ):
         children_state_t = to.stack(children_state_ts)
-        _, _, hs = self.model(
+        _, hs = self.model(
             children_state_t,
             forward=direction == TwoDir.FORWARD,
             goal_feats=goal_feats,
