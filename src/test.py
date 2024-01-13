@@ -124,8 +124,13 @@ def test(
             world_search_results_arr, columns=search_result_header
         )
         for col in int_columns:
-            world_results_df[col] = world_results_df[col].astype(int)
+            world_results_df[col] = world_results_df[col].astype(pd.UInt32Dtype())
+        if bidirectional:
+            exp = world_results_df["fexp"] + world_results_df["bexp"]
+        else:
+            exp = world_results_df["fexp"]
 
+        world_results_df["exp"] = exp.copy()
         world_results_df = world_results_df.sort_values("exp")
 
         if print_results:
