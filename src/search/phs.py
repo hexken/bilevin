@@ -38,7 +38,8 @@ class PHSBase(Agent):
         )
 
         h = h.item()
-        log_g_plus_h = -1e9 if 1 + h <= 0 else log(1 + h)
+        if h < 0:
+            h = 0
         start_node = SearchNode(
             state,
             parent=None,
@@ -47,7 +48,7 @@ class PHSBase(Agent):
             actions_mask=mask,
             g=0,
             log_prob=0.0,
-            f=log_g_plus_h,
+            f=log(1 + h),
             log_action_probs=log_probs[0],
         )
         return start_node
@@ -98,11 +99,12 @@ class PHSBase(Agent):
 
         for child, lap, h in zip(children, log_probs, hs):
             h = h.item()
+            if h < 0:
+                h = 0
             pg = child.g + 1
-            log_g_plus_h = -1e9 if pg + h <= 0 else log(pg + h)
             child.log_action_probs = lap
             child.h = h
-            child.f = log_g_plus_h - (1 + (h / pg)) * child.log_prob
+            child.f = log(pg + h) - (1 + (h / pg)) * child.log_prob
             heappush(open_list, child)
 
 
