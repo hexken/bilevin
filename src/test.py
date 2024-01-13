@@ -156,7 +156,7 @@ def test(
         if policy_based:
             stage_search_df["fap"] = world_results_df["fap"].astype(pd.Float32Dtype())
         if heuristic_based:
-            stage_search_df["fhe"] = world_results_df["fh"].astype(pd.Float32Dtype())
+            stage_search_df["fhe"] = world_results_df["fhe"].astype(pd.Float32Dtype())
         if bidirectional:
             stage_search_df["bexp"] = world_results_df["bexp"].astype(pd.UInt32Dtype())
             stage_search_df["bg"] = world_results_df["bg"].astype(pd.UInt32Dtype())

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from math import ceil
 from typing import TYPE_CHECKING
 
@@ -12,7 +13,7 @@ if TYPE_CHECKING:
     from models.models import SuperModel
 
 
-def mse_loss(traj: Trajectory, model: "SuperModel"):
+def mse_loss(traj: Trajectory, model: SuperModel):
     _, h = model(
         traj.states,
         forward=traj.forward,
@@ -24,7 +25,7 @@ def mse_loss(traj: Trajectory, model: "SuperModel"):
     return loss, 0.0, 0.0
 
 
-def cross_entropy_loss(traj: Trajectory, model: "SuperModel"):
+def cross_entropy_loss(traj: Trajectory, model: SuperModel):
     n_actions = len(traj)
     log_probs, _ = model(
         traj.states,
@@ -40,7 +41,7 @@ def cross_entropy_loss(traj: Trajectory, model: "SuperModel"):
     return loss, avg_action_nll, acc
 
 
-def cross_entropy_mse_loss(traj: Trajectory, model: "SuperModel"):
+def cross_entropy_mse_loss(traj: Trajectory, model: SuperModel):
     n_actions = len(traj)
     log_probs, hs = model(
         traj.states,
@@ -59,7 +60,7 @@ def cross_entropy_mse_loss(traj: Trajectory, model: "SuperModel"):
     return loss, avg_action_nll, acc
 
 
-def cross_entropy_mid_loss(traj: Trajectory, model: "SuperModel"):
+def cross_entropy_mid_loss(traj: Trajectory, model: SuperModel):
     mid_idx = ceil(len(traj) / 2)
     mask = traj.masks[:mid_idx]
     actions = traj.actions[:mid_idx]
@@ -78,7 +79,7 @@ def cross_entropy_mid_loss(traj: Trajectory, model: "SuperModel"):
     return loss, avg_action_nll, acc
 
 
-def levin_loss(traj: Trajectory, model: "SuperModel"):
+def levin_loss(traj: Trajectory, model: SuperModel):
     n_actions = len(traj)
     log_probs, _ = model(
         traj.states,
