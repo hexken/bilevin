@@ -83,11 +83,25 @@ def parse_args():
         help="suffix of model to load, i.e. model_[suffix].pt",
     )
     parser.add_argument(
+        "--optimizer",
+        type=str,
+        default="Adam",
+        choices=["SGD", "Adam"],
+        help="torch optimizer to use",
+    )
+    parser.add_argument(
+        "--max-grad-norm",
+        type=float,
+        default=-1,
+        help="max norm of gradients, -1 to disable",
+    )
+    parser.add_argument(
         "--loss-fn",
         type=str,
         default="levin_loss",
         choices=[
-            "levin_loss",
+            "levin_sum_mse_loss",
+            "levin_avg_mse_loss",
             "cross_entropy_loss",
             "cross_entropy_mid_loss",
             "cross_entropy_mse_loss",

@@ -134,6 +134,7 @@ def train(
     done_training = False
 
     for problem in train_loader:
+        batch_start_time = timer()
         if old_stage != train_loader.stage or train_loader.repeat_stage:
             train_loader.repeat_stage = False
             stage_start_time = timer()
@@ -378,6 +379,9 @@ def train(
                     print(
                         "----------------------------------------------------------------------------"
                     )
+        batch_end_time = timer() - batch_start_time
+        if rank == 0:
+            print(f"Batch time: {batch_end_time:.2f}s")
 
         if train_loader.stage_complete:
             if rank == 0:
@@ -446,7 +450,7 @@ def train(
                     bidirectional,
                     policy_based,
                 )
-                print(f"\nTime: {timer() - stage_start_time:.2f}")
+                print(f"\nTime: {timer() - stage_start_time:.2f}s")
                 print(
                     "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
                 )

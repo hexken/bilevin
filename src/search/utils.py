@@ -37,7 +37,7 @@ search_result_header = [
     "bhe",
 ]
 
-int_columns = ["len", "fg", "bg", "fexp", "bexp"]
+int_columns = ["id", "len", "fg", "bg", "fexp", "bexp"]
 
 
 def print_model_train_summary(

@@ -293,10 +293,10 @@ def plot_uni_heuristic_model(run_name, run_data, ax=None):
 
 
 def main():
-    exp = "tri4"
+    exp = "stp4"
     savedir = Path(f"/home/ken/Projects/bilevin/figs/{exp}")
     savedir.mkdir(exist_ok=True, parents=True)
-    all_runs_pth = Path("/home/ken/Projects/bilevin/final_runs_test/").glob(f"{exp}*")
+    all_runs_pth = Path("/home/ken/Projects/bilevin/phs2/runs/").glob(f"{exp}*")
     all_runs = get_runs_data(all_runs_pth, all_group_key)
 
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(12, 10))

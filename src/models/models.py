@@ -4,6 +4,7 @@ from typing import Optional
 
 import torch as to
 import torch.nn as nn
+import torch.optim as optim
 import torch.nn.functional as F
 from torch.nn.functional import log_softmax
 
@@ -161,7 +162,9 @@ class SuperModel(nn.Module):
                 )
 
         if args.mode == "train":
-            self.optimizer = to.optim.Adam(learnable_params)
+            self.optimizer = getattr(optim, args.optimizer)(
+                learnable_params,
+            )
             self.loss_fn = getattr(losses, args.loss_fn)
 
         # load model if specified explicitly or from checkpoint
