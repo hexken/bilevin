@@ -98,6 +98,42 @@ def levin_sum_mse_loss(traj: Trajectory, model: SuperModel):
     return loss, avg_action_nll, acc
 
 
+def levin_avg_mse_loss(traj: Trajectory, model: SuperModel):
+    n_actions = len(traj)
+    log_probs, hs = model(
+        traj.states,
+        forward=traj.forward,
+        goal_state_t=traj.goal_state_t,
+        mask=traj.masks,
+    )
+    loss = nll_loss(log_probs, traj.actions, reduction="mean")
+
+    avg_action_nll = loss.item()
+    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
+
+    loss = loss * traj.num_expanded
+
+    return loss, avg_action_nll, acc
+
+
+def levin_sum_loss(traj: Trajectory, model: SuperModel):
+    n_actions = len(traj)
+    log_probs, hs = model(
+        traj.states,
+        forward=traj.forward,
+        goal_state_t=traj.goal_state_t,
+        mask=traj.masks,
+    )
+    loss = nll_loss(log_probs, traj.actions, reduction="sum")
+
+    avg_action_nll = loss.item() / n_actions
+    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
+
+    loss = loss * traj.num_expanded
+
+    return loss, avg_action_nll, acc
+
+
 def cross_entropy_mid_loss(traj: Trajectory, model: SuperModel):
     mid_idx = ceil(len(traj) / 2)
     mask = traj.masks[:mid_idx]
@@ -113,22 +149,5 @@ def cross_entropy_mid_loss(traj: Trajectory, model: SuperModel):
 
     avg_action_nll = loss.item()
     acc = (log_probs.detach().argmax(dim=1) == actions).sum().item() / mid_idx
-
-    return loss, avg_action_nll, acc
-
-
-def levin_loss(traj: Trajectory, model: SuperModel):
-    n_actions = len(traj)
-    log_probs, _ = model(
-        traj.states,
-        forward=traj.forward,
-        goal_state_t=traj.goal_state_t,
-        mask=traj.masks,
-    )
-    nll = nll_loss(log_probs, traj.actions, reduction="sum")
-    loss = nll * traj.num_expanded
-
-    avg_action_nll = nll.item() / n_actions
-    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
 
     return loss, avg_action_nll, acc
