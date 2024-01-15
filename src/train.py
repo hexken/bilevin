@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from tabulate import tabulate
 import torch as to
+from torch.nn.utils import clip_grad_norm_ as clip_
 import torch.distributed as dist
 
 from loaders import ProblemLoader
@@ -42,6 +43,7 @@ def train(
     policy_based: bool = agent.has_policy
     heuristic_based: bool = agent.has_heuristic
     optimizer = agent.model.optimizer
+    max_grad_norm = args.max_grad_norm
     loss_fn = agent.model.loss_fn
 
     solved_flag = to.zeros(1, dtype=to.uint8)
@@ -310,6 +312,8 @@ def train(
                 all_grads = to.cat(all_grads_list)
                 dist.all_reduce(all_grads, op=dist.ReduceOp.SUM)
                 all_grads.div_(num_procs_found_solution)
+                if max_grad_norm > 0:
+                    clip_(all_grads, max_grad_norm)
                 offset = 0
                 for param in model.parameters():
                     numel = param.numel()

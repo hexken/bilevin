@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from torch.nn.functional import log_softmax
 
 import models.losses as losses
+from models.utils import update_common_params
 
 
 class SuperModel(nn.Module):
@@ -62,13 +63,12 @@ class SuperModel(nn.Module):
                 self.num_kernels,
                 self.num_actions,
             )
-            learnable_params.append(
-                {
-                    "params": self.forward_feature_net.parameters(),
-                    "lr": f_feat_lr,
-                    "weight_decay": args.weight_decay,
-                },
-            )
+            params = {
+                "params": self.forward_feature_net.parameters(),
+                "lr": f_feat_lr,
+            }
+            update_common_params(args, params)
+            learnable_params.append(params)
 
             if self.is_bidirectional:
                 if self.share_feature_net:
@@ -81,13 +81,12 @@ class SuperModel(nn.Module):
                         self.num_kernels,
                         self.num_actions,
                     )
-                    learnable_params.append(
-                        {
-                            "params": self.backward_feature_net.parameters(),
-                            "lr": b_feat_lr,
-                            "weight_decay": args.weight_decay,
-                        },
-                    )
+                    params = {
+                        "params": self.backward_feature_net.parameters(),
+                        "lr": b_feat_lr,
+                    }
+                    update_common_params(args, params)
+                    learnable_params.append(params)
         else:
             # no feature net
             self.num_features = aux_args["num_features"]
@@ -99,13 +98,12 @@ class SuperModel(nn.Module):
                 self.num_actions,
                 args.forward_policy_layers,
             )
-            learnable_params.append(
-                {
-                    "params": self.forward_policy.parameters(),
-                    "lr": args.forward_policy_lr,
-                    "weight_decay": args.weight_decay,
-                },
-            )
+            params = {
+                "params": self.forward_policy.parameters(),
+                "lr": args.forward_policy_lr,
+            }
+            update_common_params(args, params)
+            learnable_params.append(params)
             if self.is_bidirectional:
                 if self.conditional_backward:
                     self.backward_policy: nn.Module = StateGoalPolicy(
@@ -119,13 +117,12 @@ class SuperModel(nn.Module):
                         self.num_actions,
                         args.backward_policy_layers,
                     )
-                learnable_params.append(
-                    {
-                        "params": self.backward_policy.parameters(),
-                        "lr": args.backward_policy_lr,
-                        "weight_decay": args.weight_decay,
-                    },
-                )
+                params = {
+                    "params": self.backward_policy.parameters(),
+                    "lr": args.backward_policy_lr,
+                }
+                update_common_params(args, params)
+                learnable_params.append(params)
 
         if self.has_heuristic:
             self.forward_heuristic: nn.Module = StateHeuristic(
@@ -133,13 +130,12 @@ class SuperModel(nn.Module):
                 self.num_actions,
                 args.forward_heuristic_layers,
             )
-            learnable_params.append(
-                {
-                    "params": self.forward_heuristic.parameters(),
-                    "lr": args.forward_heuristic_lr,
-                    "weight_decay": args.weight_decay,
-                },
-            )
+            params = {
+                "params": self.forward_heuristic.parameters(),
+                "lr": args.forward_heuristic_lr,
+            }
+            update_common_params(args, params)
+            learnable_params.append(params)
             if self.is_bidirectional:
                 if self.conditional_backward:
                     self.backward_heuristic: nn.Module = StateGoalHeuristic(
@@ -153,13 +149,12 @@ class SuperModel(nn.Module):
                         self.num_actions,
                         args.backward_heuristic_layers,
                     )
-                learnable_params.append(
-                    {
-                        "params": self.backward_heuristic.parameters(),
-                        "lr": args.backward_heuristic_lr,
-                        "weight_decay": args.weight_decay,
-                    },
-                )
+                params = {
+                    "params": self.backward_heuristic.parameters(),
+                    "lr": args.backward_heuristic_lr,
+                }
+                update_common_params(args, params)
+                learnable_params.append(params)
 
         if args.mode == "train":
             self.optimizer = getattr(optim, args.optimizer)(

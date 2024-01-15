@@ -90,6 +90,24 @@ def parse_args():
         help="torch optimizer to use",
     )
     parser.add_argument(
+        "--weight-decay",
+        type=float,
+        default=0.001,
+        help="add L2 regularization to loss",
+    )
+    parser.add_argument(
+        "--momentum",
+        type=float,
+        default=0.0,
+        help="momentum, if applicable",
+    )
+    parser.add_argument(
+        "--nesterov",
+        action="store_true",
+        default=False,
+        help="use nesterov momentum, if applicable",
+    )
+    parser.add_argument(
         "--max-grad-norm",
         type=float,
         default=-1,
@@ -155,12 +173,6 @@ def parse_args():
         default=32,
         type=int,
         help="number of convolution kernels",
-    )
-    parser.add_argument(
-        "--weight-decay",
-        type=float,
-        default=0.001,
-        help="add L2 regularization to loss",
     )
     parser.add_argument(
         "--conditional-backward",
