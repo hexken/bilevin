@@ -3,6 +3,22 @@ from pathlib import Path
 import socket
 
 
+def strtobool(val):
+    """Convert a string representation of truth to true (1) or false (0).
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    from https://github.com/python/cpython/blob/v3.11.2/Lib/distutils/util.py#L308
+    """
+    lval = val.lower()
+    if lval in ("y", "yes", "t", "true", "on", "1"):
+        return True
+    elif lval in ("n", "no", "f", "false", "off", "0"):
+        return False
+    else:
+        raise ValueError(f"invalid truth value {val}")
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -103,7 +119,9 @@ def parse_args():
     )
     parser.add_argument(
         "--nesterov",
-        action="store_true",
+        const=True,
+        nargs="?",
+        type=strtobool,
         default=False,
         help="use nesterov momentum, if applicable",
     )
@@ -120,6 +138,8 @@ def parse_args():
         choices=[
             "levin_sum_mse_loss",
             "levin_avg_mse_loss",
+            "levin_sum_loss",
+            "levin_avg_loss",
             "cross_entropy_loss",
             "cross_entropy_mid_loss",
             "cross_entropy_mse_loss",
@@ -176,25 +196,33 @@ def parse_args():
     )
     parser.add_argument(
         "--conditional-backward",
-        action="store_true",
+        const=True,
+        nargs="?",
+        type=strtobool,
         default=False,
         help="pass the problems initial (forward) state to the backward policy/heuristic in addition to a current (backward) state",
     )
     parser.add_argument(
         "--no-feature-net",
-        action="store_true",
+        const=True,
+        nargs="?",
+        type=strtobool,
         default=False,
         help="do not use a feature net to extract features from states",
     )
     parser.add_argument(
         "--share-feature-net",
-        action="store_true",
+        const=True,
+        nargs="?",
+        type=strtobool,
         default=False,
         help="use the same feature netword for forward and backward policies/heuristics. In this case forward-feature-net-lr is used",
     )
     parser.add_argument(
         "--keep-all-checkpoints",
-        action="store_true",
+        const=True,
+        nargs="?",
+        type=strtobool,
         default=False,
         help="save all checkpoints instead of just the most recent",
     )
