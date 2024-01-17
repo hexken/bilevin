@@ -571,6 +571,7 @@ def train(
                 new_checkpoint_path = args.logdir / f"checkpoint_b{batches_seen}.pkl"
                 with new_checkpoint_path.open("wb") as f:
                     pickle.dump(chkpt_dict, f)
+                    del chkpt_dict
                 if not args.keep_all_checkpoints:
                     old_checkpoint_path.unlink(missing_ok=True)
                     old_checkpoint_path = new_checkpoint_path

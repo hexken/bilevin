@@ -3,7 +3,6 @@ import json
 import os
 from pathlib import Path
 import pickle as pkl
-import socket
 import time
 from timeit import default_timer as timer
 
