@@ -60,6 +60,14 @@ def all_group_key(pth):
     if r:
         return " ".join([g for g in r.groups() if g is not None])
 
+def phs_test_key(pth):
+    r = re.search(
+        "^.*_opt(.*?)_.*?_(lr\d+\.\d+)_(n[tf])_(mn[-+]?(?:\d*\.*\d+))_(m\d\.\d)_loss(.*)_\d_",
+        str(pth),
+    )
+    if r:
+        return " ".join([g for g in r.groups() if g is not None])
+
 
 def alg_sort_key(s: str):
     if "PHS" in s:

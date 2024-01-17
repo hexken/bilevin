@@ -580,5 +580,6 @@ def train(
                 )
 
         if done_training:
-            best_models_log.close()
+            if rank == 0:
+                best_models_log.close()
             break

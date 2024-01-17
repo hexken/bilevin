@@ -15,7 +15,7 @@ from natsort import natsorted
 import numpy as np
 import pandas as pd
 
-from utils import LineStyleMapper, PdfTemplate, all_group_key, get_runs_data
+from .utils import LineStyleMapper, PdfTemplate, all_group_key, get_runs_data
 
 cmap = mpl.colormaps["tab20"]
 mpl.rcParams["axes.prop_cycle"] = cycler(color=cmap.colors)
