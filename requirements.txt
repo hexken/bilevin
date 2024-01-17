@@ -1,10 +1,7 @@
 torch
-numba
-tensorboard
 natsort
 aenum
 pandas
 tabulate
 tqdm
-wandb
 matplotlib
