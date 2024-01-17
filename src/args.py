@@ -362,7 +362,7 @@ def parse_args():
     parser.add_argument(
         "--lockfile",
         type=str,
-        default="port",
+        default="/tmp/port",
         help="path to create lock file for coordinating port setting in single-node multi instance training",
     )
     parser.add_argument(
