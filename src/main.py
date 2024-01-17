@@ -2,10 +2,12 @@ import datetime
 import json
 import os
 from pathlib import Path
-import pickle
+import pickle as pkl
+import socket
 import time
 from timeit import default_timer as timer
 
+from filelock import FileLock, Timeout
 import numpy as np
 import torch as to
 import torch.distributed as dist
@@ -19,6 +21,7 @@ from search.phs import BiPHSAlt, BiPHSBFS, PHS
 from search.utils import set_seeds
 from test import test
 from train import train
+from utils import find_free_port
 
 
 def split_by_rank(args, problems):
@@ -71,8 +74,6 @@ def run(
     local_valid_problems,
     world_num_valid_problems,
 ):
-    os.environ["MASTER_ADDR"] = args.master_addr
-    os.environ["MASTER_PORT"] = args.master_port
     dist.init_process_group(
         timeout=datetime.timedelta(seconds=86400),
         backend="gloo",
@@ -135,7 +136,8 @@ if __name__ == "__main__":
     set_seeds(args.seed)
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
 
-    pset_dict = pickle.load(args.problems_path.open("rb"))
+    with args.problems_path.open("rb") as f:
+        pset_dict = pkl.load(f)
     problems, world_num_problems = split_by_rank(args, pset_dict["problems"])
 
     if args.mode == "train":
@@ -184,7 +186,8 @@ if __name__ == "__main__":
     agent = agent_class(logdir, args, aux_args)
 
     if args.valid_path:
-        vset_dict = pickle.load(args.valid_path.open("rb"))
+        with args.valid_path.open("rb") as f:
+            vset_dict = pkl.load(f)
         valid_problems, world_num_valid_problems = split_by_rank(
             args, vset_dict["problems"]
         )
@@ -207,6 +210,37 @@ if __name__ == "__main__":
         args.test_expansion_budget = args.train_expansion_budget
     if args.max_expansion_budget < 0:
         args.max_expansion_budget = args.train_expansion_budget
+
+    if args.master_port == "auto":
+        lockfile = f"{args.lockfile}.lock"
+        portfile = Path(f"{args.lockfile}.pkl")
+        lock = FileLock(lockfile)
+        with lock:
+            if portfile.is_file():
+                f = portfile.open("r+b")
+                ports = pkl.load(f)
+                while True:
+                    port = find_free_port(args.master_addr)
+                    if port in ports:
+                        continue
+                    else:
+                        break
+                f.seek(0)
+                ports.add(port)
+                pkl.dump(ports, f)
+                f.truncate()
+                f.close()
+            else:
+                port = find_free_port(args.master_addr)
+                ports = {port}
+                with portfile.open("wb") as f:
+                    pkl.dump(ports, f)
+        os.environ["MASTER_PORT"] = str(port)
+    else:
+        os.environ["MASTER_PORT"] = args.master_port
+
+    print(f"Using port {os.environ['MASTER_PORT']}")
+    os.environ["MASTER_ADDR"] = args.master_addr
 
     processes = []
     for rank in range(args.world_size):

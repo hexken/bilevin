@@ -129,7 +129,7 @@ def parse_args():
         "--max-grad-norm",
         type=float,
         default=-1,
-        help="max norm of gradients, -1 for constraint"
+        help="max norm of gradients, -1 for constraint",
     )
     parser.add_argument(
         "--loss-fn",
@@ -356,8 +356,14 @@ def parse_args():
     parser.add_argument(
         "--master-port",
         type=str,
-        default="34567",
+        default="auto",
         help="port for multiprocessing communication",
+    )
+    parser.add_argument(
+        "--lockfile",
+        type=str,
+        default="port",
+        help="path to create lock file for coordinating port setting in single-node multi instance training",
     )
     parser.add_argument(
         "--max-expansion-budget",

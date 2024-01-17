@@ -579,4 +579,5 @@ def train(
                 )
 
         if done_training:
+            best_models_log.close()
             break
