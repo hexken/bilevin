@@ -203,6 +203,10 @@ if __name__ == "__main__":
         print(f"{k}: {v}")
 
     args.logdir = logdir
+    if args.test_expansion_budget < 0:
+        args.test_expansion_budget = args.train_expansion_budget
+    if args.max_expansion_budget < 0:
+        args.max_expansion_budget = args.train_expansion_budget
 
     processes = []
     for rank in range(args.world_size):

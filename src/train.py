@@ -81,6 +81,7 @@ def train(
         batches = []
 
         final_stage_epoch = 1 if train_loader.n_stages == 1 else 0
+        # old_final_stage_epoch = final_stage_epoch
         batches_seen = 0
 
         stage_start_time = 0
@@ -115,6 +116,7 @@ def train(
             stage_problems_seen = chkpt_dict["stage_problems_seen"]
             stage_problems_this_budget = chkpt_dict["stage_problems_this_budget"]
             final_stage_epoch = chkpt_dict["final_stage_epoch"]
+            # old_final_stage_epoch = chkpt_dict["old_final_stage_epoch"]
             batches_seen = chkpt_dict["batches_seen"]
             train_loader.load_state(chkpt_dict["loader_states"][rank])
 
@@ -141,6 +143,7 @@ def train(
             train_loader.repeat_stage = False
             stage_start_time = timer()
             old_stage = train_loader.stage
+            # old_final_stage_epoch = final_stage_epoch
 
             if args.min_problems_per_stage == -1:
                 min_problems_per_stage = (
@@ -477,7 +480,11 @@ def train(
 
         if (
             batches_seen >= args.batch_begin_validate
-            and batches_seen % args.validate_every == 0
+            and (
+                args.validate_every > 0 and batches_seen % args.validate_every == 0
+                or (train_loader.stage_complete and args.validate_every_stage)
+                or (train_loader.repeat_stage and args.validate_every_epoch)
+            )
         ) or done_training:
             if rank == 0:
                 print(
@@ -556,6 +563,7 @@ def train(
                     "stage_problems_this_budget": stage_problems_this_budget,
                     "min_problems_per_stage": min_problems_per_stage,
                     "final_stage_epoch": final_stage_epoch,
+                    # "old_final_stage_epoch": old_final_stage_epoch,
                     "batches_seen": batches_seen,
                     "loader_states": loader_states,
                     "done_training": done_training,

@@ -129,7 +129,7 @@ def parse_args():
         "--max-grad-norm",
         type=float,
         default=-1,
-        help="max norm of gradients, -1 to disable",
+        help="max norm of gradients, -1 for constraint"
     )
     parser.add_argument(
         "--loss-fn",
@@ -285,19 +285,35 @@ def parse_args():
         "--batch-begin-validate",
         type=int,
         default=1,
-        help="",
+        help="only begin validating after this many batches",
     )
     parser.add_argument(
         "--validate-every",
         type=int,
-        default=100,
-        help="validate every this many batches",
+        default=-1,
+        help="validate every this many batches, -1 to not use",
+    )
+    parser.add_argument(
+        "--validate-every-stage",
+        const=True,
+        nargs="?",
+        type=strtobool,
+        default=False,
+        help="validate after every stage",
+    )
+    parser.add_argument(
+        "--validate-every-epoch",
+        const=True,
+        nargs="?",
+        type=strtobool,
+        default=False,
+        help="validate after every epoch",
     )
     parser.add_argument(
         "--checkpoint-every",
         type=int,
         default=100,
-        help="validate every this many batches",
+        help="checkpoint every this many batches",
     )
     parser.add_argument(
         "-a",
@@ -346,8 +362,8 @@ def parse_args():
     parser.add_argument(
         "--max-expansion-budget",
         type=int,
-        default=100000000,
-        help="initial node expansion budget to solve a problem during training",
+        default=-1,
+        help="initial node expansion budget to solve a problem during training, -1 to use train expansion budget",
     )
     parser.add_argument(
         "--train-expansion-budget",
@@ -357,7 +373,8 @@ def parse_args():
     parser.add_argument(
         "--test-expansion-budget",
         type=int,
-        help="initial node expansion budget to solve a problem during testing/validation",
+        default=-1,
+        help="initial node expansion budget to solve a problem during testing/validation, -1 to use train expansion budget",
     )
     # parser.add_argument(
     #     "--increase-budget",
