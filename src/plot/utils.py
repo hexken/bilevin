@@ -60,6 +60,7 @@ def all_group_key(pth):
     if r:
         return " ".join([g for g in r.groups() if g is not None])
 
+
 def phs_test_key(pth):
     r = re.search(
         "^.*(PHS).*_opt(.*)_(lr\d+\.\d+)_(n[tf])_(mn[-+]?\d\.\d+)_(m\d\.\d)_loss(.*)_\d_.*",
@@ -160,12 +161,14 @@ def get_runs_data(pth: Path | Iterable[Path], group_key) -> dict:
                 tdf["epoch"] = j
                 sdf["epoch"] = j
 
+            if len(run_train_curr_dfs) == 0 and len(run_train_fs_dfs) == 0:
+                print(f"Warning: no train data found for {rp.name}")
+                continue
             run_train_df = pd.concat(
                 run_train_curr_dfs + run_train_fs_dfs, ignore_index=True
             )
             run_train_df.index = run_train_df.index + 1
             run_train_df.index = run_train_df.index.rename("batch")
-            train_dfs.append(run_train_df)
 
             run_search_df = pd.concat(
                 run_search_curr_dfs + run_search_fs_dfs, ignore_index=True
@@ -175,13 +178,17 @@ def get_runs_data(pth: Path | Iterable[Path], group_key) -> dict:
             run_search_df["solved"] = run_search_df["len"].map(pd.notna)
             run_search_df = make_exp_col(run_search_df)
             run_search_df = int_cols_to_float(run_search_df)
-            search_dfs.append(run_search_df)
 
             run_valid_df_paths = natsorted(rp.glob("search_valid*.pkl"))
             run_valid_dfs = [pkl.load(p.open("rb")) for p in run_valid_df_paths]
             batches = [
                 int(batch_regex.match(p.name).group(1)) for p in run_valid_df_paths
             ]
+
+            if len(batches) == 0:
+                print(f"Warning: no valid data found for {rp.name}")
+                continue
+
             for df, batch in zip(run_valid_dfs, batches):
                 df["batch"] = batch
 
@@ -189,6 +196,9 @@ def get_runs_data(pth: Path | Iterable[Path], group_key) -> dict:
             run_valid_df["solved"] = run_valid_df["len"].map(pd.notna)
             run_valid_df = make_exp_col(run_valid_df)
             run_valid_df = int_cols_to_float(run_valid_df)
+
+            train_dfs.append(run_train_df)
+            search_dfs.append(run_search_df)
             valid_dfs.append(run_valid_df)
 
         runs_data[run_name] = {

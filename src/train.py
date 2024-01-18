@@ -52,6 +52,7 @@ def train(
     world_search_results = [
         to.zeros(len(search_result_header), dtype=to.float64) for _ in range(batch_size)
     ]
+    local_search_results = to.zeros(len(search_result_header), dtype=to.float64)
 
     num_valid_problems = len(valid_loader)
     max_valid_expanded = num_valid_problems * expansion_budget
@@ -197,7 +198,6 @@ def train(
         if bidirectional:
             problem.domain.reset()
 
-        local_search_results = to.zeros(len(search_result_header), dtype=to.float64)
         local_search_results[:] = np.nan
         local_search_results[0] = problem.id
         local_search_results[1] = end_time - start_time
