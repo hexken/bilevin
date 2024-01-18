@@ -62,7 +62,7 @@ def all_group_key(pth):
 
 def phs_test_key(pth):
     r = re.search(
-        "^.*_opt(.*?)_.*?_(lr\d+\.\d+)_(n[tf])_(mn[-+]?(?:\d*\.*\d+))_(m\d\.\d)_loss(.*)_\d_",
+        "^.*(PHS).*_opt(.*)_(lr\d+\.\d+)_(n[tf])_(mn[-+]?\d\.\d+)_(m\d\.\d)_loss(.*)_\d_.*",
         str(pth),
     )
     if r:
@@ -123,6 +123,7 @@ def get_runs_data(pth: Path | Iterable[Path], group_key) -> dict:
         search_dfs = []
         valid_dfs = []
         for rp in run_paths:
+            print(f"Loading {rp.name}")
             run_train_curr_dfs = [
                 pkl.load(p.open("rb"))
                 for p in natsorted(rp.glob("model_train*.pkl"))

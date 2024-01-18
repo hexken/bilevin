@@ -348,6 +348,13 @@ def parse_args():
         help="number of processes to spawn",
     )
     parser.add_argument(
+        "--backend",
+        type=str,
+        default="gloo",
+        choices=["gloo", "mpi"],
+        help="backend for multiprocessing communication",
+    )
+    parser.add_argument(
         "--master-addr",
         type=str,
         default=socket.gethostname(),

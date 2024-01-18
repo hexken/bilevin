@@ -89,7 +89,7 @@ def train(
         stage_problems_this_budget = 0
     else:
         with args.checkpoint_path.open("rb") as f:
-            chkpt_dict = pickle.load(f)
+            chkpt_dict = to.load(f)
             optimizer.load_state_dict(chkpt_dict["optimizer_state"])
             ids = chkpt_dict["ids"]
             times = chkpt_dict["times"]
@@ -570,8 +570,8 @@ def train(
                 }
                 new_checkpoint_path = args.logdir / f"checkpoint_b{batches_seen}.pkl"
                 with new_checkpoint_path.open("wb") as f:
-                    pickle.dump(chkpt_dict, f)
-                    del chkpt_dict
+                    to.save(chkpt_dict, f)
+                del chkpt_dict
                 if not args.keep_all_checkpoints:
                     old_checkpoint_path.unlink(missing_ok=True)
                     old_checkpoint_path = new_checkpoint_path
@@ -580,6 +580,7 @@ def train(
                 )
 
         if done_training:
+            dist.monitored_barrier()
             if rank == 0:
                 best_models_log.close()
             break

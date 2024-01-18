@@ -168,7 +168,7 @@ class SuperModel(nn.Module):
             print(f"Loaded model\n  {str(args.model_path)}")
         elif args.checkpoint_path is not None:
             with args.checkpoint_path.open("rb") as f:
-                chkpt_dict = pickle.load(f)
+                chkpt_dict = to.load(f)
                 self.load_state_dict(chkpt_dict["model_state"])
             print(f"Loaded model\n  {str(args.checkpoint_path)}")
 

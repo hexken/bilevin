@@ -15,7 +15,7 @@ from natsort import natsorted
 import numpy as np
 import pandas as pd
 
-from .utils import LineStyleMapper, PdfTemplate, all_group_key, get_runs_data
+from utils import LineStyleMapper, PdfTemplate, all_group_key, get_runs_data, phs_test_key
 
 cmap = mpl.colormaps["tab20"]
 mpl.rcParams["axes.prop_cycle"] = cycler(color=cmap.colors)
@@ -293,11 +293,11 @@ def plot_uni_heuristic_model(run_name, run_data, ax=None):
 
 
 def main():
-    exp = "stp4"
-    savedir = Path(f"/home/ken/Projects/bilevin/figs/{exp}")
+    exp = "stp3"
+    savedir = Path(f"/home/ken/Projects/bilevin/stp3figs/{exp}")
     savedir.mkdir(exist_ok=True, parents=True)
-    all_runs_pth = Path("/home/ken/Projects/bilevin/phs2/runs/").glob(f"{exp}*")
-    all_runs = get_runs_data(all_runs_pth, all_group_key)
+    all_runs_pth = Path("/home/ken/Projects/bilevin/stp3_phs/")
+    all_runs = get_runs_data(all_runs_pth, phs_test_key)
 
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(12, 10))
     plot_all_vs_time(all_runs, "solved", "Solved", ax=ax1, legend=True)

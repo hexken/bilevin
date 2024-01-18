@@ -232,6 +232,8 @@ def main():
                 check_exclude = False
             elif args.domain == "pancake" and maxsteps < args.width:
                 check_exclude = False
+            elif args.domain == "stp" and maxsteps < 20:
+                check_exclude = False
             else:
                 check_exclude = True
             stage_problems = generate_step_problems(
