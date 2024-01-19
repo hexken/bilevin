@@ -33,6 +33,10 @@ def train(
     batch_size: int = args.world_size
     expansion_budget: int = args.train_expansion_budget
     min_problems_per_stage: int = args.min_problems_per_stage
+    min_solve_ratio_stage: float = args.min_solve_ratio_stage
+    min_solve_ratio_exp: float = args.min_solve_ratio_exp
+    n_tail: int = args.n_tail
+    max_expansion_budget: int = args.max_expansion_budget
 
     best_models_log = args.logdir / "best_models.txt"
     if rank == 0:
@@ -361,20 +365,24 @@ def train(
         stage_problems_this_budget += batch_size
 
         solve_ratio = None
-        if stage_problems_seen >= min_problems_per_stage and len(lens) >= args.n_tail:
-            solve_ratio = (~np.isnan(np.array(lens[-args.n_tail :]))).mean()
-            if solve_ratio >= args.min_solve_ratio_stage:
+        if stage_problems_seen >= min_problems_per_stage:
+            if min_solve_ratio_stage > 0:
+                if len(lens) >= n_tail:
+                    solve_ratio = (~np.isnan(np.array(lens[-n_tail:]))).mean()
+                    if solve_ratio >= min_solve_ratio_stage:
+                        train_loader.stage_complete = True
+            else:
                 train_loader.stage_complete = True
 
         if (
-            args.min_solve_ratio_exp > 0
-            and expansion_budget < args.max_expansion_budget
+            min_solve_ratio_exp > 0
+            and expansion_budget < max_expansion_budget
             and not train_loader.stage_complete
-            and stage_problems_this_budget >= args.n_tail
+            and stage_problems_this_budget >= n_tail
         ):
             if solve_ratio is None:
-                solve_ratio = (~np.isnan(np.array(lens[-args.n_tail :]))).mean()
-            if solve_ratio < args.min_solve_ratio_exp:
+                solve_ratio = (~np.isnan(np.array(lens[-n_tail:]))).mean()
+            if solve_ratio < min_solve_ratio_exp:
                 old_budget = expansion_budget
                 expansion_budget *= 2
                 stage_problems_this_budget = 0
@@ -452,11 +460,13 @@ def train(
                     stage_search_df,
                     bidirectional,
                 )
+                del stage_search_df
                 print_model_train_summary(
                     stage_model_train_df,
                     bidirectional,
                     policy_based,
                 )
+                del stage_model_train_df
                 print(f"\nTime: {timer() - stage_start_time:.2f}s")
                 print(
                     "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
@@ -481,7 +491,8 @@ def train(
         if (
             batches_seen >= args.batch_begin_validate
             and (
-                args.validate_every > 0 and batches_seen % args.validate_every == 0
+                args.validate_every > 0
+                and batches_seen % args.validate_every == 0
                 or (train_loader.stage_complete and args.validate_every_stage)
                 or (train_loader.repeat_stage and args.validate_every_epoch)
             )
