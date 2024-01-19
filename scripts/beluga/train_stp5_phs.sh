@@ -1,11 +1,10 @@
 #!/bin/bash
-#SBATCH --account=rrg-lelis
+#SBATCH --account=def-lelis
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=40
-#SBATCH --mem=186G
-#SBATCH --time=27:00:00
-#SBATCH --array=1-3
-#SBATCH --exclusive
+#SBATCH --ntasks-per-node=4
+#SBATCH --mem=6G
+#SBATCH --time=24:00:00
+#SBATCH --array=138,330,522
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp5_phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
@@ -21,25 +20,33 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/beluga/phs_args.txt
+argfile=/scratch/tjhia/bilevin/scripts/beluga/array_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
-agent=$(echo $args | cut -d' ' -f2)
-loss=$(echo $args | cut -d' ' -f3)
-lr=$(echo $args | cut -d' ' -f4)
-expname=lr${lr}
+opt=$(echo $args | cut -d' ' -f2)
+lr=$(echo $args | cut -d' ' -f3)
+mn=$(echo $args | cut -d' ' -f4)
+mom=$(echo $args | cut -d' ' -f5)
+loss=$(echo $args | cut -d' ' -f6)
+nest=$(echo $args | cut -d' ' -f7)
+expname=opt${opt}_lr${lr}_n${nest}_mn${mn}_m${mom}_loss${loss}
 
 
 python src/main.py \
-    --agent $agent \
+    --agent PHS \
     --seed $seed \
-    --runsdir-path runs/stp5_phs \
+    --runsdir-path runs/st5_phs \
     --exp-name $expname \
-    --problems-path problems/stp5/50000-train.pkl \
-    --valid-path problems/stp5/1000-valid.pkl \
-    --world-size 40 \
+    --backend gloo \
+    --problems-path problems/stp5c/120000-train.pkl \
+    --valid-path problems/stp5c/1000-valid.pkl \
+    --world-size 4 \
     --mode train \
     --loss-fn $loss \
+    --optimizer $opt \
+    --nesterov $nest \
+    --momentum $mom \
+    --max-grad-norm $mn \
     --grad-steps 10 \
     \
     --share-feature-net \
@@ -61,18 +68,18 @@ python src/main.py \
     --backward-heuristic-lr $lr \
     \
     --batch-begin-validate 1 \
-    --validate-every 150 \
-    --checkpoint-every 50 \
+    --validate-every 800 \
+    --checkpoint-every 200 \
     \
-    --time-budget 20 \
-    --train-expansion-budget 200000 \
-    --max-expansion-budget 200000 \
-    --test-expansion-budget 200000 \
+    --time-budget 300 \
+    --train-expansion-budget 7000 \
+    --max-expansion-budget -1 \
+    --test-expansion-budget -1 \
     \
     --min-problems-per-stage -1 \
     --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0 \
-    --n-final-stage-epochs 5 \
+    --n-final-stage-epochs 10 \
     \
     --n-tail 0 \
     \
