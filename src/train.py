@@ -35,7 +35,7 @@ def train(
     min_batches_per_stage: int = args.min_batches_per_stage
     min_solve_ratio_stage: float = args.min_solve_ratio_stage
     min_solve_ratio_exp: float = args.min_solve_ratio_exp
-    n_batch_tail: int = args.n_tail_batch
+    n_batch_tail: int = args.n_batch_tail
     max_expansion_budget: int = args.max_expansion_budget
     reduce_lr = False
 
@@ -130,7 +130,7 @@ def train(
             stage_batches_this_budget = chkpt_dict["stage_problems_this_budget"]
             final_stage_epoch = chkpt_dict["final_stage_epoch"]
             batches_seen = chkpt_dict["batches_seen"]
-            n_batch_tail = chkpt_dict["n_tail_batch"]
+            n_batch_tail = chkpt_dict["n_batch_tail"]
             batch_solve_ratios = chkpt_dict["batch_solve_ratios"]
             reduce_lr = chkpt_dict["reduce_lr"]
             train_loader.load_state(chkpt_dict["loader_states"][rank])
@@ -616,6 +616,7 @@ def train(
                     "best_valid_expanded": best_valid_expanded,
                     "time_in_stage": timer() - stage_start_time,
                     "stage_batches_seen": stage_batches_seen,
+                    "n_batch_tail": n_batch_tail,
                     "batch_solve_ratios": batch_solve_ratios,
                     "stage_batches_this_budget": stage_batches_this_budget,
                     "min_batches_per_stage": min_batches_per_stage,
