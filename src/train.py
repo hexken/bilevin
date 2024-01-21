@@ -557,8 +557,8 @@ def train(
 
                 if (
                     reduce_lr is not None
-                    and args.validate_reduce_lr > 0
-                    and valid_solved / num_valid_problems >= args.validate_reduce_lr
+                    and args.solve_ratio_reduce_lr > 0
+                    and valid_solved / num_valid_problems >= args.solve_ratio_reduce_lr
                 ):
                     reduce_lr = True
                     print("Reducing learning rate")
