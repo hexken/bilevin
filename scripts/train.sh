@@ -2,17 +2,23 @@
 
 export OMP_NUM_THREADS=1
 
+lr=0.0005
 python src/main.py \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/stp4/50000-train.pkl \
-    --valid-path problems/stp4/1000-valid.pkl \
+    --problems-path problems/stp4c2/30000-train.pkl \
+    --valid-path problems/stp4c2/1000-valid.pkl \
+    --master-port 34567 \
     --seed 1 \
     --world-size 4 \
     --mode train \
     --agent PHS \
     --weight-astar 2.5 \
-    --loss-fn cross_entropy_mse_loss \
+    --loss-fn levin_avg_mse_loss \
+    --max-grad-norm 2.0 \
+    --optimizer Adam \
+    --nesterov f \
+    --momentum 0.0 \
     --grad-steps 10 \
     \
     --share-feature-net \
@@ -21,31 +27,34 @@ python src/main.py \
     \
     --conditional-backward \
     \
-    --forward-feature-net-lr 0.001 \
+    --forward-feature-net-lr $lr \
     --forward-policy-layers 128 \
-    --forward-policy-lr 0.001 \
+    --forward-policy-lr $lr \
     --forward-heuristic-layers 128 \
-    --forward-heuristic-lr 0.001 \
+    --forward-heuristic-lr $lr \
     \
-    --backward-feature-net-lr 0.001 \
+    --backward-feature-net-lr $lr \
     --backward-policy-layers 256 198 128 \
-    --backward-policy-lr 0.001 \
+    --backward-policy-lr $lr \
     --backward-heuristic-layers 256 298 128 \
-    --backward-heuristic-lr 0.001 \
+    --backward-heuristic-lr $lr \
     \
     --batch-begin-validate 1 \
-    --validate-every 1000 \
-    --checkpoint-every 100 \
+    --validate-every-n-batch -1 \
+    --stage-begin-validate 1 \
+    --validate-every-n-stage 10 \
+    --validate-every-epoch \
+    --checkpoint-every-n-batch 100 \
     \
-    --time-budget 0.1 \
-    --train-expansion-budget 200000 \
-    --max-expansion-budget 200000 \
-    --test-expansion-budget 200000 \
+    --time-budget 300 \
+    --train-expansion-budget 2000 \
+    --max-expansion-budget -1 \
+    --test-expansion-budget -1 \
     \
-    --min-problems-per-stage -1 \
-    --min-solve-ratio-stage 0 \
+    --min-batches-per-stage -1 \
+    --min-solve-ratio-stage 0.9 \
     --min-solve-ratio-exp 0 \
-    --n-final-stage-epochs 2 \
+    --n-final-stage-epochs 5 \
     \
     --n-tail 0 \
     \

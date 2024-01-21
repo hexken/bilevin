@@ -32,11 +32,19 @@ def train(
 ):
     batch_size: int = args.world_size
     expansion_budget: int = args.train_expansion_budget
-    min_problems_per_stage: int = args.min_problems_per_stage
+    min_batches_per_stage: int = args.min_batches_per_stage
     min_solve_ratio_stage: float = args.min_solve_ratio_stage
     min_solve_ratio_exp: float = args.min_solve_ratio_exp
-    n_tail: int = args.n_tail
+    n_tail_batch: int = args.n_tail_batch
     max_expansion_budget: int = args.max_expansion_budget
+    reduce_lr = False
+
+    batch_begin_validate: int = args.batch_begin_validate
+    stage_begin_validate: int = args.stage_begin_validate
+    validate_every_n_batch: int = args.validate_every_n_batch
+    validate_every_n_stage: bool = args.validate_every_n_stage
+    validate_every_epoch: bool = args.validate_every_epoch
+    checkpoint_every_n_batch: int = args.checkpoint_every_n_batch
 
     best_models_log = args.logdir / "best_models.txt"
     if rank == 0:
@@ -86,12 +94,12 @@ def train(
         batches = []
 
         final_stage_epoch = 1 if train_loader.n_stages == 1 else 0
-        # old_final_stage_epoch = final_stage_epoch
         batches_seen = 0
+        batch_solve_ratios = []
 
         stage_start_time = 0
-        stage_problems_seen = 0
-        stage_problems_this_budget = 0
+        stage_batches_seen = 0
+        stage_batches_this_budget = 0
     else:
         with args.checkpoint_path.open("rb") as f:
             chkpt_dict = to.load(f)
@@ -113,16 +121,17 @@ def train(
             blosses = chkpt_dict["blosses"]
             baccs = chkpt_dict["baccs"]
             batches = chkpt_dict["batches"]
-            min_problems_per_stage = chkpt_dict["min_problems_per_stage"]
+            min_batches_per_stage = chkpt_dict["min_problems_per_stage"]
 
             expansion_budget = chkpt_dict["current_exp_budget"]
             best_valid_expanded = chkpt_dict["best_valid_expanded"]
             stage_start_time = timer() - chkpt_dict["time_in_stage"]
-            stage_problems_seen = chkpt_dict["stage_problems_seen"]
-            stage_problems_this_budget = chkpt_dict["stage_problems_this_budget"]
+            stage_batches_seen = chkpt_dict["stage_problems_seen"]
+            stage_batches_this_budget = chkpt_dict["stage_problems_this_budget"]
             final_stage_epoch = chkpt_dict["final_stage_epoch"]
-            # old_final_stage_epoch = chkpt_dict["old_final_stage_epoch"]
             batches_seen = chkpt_dict["batches_seen"]
+            batch_solve_ratios = chkpt_dict["batch_solve_ratios"]
+            reduce_lr = chkpt_dict["reduce_lr"]
             train_loader.load_state(chkpt_dict["loader_states"][rank])
 
         if rank == 0:
@@ -148,14 +157,12 @@ def train(
             train_loader.repeat_stage = False
             stage_start_time = timer()
             old_stage = train_loader.stage
-            # old_final_stage_epoch = final_stage_epoch
 
-            if args.min_problems_per_stage == -1:
-                min_problems_per_stage = (
-                    len(train_loader.stage_problems) * args.world_size
-                )
-            stage_problems_seen = 0
-            stage_problems_this_budget = 0
+            if args.min_batches_per_stage == -1:
+                min_batches_per_stage = len(train_loader.stage_problems)
+            stage_batches_seen = 0
+            batch_solve_ratios = []
+            stage_batches_this_budget = 0
 
             ids = []
             times = []
@@ -227,6 +234,7 @@ def train(
         dist.all_gather(world_search_results, local_search_results)
         dist.all_reduce(solved_flag, op=dist.ReduceOp.SUM)
         num_procs_found_solution = solved_flag[0].item()
+        batch_solve_ratios.append(num_procs_found_solution / batch_size)
 
         batches_seen += 1
 
@@ -361,31 +369,35 @@ def train(
                                 baccs.append(batch_bacc)
                                 print(f"bacc: {batch_bacc:.3f}")
 
-        stage_problems_seen += batch_size
-        stage_problems_this_budget += batch_size
+        stage_batches_seen += 1
+        stage_batches_this_budget += 1
 
+        # Stage completion checks
         solve_ratio = None
-        if stage_problems_seen >= min_problems_per_stage:
+        if stage_batches_seen >= min_batches_per_stage:
             if min_solve_ratio_stage > 0:
-                if len(lens) >= n_tail:
-                    solve_ratio = (~np.isnan(np.array(lens[-n_tail:]))).mean()
+                if len(batch_solve_ratios) >= n_tail_batch:
+                    solve_ratio = np.array(batch_solve_ratios[-n_tail_batch:]).mean()
                     if solve_ratio >= min_solve_ratio_stage:
                         train_loader.stage_complete = True
             else:
                 train_loader.stage_complete = True
 
+        # Increase expansion budget checks
         if (
             min_solve_ratio_exp > 0
             and expansion_budget < max_expansion_budget
             and not train_loader.stage_complete
-            and stage_problems_this_budget >= n_tail
+            and stage_batches_this_budget >= n_tail_batch
         ):
             if solve_ratio is None:
-                solve_ratio = (~np.isnan(np.array(lens[-n_tail:]))).mean()
+                solve_ratio = (
+                    ~np.isnan(np.array(batch_solve_ratios[-n_tail_batch:]))
+                ).mean()
             if solve_ratio < min_solve_ratio_exp:
                 old_budget = expansion_budget
                 expansion_budget *= 2
-                stage_problems_this_budget = 0
+                stage_batches_this_budget = 0
                 if rank == 0:
                     print(
                         "----------------------------------------------------------------------------"
@@ -488,20 +500,34 @@ def train(
 
         sys.stdout.flush()
 
+        # Validation checks
         if (
-            batches_seen >= args.batch_begin_validate
-            and (
-                args.validate_every > 0
-                and batches_seen % args.validate_every == 0
-                or (train_loader.stage_complete and args.validate_every_stage)
-                or (train_loader.repeat_stage and args.validate_every_epoch)
-            )
-        ) or done_training:
+            validate_every_n_batch > 0
+            and batches_seen % validate_every_n_batch == 0
+            and batches_seen >= batch_begin_validate
+        ):
+            validate = True
+        elif (
+            validate_every_n_stage > 0
+            and train_loader.stage_complete
+            and train_loader.stage % validate_every_n_stage == 0
+            and train_loader.stage >= stage_begin_validate
+        ):
+            validate = True
+        elif train_loader.repeat_stage and validate_every_epoch:
+            validate = True
+        elif done_training:
+            validate = True
+        else:
+            validate = False
+
+        if validate:
             if rank == 0:
                 print(
                     ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                 )
                 print("VALIDATION")
+                sys.stdout.flush()
 
             dist.monitored_barrier()
 
@@ -529,6 +555,14 @@ def train(
                     )
                     agent.save_model("best_expanded", log=False)
 
+                if (
+                    reduce_lr is not None
+                    and args.validate_reduce_lr > 0
+                    and valid_solved / num_valid_problems >= args.validate_reduce_lr
+                ):
+                    reduce_lr = True
+                    print("Reducing learning rate")
+
                 best_models_log.flush()
                 print(
                     ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
@@ -537,9 +571,13 @@ def train(
                 sys.stdout.flush()
 
             dist.monitored_barrier()
+            if reduce_lr:
+                for param_group in optimizer.param_groups:
+                    param_group["lr"] *= args.lr_decay
+                reduce_lr = None
 
         # Checkpoint
-        if (batches_seen % args.checkpoint_every == 0) or done_training:
+        if (batches_seen % checkpoint_every_n_batch == 0) or done_training:
             ts = timer()
             loader_states = [None] * args.world_size
             dist.gather_object(
@@ -570,14 +608,14 @@ def train(
                     "current_exp_budget": expansion_budget,
                     "best_valid_expanded": best_valid_expanded,
                     "time_in_stage": timer() - stage_start_time,
-                    "stage_problems_seen": stage_problems_seen,
-                    "stage_problems_this_budget": stage_problems_this_budget,
-                    "min_problems_per_stage": min_problems_per_stage,
+                    "stage_problems_seen": stage_batches_seen,
+                    "stage_problems_this_budget": stage_batches_this_budget,
+                    "min_problems_per_stage": min_batches_per_stage,
                     "final_stage_epoch": final_stage_epoch,
-                    # "old_final_stage_epoch": old_final_stage_epoch,
                     "batches_seen": batches_seen,
                     "loader_states": loader_states,
                     "done_training": done_training,
+                    "reduce_lr": reduce_lr,
                 }
                 new_checkpoint_path = args.logdir / f"checkpoint_b{batches_seen}.pkl"
                 with new_checkpoint_path.open("wb") as f:

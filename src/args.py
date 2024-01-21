@@ -38,25 +38,25 @@ def parse_args():
         "--min-solve-ratio-stage",
         type=float,
         default=0,
-        help="advance curriculum if the last n-tail problems has at least this solve ratio and at least min-problems-per-stage problems have been attempted",
+        help="advance curriculum if the last n-tail-batch batches has at least this solve ratio and at least min-batches-per-stage batches have been attempted",
     )
     parser.add_argument(
         "--min-solve-ratio-exp",
         type=float,
         default=0,
-        help="increase budget during training if the last n-tail stage problems has below this solve ratio and at least min-problems-per-stage problems have been attempted. Budget resets with each curriculum stage.",
+        help="increase budget during training if the last n-tail-batch stage batches has below this solve ratio and at least min-batches-per-stage batches have been attempted. Budget resets with each curriculum stage.",
     )
     parser.add_argument(
-        "--n-tail",
+        "--n-tail-batch",
         type=int,
-        default=0,
-        help="compute solve ratios based on last n problems. 0 to use all stage problems seen till so far.",
+        default=100,
+        help="compute solve ratios based on last n batches. 0 to use all stage batches seen so far.",
     )
     parser.add_argument(
-        "--min-problems-per-stage",
+        "--min-batches-per-stage",
         type=int,
         default=-1,
-        help="minimum number of problems to attempt for each curriculum stage. Set to 0 for no minimum. Set to -1 to use the number of problems in the stage.",
+        help="minimum number of batches to attempt for each curriculum stage. Set to 0 for no minimum. Set to -1 to use the number of batches in the stage.",
     )
     parser.add_argument(
         "--checkpoint-path",
@@ -200,7 +200,7 @@ def parse_args():
         nargs="?",
         type=strtobool,
         default=False,
-        help="pass the problems initial (forward) state to the backward policy/heuristic in addition to a current (backward) state",
+        help="pass the problem's initial (forward) state to the backward policy/heuristic in addition to a current (backward) state",
     )
     parser.add_argument(
         "--no-feature-net",
@@ -269,37 +269,47 @@ def parse_args():
         default=10,
         help="number of gradient steps to be performed in each opt pass",
     )
+    parser.add_argument(
+        "--lr-decay",
+        type=float,
+        default=0.1,
+        help="factor to decay learning rate by",
+    )
+    parser.add_argument(
+        "--validate-reduce-lr",
+        type=float,
+        default=0.95,
+        help="reduce learning rate by a factor of lr-decay once we solve this many validation problems, -1 to disable",
+    )
     # parser.add_argument(
-    #     "--epoch-reduce-lr",
-    #     type=int,
-    #     default=9999999,
-    #     help="reduce learning rate by a factor of 10 after this many epochs",
-    # )
-    # parser.add_argument(
-    #     "--epoch-reduce-grad-steps",
-    #     type=int,
-    #     default=9999999,
-    #     help="reduce number of grad steps by a factor of 2 after this many epochs",
+    #     "--validate-reduce-grad-steps",
+    #     type=float,
+    #     default=0.99,
+    #     help="reduce number of grad steps by a factor of 2 once we solve this many validation problems",
     # )
     parser.add_argument(
         "--batch-begin-validate",
         type=int,
         default=1,
-        help="only begin validating after this many batches",
+        help="only begin validating from this batch onwards",
     )
     parser.add_argument(
-        "--validate-every",
+        "--stage-begin-validate",
+        type=int,
+        default=1,
+        help="only begin validating from this stage onwards",
+    )
+    parser.add_argument(
+        "--validate-every-n-batch",
         type=int,
         default=-1,
         help="validate every this many batches, -1 to not use",
     )
     parser.add_argument(
-        "--validate-every-stage",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=False,
-        help="validate after every stage",
+        "--validate-every-n-stage",
+        type=int,
+        default=-1,
+        help="validate every this many stages, -1 to not use",
     )
     parser.add_argument(
         "--validate-every-epoch",
@@ -310,7 +320,7 @@ def parse_args():
         help="validate after every epoch",
     )
     parser.add_argument(
-        "--checkpoint-every",
+        "--checkpoint-every-n-batch",
         type=int,
         default=100,
         help="checkpoint every this many batches",
@@ -389,12 +399,6 @@ def parse_args():
         default=-1,
         help="initial node expansion budget to solve a problem during testing/validation, -1 to use train expansion budget",
     )
-    # parser.add_argument(
-    #     "--increase-budget",
-    #     action="store_true",
-    #     default=False,
-    #     help="during training double the budget every min-problems-per-stage when the solve ratio is below min-solve-ratio-exp, and reset to expansion-budget at beginning of each stage",
-    # )
     parser.add_argument(
         "--time-budget",
         type=float,
