@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --account=rrg-lelis
+#SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=12G
@@ -38,8 +38,8 @@ python src/main.py \
     --runsdir-path runs/stp4_phs \
     --exp-name $expname \
     --backend mpi \
-    --problems-path problems/stp4c/100000-train.pkl \
-    --valid-path problems/stp4c/1000-valid.pkl \
+    --problems-path problems/stp4c2/30000-train.pkl \
+    --valid-path problems/stp4c2/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --loss-fn $loss \
@@ -68,18 +68,24 @@ python src/main.py \
     --backward-heuristic-lr $lr \
     \
     --batch-begin-validate 1 \
-    --validate-every 800 \
-    --checkpoint-every 200 \
+    --stage-begin-validate 1 \
+    --validate-every-n-batch -1 \
+    --validate-every-n-stage 1 \
+    --validate-every-epoch \
+    \
+    --solve-ratio-reduce-lr 0.95 \
+    \
+    --checkpoint-every-b-batch 200 \
     \
     --time-budget 300 \
     --train-expansion-budget 2000 \
     --max-expansion-budget -1 \
     --test-expansion-budget -1 \
     \
-    --min-problems-per-stage -1 \
-    --min-solve-ratio-stage 0 \
+    --n-tail-batch 100 \
+    --min-batches-per-stage -1 \
+    --min-solve-ratio-stage 0.9 \
     --min-solve-ratio-exp 0 \
-    --n-final-stage-epochs 10 \
     \
-    --n-tail 0 \
+    --n-final-stage-epochs 10 \
     \

@@ -276,9 +276,9 @@ def parse_args():
         help="factor to decay learning rate by",
     )
     parser.add_argument(
-        "--validate-reduce-lr",
+        "--solve-ratio-reduce-lr",
         type=float,
-        default=0.95,
+        default=-1,
         help="reduce learning rate by a factor of lr-decay once we solve this many validation problems, -1 to disable",
     )
     # parser.add_argument(

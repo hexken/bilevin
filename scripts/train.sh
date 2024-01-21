@@ -56,5 +56,5 @@ python src/main.py \
     --min-solve-ratio-exp 0 \
     --n-final-stage-epochs 5 \
     \
-    --n-tail 0 \
+    --n-tail-batch 100 \
     \
