@@ -47,10 +47,10 @@ def parse_args():
         help="increase budget during training if the last n-tail-batch stage batches has below this solve ratio and at least min-batches-per-stage batches have been attempted. Budget resets with each curriculum stage.",
     )
     parser.add_argument(
-        "--n-tail-batch",
+        "--n-batch-tail",
         type=int,
-        default=100,
-        help="compute solve ratios based on last n batches. 0 to use all stage batches seen so far.",
+        default=-1,
+        help="compute solve ratios based on last n batches. 0 to use all stage batches seen so far, -1 to use number of batches in stage",
     )
     parser.add_argument(
         "--min-batches-per-stage",

@@ -35,7 +35,7 @@ def train(
     min_batches_per_stage: int = args.min_batches_per_stage
     min_solve_ratio_stage: float = args.min_solve_ratio_stage
     min_solve_ratio_exp: float = args.min_solve_ratio_exp
-    n_tail_batch: int = args.n_tail_batch
+    n_batch_tail: int = args.n_tail_batch
     max_expansion_budget: int = args.max_expansion_budget
     reduce_lr = False
 
@@ -130,6 +130,7 @@ def train(
             stage_batches_this_budget = chkpt_dict["stage_problems_this_budget"]
             final_stage_epoch = chkpt_dict["final_stage_epoch"]
             batches_seen = chkpt_dict["batches_seen"]
+            n_batch_tail = chkpt_dict["n_tail_batch"]
             batch_solve_ratios = chkpt_dict["batch_solve_ratios"]
             reduce_lr = chkpt_dict["reduce_lr"]
             train_loader.load_state(chkpt_dict["loader_states"][rank])
@@ -158,8 +159,11 @@ def train(
             stage_start_time = timer()
             old_stage = train_loader.stage
 
-            if args.min_batches_per_stage == -1:
+            if min_batches_per_stage == -1:
                 min_batches_per_stage = len(train_loader.stage_problems)
+            if n_batch_tail == -1:
+                n_batch_tail = len(train_loader.stage_problems)
+
             stage_batches_seen = 0
             batch_solve_ratios = []
             stage_batches_this_budget = 0
@@ -376,8 +380,11 @@ def train(
         solve_ratio = None
         if stage_batches_seen >= min_batches_per_stage:
             if min_solve_ratio_stage > 0:
-                if len(batch_solve_ratios) >= n_tail_batch:
-                    solve_ratio = np.array(batch_solve_ratios[-n_tail_batch:]).mean()
+                # don't care about solve ratio if we're at the last stage?
+                if train_loader.stage == train_loader.n_stages:
+                    train_loader.stage_complete = True
+                elif len(batch_solve_ratios) >= n_batch_tail:
+                    solve_ratio = np.array(batch_solve_ratios[-n_batch_tail:]).mean()
                     if solve_ratio >= min_solve_ratio_stage:
                         train_loader.stage_complete = True
             else:
@@ -388,11 +395,11 @@ def train(
             min_solve_ratio_exp > 0
             and expansion_budget < max_expansion_budget
             and not train_loader.stage_complete
-            and stage_batches_this_budget >= n_tail_batch
+            and stage_batches_this_budget >= n_batch_tail
         ):
             if solve_ratio is None:
                 solve_ratio = (
-                    ~np.isnan(np.array(batch_solve_ratios[-n_tail_batch:]))
+                    ~np.isnan(np.array(batch_solve_ratios[-n_batch_tail:]))
                 ).mean()
             if solve_ratio < min_solve_ratio_exp:
                 old_budget = expansion_budget
@@ -608,9 +615,10 @@ def train(
                     "current_exp_budget": expansion_budget,
                     "best_valid_expanded": best_valid_expanded,
                     "time_in_stage": timer() - stage_start_time,
-                    "stage_problems_seen": stage_batches_seen,
-                    "stage_problems_this_budget": stage_batches_this_budget,
-                    "min_problems_per_stage": min_batches_per_stage,
+                    "stage_batches_seen": stage_batches_seen,
+                    "batch_solve_ratios": batch_solve_ratios,
+                    "stage_batches_this_budget": stage_batches_this_budget,
+                    "min_batches_per_stage": min_batches_per_stage,
                     "final_stage_epoch": final_stage_epoch,
                     "batches_seen": batches_seen,
                     "loader_states": loader_states,
