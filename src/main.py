@@ -75,7 +75,6 @@ def run(
 ):
     dist.init_process_group(
         timeout=datetime.timedelta(seconds=86400),
-        backend=args.backend,
         rank=rank,
         world_size=args.world_size,
     )
