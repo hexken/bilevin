@@ -1,9 +1,12 @@
 env
+ccdata/
+.run/
 *.ipynb filter=strip-notebook-output
 todo.txt
 .ipynb_checkpoints/
 .python-version
 __pycache__/
+!plots/plot.py
 *.py[cod]
 .idea
 *.jpg

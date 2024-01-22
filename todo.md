@@ -1,14 +1,8 @@
-- double check why LTS sucks on stp3
-- fix witness envs
-- regen all problemsets, retest
-- retest checkpointing/test
 - should we prioritize backward model when costs are equal? as we are now?
 - Maybe we should actually use expanding a common state as the stopping condition, and report the
   plp of this expanded state, instead of using a common generates state. This is more in-line with
   the analysis, though maybe we can do analysis using the generated also?
-- should we compute probability of the start/goal nodes? instead of considering them 1?
-- expand might be causing issues
-- ensure h is set!
+- regen pancake and cube3, test cc params
 
 - stp4c
 - astar - lr 0.001 w2.5/3
@@ -17,8 +11,8 @@
 - levin - lr 0.001
 
 col4
-- astar - lr 0.001 w1/w1.5
-- biastar - lr 0.001 w1, lr 0.1
+- astar - lr 0.001 w1
+- biastar - lr 0.001 w1
 - bilevin- lr 0.001
 - levin - lr 0.001
 
@@ -28,3 +22,15 @@ tri4
 - bilevin - lr 0.001
 - levin - lr 0.001
 
+-pancake12
+- astar w2.5
+- biastar alt, w2.5. bfs sucks
+
+- allow continuing for more epochs
+- try separate feature net (again)
+- try path "contractions"
+- grad steps for each traj?
+
+
+- verticla line when curr ends
+- plot valid search/exp/len beside train

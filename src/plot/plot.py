@@ -1,11 +1,5 @@
-import itertools
-import json
 from pathlib import Path
-import pickle as pkl
-import re
-import subprocess
 from typing import Optional
-import warnings
 
 from cycler import cycler
 import matplotlib as mpl
@@ -15,14 +9,76 @@ from natsort import natsorted
 import numpy as np
 import pandas as pd
 
-from utils import LineStyleMapper, PdfTemplate, all_group_key, get_runs_data, phs_test_key
+from utils import (
+    LineStyleMapper,
+    PdfTemplate,
+    all_group_key,
+    get_runs_data,
+    phs_test_key,
+)
 
 cmap = mpl.colormaps["tab20"]
 mpl.rcParams["axes.prop_cycle"] = cycler(color=cmap.colors)
 mpl.rcParams["axes.linewidth"] = 1
 mpl.rc("lines", linewidth=2, linestyle="-")
 
+def plot_all_vs_time(
+    runs_data,
+    y_data_label: str,
+    y_title: str,
+    ax=None,
+    legend=False,
+    batch_size=40,
+    window_size=150,
+):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        fig = None
+    ls_mapper = LineStyleMapper()
+    for run_name, run_data in runs_data.items():
+        c, ls = ls_mapper.get_ls(run_name)
+        dfs = run_data["search"]
+        notna_dfs = []
+        for df in dfs:
+            df = df[["time", y_data_label]].copy()
+            dfg = df.groupby(df.index // batch_size)
+            dfs = dfg.aggregate({"time": "max", y_data_label: "mean"})
+            dfs["time"] = dfs["time"].cumsum()
+            x = dfs.groupby(dfs["time"] // window_size)[y_data_label].mean()
+            x.index = x.index.map(lambda x: (x + 1) * window_size)
+            notna_dfs.append(x)
 
+        df = pd.concat(notna_dfs, axis=1)
+        means = df.mean(axis=1)
+        mins = df.min(axis=1)
+        maxs = df.max(axis=1)
+
+        ax.plot(df.index.values, means, label=run_name, color=c, linestyle=ls)
+        ax.fill_between(
+            np.array(df.index.values, dtype=np.float32),
+            mins,
+            maxs,
+            alpha=0.1,
+            color=c,
+            label=run_name,
+        )
+
+    if legend:
+        handler, labeler = ax.get_legend_handles_labels()
+        it = iter(handler)
+        hd = [(a, next(it)) for a in it]
+        ax.legend(
+            hd, labeler[::2], loc="upper right", bbox_to_anchor=(1.45, 1), fontsize=12
+        )
+
+    if fig:
+        ax.set_xlabel("Time (s)", size=14)
+    ax.set_ylabel(
+        f"{y_title}", rotation=0, labelpad=10, size=14, horizontalalignment="right"
+    )
+    ax.set_title(f"{y_title} vs. time")
+    return fig
 def plot_all_vs_time(
     runs_data,
     y_data_label: str,
