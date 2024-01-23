@@ -19,12 +19,12 @@ from enum import Enum, IntEnum
 from aenum import Enum as AEnum
 
 
-class TwoDir(IntEnum):
+class SearchDir(IntEnum):
     FORWARD = 0
     BACKWARD = 1
 
 
-class FourDir(IntEnum):
+class ActionDir(IntEnum):
     UP = 0
     DOWN = 1
     RIGHT = 2

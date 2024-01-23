@@ -6,7 +6,7 @@ from torch import from_numpy, transpose
 from torch.nn.functional import one_hot
 
 from domains.domain import Domain, State
-from enums import FourDir
+from enums import ActionDir
 
 
 def get_goal_state(n_pancakes: int) -> PancakePuzzleState:
@@ -90,7 +90,7 @@ class PancakePuzzle(Domain):
     def _actions_unpruned(self, state: PancakePuzzleState):
         return [i for i in range(self.num_actions)]
 
-    def result(self, state: PancakePuzzleState, action: FourDir) -> PancakePuzzleState:
+    def result(self, state: PancakePuzzleState, action: ActionDir) -> PancakePuzzleState:
         pancakes = state.pancakes.copy()
         pancakes[action:] = np.flip(state.pancakes[action:])
         new_state = PancakePuzzleState(pancakes)

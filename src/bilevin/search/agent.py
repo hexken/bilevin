@@ -7,7 +7,7 @@ from typing import Optional, TYPE_CHECKING
 import torch as to
 
 from domains.domain import State
-from enums import TwoDir
+from enums import SearchDir
 from models.models import SuperModel
 from search.node import SearchNode
 from search.utils import Problem
@@ -78,7 +78,7 @@ class Agent(ABC):
     def finalize_children_nodes(
         self,
         open_list: list[SearchNode],  # PQ
-        direction: TwoDir,
+        direction: SearchDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],
         masks: list[to.Tensor],

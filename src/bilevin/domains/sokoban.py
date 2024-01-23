@@ -4,7 +4,7 @@ import numpy as np
 import torch as to
 
 from domains.domain import Domain, State
-from enums import FourDir
+from enums import ActionDir
 from search.utils import Problem
 
 
@@ -73,7 +73,7 @@ class Sokoban(Domain):
     def in_channels(self) -> int:
         return 4
 
-    def _actions_unpruned(self, state: SokobanState) -> list[FourDir]:
+    def _actions_unpruned(self, state: SokobanState) -> list[ActionDir]:
         """
         Can move in each direction where either there is no wall or box, or there is a box that can
         be pushed (i.e. no wall or box behind it)
@@ -86,79 +86,79 @@ class Sokoban(Domain):
             self.map[Sokoban.wall_channel, man_row, man_col + 1] == 0
             and state.boxes[man_row, man_col + 1] == 0
         ):
-            actions.append(FourDir.RIGHT)
+            actions.append(ActionDir.RIGHT)
         elif (
             state.boxes[man_row, man_col + 1] == 1
             and self.map[Sokoban.wall_channel, man_row, man_col + 2] == 0
             and state.boxes[man_row, man_col + 2] == 0
         ):
-            actions.append(FourDir.RIGHT)
+            actions.append(ActionDir.RIGHT)
 
         if (
             self.map[Sokoban.wall_channel, man_row, man_col - 1] == 0
             and state.boxes[man_row, man_col - 1] == 0
         ):
-            actions.append(FourDir.LEFT)
+            actions.append(ActionDir.LEFT)
         elif (
             state.boxes[man_row, man_col - 1] == 1
             and self.map[Sokoban.wall_channel, man_row, man_col - 2] == 0
             and state.boxes[man_row, man_col - 2] == 0
         ):
-            actions.append(FourDir.LEFT)
+            actions.append(ActionDir.LEFT)
 
         if (
             self.map[Sokoban.wall_channel, man_row + 1, man_col] == 0
             and state.boxes[man_row + 1, man_col] == 0
         ):
-            actions.append(FourDir.DOWN)
+            actions.append(ActionDir.DOWN)
         elif (
             state.boxes[man_row + 1, man_col] == 1
             and self.map[Sokoban.wall_channel, man_row + 2, man_col] == 0
             and state.boxes[man_row + 2, man_col] == 0
         ):
-            actions.append(FourDir.DOWN)
+            actions.append(ActionDir.DOWN)
 
         if (
             self.map[Sokoban.wall_channel, man_row - 1, man_col] == 0
             and state.boxes[man_row - 1, man_col] == 0
         ):
-            actions.append(FourDir.UP)
+            actions.append(ActionDir.UP)
         elif (
             state.boxes[man_row - 1, man_col] == 1
             and self.map[Sokoban.wall_channel, man_row - 2, man_col] == 0
             and state.boxes[man_row - 2, man_col] == 0
         ):
-            actions.append(FourDir.UP)
+            actions.append(ActionDir.UP)
 
         return actions
 
-    def _actions(self, parent_action: FourDir, state: SokobanState) -> list[FourDir]:
+    def _actions(self, parent_action: ActionDir, state: SokobanState) -> list[ActionDir]:
         return self._actions_unpruned(state)
 
-    def result(self, state: SokobanState, action: FourDir) -> SokobanState:
+    def result(self, state: SokobanState, action: ActionDir) -> SokobanState:
         boxes = np.array(state.boxes)
         man_row = state.man_row
         man_col = state.man_col
 
-        if action == FourDir.UP:
+        if action == ActionDir.UP:
             if boxes[man_row - 1, man_col] == 1:
                 boxes[man_row - 1, man_col] = 0
                 boxes[man_row - 2, man_col] = 1
             man_row -= 1
 
-        if action == FourDir.DOWN:
+        if action == ActionDir.DOWN:
             if boxes[man_row + 1, man_col] == 1:
                 boxes[man_row + 1, man_col] = 0
                 boxes[man_row + 2, man_col] = 1
             man_row += 1
 
-        if action == FourDir.RIGHT:
+        if action == ActionDir.RIGHT:
             if boxes[man_row, man_col + 1] == 1:
                 boxes[man_row, man_col + 1] = 0
                 boxes[man_row, man_col + 2] = 1
             man_col += 1
 
-        if action == FourDir.LEFT:
+        if action == ActionDir.LEFT:
             if boxes[man_row, man_col - 1] == 1:
                 boxes[man_row, man_col - 1] = 0
                 boxes[man_row, man_col - 2] = 1
@@ -166,17 +166,17 @@ class Sokoban(Domain):
 
         return SokobanState(man_row, man_col, boxes)
 
-    def reverse_action(self, action: FourDir) -> FourDir:
-        if action == FourDir.UP:
-            return FourDir.DOWN
-        elif action == FourDir.DOWN:
-            return FourDir.UP
-        elif action == FourDir.LEFT:
-            return FourDir.RIGHT
-        elif action == FourDir.RIGHT:
-            return FourDir.LEFT
+    def reverse_action(self, action: ActionDir) -> ActionDir:
+        if action == ActionDir.UP:
+            return ActionDir.DOWN
+        elif action == ActionDir.DOWN:
+            return ActionDir.UP
+        elif action == ActionDir.LEFT:
+            return ActionDir.RIGHT
+        elif action == ActionDir.RIGHT:
+            return ActionDir.LEFT
 
-    def _backward_actions_unpruned(self, state: SokobanState) -> list[FourDir]:
+    def _backward_actions_unpruned(self, state: SokobanState) -> list[ActionDir]:
         assert not self.forward
         actions = []
         man_row = state.man_row
@@ -186,57 +186,57 @@ class Sokoban(Domain):
             self.map[Sokoban.wall_channel, man_row, man_col + 1] == 0
             and state.boxes[man_row, man_col + 1] == 0
         ):
-            actions.append(FourDir.RIGHT)
+            actions.append(ActionDir.RIGHT)
 
         if (
             self.map[Sokoban.wall_channel, man_row, man_col - 1] == 0
             and state.boxes[man_row, man_col - 1] == 0
         ):
-            actions.append(FourDir.LEFT)
+            actions.append(ActionDir.LEFT)
 
         if (
             self.map[Sokoban.wall_channel, man_row + 1, man_col] == 0
             and state.boxes[man_row + 1, man_col] == 0
         ):
-            actions.append(FourDir.DOWN)
+            actions.append(ActionDir.DOWN)
 
         if (
             self.map[Sokoban.wall_channel, man_row - 1, man_col] == 0
             and state.boxes[man_row - 1, man_col] == 0
         ):
-            actions.append(FourDir.UP)
+            actions.append(ActionDir.UP)
 
         return actions
 
     def _backward_actions(
-        self, parent_action: FourDir, state: SokobanState
-    ) -> list[FourDir]:
+        self, parent_action: ActionDir, state: SokobanState
+    ) -> list[ActionDir]:
         return self._backward_actions_unpruned(state)
 
-    def _backward_result(self, state: SokobanState, action: FourDir) -> SokobanState:
+    def _backward_result(self, state: SokobanState, action: ActionDir) -> SokobanState:
         boxes = np.array(state.boxes)
         man_row = state.man_row
         man_col = state.man_col
 
-        if action == FourDir.UP:
+        if action == ActionDir.UP:
             if boxes[man_row + 1, man_col] == 1:
                 boxes[man_row + 1, man_col] = 0
                 boxes[man_row - 1, man_col] = 1
             man_row -= 1
 
-        if action == FourDir.DOWN:
+        if action == ActionDir.DOWN:
             if boxes[man_row - 1, man_col] == 1:
                 boxes[man_row - 1, man_col] = 0
                 boxes[man_row + 1, man_col] = 1
             man_row += 1
 
-        if action == FourDir.RIGHT:
+        if action == ActionDir.RIGHT:
             if boxes[man_row, man_col - 1] == 1:
                 boxes[man_row, man_col - 1] = 0
                 boxes[man_row, man_col + 1] = 1
             man_col += 1
 
-        if action == FourDir.LEFT:
+        if action == ActionDir.LEFT:
             if boxes[man_row, man_col + 1] == 1:
                 boxes[man_row, man_col + 1] = 0
                 boxes[man_row, man_col - 1] = 1

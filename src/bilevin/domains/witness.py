@@ -8,7 +8,7 @@ from torch import Tensor
 import torch as to
 
 from domains.domain import Domain, State
-from enums import Color, FourDir
+from enums import Color, ActionDir
 if TYPE_CHECKING:
     from search.node import SearchNode
 
@@ -199,17 +199,17 @@ class Witness(Domain):
 
         return to.from_numpy(arr)
 
-    def reverse_action(self, action: FourDir) -> FourDir:
-        if action == FourDir.UP:
-            return FourDir.DOWN
-        elif action == FourDir.DOWN:
-            return FourDir.UP
-        elif action == FourDir.LEFT:
-            return FourDir.RIGHT
-        elif action == FourDir.RIGHT:
-            return FourDir.LEFT
+    def reverse_action(self, action: ActionDir) -> ActionDir:
+        if action == ActionDir.UP:
+            return ActionDir.DOWN
+        elif action == ActionDir.DOWN:
+            return ActionDir.UP
+        elif action == ActionDir.LEFT:
+            return ActionDir.RIGHT
+        elif action == ActionDir.RIGHT:
+            return ActionDir.LEFT
 
-    def _actions(self, parent_action: FourDir, state: WitnessState) -> list[FourDir]:
+    def _actions(self, parent_action: ActionDir, state: WitnessState) -> list[ActionDir]:
         """
         Successor function used by planners trying to solve the puzzle. The method returns
         a list with legal actions for the state. The valid actions for the domain are {U, D, L, R}.
@@ -229,36 +229,36 @@ class Witness(Domain):
         actions = []
         # moving up
         if (
-            parent_action != FourDir.DOWN
+            parent_action != ActionDir.DOWN
             and state.head_row + 1 < state.grid.shape[0]
             and state.grid[state.head_row + 1, state.head_col] == 0
         ):
-            actions.append(FourDir.UP)
+            actions.append(ActionDir.UP)
         # moving down
         if (
-            parent_action != FourDir.UP
+            parent_action != ActionDir.UP
             and state.head_row >= 1
             and state.grid[state.head_row - 1, state.head_col] == 0
         ):
-            actions.append(FourDir.DOWN)
+            actions.append(ActionDir.DOWN)
         # moving right
         if (
-            parent_action != FourDir.LEFT
+            parent_action != ActionDir.LEFT
             and state.head_col + 1 < state.grid.shape[1]
             and state.grid[state.head_row, state.head_col + 1] == 0
         ):
-            actions.append(FourDir.RIGHT)
+            actions.append(ActionDir.RIGHT)
         # moving left
         if (
-            parent_action != FourDir.RIGHT
+            parent_action != ActionDir.RIGHT
             and state.head_col >= 1
             and state.grid[state.head_row, state.head_col - 1] == 0
         ):
-            actions.append(FourDir.LEFT)
+            actions.append(ActionDir.LEFT)
 
         return actions
 
-    def _actions_unpruned(self, state: WitnessState) -> list[FourDir]:
+    def _actions_unpruned(self, state: WitnessState) -> list[ActionDir]:
         actions = []
         # should return the same actions as pruned
         # moving up
@@ -266,23 +266,23 @@ class Witness(Domain):
             state.head_row + 1 < state.grid.shape[0]
             and state.grid[state.head_row + 1, state.head_col] == 0
         ):
-            actions.append(FourDir.UP)
+            actions.append(ActionDir.UP)
         # moving down
         if state.head_row >= 1 and state.grid[state.head_row - 1, state.head_col] == 0:
-            actions.append(FourDir.DOWN)
+            actions.append(ActionDir.DOWN)
         # moving right
         if (
             state.head_col + 1 < state.grid.shape[1]
             and state.grid[state.head_row, state.head_col + 1] == 0
         ):
-            actions.append(FourDir.RIGHT)
+            actions.append(ActionDir.RIGHT)
         # moving left
         if state.head_col >= 1 and state.grid[state.head_row, state.head_col - 1] == 0:
-            actions.append(FourDir.LEFT)
+            actions.append(ActionDir.LEFT)
 
         return actions
 
-    def result(self, state: WitnessState, action: FourDir) -> WitnessState:
+    def result(self, state: WitnessState, action: ActionDir) -> WitnessState:
         """
         Applies a given action to the state. It modifies the segments visited by the snake (v_seg and h_seg),
         the intersections (grid), and the tip of the snake.
@@ -295,22 +295,22 @@ class Witness(Domain):
         new_state.h_segs = np.array(state.h_segs)
 
         # moving up
-        if action == FourDir.UP:
+        if action == ActionDir.UP:
             new_state.v_segs[new_state.head_row, new_state.head_col] = 1
             new_state.grid[new_state.head_row + 1, new_state.head_col] = 1
             new_state.head_row += 1
         # moving down
-        elif action == FourDir.DOWN:
+        elif action == ActionDir.DOWN:
             new_state.v_segs[new_state.head_row - 1, new_state.head_col] = 1
             new_state.grid[new_state.head_row - 1, new_state.head_col] = 1
             new_state.head_row -= 1
         # moving right
-        elif action == FourDir.RIGHT:
+        elif action == ActionDir.RIGHT:
             new_state.h_segs[new_state.head_row, new_state.head_col] = 1
             new_state.grid[new_state.head_row, new_state.head_col + 1] = 1
             new_state.head_col += 1
         # moving left
-        elif action == FourDir.LEFT:
+        elif action == ActionDir.LEFT:
             new_state.h_segs[new_state.head_row, new_state.head_col - 1] = 1
             new_state.grid[new_state.head_row, new_state.head_col - 1] = 1
             new_state.head_col -= 1

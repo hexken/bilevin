@@ -9,7 +9,8 @@ from natsort import natsorted
 import numpy as np
 import pandas as pd
 
-from utils import (
+
+from plot.utils import (
     LineStyleMapper,
     PdfTemplate,
     all_group_key,
@@ -21,6 +22,7 @@ cmap = mpl.colormaps["tab20"]
 mpl.rcParams["axes.prop_cycle"] = cycler(color=cmap.colors)
 mpl.rcParams["axes.linewidth"] = 1
 mpl.rc("lines", linewidth=2, linestyle="-")
+
 
 def plot_all_vs_time(
     runs_data,
@@ -79,6 +81,8 @@ def plot_all_vs_time(
     )
     ax.set_title(f"{y_title} vs. time")
     return fig
+
+
 def plot_all_vs_time(
     runs_data,
     y_data_label: str,

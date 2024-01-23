@@ -5,7 +5,7 @@ from timeit import default_timer as timer
 import numpy as np
 import torch as to
 
-from enums import TwoDir
+from enums import SearchDir
 from search.agent import Agent
 from search.traj import from_goal_node
 from search.utils import Problem
@@ -90,7 +90,7 @@ class UniDir(Agent):
             if len(children_to_be_evaluated) > 0:
                 self.finalize_children_nodes(
                     open_list,
-                    TwoDir.FORWARD,
+                    SearchDir.FORWARD,
                     children_to_be_evaluated,
                     state_t_of_children_to_be_evaluated,
                     masks,

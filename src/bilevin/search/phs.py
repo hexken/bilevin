@@ -4,7 +4,7 @@ from math import log
 import torch as to
 
 from domains.domain import State
-from enums import TwoDir
+from enums import SearchDir
 from search.agent import Agent
 from search.bidir_bfs import BiDirBFS
 from search.bidir_alt import BiDirAlt
@@ -82,7 +82,7 @@ class PHSBase(Agent):
     def finalize_children_nodes(
         self: Agent,
         open_list: list[SearchNode],
-        direction: TwoDir,
+        direction: SearchDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],
         masks: list[to.Tensor],
@@ -92,7 +92,7 @@ class PHSBase(Agent):
         masks_t = to.stack(masks)
         log_probs, hs = self.model(
             children_state_t,
-            forward=direction == TwoDir.FORWARD,
+            forward=direction == SearchDir.FORWARD,
             goal_feats=goal_feats,
             mask=masks_t,
         )

@@ -6,7 +6,7 @@ from torch import from_numpy
 from torch.nn.functional import one_hot
 
 from domains.domain import Domain, State
-from enums import FourDir
+from enums import ActionDir
 
 
 def get_goal_state(width: int) -> SlidingTilePuzzleState:
@@ -84,15 +84,15 @@ class SlidingTilePuzzle(Domain):
     ) -> to.Tensor:
         return one_hot(from_numpy(state.tiles)).float().permute(2, 0, 1)
 
-    def reverse_action(self, action: FourDir) -> FourDir:
-        if action == FourDir.UP:
-            return FourDir.DOWN
-        elif action == FourDir.DOWN:
-            return FourDir.UP
-        elif action == FourDir.LEFT:
-            return FourDir.RIGHT
-        elif action == FourDir.RIGHT:
-            return FourDir.LEFT
+    def reverse_action(self, action: ActionDir) -> ActionDir:
+        if action == ActionDir.UP:
+            return ActionDir.DOWN
+        elif action == ActionDir.DOWN:
+            return ActionDir.UP
+        elif action == ActionDir.LEFT:
+            return ActionDir.RIGHT
+        elif action == ActionDir.RIGHT:
+            return ActionDir.LEFT
 
     def backward_domain(self) -> SlidingTilePuzzle:
         assert self.forward
@@ -102,21 +102,21 @@ class SlidingTilePuzzle(Domain):
         return domain
 
     def _actions(
-        self, parent_action: FourDir, state: SlidingTilePuzzleState
-    ) -> list[FourDir]:
+        self, parent_action: ActionDir, state: SlidingTilePuzzleState
+    ) -> list[ActionDir]:
         actions = []
 
-        if parent_action != FourDir.LEFT and state.blank_col != self.width - 1:
-            actions.append(FourDir.RIGHT)
+        if parent_action != ActionDir.LEFT and state.blank_col != self.width - 1:
+            actions.append(ActionDir.RIGHT)
 
-        if parent_action != FourDir.DOWN and state.blank_row != 0:
-            actions.append(FourDir.UP)
+        if parent_action != ActionDir.DOWN and state.blank_row != 0:
+            actions.append(ActionDir.UP)
 
-        if parent_action != FourDir.RIGHT and state.blank_col != 0:
-            actions.append(FourDir.LEFT)
+        if parent_action != ActionDir.RIGHT and state.blank_col != 0:
+            actions.append(ActionDir.LEFT)
 
-        if parent_action != FourDir.UP and state.blank_row != self.width - 1:
-            actions.append(FourDir.DOWN)
+        if parent_action != ActionDir.UP and state.blank_row != self.width - 1:
+            actions.append(ActionDir.DOWN)
 
         return actions
 
@@ -124,48 +124,48 @@ class SlidingTilePuzzle(Domain):
         actions = []
 
         if state.blank_col != self.width - 1:
-            actions.append(FourDir.RIGHT)
+            actions.append(ActionDir.RIGHT)
 
         if state.blank_row != 0:
-            actions.append(FourDir.UP)
+            actions.append(ActionDir.UP)
 
         if state.blank_col != 0:
-            actions.append(FourDir.LEFT)
+            actions.append(ActionDir.LEFT)
 
         if state.blank_row != self.width - 1:
-            actions.append(FourDir.DOWN)
+            actions.append(ActionDir.DOWN)
 
         return actions
 
     def result(
-        self, state: SlidingTilePuzzleState, action: FourDir
+        self, state: SlidingTilePuzzleState, action: ActionDir
     ) -> SlidingTilePuzzleState:
         tiles = np.array(state.tiles)
         blank_row = state.blank_row
         blank_col = state.blank_col
 
-        if action == FourDir.UP:
+        if action == ActionDir.UP:
             tiles[blank_row, blank_col], tiles[blank_row - 1, blank_col] = (
                 tiles[blank_row - 1, blank_col],
                 tiles[blank_row, blank_col],
             )
             blank_row -= 1
 
-        elif action == FourDir.DOWN:
+        elif action == ActionDir.DOWN:
             tiles[blank_row, blank_col], tiles[blank_row + 1, blank_col] = (
                 tiles[blank_row + 1, blank_col],
                 tiles[blank_row, blank_col],
             )
             blank_row += 1
 
-        elif action == FourDir.RIGHT:
+        elif action == ActionDir.RIGHT:
             tiles[blank_row, blank_col], tiles[blank_row, blank_col + 1] = (
                 tiles[blank_row, blank_col + 1],
                 tiles[blank_row, blank_col],
             )
             blank_col += 1
 
-        elif action == FourDir.LEFT:
+        elif action == ActionDir.LEFT:
             tiles[blank_row, blank_col], tiles[blank_row, blank_col - 1] = (
                 tiles[blank_row, blank_col - 1],
                 tiles[blank_row, blank_col],

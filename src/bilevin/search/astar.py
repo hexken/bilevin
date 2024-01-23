@@ -1,31 +1,36 @@
+from __future__ import annotations
 from heapq import heappush
 from math import log
+from typing import TYPE_CHECKING
 
 import torch as to
 
 from domains.domain import State
-from enums import TwoDir
-from search.agent import Agent
-from search.bidir_bfs import BiDirBFS
+from enums import SearchDir
 from search.bidir_alt import BiDirAlt
-from search.unidir import UniDir
+from search.bidir_bfs import BiDirBFS
 from search.node import SearchNode
+from search.unidir import UniDir
+
+from search.agent import Agent
+# if TYPE_CHECKING:
 
 
-class LevinBase(Agent):
+class AStarBase(Agent):
     def __init__(self, logdir, args, model_args):
         super().__init__(logdir, args, model_args)
+        self.w = args.weight_astar
 
     @property
     def has_policy(self):
-        return True
+        return False
 
     @property
     def has_heuristic(self):
-        return False
+        return True
 
     def make_start_node(
-        self: Agent,
+        self,
         state: State,
         state_t: to.Tensor,
         actions: list[int],
@@ -33,20 +38,20 @@ class LevinBase(Agent):
         forward: bool,
         goal_feats: to.Tensor | None,
     ) -> SearchNode:
-        log_probs, _ = self.model(
-            state_t, mask=mask, forward=forward, goal_feats=goal_feats
-        )
+        _, h = self.model(state_t, forward=forward, goal_feats=goal_feats)
 
+        h = h.item()
         start_node = SearchNode(
             state,
             parent=None,
             parent_action=None,
             actions=actions,
             actions_mask=mask,
-            g=0,
             log_prob=0.0,
-            f=0.0,
-            log_action_probs=log_probs[0],
+            log_action_probs=None,
+            g=0,
+            h=h,
+            f=self.w * h,
         )
         return start_node
 
@@ -58,58 +63,50 @@ class LevinBase(Agent):
         mask: to.Tensor,
         new_state: State,
     ) -> SearchNode:
-        assert parent_node.log_action_probs is not None
-        assert parent_node.log_prob is not None
-
-        g = parent_node.g + 1
-        log_prob = (
-            parent_node.log_prob + parent_node.log_action_probs[parent_action].item()
-        )
         new_node = SearchNode(
             new_state,
             parent=parent_node,
             parent_action=parent_action,
             actions=actions,
             actions_mask=mask,
-            log_prob=log_prob,
-            g=g,
-            f=log(g) - log_prob,
+            g=parent_node.g + 1,
+            log_prob=0.0,
         )
         return new_node
 
     def finalize_children_nodes(
-        self: Agent,
-        open_list: list[SearchNode],
-        direction: TwoDir,
+        self,
+        open_list: list[SearchNode],  # pq
+        direction: SearchDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],
         masks: list[to.Tensor],
         goal_feats: to.Tensor | None,
     ):
         children_state_t = to.stack(children_state_ts)
-        masks_t = to.stack(masks)
-        log_probs, _ = self.model(
+        _, hs = self.model(
             children_state_t,
-            forward=direction == TwoDir.FORWARD,
+            forward=direction == SearchDir.FORWARD,
             goal_feats=goal_feats,
-            mask=masks_t,
         )
 
-        for child, lap in zip(children, log_probs):
-            child.log_action_probs = lap
+        for child, h in zip(children, hs):
+            h = h.item()
+            child.h = h
+            child.f = child.g + self.w * h
             heappush(open_list, child)
 
 
-class Levin(UniDir, LevinBase):
+class AStar(UniDir, AStarBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
-class BiLevinBFS(BiDirBFS, LevinBase):
+class BiAStarBFS(BiDirBFS, AStarBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
-class BiLevinAlt(BiDirAlt, LevinBase):
+class BiAStarAlt(BiDirAlt, AStarBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

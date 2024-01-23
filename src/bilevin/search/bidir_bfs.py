@@ -4,12 +4,12 @@ from timeit import default_timer as timer
 
 import torch as to
 
-from enums import TwoDir
+from enums import SearchDir
 from search.agent import Agent
 from search.utils import Problem
 
 
-class BiDirAlt(Agent):
+class BiDirBFS(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -67,7 +67,6 @@ class BiDirAlt(Agent):
         n_forw_expanded = 0
         n_backw_expanded = 0
 
-        next_direction = TwoDir.FORWARD
         while len(f_open) > 0 and len(b_open) > 0:
             if (
                 (exp_budget > 0 and n_total_expanded >= exp_budget)
@@ -80,10 +79,8 @@ class BiDirAlt(Agent):
                     None,
                 )
 
-            direction = next_direction
-
-            if direction == TwoDir.FORWARD:
-                next_direction = TwoDir.BACKWARD
+            if f_open[0] < b_open[0]:
+                direction = SearchDir.FORWARD
                 _goal_feats = None
                 _domain = f_domain
                 _open = f_open
@@ -91,7 +88,7 @@ class BiDirAlt(Agent):
                 other_domain = b_domain
                 n_forw_expanded += 1
             else:
-                next_direction = TwoDir.FORWARD
+                direction = SearchDir.BACKWARD
                 _domain = b_domain
                 _goal_feats = b_goal_feats
                 _open = b_open
@@ -124,7 +121,7 @@ class BiDirAlt(Agent):
                         n_total_expanded,
                     )
 
-                    if trajs is not None:  # solution found
+                    if trajs:  # solution found
                         return (
                             n_forw_expanded,
                             n_backw_expanded,
