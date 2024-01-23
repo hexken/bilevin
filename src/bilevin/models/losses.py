@@ -79,6 +79,25 @@ def levin_avg_mse_loss(traj: Trajectory, model: SuperModel):
     return loss, avg_action_nll, acc
 
 
+def traj_nll_mse_loss(traj: Trajectory, model: SuperModel):
+    n_actions = len(traj)
+    log_probs, hs = model(
+        traj.states,
+        forward=traj.forward,
+        goal_state_t=traj.goal_state_t,
+        mask=traj.masks,
+    )
+    loss = nll_loss(log_probs, traj.actions, reduction="sum")
+
+    avg_action_nll = loss.item() / n_actions
+    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
+
+    mse_loss = mse(hs, traj.cost_to_gos.unsqueeze(1))
+    loss = loss + mse_loss
+
+    return loss, avg_action_nll, acc
+
+
 def levin_sum_mse_loss(traj: Trajectory, model: SuperModel):
     n_actions = len(traj)
     log_probs, hs = model(
@@ -98,7 +117,7 @@ def levin_sum_mse_loss(traj: Trajectory, model: SuperModel):
     return loss, avg_action_nll, acc
 
 
-def levin_avg_mse_loss(traj: Trajectory, model: SuperModel):
+def levin_avg_loss(traj: Trajectory, model: SuperModel):
     n_actions = len(traj)
     log_probs, hs = model(
         traj.states,
@@ -112,6 +131,22 @@ def levin_avg_mse_loss(traj: Trajectory, model: SuperModel):
     acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
 
     loss = loss * traj.num_expanded
+
+    return loss, avg_action_nll, acc
+
+
+def traj_nll_loss(traj: Trajectory, model: SuperModel):
+    n_actions = len(traj)
+    log_probs, hs = model(
+        traj.states,
+        forward=traj.forward,
+        goal_state_t=traj.goal_state_t,
+        mask=traj.masks,
+    )
+    loss = nll_loss(log_probs, traj.actions, reduction="sum")
+
+    avg_action_nll = loss.item() / n_actions
+    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
 
     return loss, avg_action_nll, acc
 

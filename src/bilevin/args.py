@@ -136,6 +136,8 @@ def parse_args():
         type=str,
         default="levin_loss",
         choices=[
+            "traj_nll_mse_loss",
+            "traj_nll_loss",
             "levin_sum_mse_loss",
             "levin_avg_mse_loss",
             "levin_sum_loss",
