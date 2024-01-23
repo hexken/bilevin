@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from collections.abc import Iterable
 import itertools
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import json
 from pathlib import Path
 import pickle as pkl
@@ -95,117 +96,127 @@ def alg_sort_key(s: str):
     return key1, key2, key3
 
 
-def get_runs_data(pth: Path | Iterable[Path], group_key) -> dict:
+def process_run(run_name, run_paths, batch_size=4):
     batch_regex = re.compile(".*_b(\d+).pkl")
+    train_dfs = []
+    search_dfs = []
+    valid_dfs = []
+    curr_end_batches = []
+    curr_end_times = []
+    for rp in run_paths:
+        run_train_curr_dfs = [
+            pkl.load(p.open("rb"))
+            for p in natsorted(rp.glob("model_train*.pkl"))
+            if "_e" not in p.name
+        ]
+
+        run_train_fs_dfs = [
+            pkl.load(p.open("rb")) for p in natsorted(rp.glob("model_train*_e*.pkl"))
+        ]
+
+        run_search_curr_dfs = [
+            pkl.load(p.open("rb"))
+            for p in natsorted(rp.glob("search_train*.pkl"))
+            if "_e" not in p.name
+        ]
+        run_search_fs_dfs = [
+            pkl.load(p.open("rb")) for p in natsorted(rp.glob("search_train*_e*.pkl"))
+        ]
+
+        i = 1
+        for tdf, sdf in zip(run_train_curr_dfs, run_search_curr_dfs):
+            tdf["stage"] = i
+            sdf["stage"] = i
+            tdf["epoch"] = 1
+            sdf["epoch"] = 1
+            i += 1
+        for j, (tdf, sdf) in enumerate(
+            zip(run_train_fs_dfs, run_search_fs_dfs), start=1
+        ):
+            tdf["stage"] = i
+            sdf["stage"] = i
+            tdf["epoch"] = j
+            sdf["epoch"] = j
+
+        if len(run_train_curr_dfs) == 0 and len(run_train_fs_dfs) == 0:
+            print(f"Warning: no train data found for {rp.name}")
+            continue
+        run_train_df = pd.concat(
+            run_train_curr_dfs + run_train_fs_dfs, ignore_index=True
+        )
+        run_train_df["batch"] = run_train_df.index + 1
+
+        run_search_df = pd.concat(
+            run_search_curr_dfs + run_search_fs_dfs, ignore_index=True
+        )
+        run_search_df["batch"] = run_search_df.index.map(
+            lambda x: (x // batch_size) + 1
+        )
+        run_search_df["solved"] = run_search_df["len"].map(pd.notna)
+        run_search_df = make_exp_col(run_search_df)
+        run_search_df = int_cols_to_float(run_search_df)
+        curr_end_times.append(
+            run_search_df[run_search_df["epoch"] == 1]
+            .groupby("batch")["time"]
+            .max()
+            .sum()
+        )
+        curr_end_batches.append(
+            run_search_df[run_search_df["epoch"] == 1]["batch"].max()
+        )
+
+        run_valid_df_paths = natsorted(rp.glob("search_valid*.pkl"))
+        run_valid_dfs = [pkl.load(p.open("rb")) for p in run_valid_df_paths]
+        batches = [int(batch_regex.match(p.name).group(1)) for p in run_valid_df_paths]
+
+        if len(batches) == 0:
+            print(f"Warning: no valid data found for {rp.name}")
+            continue
+
+        for df, batch in zip(run_valid_dfs, batches):
+            df["batch"] = batch
+
+        run_valid_df = pd.concat(run_valid_dfs, ignore_index=True)
+        run_valid_df["solved"] = run_valid_df["len"].map(pd.notna)
+        batch_times = run_search_df.groupby("batch")["time"].max()
+        run_valid_df["start_time"] = run_valid_df["batch"].map(
+            lambda x: batch_times.loc[:x].sum()
+        )
+        run_valid_df = make_exp_col(run_valid_df)
+        run_valid_df = int_cols_to_float(run_valid_df)
+
+        train_dfs.append(run_train_df)
+        search_dfs.append(run_search_df)
+        valid_dfs.append(run_valid_df)
+
+    print(f"Loaded {len(search_dfs)} runs of {run_name}")
+    return run_name, {
+        "train": train_dfs,
+        "search": search_dfs,
+        "valid": valid_dfs,
+        "curr_end_batch": curr_end_batches,
+        "curr_end_time": curr_end_times,
+    }
+
+
+def get_runs_data(pth: Path | Iterable[Path], group_key, batch_size=4) -> dict:
     # get list of paths for each run_name, specified by group_key (should correpsond to seeds)
     if isinstance(pth, Path):
         pth = [pth]
-    all_runs_paths = []
-    for p in pth:
-        all_runs_paths.extend(list(p.glob("*/")))
 
-    runs_names = []
-    runs_paths = []
-    all_runs_paths = sorted(all_runs_paths, key=group_key)
-    for k, g in itertools.groupby(all_runs_paths, group_key):
-        runs_names.append(k)
-        runs_paths.append(list(g))
-
-    # sort again by algorithm for plotting
+    all_runs_paths = [p for path in pth for p in path.glob("*/")]
+    all_runs_paths.sort(key=group_key)
+    grouped_runs = itertools.groupby(all_runs_paths, group_key)
+    # Prepare sorting by algorithm
     runs_combined = sorted(
-        zip(runs_names, runs_paths), key=lambda x: alg_sort_key(x[0])
+        ((name, list(paths)) for name, paths in grouped_runs),
+        key=lambda x: alg_sort_key(str(x[0])),
     )
-    runs_names, runs_paths = zip(*runs_combined)
-
     runs_data = OrderedDict()
-    for run_name, run_paths in zip(runs_names, runs_paths):
-        print(f"Found {len(run_paths)} runs of {run_name}")
-        train_dfs = []
-        search_dfs = []
-        valid_dfs = []
-        for rp in run_paths:
-            print(f"Loading {rp.name}")
-            run_train_curr_dfs = [
-                pkl.load(p.open("rb"))
-                for p in natsorted(rp.glob("model_train*.pkl"))
-                if "_e" not in p.name
-            ]
 
-            run_train_fs_dfs = [
-                pkl.load(p.open("rb"))
-                for p in natsorted(rp.glob("model_train*_e*.pkl"))
-            ]
-
-            run_search_curr_dfs = [
-                pkl.load(p.open("rb"))
-                for p in natsorted(rp.glob("search_train*.pkl"))
-                if "_e" not in p.name
-            ]
-            run_search_fs_dfs = [
-                pkl.load(p.open("rb"))
-                for p in natsorted(rp.glob("search_train*_e*.pkl"))
-            ]
-
-            i = 1
-            for tdf, sdf in zip(run_train_curr_dfs, run_search_curr_dfs):
-                tdf["stage"] = i
-                sdf["stage"] = i
-                tdf["epoch"] = 1
-                sdf["epoch"] = 1
-                i += 1
-            for j, (tdf, sdf) in enumerate(
-                zip(run_train_fs_dfs, run_search_fs_dfs), start=1
-            ):
-                tdf["stage"] = i
-                sdf["stage"] = i
-                tdf["epoch"] = j
-                sdf["epoch"] = j
-
-            if len(run_train_curr_dfs) == 0 and len(run_train_fs_dfs) == 0:
-                print(f"Warning: no train data found for {rp.name}")
-                continue
-            run_train_df = pd.concat(
-                run_train_curr_dfs + run_train_fs_dfs, ignore_index=True
-            )
-            run_train_df.index = run_train_df.index + 1
-            run_train_df.index = run_train_df.index.rename("batch")
-
-            run_search_df = pd.concat(
-                run_search_curr_dfs + run_search_fs_dfs, ignore_index=True
-            )
-            run_search_df.index = run_search_df.index + 1
-            run_search_df.index = run_search_df.index.rename("batch")
-            run_search_df["solved"] = run_search_df["len"].map(pd.notna)
-            run_search_df = make_exp_col(run_search_df)
-            run_search_df = int_cols_to_float(run_search_df)
-
-            run_valid_df_paths = natsorted(rp.glob("search_valid*.pkl"))
-            run_valid_dfs = [pkl.load(p.open("rb")) for p in run_valid_df_paths]
-            batches = [
-                int(batch_regex.match(p.name).group(1)) for p in run_valid_df_paths
-            ]
-
-            if len(batches) == 0:
-                print(f"Warning: no valid data found for {rp.name}")
-                continue
-
-            for df, batch in zip(run_valid_dfs, batches):
-                df["batch"] = batch
-
-            run_valid_df = pd.concat(run_valid_dfs, ignore_index=True)
-            run_valid_df["solved"] = run_valid_df["len"].map(pd.notna)
-            run_valid_df = make_exp_col(run_valid_df)
-            run_valid_df = int_cols_to_float(run_valid_df)
-
-            train_dfs.append(run_train_df)
-            search_dfs.append(run_search_df)
-            valid_dfs.append(run_valid_df)
-
-        runs_data[run_name] = {
-            "train": train_dfs,
-            "search": search_dfs,
-            "valid": valid_dfs,
-        }
+    with ProcessPoolExecutor() as e:
+        for run_name, run_data in e.map(process_run, *zip(*runs_combined)):
+            runs_data[run_name] = run_data
 
     return runs_data
 
