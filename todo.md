@@ -34,3 +34,8 @@ tri4
 
 - verticla line when curr ends
 - plot valid search/exp/len beside train
+
+bug in process data...
+- change exp names
+- use args.json to group/sort
+- save array job info or something in rundir, and slurm out name

@@ -263,7 +263,7 @@ def lr_mom_group_key(item):
 
 def main():
     colors = mpl.colormaps["tab10"].colors
-    f = open("all_runs2.pkl", "rb")
+    f = open("all_runs.pkl", "rb")
     allruns = pkl.load(f)
     saveroot = Path("figs/figstest2")
     data = sorted(allruns.items(), key=opt_loss_group_key)
@@ -278,11 +278,11 @@ def main():
             print(lr)
             savelr = saveoptloss / lr.replace(" ", "_")
             savelr.mkdir(exist_ok=True, parents=True)
-            data = {}
+            grouped_data = {}
             for lg in lrgroup:
                 words = lg[0].split()
                 legend_name = f"{words[4]} {words[5]}"
-                data[legend_name] = lg[1]
+                grouped_data[legend_name] = lg[1]
             fig, ax = plt.subplots(3, 2, sharex=True, figsize=(12, 10))
             fig.suptitle(f"{opt_loss} {lr}", size=16)
             ax[0, 0].set_title(f"Train")
@@ -292,7 +292,8 @@ def main():
             ax[2, 0].set_ylabel("Solution length", size=14)
 
             labels = []
-            for i, (pname, pdata) in enumerate(data.items()):
+            for i, (pname, pdata) in enumerate(grouped_data.items()):
+                pdata = pdata[1]
                 color = colors[i % len(colors)]
                 labels.append(pname)
                 plot_search_vs_time(

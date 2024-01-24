@@ -214,9 +214,18 @@ def get_runs_data(pth: Path | Iterable[Path], group_key, batch_size=4) -> dict:
     )
     runs_data = OrderedDict()
 
-    with ProcessPoolExecutor() as e:
-        for run_name, run_data in e.map(process_run, *zip(*runs_combined)):
-            runs_data[run_name] = run_data
+    # print(list(*zip(*runs_combined)))
+    with ProcessPoolExecutor() as executor:
+        future_to_run = {
+            executor.submit(process_run, name, paths, batch_size): name
+            for name, paths in runs_combined
+        }
+        for future in as_completed(future_to_run):
+            run_name = future_to_run[future]
+            try:
+                runs_data[run_name] = future.result()
+            except Exception as exc:
+                print(f"Run {run_name} generated an exception: {exc}")
 
     return runs_data
 
