@@ -11,12 +11,11 @@ from natsort import natsorted
 import numpy as np
 import pandas as pd
 
+import plotting.keys as pkeys
 from plotting.utils import (
     LineStyleMapper,
     PdfTemplate,
-    all_group_key,
     get_runs_data,
-    phs_test_key,
 )
 
 cmap = mpl.colormaps["tab20"]
@@ -73,6 +72,7 @@ def plot_valid_vs_time(
 ):
     # plot seeds corresponding to a run
     dfs = run_data["valid"]
+    print(len(dfs))
     notna_dfs = []
     xs = []
     for df in dfs:
@@ -83,7 +83,16 @@ def plot_valid_vs_time(
         notna_dfs.append(dfg)
 
     df = pd.concat(notna_dfs, axis=1)
-    xs = np.array(xs).max(axis=0)
+    try:
+        xs = np.array(xs).mean(axis=0)
+    except:
+        print(xs)
+        print(len(xs))
+        print(len(xs[0]))
+        print(len(xs[1]))
+        print(len(xs[2]))
+        print(len(xs[3]))
+        raise
     means = df.mean(axis=1)
     mins = df.min(axis=1)
     maxs = df.max(axis=1)
@@ -249,32 +258,20 @@ def window_avg_over_index(data: list[pd.DataFrame], y_data_label, window_size=5)
 #     return fig
 
 
-def opt_loss_group_key(item):
-    key, val = item
-    words = key.split()
-    return f"{words[-1]} {words[1]} {words[3]}"
-
-
-def lr_mom_group_key(item):
-    key, val = item
-    words = key.split()
-    return f"{words[2]}"
-
-
 def main():
     colors = mpl.colormaps["tab10"].colors
-    f = open("all_runs.pkl", "rb")
+    f = open("all_runs2.pkl", "rb")
     allruns = pkl.load(f)
-    saveroot = Path("figs/figstest2")
-    data = sorted(allruns.items(), key=opt_loss_group_key)
-    for opt_loss, group in itertools.groupby(data, key=opt_loss_group_key):
+    saveroot = Path("figs/figstest2_w2")
+    data = sorted(allruns.items(), key=pkeys.opt_loss_group_key)
+    for opt_loss, group in itertools.groupby(data, key=pkeys.opt_loss_group_key):
         print(opt_loss)
         saveoptloss = saveroot / opt_loss.replace(" ", "_")
         saveoptloss.mkdir(exist_ok=True, parents=True)
         # data = {}
         group = list(group)
-        group = sorted(group, key=lr_mom_group_key)
-        for lr, lrgroup in itertools.groupby(group, key=lr_mom_group_key):
+        group = sorted(group, key=pkeys.lr_mom_group_key)
+        for lr, lrgroup in itertools.groupby(group, key=pkeys.lr_mom_group_key):
             print(lr)
             savelr = saveoptloss / lr.replace(" ", "_")
             savelr.mkdir(exist_ok=True, parents=True)
@@ -292,8 +289,7 @@ def main():
             ax[2, 0].set_ylabel("Solution length", size=14)
 
             labels = []
-            for i, (pname, pdata) in enumerate(grouped_data.items()):
-                pdata = pdata[1]
+            for i, (pname, (rname, pdata)) in enumerate(grouped_data.items()):
                 color = colors[i % len(colors)]
                 labels.append(pname)
                 plot_search_vs_time(
@@ -303,6 +299,7 @@ def main():
                 plot_search_vs_time(pdata, "len", ax=ax[2, 0], color=color, label=pname)
                 ax[2, 0].set_xlabel("Time (s)", size=14)
 
+                print(rname)
                 plot_valid_vs_time(
                     pdata, "solved", ax=ax[0, 1], color=color, label=pname
                 )
@@ -314,50 +311,9 @@ def main():
             it = iter(handles)
             handles = [(a, next(it)) for a in it]
             fig.legend(handles, labels[::2])
-            # fig.tight_layout()
+            fig.tight_layout()
             fig.savefig(savelr / f"time.pdf", bbox_inches="tight")
             # plt.show()()
-
-    # exp = "stp3"
-    # savedir = Path(f"/home/ken/Projects/bilevin/stp3figs/{exp}")
-    # savedir.mkdir(exist_ok=True, parents=True)
-    # all_runs_pth = Path("/home/ken/Projects/bilevin/stp3_phs/")
-    # all_runs = get_runs_data(all_runs_pth, phs_test_key)
-
-    # fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(12, 10))
-    # plot_all_vs_time(all_runs, "solved", "Solved", ax=ax1, legend=True)
-    # plot_all_vs_time(all_runs, "exp", "Expanded", ax=ax2)
-    # plot_all_vs_time(all_runs, "len", "Solution length", ax=ax3)
-    # ax3.set_xlabel("Time (s)", size=14)
-    # fig.tight_layout()
-    # fig.savefig(savedir / f"search_time.pdf", bbox_inches="tight")
-    # plt.close()
-
-    # fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(12, 10))
-    # plot_all_vs_batch(all_runs, "solved", "Solved", ax=ax1, legend=True)
-    # plot_all_vs_batch(all_runs, "exp", "Expanded", ax=ax2)
-    # plot_all_vs_batch(all_runs, "len", "Solution length", ax=ax3)
-    # ax3.set_xlabel("Batch", size=14)
-    # fig.tight_layout()
-    # fig.savefig(savedir / f"search_batch.pdf", bbox_inches="tight")
-    # plt.close()
-    # # plt.show()
-    # for run_name, run_data in all_runs.items():
-    #     if "Bi" in run_name:
-    #         if "AStar" in run_name:
-    #             fig = plot_bi_heuristic_model(run_name, run_data)
-    #         else:
-    #             fig = plot_bi_policy_model(run_name, run_data)
-    #     else:
-    #         if "AStar" in run_name:
-    #             fig = plot_uni_heuristic_model(run_name, run_data)
-    #         else:
-    #             fig = plot_uni_policy_model(run_name, run_data)
-    #     fig.savefig(
-    #         savedir / f"model_{run_name.replace(' ','_')}.pdf", bbox_inches="tight"
-    #     )
-    #     # plt.show()
-    #     plt.close()
 
 
 if __name__ == "__main__":

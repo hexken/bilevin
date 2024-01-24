@@ -1,16 +1,12 @@
-from collections import OrderedDict
-from collections.abc import Iterable
-import itertools
-import json
 from pathlib import Path
 import pickle as pkl
-import re
-import subprocess
 
 import matplotlib as mpl
-from natsort import natsorted
-import pandas as pd
-from plot.utils import get_runs_data, phs_test_key
-all_runs = get_runs_data(Path("ccdata/stp3_phs2/"), phs_test_key)
+from plotting.utils import get_runs_data
+from plotting.keys import phs_test_key
+
+# pths = [Path("ccdata/stp3_phs/"), Path("ccdata/stp3_phs2/")]
+pths = Path("ccdata/stp3_phs3/")
+all_runs = get_runs_data(pths, phs_test_key, min_valids=5)
 f = open("all_runs2.pkl", "wb")
 pkl.dump(all_runs, f)

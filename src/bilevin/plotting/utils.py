@@ -7,96 +7,14 @@ from pathlib import Path
 import pickle as pkl
 import re
 import subprocess
+import plotting.keys as pkeys
 
 import matplotlib as mpl
 from natsort import natsorted
 import pandas as pd
 
 
-# todo use same color for each major alg, different linestyle for minor
-class LineStyleMapper:
-    def __init__(self):
-        self.cmap = mpl.colormaps["tab10"]
-        self.astar_c = 0
-        self.levin_c = 1
-        self.phs_c = 2
-        self.uni_ls = "-"
-        self.bibfs_ls = "--"
-        self.bialt_ls = ":"
-        self.used_colors = set()
-
-    def get_ls(self, s: str):
-        if "AStar" in s:
-            c = self.cmap.colors[self.astar_c]
-        elif "Levin" in s:
-            c = self.cmap.colors[self.levin_c]
-        elif "PHS" in s:
-            c = self.cmap.colors[self.phs_c]
-        else:
-            i = 3
-            while i in self.used_colors:
-                i += 1
-            if i >= len(self.cmap.colors):
-                c = 0
-            else:
-                c = self.cmap.colors[i]
-
-        self.used_colors.add(c)
-
-        if "Alt" in s:
-            ls = self.bialt_ls
-        elif "BFS" in s:
-            ls = self.bibfs_ls
-        else:
-            ls = self.uni_ls
-
-        return c, ls
-
-
-def all_group_key(pth):
-    r = re.search(
-        "^.*_((?:Bi)?AStar.*)?((?:Bi)?Levin.*)?((?:Bi)?PHS.*)?_e\d+_t\d+.\d+_(lr\d+\.\d+)(?:_)(w\d+\.?\d*)?.*",
-        str(pth),
-    )
-    if r:
-        return " ".join([g for g in r.groups() if g is not None])
-
-
-def phs_test_key(pth):
-    r = re.search(
-        "^.*(PHS).*_opt(.*)_(lr\d+\.\d+)_(n[tf])_(mn[-+]?\d\.\d+)_(m\d\.\d)_loss(.*)_\d_.*",
-        str(pth),
-    )
-    if r:
-        return " ".join([g for g in r.groups() if g is not None])
-
-
-def alg_sort_key(s: str):
-    if "PHS" in s:
-        key1 = 3
-    elif "Levin" in s:
-        key1 = 2
-    elif "AStar" in s:
-        key1 = 0
-    else:
-        raise ValueError("Unknown alg")
-
-    if "Bi" in s:
-        key2 = 1
-    else:
-        key2 = 0
-
-    if "Alt" in s:
-        key3 = 0
-    elif "BFS" in s:
-        key3 = 1
-    else:
-        key3 = 3
-
-    return key1, key2, key3
-
-
-def process_run(run_name, run_paths, batch_size=4):
+def process_run(run_name, run_paths, batch_size=4, min_valids=25):
     batch_regex = re.compile(".*_b(\d+).pkl")
     train_dfs = []
     search_dfs = []
@@ -139,7 +57,7 @@ def process_run(run_name, run_paths, batch_size=4):
             sdf["epoch"] = j
 
         if len(run_train_curr_dfs) == 0 and len(run_train_fs_dfs) == 0:
-            print(f"Warning: no train data found for {rp.name}")
+            print(f"Warning: no train data found for {rp.name}, skipping")
             continue
         run_train_df = pd.concat(
             run_train_curr_dfs + run_train_fs_dfs, ignore_index=True
@@ -169,8 +87,8 @@ def process_run(run_name, run_paths, batch_size=4):
         run_valid_dfs = [pkl.load(p.open("rb")) for p in run_valid_df_paths]
         batches = [int(batch_regex.match(p.name).group(1)) for p in run_valid_df_paths]
 
-        if len(batches) == 0:
-            print(f"Warning: no valid data found for {rp.name}")
+        if len(batches) < min_valids:
+            print(f"Warning: only found {len(batches)} valids for {rp.name}, skipping")
             continue
 
         for df, batch in zip(run_valid_dfs, batches):
@@ -199,7 +117,9 @@ def process_run(run_name, run_paths, batch_size=4):
     }
 
 
-def get_runs_data(pth: Path | Iterable[Path], group_key, batch_size=4) -> dict:
+def get_runs_data(
+    pth: Path | Iterable[Path], group_key, batch_size=4, min_valids=25
+) -> dict:
     # get list of paths for each run_name, specified by group_key (should correpsond to seeds)
     if isinstance(pth, Path):
         pth = [pth]
@@ -210,14 +130,14 @@ def get_runs_data(pth: Path | Iterable[Path], group_key, batch_size=4) -> dict:
     # Prepare sorting by algorithm
     runs_combined = sorted(
         ((name, list(paths)) for name, paths in grouped_runs),
-        key=lambda x: alg_sort_key(str(x[0])),
+        key=lambda x: pkeys.alg_sort_key(str(x[0])),
     )
     runs_data = OrderedDict()
 
     # print(list(*zip(*runs_combined)))
     with ProcessPoolExecutor() as executor:
         future_to_run = {
-            executor.submit(process_run, name, paths, batch_size): name
+            executor.submit(process_run, name, paths, batch_size, min_valids): name
             for name, paths in runs_combined
         }
         for future in as_completed(future_to_run):
@@ -282,3 +202,42 @@ class PdfTemplate:
 
     def _img(self, img):
         self.latex_cmds.append(f"![]({img}){{width=600px height=700px}}")
+
+
+class LineStyleMapper:
+    def __init__(self):
+        self.cmap = mpl.colormaps["tab10"]
+        self.astar_c = 0
+        self.levin_c = 1
+        self.phs_c = 2
+        self.uni_ls = "-"
+        self.bibfs_ls = "--"
+        self.bialt_ls = ":"
+        self.used_colors = set()
+
+    def get_ls(self, s: str):
+        if "AStar" in s:
+            c = self.cmap.colors[self.astar_c]
+        elif "Levin" in s:
+            c = self.cmap.colors[self.levin_c]
+        elif "PHS" in s:
+            c = self.cmap.colors[self.phs_c]
+        else:
+            i = 3
+            while i in self.used_colors:
+                i += 1
+            if i >= len(self.cmap.colors):
+                c = 0
+            else:
+                c = self.cmap.colors[i]
+
+        self.used_colors.add(c)
+
+        if "Alt" in s:
+            ls = self.bialt_ls
+        elif "BFS" in s:
+            ls = self.bibfs_ls
+        else:
+            ls = self.uni_ls
+
+        return c, ls
