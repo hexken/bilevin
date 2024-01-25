@@ -186,6 +186,7 @@ def parse_args():
         action="store",
         nargs=2,
         type=int,
+        default=[1, 2],
         required=True,
         help="depth x height/width of convolution kernel",
     )
@@ -201,7 +202,7 @@ def parse_args():
         const=True,
         nargs="?",
         type=strtobool,
-        default=False,
+        default=True,
         help="pass the problem's initial (forward) state to the backward policy/heuristic in addition to a current (backward) state",
     )
     parser.add_argument(
@@ -217,7 +218,7 @@ def parse_args():
         const=True,
         nargs="?",
         type=strtobool,
-        default=False,
+        default=True,
         help="use the same feature netword for forward and backward policies/heuristics. In this case forward-feature-net-lr is used",
     )
     parser.add_argument(
