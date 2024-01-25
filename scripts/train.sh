@@ -3,11 +3,11 @@
 export OMP_NUM_THREADS=1
 
 lr=0.0005
-python src/main.py \
+python src/bilevin/main.py \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/stp4c2/30000-train.pkl \
-    --valid-path problems/stp4c2/1000-valid.pkl \
+    --problems-path new_problems/stp4/100000-train.pkl \
+    --valid-path new_problems/stp4/1000-valid.pkl \
     --master-port 34567 \
     --seed 1 \
     --world-size 4 \
@@ -17,8 +17,6 @@ python src/main.py \
     --loss-fn levin_avg_mse_loss \
     --max-grad-norm 2.0 \
     --optimizer Adam \
-    --nesterov f \
-    --momentum 0.0 \
     --grad-steps 10 \
     \
     --share-feature-net \
@@ -48,13 +46,11 @@ python src/main.py \
     \
     --time-budget 300 \
     --train-expansion-budget 2000 \
-    --max-expansion-budget -1 \
-    --test-expansion-budget -1 \
     \
-    --min-batches-per-stage -1 \
+    --min-batches-per-stage 800 \
     --min-solve-ratio-stage 0.9 \
     --min-solve-ratio-exp 0 \
     --n-final-stage-epochs 5 \
     \
-    --n-tail-batch 100 \
+    --n-batch-tail 100 \
     \

@@ -2,7 +2,7 @@
 #
 export OMP_NUM_THREADS=1
 
-python src/main.py \
+python src/bilevin/main.py \
     --world-size 4 \
     --mode "test" \
     --agent BiLevin \

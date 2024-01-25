@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --account=def-lelis
+#SBATCH --account=rrg-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --mem=12G
-#SBATCH --time=12:00:00
-#SBATCH --array=138,330,522
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp4_phs/%j.out
+#SBATCH --mem=4G
+#SBATCH --time=5:00:00
+#SBATCH --array=1-576
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp3_phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -25,28 +25,20 @@ args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 opt=$(echo $args | cut -d' ' -f2)
 lr=$(echo $args | cut -d' ' -f3)
-mn=$(echo $args | cut -d' ' -f4)
-mom=$(echo $args | cut -d' ' -f5)
 loss=$(echo $args | cut -d' ' -f6)
-nest=$(echo $args | cut -d' ' -f7)
-expname=opt${opt}_lr${lr}_n${nest}_mn${mn}_m${mom}_loss${loss}
 
 
-python src/main.py \
+python src/bilevin/main.py \
     --agent PHS \
     --seed $seed \
-    --runsdir-path runs/stp4_phs \
-    --exp-name $expname \
-    --backend mpi \
-    --problems-path problems/stp4c2/30000-train.pkl \
-    --valid-path problems/stp4c2/1000-valid.pkl \
+    --runsdir-path runs/stp3_phs \
+    --exp-name 
+    --problems-path problems/stp3/17500-train.pkl \
+    --valid-path problems/stp3/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --loss-fn $loss \
     --optimizer $opt \
-    --nesterov $nest \
-    --momentum $mom \
-    --max-grad-norm $mn \
     --grad-steps 10 \
     \
     --share-feature-net \
@@ -68,24 +60,18 @@ python src/main.py \
     --backward-heuristic-lr $lr \
     \
     --batch-begin-validate 1 \
-    --stage-begin-validate 1 \
-    --validate-every-n-batch -1 \
-    --validate-every-n-stage 1 \
-    --validate-every-epoch \
-    \
-    --solve-ratio-reduce-lr 0.95 \
-    \
-    --checkpoint-every-b-batch 200 \
+    --validate-every 625 \
+    --checkpoint-every 200 \
     \
     --time-budget 300 \
-    --train-expansion-budget 2000 \
+    --train-expansion-budget 500 \
     --max-expansion-budget -1 \
     --test-expansion-budget -1 \
     \
-    --n-tail-batch 100 \
-    --min-batches-per-stage -1 \
-    --min-solve-ratio-stage 0.9 \
+    --min-problems-per-stage -1 \
+    --min-solve-ratio-stage 0 \
     --min-solve-ratio-exp 0 \
-    \
     --n-final-stage-epochs 10 \
+    \
+    --n-tail 0 \
     \

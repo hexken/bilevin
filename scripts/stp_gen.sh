@@ -30,13 +30,13 @@ elif [ "$1" = "4" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain stp \
     --output-path  problems/stp4/ \
-    --seed 658 \
+    --seed 6258 \
     --width  4 \
-    --n-problems-per-stage  1000 \
+    --n-problems-per-stage  1800 \
     --randomize-curriculum-steps \
-    --stages-multiple  20 \
-    --n-problems-final-stage 25000 \
-    --n-stages  26 \
+    --stages-multiple  5 \
+    --n-problems-final-stage 10000 \
+    --n-stages  51 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \
