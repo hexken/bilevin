@@ -1,5 +1,6 @@
 env
-ccdata/
+notebooks/
+data/
 .run/
 *.ipynb filter=strip-notebook-output
 todo.txt
