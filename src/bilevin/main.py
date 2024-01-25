@@ -141,7 +141,11 @@ if __name__ == "__main__":
 
     if args.mode == "train":
         if args.checkpoint_path is None:
-            run_name = f"{args.problems_path.parent.stem}-{args.problems_path.stem}_{args.agent}_e{args.train_expansion_budget}_t{args.time_budget}{exp_name}_{args.seed}_{int(abs_start_time)}"
+            if "SLURM_JOB_ID" in os.environ:
+                runid = os.environ["SLURM_JOB_ID"]
+            else:
+                runid = f"{int(abs_start_time)}"
+            run_name = f"{args.problems_path.parent.stem}-{args.problems_path.stem}_{args.agent}{exp_name}_{args.seed}_{runid}"
             logdir = args.runsdir_path / run_name
         else:
             run_name = str(args.checkpoint_path.parent)
@@ -172,7 +176,7 @@ if __name__ == "__main__":
     )
     dummy_domain = pset_dict["problems"][0][0].domain
     num_features = dummy_domain.state_tensor(dummy_domain.reset()).size().numel()
-    aux_args = {
+    derived_args = {
         "conditional_backward": conditional_backward,
         "state_t_width": dummy_domain.state_t_width,
         "state_t_depth": dummy_domain.state_t_depth,
@@ -182,7 +186,7 @@ if __name__ == "__main__":
     }
 
     agent_class = globals()[args.agent]
-    agent = agent_class(logdir, args, aux_args)
+    agent = agent_class(logdir, args, derived_args)
 
     if args.valid_path:
         with args.valid_path.open("rb") as f:

@@ -16,25 +16,25 @@ class SuperModel(nn.Module):
     def __init__(
         self,
         args: Namespace,
-        aux_args: dict,
+        derived_args: dict,
     ):
         super().__init__()
 
-        self.is_bidirectional: bool = aux_args["bidirectional"]
+        self.is_bidirectional: bool = derived_args["bidirectional"]
 
-        self.num_actions: int = aux_args["num_actions"]
-        self.in_channels: int = aux_args["in_channels"]
-        self.state_t_width: int = aux_args["state_t_width"]
-        self.state_t_depth: int = aux_args["state_t_depth"]
+        self.num_actions: int = derived_args["num_actions"]
+        self.in_channels: int = derived_args["in_channels"]
+        self.state_t_width: int = derived_args["state_t_width"]
+        self.state_t_depth: int = derived_args["state_t_depth"]
         self.kernel_size: tuple[int, int] = args.kernel_size
         self.num_kernels: int = args.num_kernels
 
-        self.has_policy: bool = aux_args["has_policy"]
-        self.has_heuristic: bool = aux_args["has_heuristic"]
+        self.has_policy: bool = derived_args["has_policy"]
+        self.has_heuristic: bool = derived_args["has_heuristic"]
 
         self.has_feature_net: bool = not args.no_feature_net
         self.share_feature_net: bool = args.share_feature_net
-        self.conditional_backward: bool = aux_args["conditional_backward"]
+        self.conditional_backward: bool = derived_args["conditional_backward"]
 
         learnable_params = []
         # create feature net if necessary
@@ -48,7 +48,7 @@ class SuperModel(nn.Module):
 
             reduced_width: int = self.state_t_width - 2 * self.kernel_size[1] + 2
             if self.kernel_size[0] > 1:
-                self.state_t_depth: int = aux_args["state_t_depth"]
+                self.state_t_depth: int = derived_args["state_t_depth"]
                 reduced_depth = self.state_t_depth - 2 * self.kernel_size[0] + 2
                 self.num_features = (
                     self.num_kernels * reduced_depth * reduced_width**2
@@ -70,6 +70,7 @@ class SuperModel(nn.Module):
             update_common_params(args, params)
             learnable_params.append(params)
 
+            # todo is it okay to pass shared feature params to optimizer twice?
             if self.is_bidirectional:
                 if self.share_feature_net:
                     self.backward_feature_net: nn.Module = self.forward_feature_net
@@ -89,7 +90,7 @@ class SuperModel(nn.Module):
                     learnable_params.append(params)
         else:
             # no feature net
-            self.num_features = aux_args["num_features"]
+            self.num_features = derived_args["num_features"]
 
         # create policy/herusitic nets
         if self.has_policy:

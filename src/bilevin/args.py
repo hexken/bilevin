@@ -129,7 +129,7 @@ def parse_args():
         "--max-grad-norm",
         type=float,
         default=-1,
-        help="max norm of gradients, -1 for constraint",
+        help="max norm of gradients, -1 for no constraint",
     )
     parser.add_argument(
         "--loss-fn",

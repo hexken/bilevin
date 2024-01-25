@@ -228,11 +228,11 @@ def main():
         for i in range(len(stages)):
             minsteps = stages[i - 1] + 1 if (i > 0 and args.increasing_minstep) else 1
             maxsteps = stages[i]
-            if args.domain == "cube3" and maxsteps < 20:
+            if args.domain == "cube3" and maxsteps < 10:
                 check_exclude = False
             elif args.domain == "pancake" and maxsteps < args.width:
                 check_exclude = False
-            elif args.domain == "stp" and maxsteps < 20:
+            elif args.domain == "stp" and maxsteps < 10:
                 check_exclude = False
             else:
                 check_exclude = True
