@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-export PYTHONPATH=$SCRIPT_DIR/../src
+export PYTHONPATH=$SCRIPT_DIR/../src/bilevin
 cd $SCRIPT_DIR/../
 
 usage() {
@@ -12,7 +12,7 @@ if [ $# -ne 1 ]; then
 fi
 
 if [ "$1" = "d" ]; then
-    python src/domains/puzzle_generator.py \
+    python src/bilevin/domains/puzzle_generator.py \
     --domain pancake \
     --output-path  problems/pancake16d/ \
     --seed 658 \
@@ -27,7 +27,7 @@ if [ "$1" = "d" ]; then
     --randomize-test-steps \
     --test-steps  100
 elif [ "$1" = "12" ]; then
-    python src/domains/puzzle_generator.py \
+    python src/bilevin/domains/puzzle_generator.py \
     --domain pancake \
     --output-path  problems/pancake12/ \
     --seed 658 \
@@ -42,7 +42,7 @@ elif [ "$1" = "12" ]; then
     --randomize-test-steps \
     --test-steps  100
 elif [ "$1" = "16" ]; then
-    python src/domains/puzzle_generator.py \
+    python src/bilevin/domains/puzzle_generator.py \
     --domain pancake \
     --output-path  problems/pancake16/ \
     --seed 358 \
@@ -57,7 +57,7 @@ elif [ "$1" = "16" ]; then
     --randomize-test-steps \
     --test-steps  100
 elif [ "$1" = "32" ]; then
-    python src/domains/puzzle_generator.py \
+    python src/bilevin/domains/puzzle_generator.py \
     --domain pancake \
     --output-path  problems/pancake32/ \
     --seed 3721 \
@@ -72,7 +72,7 @@ elif [ "$1" = "32" ]; then
     --randomize-test-steps \
     --test-steps  100
 elif [ "$1" = "64" ]; then
-    python src/domains/puzzle_generator.py \
+    python src/bilevin/domains/puzzle_generator.py \
     --domain pancake \
     --output-path  problems/pancake64/ \
     --seed 3358 \

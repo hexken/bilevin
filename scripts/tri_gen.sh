@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-export PYTHONPATH=$SCRIPT_DIR/../src
+export PYTHONPATH=$SCRIPT_DIR/../src/bilevin
 cd $SCRIPT_DIR/../
 
 usage() {
@@ -13,7 +13,7 @@ if [ $# -ne 1 ]; then
 fi
 
 if [ "$1" = "d" ]; then
-    python src/domains/wit_puzzle_generator.py \
+    python src/bilevin/domains/wit_puzzle_generator.py \
     --puzzle  "triangles" \
     --seed  1743 \
     --width  4 \
@@ -28,7 +28,7 @@ if [ "$1" = "d" ]; then
     --n-valid  100 \
     --n-test  100
 elif [ "$1" = "4" ]; then
-    python src/domains/wit_puzzle_generator.py \
+    python src/bilevin/domains/wit_puzzle_generator.py \
     --puzzle  "triangles" \
     --seed  1743 \
     --width  4 \
@@ -43,7 +43,7 @@ elif [ "$1" = "4" ]; then
     --n-valid  1000 \
     --n-test  1000
 elif [ $1 = "5" ]; then
-    python src/domains/wit_puzzle_generator.py \
+    python src/bilevin/domains/wit_puzzle_generator.py \
     --puzzle  "triangles" \
     --seed  1657 \
     --width  5 \
@@ -58,7 +58,7 @@ elif [ $1 = "5" ]; then
     --n-valid  1000 \
     --n-test  1000
 elif [ $1 = "6" ]; then
-    python src/domains/wit_puzzle_generator.py \
+    python src/bilevin/domains/wit_puzzle_generator.py \
     --puzzle  "triangles" \
     --seed  936 \
     --width  6 \

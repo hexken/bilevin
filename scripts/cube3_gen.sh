@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-export PYTHONPATH=$SCRIPT_DIR/../src
+export PYTHONPATH=$SCRIPT_DIR/../src/bilevin
 cd $SCRIPT_DIR/../
 
 usage() {
@@ -12,7 +12,7 @@ if [ $# -gt 1 ]; then
 fi
 
 if [ "$1" = "d" ]; then
-    python src/domains/puzzle_generator.py \
+    python src/bilevin/domains/puzzle_generator.py \
     --domain cube3 \
     --seed 3541 \
     --output-path  problems/cube3d/ \
@@ -26,7 +26,7 @@ if [ "$1" = "d" ]; then
     --test-steps 100 \
     --randomize-test-steps
 elif [ "$1" = "3" ]; then
-    python src/domains/puzzle_generator.py \
+    python src/bilevin/domains/puzzle_generator.py \
     --domain cube3 \
     --seed 3541 \
     --output-path  problems/cube3/ \
