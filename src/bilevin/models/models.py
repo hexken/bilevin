@@ -1,6 +1,7 @@
 from argparse import Namespace
 import pickle
 from typing import Optional
+from functools import partial
 
 import torch as to
 import torch.nn as nn
@@ -161,7 +162,12 @@ class SuperModel(nn.Module):
             self.optimizer = getattr(optim, args.optimizer)(
                 learnable_params,
             )
-            self.loss_fn = getattr(losses, args.loss_fn)
+            if "mse" in args.loss_fn:
+                self.loss_fn = partial(
+                    getattr(losses, args.loss_fn), args.weight_mse_Loss
+                )
+            else:
+                self.loss_fn = getattr(losses, args.loss_fn)
 
         # load model if specified explicitly or from checkpoint
         if args.model_path is not None:

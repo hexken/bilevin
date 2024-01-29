@@ -23,6 +23,12 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
+        "--weight-mse-loss",
+        type=float,
+        default=1.0,
+        help="weight to use for mse loss when agent has a policy and heurisic",
+    )
+    parser.add_argument(
         "--weight-astar",
         type=float,
         default=1,
