@@ -164,7 +164,7 @@ class SuperModel(nn.Module):
             )
             if "mse" in args.loss_fn:
                 self.loss_fn = partial(
-                    getattr(losses, args.loss_fn), args.weight_mse_loss
+                    getattr(losses, args.loss_fn), weight=args.weight_mse_loss
                 )
             else:
                 self.loss_fn = getattr(losses, args.loss_fn)
