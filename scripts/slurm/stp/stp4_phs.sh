@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --account=rrg-lelis
+#SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
@@ -26,13 +26,15 @@ seed=$(echo $args | cut -d' ' -f1)
 loss=$(echo $args | cut -d' ' -f2)
 lr=$(echo $args | cut -d' ' -f3)
 mn=$(echo $args | cut -d' ' -f4)
+chk=$(echo $args | cut -d' ' -f5)
 
 
 python src/bilevin/main.py \
+    --checkpoint-path $chk \
     --agent PHS \
     --seed $seed \
     --runsdir-path runs/stp4 \
-    --exp-name
+    --exp-name "" \
     --problems-path new_problems/stp4/100000-train.pkl \
     --valid-path new_problems/stp4/1000-valid.pkl \
     --world-size 4 \
@@ -61,7 +63,7 @@ python src/bilevin/main.py \
     \
     --validate-every-n-stage 5 \
     --checkpoint-every-n-batch 200 \
-    --validate-evory-epoch \
+    --validate-every-epoch \
     \
     --time-budget 300 \
     --train-expansion-budget 2000 \

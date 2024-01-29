@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from math import ceil
 from typing import TYPE_CHECKING
 
@@ -93,7 +94,7 @@ def traj_nll_mse_loss(traj: Trajectory, model: SuperModel):
     acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
 
     mse_loss = mse(hs, traj.cost_to_gos.unsqueeze(1))
-    loss = 2 * loss + mse_loss
+    loss = loss + mse_loss
 
     return loss, avg_action_nll, acc
 

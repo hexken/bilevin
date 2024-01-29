@@ -142,7 +142,9 @@ if __name__ == "__main__":
     if args.mode == "train":
         if args.checkpoint_path is None:
             if "SLURM_JOB_ID" in os.environ:
-                runid = os.environ["SLURM_JOB_ID"]
+                runid = (
+                    f"{os.environ['SLURM_JOB_ID']}-{os.environ['SLURM_ARRAY_TASK_ID']}"
+                )
             else:
                 runid = f"{int(abs_start_time)}"
             run_name = f"{args.problems_path.parent.stem}-{args.problems_path.stem}_{args.agent}{exp_name}_{args.seed}_{runid}"

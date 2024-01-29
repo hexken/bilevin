@@ -10,7 +10,7 @@
 1 traj_nll_mse_loss 0.0005 0.01
 1 traj_nll_mse_loss 0.0005 0.5
 1 traj_nll_mse_loss 0.0005 1.0
-1 traj_nll_mse_loss 0.001 -1.0
+1 traj_nll_mse_loss 0.001 -1.0 runs/stp4/stp4-100000-train_PHS_1_24990810/checkpoint_b1400.pkl
 1 traj_nll_mse_loss 0.001 0.001
 1 traj_nll_mse_loss 0.001 0.005
 1 traj_nll_mse_loss 0.001 0.01
