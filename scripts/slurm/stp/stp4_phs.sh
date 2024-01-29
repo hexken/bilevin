@@ -4,7 +4,7 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
 #SBATCH --time=0:10:00
-#SBATCH --array=13
+#SBATCH --array=24
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp4/%j.out
 
 source $HOME/bilevin-env2/bin/activate
@@ -26,13 +26,15 @@ seed=$(echo $args | cut -d' ' -f1)
 loss=$(echo $args | cut -d' ' -f2)
 lr=$(echo $args | cut -d' ' -f3)
 mn=$(echo $args | cut -d' ' -f4)
-chk=$(echo $args | cut -d' ' -f5)
+w=$(echo $args | cut -d' ' -f5)
+# chk=$(echo $args | cut -d' ' -f6)
 
 
+#    --checkpoint-path $chk \
 python src/bilevin/main.py \
-    --checkpoint-path $chk \
     --agent PHS \
     --seed $seed \
+    --weight-mse-loss $w \
     --runsdir-path runs/stp4 \
     --exp-name "" \
     --problems-path new_problems/stp4/100000-train.pkl \

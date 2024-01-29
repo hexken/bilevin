@@ -1,270 +1,405 @@
-1 traj_nll_mse_loss 0.0001 -1.0
-1 traj_nll_mse_loss 0.0001 0.001
-1 traj_nll_mse_loss 0.0001 0.005
-1 traj_nll_mse_loss 0.0001 0.01
-1 traj_nll_mse_loss 0.0001 0.5
-1 traj_nll_mse_loss 0.0001 1.0
-1 traj_nll_mse_loss 0.0005 -1.0
-1 traj_nll_mse_loss 0.0005 0.001
-1 traj_nll_mse_loss 0.0005 0.005
-1 traj_nll_mse_loss 0.0005 0.01
-1 traj_nll_mse_loss 0.0005 0.5
-1 traj_nll_mse_loss 0.0005 1.0
-1 traj_nll_mse_loss 0.001 -1.0 runs/stp4/stp4-100000-train_PHS_1_24990810/checkpoint_b1400.pkl
-1 traj_nll_mse_loss 0.001 0.001
-1 traj_nll_mse_loss 0.001 0.005
-1 traj_nll_mse_loss 0.001 0.01
-1 traj_nll_mse_loss 0.001 0.5
-1 traj_nll_mse_loss 0.001 1.0
-1 traj_nll_mse_loss 0.005, -1.0
-1 traj_nll_mse_loss 0.005, 0.001
-1 traj_nll_mse_loss 0.005, 0.005
-1 traj_nll_mse_loss 0.005, 0.01
-1 traj_nll_mse_loss 0.005, 0.5
-1 traj_nll_mse_loss 0.005, 1.0
-1 traj_nll_mse_loss 0.01 -1.0
-1 traj_nll_mse_loss 0.01 0.001
-1 traj_nll_mse_loss 0.01 0.005
-1 traj_nll_mse_loss 0.01 0.01
-1 traj_nll_mse_loss 0.01 0.5
-1 traj_nll_mse_loss 0.01 1.0
-1 levin_avg_mse_loss 0.0001 -1.0
-1 levin_avg_mse_loss 0.0001 0.001
-1 levin_avg_mse_loss 0.0001 0.005
-1 levin_avg_mse_loss 0.0001 0.01
-1 levin_avg_mse_loss 0.0001 0.5
-1 levin_avg_mse_loss 0.0001 1.0
-1 levin_avg_mse_loss 0.0005 -1.0
-1 levin_avg_mse_loss 0.0005 0.001
-1 levin_avg_mse_loss 0.0005 0.005
-1 levin_avg_mse_loss 0.0005 0.01
-1 levin_avg_mse_loss 0.0005 0.5
-1 levin_avg_mse_loss 0.0005 1.0
-1 levin_avg_mse_loss 0.001 -1.0
-1 levin_avg_mse_loss 0.001 0.001
-1 levin_avg_mse_loss 0.001 0.005
-1 levin_avg_mse_loss 0.001 0.01
-1 levin_avg_mse_loss 0.001 0.5
-1 levin_avg_mse_loss 0.001 1.0
-1 levin_avg_mse_loss 0.005, -1.0
-1 levin_avg_mse_loss 0.005, 0.001
-1 levin_avg_mse_loss 0.005, 0.005
-1 levin_avg_mse_loss 0.005, 0.01
-1 levin_avg_mse_loss 0.005, 0.5
-1 levin_avg_mse_loss 0.005, 1.0
-1 levin_avg_mse_loss 0.01 -1.0
-1 levin_avg_mse_loss 0.01 0.001
-1 levin_avg_mse_loss 0.01 0.005
-1 levin_avg_mse_loss 0.01 0.01
-1 levin_avg_mse_loss 0.01 0.5
-1 levin_avg_mse_loss 0.01 1.0
-1 levin_sum_mse_loss 0.0001 -1.0
-1 levin_sum_mse_loss 0.0001 0.001
-1 levin_sum_mse_loss 0.0001 0.005
-1 levin_sum_mse_loss 0.0001 0.01
-1 levin_sum_mse_loss 0.0001 0.5
-1 levin_sum_mse_loss 0.0001 1.0
-1 levin_sum_mse_loss 0.0005 -1.0
-1 levin_sum_mse_loss 0.0005 0.001
-1 levin_sum_mse_loss 0.0005 0.005
-1 levin_sum_mse_loss 0.0005 0.01
-1 levin_sum_mse_loss 0.0005 0.5
-1 levin_sum_mse_loss 0.0005 1.0
-1 levin_sum_mse_loss 0.001 -1.0
-1 levin_sum_mse_loss 0.001 0.001
-1 levin_sum_mse_loss 0.001 0.005
-1 levin_sum_mse_loss 0.001 0.01
-1 levin_sum_mse_loss 0.001 0.5
-1 levin_sum_mse_loss 0.001 1.0
-1 levin_sum_mse_loss 0.005, -1.0
-1 levin_sum_mse_loss 0.005, 0.001
-1 levin_sum_mse_loss 0.005, 0.005
-1 levin_sum_mse_loss 0.005, 0.01
-1 levin_sum_mse_loss 0.005, 0.5
-1 levin_sum_mse_loss 0.005, 1.0
-1 levin_sum_mse_loss 0.01 -1.0
-1 levin_sum_mse_loss 0.01 0.001
-1 levin_sum_mse_loss 0.01 0.005
-1 levin_sum_mse_loss 0.01 0.01
-1 levin_sum_mse_loss 0.01 0.5
-1 levin_sum_mse_loss 0.01 1.0
-2 traj_nll_mse_loss 0.0001 -1.0
-2 traj_nll_mse_loss 0.0001 0.001
-2 traj_nll_mse_loss 0.0001 0.005
-2 traj_nll_mse_loss 0.0001 0.01
-2 traj_nll_mse_loss 0.0001 0.5
-2 traj_nll_mse_loss 0.0001 1.0
-2 traj_nll_mse_loss 0.0005 -1.0
-2 traj_nll_mse_loss 0.0005 0.001
-2 traj_nll_mse_loss 0.0005 0.005
-2 traj_nll_mse_loss 0.0005 0.01
-2 traj_nll_mse_loss 0.0005 0.5
-2 traj_nll_mse_loss 0.0005 1.0
-2 traj_nll_mse_loss 0.001 -1.0
-2 traj_nll_mse_loss 0.001 0.001
-2 traj_nll_mse_loss 0.001 0.005
-2 traj_nll_mse_loss 0.001 0.01
-2 traj_nll_mse_loss 0.001 0.5
-2 traj_nll_mse_loss 0.001 1.0
-2 traj_nll_mse_loss 0.005, -1.0
-2 traj_nll_mse_loss 0.005, 0.001
-2 traj_nll_mse_loss 0.005, 0.005
-2 traj_nll_mse_loss 0.005, 0.01
-2 traj_nll_mse_loss 0.005, 0.5
-2 traj_nll_mse_loss 0.005, 1.0
-2 traj_nll_mse_loss 0.01 -1.0
-2 traj_nll_mse_loss 0.01 0.001
-2 traj_nll_mse_loss 0.01 0.005
-2 traj_nll_mse_loss 0.01 0.01
-2 traj_nll_mse_loss 0.01 0.5
-2 traj_nll_mse_loss 0.01 1.0
-2 levin_avg_mse_loss 0.0001 -1.0
-2 levin_avg_mse_loss 0.0001 0.001
-2 levin_avg_mse_loss 0.0001 0.005
-2 levin_avg_mse_loss 0.0001 0.01
-2 levin_avg_mse_loss 0.0001 0.5
-2 levin_avg_mse_loss 0.0001 1.0
-2 levin_avg_mse_loss 0.0005 -1.0
-2 levin_avg_mse_loss 0.0005 0.001
-2 levin_avg_mse_loss 0.0005 0.005
-2 levin_avg_mse_loss 0.0005 0.01
-2 levin_avg_mse_loss 0.0005 0.5
-2 levin_avg_mse_loss 0.0005 1.0
-2 levin_avg_mse_loss 0.001 -1.0
-2 levin_avg_mse_loss 0.001 0.001
-2 levin_avg_mse_loss 0.001 0.005
-2 levin_avg_mse_loss 0.001 0.01
-2 levin_avg_mse_loss 0.001 0.5
-2 levin_avg_mse_loss 0.001 1.0
-2 levin_avg_mse_loss 0.005, -1.0
-2 levin_avg_mse_loss 0.005, 0.001
-2 levin_avg_mse_loss 0.005, 0.005
-2 levin_avg_mse_loss 0.005, 0.01
-2 levin_avg_mse_loss 0.005, 0.5
-2 levin_avg_mse_loss 0.005, 1.0
-2 levin_avg_mse_loss 0.01 -1.0
-2 levin_avg_mse_loss 0.01 0.001
-2 levin_avg_mse_loss 0.01 0.005
-2 levin_avg_mse_loss 0.01 0.01
-2 levin_avg_mse_loss 0.01 0.5
-2 levin_avg_mse_loss 0.01 1.0
-2 levin_sum_mse_loss 0.0001 -1.0
-2 levin_sum_mse_loss 0.0001 0.001
-2 levin_sum_mse_loss 0.0001 0.005
-2 levin_sum_mse_loss 0.0001 0.01
-2 levin_sum_mse_loss 0.0001 0.5
-2 levin_sum_mse_loss 0.0001 1.0
-2 levin_sum_mse_loss 0.0005 -1.0
-2 levin_sum_mse_loss 0.0005 0.001
-2 levin_sum_mse_loss 0.0005 0.005
-2 levin_sum_mse_loss 0.0005 0.01
-2 levin_sum_mse_loss 0.0005 0.5
-2 levin_sum_mse_loss 0.0005 1.0
-2 levin_sum_mse_loss 0.001 -1.0
-2 levin_sum_mse_loss 0.001 0.001
-2 levin_sum_mse_loss 0.001 0.005
-2 levin_sum_mse_loss 0.001 0.01
-2 levin_sum_mse_loss 0.001 0.5
-2 levin_sum_mse_loss 0.001 1.0
-2 levin_sum_mse_loss 0.005, -1.0
-2 levin_sum_mse_loss 0.005, 0.001
-2 levin_sum_mse_loss 0.005, 0.005
-2 levin_sum_mse_loss 0.005, 0.01
-2 levin_sum_mse_loss 0.005, 0.5
-2 levin_sum_mse_loss 0.005, 1.0
-2 levin_sum_mse_loss 0.01 -1.0
-2 levin_sum_mse_loss 0.01 0.001
-2 levin_sum_mse_loss 0.01 0.005
-2 levin_sum_mse_loss 0.01 0.01
-2 levin_sum_mse_loss 0.01 0.5
-2 levin_sum_mse_loss 0.01 1.0
-3 traj_nll_mse_loss 0.0001 -1.0
-3 traj_nll_mse_loss 0.0001 0.001
-3 traj_nll_mse_loss 0.0001 0.005
-3 traj_nll_mse_loss 0.0001 0.01
-3 traj_nll_mse_loss 0.0001 0.5
-3 traj_nll_mse_loss 0.0001 1.0
-3 traj_nll_mse_loss 0.0005 -1.0
-3 traj_nll_mse_loss 0.0005 0.001
-3 traj_nll_mse_loss 0.0005 0.005
-3 traj_nll_mse_loss 0.0005 0.01
-3 traj_nll_mse_loss 0.0005 0.5
-3 traj_nll_mse_loss 0.0005 1.0
-3 traj_nll_mse_loss 0.001 -1.0
-3 traj_nll_mse_loss 0.001 0.001
-3 traj_nll_mse_loss 0.001 0.005
-3 traj_nll_mse_loss 0.001 0.01
-3 traj_nll_mse_loss 0.001 0.5
-3 traj_nll_mse_loss 0.001 1.0
-3 traj_nll_mse_loss 0.005, -1.0
-3 traj_nll_mse_loss 0.005, 0.001
-3 traj_nll_mse_loss 0.005, 0.005
-3 traj_nll_mse_loss 0.005, 0.01
-3 traj_nll_mse_loss 0.005, 0.5
-3 traj_nll_mse_loss 0.005, 1.0
-3 traj_nll_mse_loss 0.01 -1.0
-3 traj_nll_mse_loss 0.01 0.001
-3 traj_nll_mse_loss 0.01 0.005
-3 traj_nll_mse_loss 0.01 0.01
-3 traj_nll_mse_loss 0.01 0.5
-3 traj_nll_mse_loss 0.01 1.0
-3 levin_avg_mse_loss 0.0001 -1.0
-3 levin_avg_mse_loss 0.0001 0.001
-3 levin_avg_mse_loss 0.0001 0.005
-3 levin_avg_mse_loss 0.0001 0.01
-3 levin_avg_mse_loss 0.0001 0.5
-3 levin_avg_mse_loss 0.0001 1.0
-3 levin_avg_mse_loss 0.0005 -1.0
-3 levin_avg_mse_loss 0.0005 0.001
-3 levin_avg_mse_loss 0.0005 0.005
-3 levin_avg_mse_loss 0.0005 0.01
-3 levin_avg_mse_loss 0.0005 0.5
-3 levin_avg_mse_loss 0.0005 1.0
-3 levin_avg_mse_loss 0.001 -1.0
-3 levin_avg_mse_loss 0.001 0.001
-3 levin_avg_mse_loss 0.001 0.005
-3 levin_avg_mse_loss 0.001 0.01
-3 levin_avg_mse_loss 0.001 0.5
-3 levin_avg_mse_loss 0.001 1.0
-3 levin_avg_mse_loss 0.005, -1.0
-3 levin_avg_mse_loss 0.005, 0.001
-3 levin_avg_mse_loss 0.005, 0.005
-3 levin_avg_mse_loss 0.005, 0.01
-3 levin_avg_mse_loss 0.005, 0.5
-3 levin_avg_mse_loss 0.005, 1.0
-3 levin_avg_mse_loss 0.01 -1.0
-3 levin_avg_mse_loss 0.01 0.001
-3 levin_avg_mse_loss 0.01 0.005
-3 levin_avg_mse_loss 0.01 0.01
-3 levin_avg_mse_loss 0.01 0.5
-3 levin_avg_mse_loss 0.01 1.0
-3 levin_sum_mse_loss 0.0001 -1.0
-3 levin_sum_mse_loss 0.0001 0.001
-3 levin_sum_mse_loss 0.0001 0.005
-3 levin_sum_mse_loss 0.0001 0.01
-3 levin_sum_mse_loss 0.0001 0.5
-3 levin_sum_mse_loss 0.0001 1.0
-3 levin_sum_mse_loss 0.0005 -1.0
-3 levin_sum_mse_loss 0.0005 0.001
-3 levin_sum_mse_loss 0.0005 0.005
-3 levin_sum_mse_loss 0.0005 0.01
-3 levin_sum_mse_loss 0.0005 0.5
-3 levin_sum_mse_loss 0.0005 1.0
-3 levin_sum_mse_loss 0.001 -1.0
-3 levin_sum_mse_loss 0.001 0.001
-3 levin_sum_mse_loss 0.001 0.005
-3 levin_sum_mse_loss 0.001 0.01
-3 levin_sum_mse_loss 0.001 0.5
-3 levin_sum_mse_loss 0.001 1.0
-3 levin_sum_mse_loss 0.005, -1.0
-3 levin_sum_mse_loss 0.005, 0.001
-3 levin_sum_mse_loss 0.005, 0.005
-3 levin_sum_mse_loss 0.005, 0.01
-3 levin_sum_mse_loss 0.005, 0.5
-3 levin_sum_mse_loss 0.005, 1.0
-3 levin_sum_mse_loss 0.01 -1.0
-3 levin_sum_mse_loss 0.01 0.001
-3 levin_sum_mse_loss 0.01 0.005
-3 levin_sum_mse_loss 0.01 0.01
-3 levin_sum_mse_loss 0.01 0.5
-3 levin_sum_mse_loss 0.01 1.0
+1 traj_nll_mse_loss 0.0001 -1.0 0.1
+1 traj_nll_mse_loss 0.0001 -1.0 1.0
+1 traj_nll_mse_loss 0.0001 -1.0 10
+1 traj_nll_mse_loss 0.0001 0.1 0.1
+1 traj_nll_mse_loss 0.0001 0.1 1.0
+1 traj_nll_mse_loss 0.0001 0.1 10
+1 traj_nll_mse_loss 0.0001 1.0 0.1
+1 traj_nll_mse_loss 0.0001 1.0 1.0
+1 traj_nll_mse_loss 0.0001 1.0 10
+1 traj_nll_mse_loss 0.0005 -1.0 0.1
+1 traj_nll_mse_loss 0.0005 -1.0 1.0
+1 traj_nll_mse_loss 0.0005 -1.0 10
+1 traj_nll_mse_loss 0.0005 0.1 0.1
+1 traj_nll_mse_loss 0.0005 0.1 1.0
+1 traj_nll_mse_loss 0.0005 0.1 10
+1 traj_nll_mse_loss 0.0005 1.0 0.1
+1 traj_nll_mse_loss 0.0005 1.0 1.0
+1 traj_nll_mse_loss 0.0005 1.0 10
+1 traj_nll_mse_loss 0.001 -1.0 0.1
+1 traj_nll_mse_loss 0.001 -1.0 1.0
+1 traj_nll_mse_loss 0.001 -1.0 10
+1 traj_nll_mse_loss 0.001 0.1 0.1
+1 traj_nll_mse_loss 0.001 0.1 1.0
+1 traj_nll_mse_loss 0.001 0.1 10
+1 traj_nll_mse_loss 0.001 1.0 0.1
+1 traj_nll_mse_loss 0.001 1.0 1.0
+1 traj_nll_mse_loss 0.001 1.0 10
+1 traj_nll_mse_loss 0.005, -1.0 0.1
+1 traj_nll_mse_loss 0.005, -1.0 1.0
+1 traj_nll_mse_loss 0.005, -1.0 10
+1 traj_nll_mse_loss 0.005, 0.1 0.1
+1 traj_nll_mse_loss 0.005, 0.1 1.0
+1 traj_nll_mse_loss 0.005, 0.1 10
+1 traj_nll_mse_loss 0.005, 1.0 0.1
+1 traj_nll_mse_loss 0.005, 1.0 1.0
+1 traj_nll_mse_loss 0.005, 1.0 10
+1 traj_nll_mse_loss 0.01 -1.0 0.1
+1 traj_nll_mse_loss 0.01 -1.0 1.0
+1 traj_nll_mse_loss 0.01 -1.0 10
+1 traj_nll_mse_loss 0.01 0.1 0.1
+1 traj_nll_mse_loss 0.01 0.1 1.0
+1 traj_nll_mse_loss 0.01 0.1 10
+1 traj_nll_mse_loss 0.01 1.0 0.1
+1 traj_nll_mse_loss 0.01 1.0 1.0
+1 traj_nll_mse_loss 0.01 1.0 10
+1 levin_avg_mse_loss 0.0001 -1.0 0.1
+1 levin_avg_mse_loss 0.0001 -1.0 1.0
+1 levin_avg_mse_loss 0.0001 -1.0 10
+1 levin_avg_mse_loss 0.0001 0.1 0.1
+1 levin_avg_mse_loss 0.0001 0.1 1.0
+1 levin_avg_mse_loss 0.0001 0.1 10
+1 levin_avg_mse_loss 0.0001 1.0 0.1
+1 levin_avg_mse_loss 0.0001 1.0 1.0
+1 levin_avg_mse_loss 0.0001 1.0 10
+1 levin_avg_mse_loss 0.0005 -1.0 0.1
+1 levin_avg_mse_loss 0.0005 -1.0 1.0
+1 levin_avg_mse_loss 0.0005 -1.0 10
+1 levin_avg_mse_loss 0.0005 0.1 0.1
+1 levin_avg_mse_loss 0.0005 0.1 1.0
+1 levin_avg_mse_loss 0.0005 0.1 10
+1 levin_avg_mse_loss 0.0005 1.0 0.1
+1 levin_avg_mse_loss 0.0005 1.0 1.0
+1 levin_avg_mse_loss 0.0005 1.0 10
+1 levin_avg_mse_loss 0.001 -1.0 0.1
+1 levin_avg_mse_loss 0.001 -1.0 1.0
+1 levin_avg_mse_loss 0.001 -1.0 10
+1 levin_avg_mse_loss 0.001 0.1 0.1
+1 levin_avg_mse_loss 0.001 0.1 1.0
+1 levin_avg_mse_loss 0.001 0.1 10
+1 levin_avg_mse_loss 0.001 1.0 0.1
+1 levin_avg_mse_loss 0.001 1.0 1.0
+1 levin_avg_mse_loss 0.001 1.0 10
+1 levin_avg_mse_loss 0.005, -1.0 0.1
+1 levin_avg_mse_loss 0.005, -1.0 1.0
+1 levin_avg_mse_loss 0.005, -1.0 10
+1 levin_avg_mse_loss 0.005, 0.1 0.1
+1 levin_avg_mse_loss 0.005, 0.1 1.0
+1 levin_avg_mse_loss 0.005, 0.1 10
+1 levin_avg_mse_loss 0.005, 1.0 0.1
+1 levin_avg_mse_loss 0.005, 1.0 1.0
+1 levin_avg_mse_loss 0.005, 1.0 10
+1 levin_avg_mse_loss 0.01 -1.0 0.1
+1 levin_avg_mse_loss 0.01 -1.0 1.0
+1 levin_avg_mse_loss 0.01 -1.0 10
+1 levin_avg_mse_loss 0.01 0.1 0.1
+1 levin_avg_mse_loss 0.01 0.1 1.0
+1 levin_avg_mse_loss 0.01 0.1 10
+1 levin_avg_mse_loss 0.01 1.0 0.1
+1 levin_avg_mse_loss 0.01 1.0 1.0
+1 levin_avg_mse_loss 0.01 1.0 10
+1 levin_sum_mse_loss 0.0001 -1.0 0.1
+1 levin_sum_mse_loss 0.0001 -1.0 1.0
+1 levin_sum_mse_loss 0.0001 -1.0 10
+1 levin_sum_mse_loss 0.0001 0.1 0.1
+1 levin_sum_mse_loss 0.0001 0.1 1.0
+1 levin_sum_mse_loss 0.0001 0.1 10
+1 levin_sum_mse_loss 0.0001 1.0 0.1
+1 levin_sum_mse_loss 0.0001 1.0 1.0
+1 levin_sum_mse_loss 0.0001 1.0 10
+1 levin_sum_mse_loss 0.0005 -1.0 0.1
+1 levin_sum_mse_loss 0.0005 -1.0 1.0
+1 levin_sum_mse_loss 0.0005 -1.0 10
+1 levin_sum_mse_loss 0.0005 0.1 0.1
+1 levin_sum_mse_loss 0.0005 0.1 1.0
+1 levin_sum_mse_loss 0.0005 0.1 10
+1 levin_sum_mse_loss 0.0005 1.0 0.1
+1 levin_sum_mse_loss 0.0005 1.0 1.0
+1 levin_sum_mse_loss 0.0005 1.0 10
+1 levin_sum_mse_loss 0.001 -1.0 0.1
+1 levin_sum_mse_loss 0.001 -1.0 1.0
+1 levin_sum_mse_loss 0.001 -1.0 10
+1 levin_sum_mse_loss 0.001 0.1 0.1
+1 levin_sum_mse_loss 0.001 0.1 1.0
+1 levin_sum_mse_loss 0.001 0.1 10
+1 levin_sum_mse_loss 0.001 1.0 0.1
+1 levin_sum_mse_loss 0.001 1.0 1.0
+1 levin_sum_mse_loss 0.001 1.0 10
+1 levin_sum_mse_loss 0.005, -1.0 0.1
+1 levin_sum_mse_loss 0.005, -1.0 1.0
+1 levin_sum_mse_loss 0.005, -1.0 10
+1 levin_sum_mse_loss 0.005, 0.1 0.1
+1 levin_sum_mse_loss 0.005, 0.1 1.0
+1 levin_sum_mse_loss 0.005, 0.1 10
+1 levin_sum_mse_loss 0.005, 1.0 0.1
+1 levin_sum_mse_loss 0.005, 1.0 1.0
+1 levin_sum_mse_loss 0.005, 1.0 10
+1 levin_sum_mse_loss 0.01 -1.0 0.1
+1 levin_sum_mse_loss 0.01 -1.0 1.0
+1 levin_sum_mse_loss 0.01 -1.0 10
+1 levin_sum_mse_loss 0.01 0.1 0.1
+1 levin_sum_mse_loss 0.01 0.1 1.0
+1 levin_sum_mse_loss 0.01 0.1 10
+1 levin_sum_mse_loss 0.01 1.0 0.1
+1 levin_sum_mse_loss 0.01 1.0 1.0
+1 levin_sum_mse_loss 0.01 1.0 10
+2 traj_nll_mse_loss 0.0001 -1.0 0.1
+2 traj_nll_mse_loss 0.0001 -1.0 1.0
+2 traj_nll_mse_loss 0.0001 -1.0 10
+2 traj_nll_mse_loss 0.0001 0.1 0.1
+2 traj_nll_mse_loss 0.0001 0.1 1.0
+2 traj_nll_mse_loss 0.0001 0.1 10
+2 traj_nll_mse_loss 0.0001 1.0 0.1
+2 traj_nll_mse_loss 0.0001 1.0 1.0
+2 traj_nll_mse_loss 0.0001 1.0 10
+2 traj_nll_mse_loss 0.0005 -1.0 0.1
+2 traj_nll_mse_loss 0.0005 -1.0 1.0
+2 traj_nll_mse_loss 0.0005 -1.0 10
+2 traj_nll_mse_loss 0.0005 0.1 0.1
+2 traj_nll_mse_loss 0.0005 0.1 1.0
+2 traj_nll_mse_loss 0.0005 0.1 10
+2 traj_nll_mse_loss 0.0005 1.0 0.1
+2 traj_nll_mse_loss 0.0005 1.0 1.0
+2 traj_nll_mse_loss 0.0005 1.0 10
+2 traj_nll_mse_loss 0.001 -1.0 0.1
+2 traj_nll_mse_loss 0.001 -1.0 1.0
+2 traj_nll_mse_loss 0.001 -1.0 10
+2 traj_nll_mse_loss 0.001 0.1 0.1
+2 traj_nll_mse_loss 0.001 0.1 1.0
+2 traj_nll_mse_loss 0.001 0.1 10
+2 traj_nll_mse_loss 0.001 1.0 0.1
+2 traj_nll_mse_loss 0.001 1.0 1.0
+2 traj_nll_mse_loss 0.001 1.0 10
+2 traj_nll_mse_loss 0.005, -1.0 0.1
+2 traj_nll_mse_loss 0.005, -1.0 1.0
+2 traj_nll_mse_loss 0.005, -1.0 10
+2 traj_nll_mse_loss 0.005, 0.1 0.1
+2 traj_nll_mse_loss 0.005, 0.1 1.0
+2 traj_nll_mse_loss 0.005, 0.1 10
+2 traj_nll_mse_loss 0.005, 1.0 0.1
+2 traj_nll_mse_loss 0.005, 1.0 1.0
+2 traj_nll_mse_loss 0.005, 1.0 10
+2 traj_nll_mse_loss 0.01 -1.0 0.1
+2 traj_nll_mse_loss 0.01 -1.0 1.0
+2 traj_nll_mse_loss 0.01 -1.0 10
+2 traj_nll_mse_loss 0.01 0.1 0.1
+2 traj_nll_mse_loss 0.01 0.1 1.0
+2 traj_nll_mse_loss 0.01 0.1 10
+2 traj_nll_mse_loss 0.01 1.0 0.1
+2 traj_nll_mse_loss 0.01 1.0 1.0
+2 traj_nll_mse_loss 0.01 1.0 10
+2 levin_avg_mse_loss 0.0001 -1.0 0.1
+2 levin_avg_mse_loss 0.0001 -1.0 1.0
+2 levin_avg_mse_loss 0.0001 -1.0 10
+2 levin_avg_mse_loss 0.0001 0.1 0.1
+2 levin_avg_mse_loss 0.0001 0.1 1.0
+2 levin_avg_mse_loss 0.0001 0.1 10
+2 levin_avg_mse_loss 0.0001 1.0 0.1
+2 levin_avg_mse_loss 0.0001 1.0 1.0
+2 levin_avg_mse_loss 0.0001 1.0 10
+2 levin_avg_mse_loss 0.0005 -1.0 0.1
+2 levin_avg_mse_loss 0.0005 -1.0 1.0
+2 levin_avg_mse_loss 0.0005 -1.0 10
+2 levin_avg_mse_loss 0.0005 0.1 0.1
+2 levin_avg_mse_loss 0.0005 0.1 1.0
+2 levin_avg_mse_loss 0.0005 0.1 10
+2 levin_avg_mse_loss 0.0005 1.0 0.1
+2 levin_avg_mse_loss 0.0005 1.0 1.0
+2 levin_avg_mse_loss 0.0005 1.0 10
+2 levin_avg_mse_loss 0.001 -1.0 0.1
+2 levin_avg_mse_loss 0.001 -1.0 1.0
+2 levin_avg_mse_loss 0.001 -1.0 10
+2 levin_avg_mse_loss 0.001 0.1 0.1
+2 levin_avg_mse_loss 0.001 0.1 1.0
+2 levin_avg_mse_loss 0.001 0.1 10
+2 levin_avg_mse_loss 0.001 1.0 0.1
+2 levin_avg_mse_loss 0.001 1.0 1.0
+2 levin_avg_mse_loss 0.001 1.0 10
+2 levin_avg_mse_loss 0.005, -1.0 0.1
+2 levin_avg_mse_loss 0.005, -1.0 1.0
+2 levin_avg_mse_loss 0.005, -1.0 10
+2 levin_avg_mse_loss 0.005, 0.1 0.1
+2 levin_avg_mse_loss 0.005, 0.1 1.0
+2 levin_avg_mse_loss 0.005, 0.1 10
+2 levin_avg_mse_loss 0.005, 1.0 0.1
+2 levin_avg_mse_loss 0.005, 1.0 1.0
+2 levin_avg_mse_loss 0.005, 1.0 10
+2 levin_avg_mse_loss 0.01 -1.0 0.1
+2 levin_avg_mse_loss 0.01 -1.0 1.0
+2 levin_avg_mse_loss 0.01 -1.0 10
+2 levin_avg_mse_loss 0.01 0.1 0.1
+2 levin_avg_mse_loss 0.01 0.1 1.0
+2 levin_avg_mse_loss 0.01 0.1 10
+2 levin_avg_mse_loss 0.01 1.0 0.1
+2 levin_avg_mse_loss 0.01 1.0 1.0
+2 levin_avg_mse_loss 0.01 1.0 10
+2 levin_sum_mse_loss 0.0001 -1.0 0.1
+2 levin_sum_mse_loss 0.0001 -1.0 1.0
+2 levin_sum_mse_loss 0.0001 -1.0 10
+2 levin_sum_mse_loss 0.0001 0.1 0.1
+2 levin_sum_mse_loss 0.0001 0.1 1.0
+2 levin_sum_mse_loss 0.0001 0.1 10
+2 levin_sum_mse_loss 0.0001 1.0 0.1
+2 levin_sum_mse_loss 0.0001 1.0 1.0
+2 levin_sum_mse_loss 0.0001 1.0 10
+2 levin_sum_mse_loss 0.0005 -1.0 0.1
+2 levin_sum_mse_loss 0.0005 -1.0 1.0
+2 levin_sum_mse_loss 0.0005 -1.0 10
+2 levin_sum_mse_loss 0.0005 0.1 0.1
+2 levin_sum_mse_loss 0.0005 0.1 1.0
+2 levin_sum_mse_loss 0.0005 0.1 10
+2 levin_sum_mse_loss 0.0005 1.0 0.1
+2 levin_sum_mse_loss 0.0005 1.0 1.0
+2 levin_sum_mse_loss 0.0005 1.0 10
+2 levin_sum_mse_loss 0.001 -1.0 0.1
+2 levin_sum_mse_loss 0.001 -1.0 1.0
+2 levin_sum_mse_loss 0.001 -1.0 10
+2 levin_sum_mse_loss 0.001 0.1 0.1
+2 levin_sum_mse_loss 0.001 0.1 1.0
+2 levin_sum_mse_loss 0.001 0.1 10
+2 levin_sum_mse_loss 0.001 1.0 0.1
+2 levin_sum_mse_loss 0.001 1.0 1.0
+2 levin_sum_mse_loss 0.001 1.0 10
+2 levin_sum_mse_loss 0.005, -1.0 0.1
+2 levin_sum_mse_loss 0.005, -1.0 1.0
+2 levin_sum_mse_loss 0.005, -1.0 10
+2 levin_sum_mse_loss 0.005, 0.1 0.1
+2 levin_sum_mse_loss 0.005, 0.1 1.0
+2 levin_sum_mse_loss 0.005, 0.1 10
+2 levin_sum_mse_loss 0.005, 1.0 0.1
+2 levin_sum_mse_loss 0.005, 1.0 1.0
+2 levin_sum_mse_loss 0.005, 1.0 10
+2 levin_sum_mse_loss 0.01 -1.0 0.1
+2 levin_sum_mse_loss 0.01 -1.0 1.0
+2 levin_sum_mse_loss 0.01 -1.0 10
+2 levin_sum_mse_loss 0.01 0.1 0.1
+2 levin_sum_mse_loss 0.01 0.1 1.0
+2 levin_sum_mse_loss 0.01 0.1 10
+2 levin_sum_mse_loss 0.01 1.0 0.1
+2 levin_sum_mse_loss 0.01 1.0 1.0
+2 levin_sum_mse_loss 0.01 1.0 10
+3 traj_nll_mse_loss 0.0001 -1.0 0.1
+3 traj_nll_mse_loss 0.0001 -1.0 1.0
+3 traj_nll_mse_loss 0.0001 -1.0 10
+3 traj_nll_mse_loss 0.0001 0.1 0.1
+3 traj_nll_mse_loss 0.0001 0.1 1.0
+3 traj_nll_mse_loss 0.0001 0.1 10
+3 traj_nll_mse_loss 0.0001 1.0 0.1
+3 traj_nll_mse_loss 0.0001 1.0 1.0
+3 traj_nll_mse_loss 0.0001 1.0 10
+3 traj_nll_mse_loss 0.0005 -1.0 0.1
+3 traj_nll_mse_loss 0.0005 -1.0 1.0
+3 traj_nll_mse_loss 0.0005 -1.0 10
+3 traj_nll_mse_loss 0.0005 0.1 0.1
+3 traj_nll_mse_loss 0.0005 0.1 1.0
+3 traj_nll_mse_loss 0.0005 0.1 10
+3 traj_nll_mse_loss 0.0005 1.0 0.1
+3 traj_nll_mse_loss 0.0005 1.0 1.0
+3 traj_nll_mse_loss 0.0005 1.0 10
+3 traj_nll_mse_loss 0.001 -1.0 0.1
+3 traj_nll_mse_loss 0.001 -1.0 1.0
+3 traj_nll_mse_loss 0.001 -1.0 10
+3 traj_nll_mse_loss 0.001 0.1 0.1
+3 traj_nll_mse_loss 0.001 0.1 1.0
+3 traj_nll_mse_loss 0.001 0.1 10
+3 traj_nll_mse_loss 0.001 1.0 0.1
+3 traj_nll_mse_loss 0.001 1.0 1.0
+3 traj_nll_mse_loss 0.001 1.0 10
+3 traj_nll_mse_loss 0.005, -1.0 0.1
+3 traj_nll_mse_loss 0.005, -1.0 1.0
+3 traj_nll_mse_loss 0.005, -1.0 10
+3 traj_nll_mse_loss 0.005, 0.1 0.1
+3 traj_nll_mse_loss 0.005, 0.1 1.0
+3 traj_nll_mse_loss 0.005, 0.1 10
+3 traj_nll_mse_loss 0.005, 1.0 0.1
+3 traj_nll_mse_loss 0.005, 1.0 1.0
+3 traj_nll_mse_loss 0.005, 1.0 10
+3 traj_nll_mse_loss 0.01 -1.0 0.1
+3 traj_nll_mse_loss 0.01 -1.0 1.0
+3 traj_nll_mse_loss 0.01 -1.0 10
+3 traj_nll_mse_loss 0.01 0.1 0.1
+3 traj_nll_mse_loss 0.01 0.1 1.0
+3 traj_nll_mse_loss 0.01 0.1 10
+3 traj_nll_mse_loss 0.01 1.0 0.1
+3 traj_nll_mse_loss 0.01 1.0 1.0
+3 traj_nll_mse_loss 0.01 1.0 10
+3 levin_avg_mse_loss 0.0001 -1.0 0.1
+3 levin_avg_mse_loss 0.0001 -1.0 1.0
+3 levin_avg_mse_loss 0.0001 -1.0 10
+3 levin_avg_mse_loss 0.0001 0.1 0.1
+3 levin_avg_mse_loss 0.0001 0.1 1.0
+3 levin_avg_mse_loss 0.0001 0.1 10
+3 levin_avg_mse_loss 0.0001 1.0 0.1
+3 levin_avg_mse_loss 0.0001 1.0 1.0
+3 levin_avg_mse_loss 0.0001 1.0 10
+3 levin_avg_mse_loss 0.0005 -1.0 0.1
+3 levin_avg_mse_loss 0.0005 -1.0 1.0
+3 levin_avg_mse_loss 0.0005 -1.0 10
+3 levin_avg_mse_loss 0.0005 0.1 0.1
+3 levin_avg_mse_loss 0.0005 0.1 1.0
+3 levin_avg_mse_loss 0.0005 0.1 10
+3 levin_avg_mse_loss 0.0005 1.0 0.1
+3 levin_avg_mse_loss 0.0005 1.0 1.0
+3 levin_avg_mse_loss 0.0005 1.0 10
+3 levin_avg_mse_loss 0.001 -1.0 0.1
+3 levin_avg_mse_loss 0.001 -1.0 1.0
+3 levin_avg_mse_loss 0.001 -1.0 10
+3 levin_avg_mse_loss 0.001 0.1 0.1
+3 levin_avg_mse_loss 0.001 0.1 1.0
+3 levin_avg_mse_loss 0.001 0.1 10
+3 levin_avg_mse_loss 0.001 1.0 0.1
+3 levin_avg_mse_loss 0.001 1.0 1.0
+3 levin_avg_mse_loss 0.001 1.0 10
+3 levin_avg_mse_loss 0.005, -1.0 0.1
+3 levin_avg_mse_loss 0.005, -1.0 1.0
+3 levin_avg_mse_loss 0.005, -1.0 10
+3 levin_avg_mse_loss 0.005, 0.1 0.1
+3 levin_avg_mse_loss 0.005, 0.1 1.0
+3 levin_avg_mse_loss 0.005, 0.1 10
+3 levin_avg_mse_loss 0.005, 1.0 0.1
+3 levin_avg_mse_loss 0.005, 1.0 1.0
+3 levin_avg_mse_loss 0.005, 1.0 10
+3 levin_avg_mse_loss 0.01 -1.0 0.1
+3 levin_avg_mse_loss 0.01 -1.0 1.0
+3 levin_avg_mse_loss 0.01 -1.0 10
+3 levin_avg_mse_loss 0.01 0.1 0.1
+3 levin_avg_mse_loss 0.01 0.1 1.0
+3 levin_avg_mse_loss 0.01 0.1 10
+3 levin_avg_mse_loss 0.01 1.0 0.1
+3 levin_avg_mse_loss 0.01 1.0 1.0
+3 levin_avg_mse_loss 0.01 1.0 10
+3 levin_sum_mse_loss 0.0001 -1.0 0.1
+3 levin_sum_mse_loss 0.0001 -1.0 1.0
+3 levin_sum_mse_loss 0.0001 -1.0 10
+3 levin_sum_mse_loss 0.0001 0.1 0.1
+3 levin_sum_mse_loss 0.0001 0.1 1.0
+3 levin_sum_mse_loss 0.0001 0.1 10
+3 levin_sum_mse_loss 0.0001 1.0 0.1
+3 levin_sum_mse_loss 0.0001 1.0 1.0
+3 levin_sum_mse_loss 0.0001 1.0 10
+3 levin_sum_mse_loss 0.0005 -1.0 0.1
+3 levin_sum_mse_loss 0.0005 -1.0 1.0
+3 levin_sum_mse_loss 0.0005 -1.0 10
+3 levin_sum_mse_loss 0.0005 0.1 0.1
+3 levin_sum_mse_loss 0.0005 0.1 1.0
+3 levin_sum_mse_loss 0.0005 0.1 10
+3 levin_sum_mse_loss 0.0005 1.0 0.1
+3 levin_sum_mse_loss 0.0005 1.0 1.0
+3 levin_sum_mse_loss 0.0005 1.0 10
+3 levin_sum_mse_loss 0.001 -1.0 0.1
+3 levin_sum_mse_loss 0.001 -1.0 1.0
+3 levin_sum_mse_loss 0.001 -1.0 10
+3 levin_sum_mse_loss 0.001 0.1 0.1
+3 levin_sum_mse_loss 0.001 0.1 1.0
+3 levin_sum_mse_loss 0.001 0.1 10
+3 levin_sum_mse_loss 0.001 1.0 0.1
+3 levin_sum_mse_loss 0.001 1.0 1.0
+3 levin_sum_mse_loss 0.001 1.0 10
+3 levin_sum_mse_loss 0.005, -1.0 0.1
+3 levin_sum_mse_loss 0.005, -1.0 1.0
+3 levin_sum_mse_loss 0.005, -1.0 10
+3 levin_sum_mse_loss 0.005, 0.1 0.1
+3 levin_sum_mse_loss 0.005, 0.1 1.0
+3 levin_sum_mse_loss 0.005, 0.1 10
+3 levin_sum_mse_loss 0.005, 1.0 0.1
+3 levin_sum_mse_loss 0.005, 1.0 1.0
+3 levin_sum_mse_loss 0.005, 1.0 10
+3 levin_sum_mse_loss 0.01 -1.0 0.1
+3 levin_sum_mse_loss 0.01 -1.0 1.0
+3 levin_sum_mse_loss 0.01 -1.0 10
+3 levin_sum_mse_loss 0.01 0.1 0.1
+3 levin_sum_mse_loss 0.01 0.1 1.0
+3 levin_sum_mse_loss 0.01 0.1 10
+3 levin_sum_mse_loss 0.01 1.0 0.1
+3 levin_sum_mse_loss 0.01 1.0 1.0
+3 levin_sum_mse_loss 0.01 1.0 10
