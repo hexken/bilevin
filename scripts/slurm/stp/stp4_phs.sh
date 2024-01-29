@@ -39,7 +39,6 @@ python src/bilevin/main.py \
     --mode train \
     --max-grad-norm $mn \
     --loss-fn $loss \
-    --optimizer $opt \
     --grad-steps 10 \
     \
     --share-feature-net \
