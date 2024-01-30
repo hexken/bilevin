@@ -3,8 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
-#SBATCH --time=0:10:00
-#SBATCH --array=24
+#SBATCH --time=6:00:00
+#SBATCH --array=1-405
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp4/%j.out
 
 source $HOME/bilevin-env2/bin/activate
@@ -30,7 +30,7 @@ w=$(echo $args | cut -d' ' -f5)
 # chk=$(echo $args | cut -d' ' -f6)
 
 
-#    --checkpoint-path $chk \
+   # --checkpoint-path $chk \
 python src/bilevin/main.py \
     --agent PHS \
     --seed $seed \
@@ -71,7 +71,7 @@ python src/bilevin/main.py \
     --train-expansion-budget 2000 \
     \
     --min-batches-per-stage 800 \
-    --min-solve-ratio-stage 0.95 \
+    --min-solve-ratio-stage 0.85 \
     --min-solve-ratio-exp 0 \
     --n-final-stage-epochs 10 \
     \
