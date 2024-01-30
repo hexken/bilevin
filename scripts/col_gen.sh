@@ -31,12 +31,12 @@ elif [ "$1" = "4" ]; then
     --puzzle  "colors" \
     --seed  2723 \
     --width  4 \
-    --output-path  problems/col4/ \
-    --n-stages 26 \
-    --n-problems-per-stage 1000 \
+    --output-path  new_problems/col4/ \
+    --n-stages 51 \
+    --n-problems-per-stage 1800 \
     --marker-prob-limits  0.3 0.59 \
     --min-path-ratio-limits 0.4 0.79 \
-    --n-problems-final-stage 25000 \
+    --n-problems-final-stage 10000 \
     --test-marker-prob 0.6 \
     --test-min-path-ratio 0.8 \
     --n-valid  1000 \
@@ -46,12 +46,12 @@ elif [ $1 = "5" ]; then
     --puzzle  "colors" \
     --seed  3652 \
     --width  5 \
-    --output-path  problems/col5/ \
-    --n-stages 26 \
-    --n-problems-per-stage 1000 \
+    --output-path  new_problems/col5/ \
+    --n-stages 51 \
+    --n-problems-per-stage 1800 \
     --marker-prob-limits  0.3 0.59 \
     --min-path-ratio-limits 0.4 0.79 \
-    --n-problems-final-stage 25000 \
+    --n-problems-final-stage 10000 \
     --test-marker-prob 0.55 \
     --test-min-path-ratio 0.75 \
     --n-valid  1000 \
@@ -61,14 +61,14 @@ elif [ $1 = "6" ]; then
     --puzzle  "colors" \
     --seed  9162 \
     --width  6 \
-    --output-path  problems/col6/ \
-    --n-stages 26 \
-    --n-problems-per-stage 1000 \
+    --output-path new_problems/col6/ \
+    --n-stages 51 \
+    --n-problems-per-stage 1800 \
     --marker-prob-limits  0.3 0.49 \
     --min-path-ratio-limits 0.3 0.69 \
     --test-marker-prob 0.5 \
     --test-min-path-ratio 0.7 \
-    --n-problems-final-stage 25000 \
+    --n-problems-final-stage 10000 \
     --n-valid  1000 \
     --n-test  1000
 else

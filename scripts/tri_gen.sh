@@ -33,11 +33,11 @@ elif [ "$1" = "4" ]; then
     --seed  1743 \
     --width  4 \
     --output-path  problems/tri4/ \
-    --n-stages 26 \
-    --n-problems-per-stage 1000 \
+    --n-stages 51 \
+    --n-problems-per-stage 1800 \
     --marker-prob-limits  0.3 0.59 \
     --min-path-ratio-limits 0.4 0.79 \
-    --n-problems-final-stage 25000 \
+    --n-problems-final-stage 10000 \
     --test-marker-prob 0.6 \
     --test-min-path-ratio 0.8 \
     --n-valid  1000 \
@@ -48,11 +48,11 @@ elif [ $1 = "5" ]; then
     --seed  1657 \
     --width  5 \
     --output-path  problems/tri5/ \
-    --n-stages 26 \
-    --n-problems-per-stage 1000 \
+    --n-stages 51 \
+    --n-problems-per-stage 1800 \
     --marker-prob-limits  0.3 0.59 \
     --min-path-ratio-limits 0.4 0.59 \
-    --n-problems-final-stage 25000 \
+    --n-problems-final-stage 10000 \
     --test-marker-prob 0.55 \
     --test-min-path-ratio 0.75 \
     --n-valid  1000 \
@@ -63,13 +63,13 @@ elif [ $1 = "6" ]; then
     --seed  936 \
     --width  6 \
     --output-path  problems/tri6/ \
-    --n-stages 26 \
-    --n-problems-per-stage 1000 \
+    --n-stages 51 \
+    --n-problems-per-stage 1800 \
     --marker-prob-limits  0.3 0.49 \
     --min-path-ratio-limits 0.3 0.69 \
     --test-marker-prob 0.5 \
     --test-min-path-ratio 0.7 \
-    --n-problems-final-stage 25000 \
+    --n-problems-final-stage 10000 \
     --n-valid  1000 \
     --n-test  1000
 else
