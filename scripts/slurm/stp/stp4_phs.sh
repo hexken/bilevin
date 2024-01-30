@@ -4,8 +4,8 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
 #SBATCH --time=6:00:00
-#SBATCH --array=1-405
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/stp4/%j.out
+#SBATCH --array=1-324
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/j30/stp4/phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -35,7 +35,7 @@ python src/bilevin/main.py \
     --agent PHS \
     --seed $seed \
     --weight-mse-loss $w \
-    --runsdir-path runs/stp4 \
+    --runsdir-path runs/j30/stp4/phs \
     --exp-name "" \
     --problems-path new_problems/stp4/100000-train.pkl \
     --valid-path new_problems/stp4/1000-valid.pkl \
@@ -70,8 +70,8 @@ python src/bilevin/main.py \
     --time-budget 300 \
     --train-expansion-budget 2000 \
     \
-    --min-batches-per-stage 800 \
-    --min-solve-ratio-stage 0.85 \
+    --min-batches-per-stage 200 \
+    --min-solve-ratio-stage 0.9 \
     --min-solve-ratio-exp 0 \
     --n-final-stage-epochs 10 \
     \

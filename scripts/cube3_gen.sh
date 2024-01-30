@@ -30,14 +30,14 @@ elif [ "$1" = "3" ]; then
     --domain cube3 \
     --seed 3541 \
     --output-path  new_problems/cube3/ \
-    --randomizer-curriculum-steps \
+    --randomize-curriculum-steps \
     --n-problems-per-stage  1800 \
     --stages-multiple  1 \
     --n-stages  51 \
     --n-problems-final-stage  10000 \
     --n-valid  1000 \
     --n-test  1000 \
-    --test-steps  50
+    --test-steps  50 \
     --randomize-test-steps
 else
     usage
