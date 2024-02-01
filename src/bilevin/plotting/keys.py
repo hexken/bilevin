@@ -2,12 +2,16 @@ import re
 from json import load
 
 
-def all_but_seed_key(run):
-    return run.key
+def args_key(run, keys: list[str]):
+    return " ".join((run.args[k] for k in keys))
 
 
 def loss_lr_key(run):
-    return f"{run['loss_fn']} {run['forward_policy_lr']}"
+    return args_key(run, ["loss_fn", "forward_policy_lr"])
+
+
+def grad_norm_mse_weight_key(run):
+    return args_key(run, ["max_grad_norm", "weight_mse_loss"])
 
 
 def opt_loss_group_key(item):

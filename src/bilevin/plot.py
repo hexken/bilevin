@@ -72,7 +72,6 @@ def plot_valid_vs_time(
 ):
     # plot seeds corresponding to a run
     dfs = run_data["valid"]
-    print(len(dfs))
     notna_dfs = []
     xs = []
     for df in dfs:
@@ -83,6 +82,8 @@ def plot_valid_vs_time(
         notna_dfs.append(dfg)
 
     df = pd.concat(notna_dfs, axis=1)
+    for x in xs:
+        print(x.shape)
     try:
         xs = np.array(xs).mean(axis=0)
     except:
@@ -263,54 +264,49 @@ def main():
     f = open("j30stp4.pkl", "rb")
     allruns = pkl.load(f)
     saveroot = Path("figs/j30stp4/")
-    data = sorted(allruns.items(), key=lambda x: pkeys.loss_lr_key(x[0]))
-    for opt_loss, group in itertools.groupby(data, key=lambda x: x.keyargs["loss_fn"]):
-        # data = {}
+    saveroot.mkdir(exist_ok=True, parents=True)
+    figkey = ["loss_fn", "forward_policy_lr"]
+    legendkey = ["max_grad_norm", "weight_mse_loss"]
+    data = sorted(allruns.values(), key=lambda x: x.args_key(figkey))
+    for loss_lr, group in itertools.groupby(data, key=lambda x: x.args_key(figkey)):
         group = list(group)
-        group = sorted(group, key=lambda x: pkeys.loss_lr_key(x[0]))
-        for lr, lrgroup in itertools.groupby(group, key=pkeys.lr_mom_group_key):
-            print(lr)
-            savelr = saveoptloss / lr.replace(" ", "_")
-            savelr.mkdir(exist_ok=True, parents=True)
-            grouped_data = {}
-            for lg in lrgroup:
-                words = lg[0].split()
-                legend_name = f"{words[4]} {words[5]}"
-                grouped_data[legend_name] = lg[1]
-            fig, ax = plt.subplots(3, 2, sharex=True, figsize=(12, 10))
-            fig.suptitle(f"{opt_loss} {lr}", size=16)
-            ax[0, 0].set_title(f"Train")
-            ax[0, 1].set_title(f"Valid")
-            ax[0, 0].set_ylabel("Solved", size=14)
-            ax[1, 0].set_ylabel("Expanded", size=14)
-            ax[2, 0].set_ylabel("Solution length", size=14)
+        group = sorted(group, key=lambda x: x.args_key(legendkey))
+        grouped_data = {}
+        for rs in group:
+            legend_name = rs.args_key(legendkey)
+            grouped_data[legend_name] = rs
+        fig, ax = plt.subplots(3, 2, sharex=True, figsize=(12, 10))
+        fig.suptitle(f"{loss_lr}", size=16)
+        ax[0, 0].set_title(f"Train")
+        ax[0, 1].set_title(f"Valid")
+        ax[0, 0].set_ylabel("Solved", size=14)
+        ax[1, 0].set_ylabel("Expanded", size=14)
+        ax[2, 0].set_ylabel("Solution length", size=14)
 
-            labels = []
-            for i, (pname, (rname, pdata)) in enumerate(grouped_data.items()):
-                color = colors[i % len(colors)]
-                labels.append(pname)
-                plot_search_vs_time(
-                    pdata, "solved", ax=ax[0, 0], color=color, label=pname
-                )
-                plot_search_vs_time(pdata, "exp", ax=ax[1, 0], color=color, label=pname)
-                plot_search_vs_time(pdata, "len", ax=ax[2, 0], color=color, label=pname)
-                ax[2, 0].set_xlabel("Time (s)", size=14)
+        labels = []
+        for i, (rsname, rs) in enumerate(grouped_data.items()):
+            rsdata = rs.data
+            color = colors[i % len(colors)]
+            labels.append(rsname)
+            plot_search_vs_time(
+                rsdata, "solved", ax=ax[0, 0], color=color, label=rsname
+            )
+            plot_search_vs_time(rsdata, "exp", ax=ax[1, 0], color=color, label=rsname)
+            plot_search_vs_time(rsdata, "len", ax=ax[2, 0], color=color, label=rsname)
+            ax[2, 0].set_xlabel("Time (s)", size=14)
 
-                print(rname)
-                plot_valid_vs_time(
-                    pdata, "solved", ax=ax[0, 1], color=color, label=pname
-                )
-                plot_valid_vs_time(pdata, "exp", ax=ax[1, 1], color=color, label=pname)
-                plot_valid_vs_time(pdata, "len", ax=ax[2, 1], color=color, label=pname)
-                ax[2, 1].set_xlabel("Time (s)", size=14)
+            plot_valid_vs_time(rsdata, "solved", ax=ax[0, 1], color=color, label=rsname)
+            plot_valid_vs_time(rsdata, "exp", ax=ax[1, 1], color=color, label=rsname)
+            plot_valid_vs_time(rsdata, "len", ax=ax[2, 1], color=color, label=rsname)
+            ax[2, 1].set_xlabel("Time (s)", size=14)
 
-            handles, labels = ax[2, 1].get_legend_handles_labels()
-            it = iter(handles)
-            handles = [(a, next(it)) for a in it]
-            fig.legend(handles, labels[::2])
-            fig.tight_layout()
-            fig.savefig(savelr / f"time.pdf", bbox_inches="tight")
-            # plt.show()()
+        handles, labels = ax[2, 1].get_legend_handles_labels()
+        it = iter(handles)
+        handles = [(a, next(it)) for a in it]
+        fig.legend(handles, labels[::2])
+        fig.tight_layout()
+        fig.savefig(saveroot / f"{loss_lr}.pdf", bbox_inches="tight")
+        # plt.show()()
 
 
 if __name__ == "__main__":

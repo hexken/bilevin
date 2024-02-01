@@ -15,7 +15,42 @@ import pandas as pd
 import plotting.keys as pkeys
 
 
-def process_run(run_name, runs, batch_size=4, min_valids=25):
+class RunSingle:
+    def __init__(self, path: Path, keys: list[str]):
+        self.path = path
+        self.allargs = json.load((path / "args.json").open("rb"))
+
+        self.keys = keys
+        self.keyargs = {}
+        for k in keys:
+            self.keyargs[k] = self.allargs[k]
+
+        self.name = " ".join([str(self.keyargs[k]) for k in self.keys])
+        self.key = str(self.keyargs)
+
+    def args_key(self, keys):
+        return " ".join((str(self.allargs[k]) for k in keys))
+
+
+class RunSeeds:
+    def __init__(self, runs: list[RunSingle], data: dict):
+        self.runs = runs
+        self.data = data
+        self.paths = [r.path for r in runs]
+        self.allargs = runs[0].allargs.copy()
+        self.keys = runs[0].keys.copy()
+        self.keyargs = runs[0].keyargs.copy()
+        self.name = runs[0].name
+        self.key = str(self.keyargs)
+
+    def args_key(self, keys: list[str]):
+        return self.runs[0].args_key(keys)
+
+    def __len__(self):
+        return len(self.paths)
+
+
+def process_run(run_name: str, runs: list[RunSingle], batch_size=4, min_valids=25):
     batch_regex = re.compile(".*_b(\d+).pkl")
     train_dfs = []
     search_dfs = []
@@ -110,27 +145,13 @@ def process_run(run_name, runs, batch_size=4, min_valids=25):
         valid_dfs.append(run_valid_df)
 
     print(f"Loaded {len(search_dfs)}/{len(runs)} runs of {run_name}")
-    return run_name, {
+    return {
         "train": train_dfs,
         "search": search_dfs,
         "valid": valid_dfs,
         "curr_end_batch": curr_end_batches,
         "curr_end_time": curr_end_times,
     }
-
-
-class Run:
-    def __init__(self, path, keys):
-        self.path = path
-        self.allargs = json.load((path / "args.json").open("rb"))
-
-        self.keys = keys
-        self.keyargs = {}
-        for k in keys:
-            self.keyargs[k] = self.allargs[k]
-
-        self.name = " ".join([str(self.keyargs[k]) for k in self.keys])
-        self.key = str(self.keyargs)
 
 
 def get_runs_data(
@@ -140,7 +161,7 @@ def get_runs_data(
     if isinstance(pths, Path):
         pths = [pths]
 
-    all_runs = [Run(rp, keys) for pth in pths for rp in pth.glob("*/")]
+    all_runs = [RunSingle(rp, keys) for pth in pths for rp in pth.glob("*/")]
     all_runs.sort(key=lambda x: x.name)
     grouped_runs = itertools.groupby(all_runs, lambda x: x.name)
     # Prepare sorting by algorithm
@@ -150,15 +171,19 @@ def get_runs_data(
     # print(list(*zip(*runs_combined)))
     with ProcessPoolExecutor() as executor:
         future_to_run = {
-            executor.submit(process_run, name, runs, batch_size, min_valids): name
+            executor.submit(process_run, name, runs, batch_size, min_valids): (
+                name,
+                runs,
+            )
             for name, runs in runs_combined
         }
-        for future in as_completed(future_to_run):
-            run_name = future_to_run[future]
+        for f in as_completed(future_to_run):
             try:
-                runs_data[run_name] = future.result()
+                name, runs = future_to_run[f]
+                data = f.result()
+                runs_data[name] = RunSeeds(runs, data)
             except Exception as exc:
-                print(f"Run {run_name} generated an exception: {exc}")
+                print(f"Run {name} generated an exception: {exc}")
 
     return runs_data
 
