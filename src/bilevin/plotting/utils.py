@@ -145,13 +145,17 @@ def process_run(run_name: str, runs: list[RunSingle], batch_size=4, min_valids=2
         valid_dfs.append(run_valid_df)
 
     print(f"Loaded {len(search_dfs)}/{len(runs)} runs of {run_name}")
-    return {
-        "train": train_dfs,
-        "search": search_dfs,
-        "valid": valid_dfs,
-        "curr_end_batch": curr_end_batches,
-        "curr_end_time": curr_end_times,
-    }
+
+    if len(search_dfs) == 0:
+        return None
+    else:
+        return {
+            "train": train_dfs,
+            "search": search_dfs,
+            "valid": valid_dfs,
+            "curr_end_batch": curr_end_batches,
+            "curr_end_time": curr_end_times,
+        }
 
 
 def get_runs_data(
@@ -181,7 +185,8 @@ def get_runs_data(
             try:
                 name, runs = future_to_run[f]
                 data = f.result()
-                runs_data[name] = RunSeeds(runs, data)
+                if data is not None:
+                    runs_data[name] = RunSeeds(runs, data)
             except Exception as exc:
                 print(f"Run {name} generated an exception: {exc}")
 

@@ -78,22 +78,14 @@ def plot_valid_vs_time(
         x = df["start_time"].unique()
         xs.append(x)
 
-        dfg = df.groupby(df["batch"])[y_data_label].mean()
+        dfg = df.groupby(df["batch"], as_index=False).mean()[y_data_label]
         notna_dfs.append(dfg)
 
+    min_len = min(len(x) for x in xs)
+    notna_dfs = [df.iloc[:min_len] for df in notna_dfs]
     df = pd.concat(notna_dfs, axis=1)
-    for x in xs:
-        print(x.shape)
-    try:
-        xs = np.array(xs).mean(axis=0)
-    except:
-        print(xs)
-        print(len(xs))
-        print(len(xs[0]))
-        print(len(xs[1]))
-        print(len(xs[2]))
-        print(len(xs[3]))
-        raise
+    xs = [x[:min_len] for x in xs]
+    xs = np.array(xs).mean(axis=0)
     means = df.mean(axis=1)
     mins = df.min(axis=1)
     maxs = df.max(axis=1)
@@ -265,16 +257,16 @@ def main():
     allruns = pkl.load(f)
     saveroot = Path("figs/j30stp4/")
     saveroot.mkdir(exist_ok=True, parents=True)
-    figkey = ["loss_fn", "forward_policy_lr"]
-    legendkey = ["max_grad_norm", "weight_mse_loss"]
+    figkey = ["loss_fn", "forward_policy_lr", "max_grad_norm"]
+    legendkey = ["weight_mse_loss"]
     data = sorted(allruns.values(), key=lambda x: x.args_key(figkey))
     for loss_lr, group in itertools.groupby(data, key=lambda x: x.args_key(figkey)):
         group = list(group)
         group = sorted(group, key=lambda x: x.args_key(legendkey))
         grouped_data = {}
-        for rs in group:
-            legend_name = rs.args_key(legendkey)
-            grouped_data[legend_name] = rs
+        for runseeds in group:
+            legend_name = runseeds.args_key(legendkey)
+            grouped_data[legend_name] = runseeds
         fig, ax = plt.subplots(3, 2, sharex=True, figsize=(12, 10))
         fig.suptitle(f"{loss_lr}", size=16)
         ax[0, 0].set_title(f"Train")
@@ -284,21 +276,32 @@ def main():
         ax[2, 0].set_ylabel("Solution length", size=14)
 
         labels = []
-        for i, (rsname, rs) in enumerate(grouped_data.items()):
-            rsdata = rs.data
+        for i, (legend_name, runseeds) in enumerate(grouped_data.items()):
+            rsdata = runseeds.data
             color = colors[i % len(colors)]
-            labels.append(rsname)
+            labels.append(legend_name)
             plot_search_vs_time(
-                rsdata, "solved", ax=ax[0, 0], color=color, label=rsname
+                rsdata, "solved", ax=ax[0, 0], color=color, label=legend_name
             )
-            plot_search_vs_time(rsdata, "exp", ax=ax[1, 0], color=color, label=rsname)
-            plot_search_vs_time(rsdata, "len", ax=ax[2, 0], color=color, label=rsname)
+            plot_search_vs_time(
+                rsdata, "exp", ax=ax[1, 0], color=color, label=legend_name
+            )
+            plot_search_vs_time(
+                rsdata, "len", ax=ax[2, 0], color=color, label=legend_name
+            )
             ax[2, 0].set_xlabel("Time (s)", size=14)
 
-            plot_valid_vs_time(rsdata, "solved", ax=ax[0, 1], color=color, label=rsname)
-            plot_valid_vs_time(rsdata, "exp", ax=ax[1, 1], color=color, label=rsname)
-            plot_valid_vs_time(rsdata, "len", ax=ax[2, 1], color=color, label=rsname)
+            plot_valid_vs_time(
+                rsdata, "solved", ax=ax[0, 1], color=color, label=legend_name
+            )
+            plot_valid_vs_time(
+                rsdata, "exp", ax=ax[1, 1], color=color, label=legend_name
+            )
+            plot_valid_vs_time(
+                rsdata, "len", ax=ax[2, 1], color=color, label=legend_name
+            )
             ax[2, 1].set_xlabel("Time (s)", size=14)
+            print(f"Plotted {loss_lr} {legend_name}")
 
         handles, labels = ax[2, 1].get_legend_handles_labels()
         it = iter(handles)
