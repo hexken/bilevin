@@ -1,5 +1,13 @@
-import json
 import re
+from json import load
+
+
+def all_but_seed_key(run):
+    return run.key
+
+
+def loss_lr_key(run):
+    return f"{run['loss_fn']} {run['forward_policy_lr']}"
 
 
 def opt_loss_group_key(item):

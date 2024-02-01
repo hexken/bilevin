@@ -1,27 +1,29 @@
 from collections import OrderedDict
 from collections.abc import Iterable
-import itertools
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+import itertools
 import json
 from pathlib import Path
 import pickle as pkl
 import re
 import subprocess
-import plotting.keys as pkeys
 
 import matplotlib as mpl
 from natsort import natsorted
 import pandas as pd
 
+import plotting.keys as pkeys
 
-def process_run(run_name, run_paths, batch_size=4, min_valids=25):
+
+def process_run(run_name, runs, batch_size=4, min_valids=25):
     batch_regex = re.compile(".*_b(\d+).pkl")
     train_dfs = []
     search_dfs = []
     valid_dfs = []
     curr_end_batches = []
     curr_end_times = []
-    for rp in run_paths:
+    for r in runs:
+        rp = r.path
         run_train_curr_dfs = [
             pkl.load(p.open("rb"))
             for p in natsorted(rp.glob("model_train*.pkl"))
@@ -107,7 +109,7 @@ def process_run(run_name, run_paths, batch_size=4, min_valids=25):
         search_dfs.append(run_search_df)
         valid_dfs.append(run_valid_df)
 
-    print(f"Loaded {len(search_dfs)} runs of {run_name}")
+    print(f"Loaded {len(search_dfs)}/{len(runs)} runs of {run_name}")
     return run_name, {
         "train": train_dfs,
         "search": search_dfs,
@@ -117,28 +119,39 @@ def process_run(run_name, run_paths, batch_size=4, min_valids=25):
     }
 
 
+class Run:
+    def __init__(self, path, keys):
+        self.path = path
+        self.allargs = json.load((path / "args.json").open("rb"))
+
+        self.keys = keys
+        self.keyargs = {}
+        for k in keys:
+            self.keyargs[k] = self.allargs[k]
+
+        self.name = " ".join([str(self.keyargs[k]) for k in self.keys])
+        self.key = str(self.keyargs)
+
+
 def get_runs_data(
-    pth: Path | Iterable[Path], group_key, batch_size=4, min_valids=25
+    pths: Path | Iterable[Path], keys: list[str], batch_size=4, min_valids=25
 ) -> dict:
     # get list of paths for each run_name, specified by group_key (should correpsond to seeds)
-    if isinstance(pth, Path):
-        pth = [pth]
+    if isinstance(pths, Path):
+        pths = [pths]
 
-    all_runs_paths = [p for path in pth for p in path.glob("*/")]
-    all_runs_paths.sort(key=group_key)
-    grouped_runs = itertools.groupby(all_runs_paths, group_key)
+    all_runs = [Run(rp, keys) for pth in pths for rp in pth.glob("*/")]
+    all_runs.sort(key=lambda x: x.name)
+    grouped_runs = itertools.groupby(all_runs, lambda x: x.name)
     # Prepare sorting by algorithm
-    runs_combined = sorted(
-        ((name, list(paths)) for name, paths in grouped_runs),
-        key=lambda x: pkeys.alg_sort_key(str(x[0])),
-    )
+    runs_combined = [(name, list(runs)) for name, runs in grouped_runs]
     runs_data = OrderedDict()
 
     # print(list(*zip(*runs_combined)))
     with ProcessPoolExecutor() as executor:
         future_to_run = {
-            executor.submit(process_run, name, paths, batch_size, min_valids): name
-            for name, paths in runs_combined
+            executor.submit(process_run, name, runs, batch_size, min_valids): name
+            for name, runs in runs_combined
         }
         for future in as_completed(future_to_run):
             run_name = future_to_run[future]

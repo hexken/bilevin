@@ -260,14 +260,17 @@ def window_avg_over_index(data: list[pd.DataFrame], y_data_label, window_size=5)
 
 def main():
     colors = mpl.colormaps["tab10"].colors
-    f = open("j30stp4.pkl", "rb")
+    f = open("all_runs2.pkl", "rb")
     allruns = pkl.load(f)
-    saveroot = Path("figs/j30stp4/")
-    data = sorted(allruns.items(), key=lambda x: pkeys.loss_lr_key(x[0]))
-    for opt_loss, group in itertools.groupby(data, key=lambda x: x.keyargs["loss_fn"]):
+    saveroot = Path("figs/figstest2_w2")
+    data = sorted(allruns.items(), key=pkeys.opt_loss_group_key)
+    for opt_loss, group in itertools.groupby(data, key=pkeys.opt_loss_group_key):
+        print(opt_loss)
+        saveoptloss = saveroot / opt_loss.replace(" ", "_")
+        saveoptloss.mkdir(exist_ok=True, parents=True)
         # data = {}
         group = list(group)
-        group = sorted(group, key=lambda x: pkeys.loss_lr_key(x[0]))
+        group = sorted(group, key=pkeys.lr_mom_group_key)
         for lr, lrgroup in itertools.groupby(group, key=pkeys.lr_mom_group_key):
             print(lr)
             savelr = saveoptloss / lr.replace(" ", "_")
