@@ -224,7 +224,7 @@ def parse_args():
         const=True,
         nargs="?",
         type=strtobool,
-        default=True,
+        default=False,
         help="use the same feature netword for forward and backward policies/heuristics. In this case forward-feature-net-lr is used",
     )
     parser.add_argument(
