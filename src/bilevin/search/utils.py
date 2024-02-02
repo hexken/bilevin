@@ -92,8 +92,10 @@ def print_search_summary(
             bhe = solved_df["bhe"].mean()
             print(f"Bhe: {bhe:.3f}")
         if bidirectional:
-            fb_exp = (solved_df["fexp"] / solved_df["bexp"]).mean()
-            fb_lens = (solved_df["fg"] / solved_df["bg"]).mean()
+            fb_exp = solved_df["fexp"] / solved_df["bexp"]
+            fb_exp = fb_exp[fb_exp != np.inf].mean()
+            fb_lens = solved_df["fg"] / solved_df["bg"]
+            fb_lens = fb_lens[fb_lens != np.inf].mean()
             print(f"\nFB Exp: {fb_exp:.3f}")
             print(f"FB Len: {fb_lens:.3f}")
 
