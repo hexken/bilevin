@@ -253,12 +253,12 @@ def window_avg_over_index(data: list[pd.DataFrame], y_data_label, window_size=5)
 
 def main():
     colors = mpl.colormaps["tab10"].colors
-    f = open("j30stp4.pkl", "rb")
+    f = open("socs_stp4cphs.pkl", "rb")
     allruns = pkl.load(f)
-    saveroot = Path("figs/j30stp4/")
+    saveroot = Path("figs/socsstp4c/")
     saveroot.mkdir(exist_ok=True, parents=True)
-    figkey = ["loss_fn", "forward_policy_lr", "max_grad_norm"]
-    legendkey = ["weight_mse_loss"]
+    figkey = ["agent"]
+    legendkey = ["share_feature_net", "forward_policy_lr"]
     data = sorted(allruns.values(), key=lambda x: x.args_key(figkey))
     for loss_lr, group in itertools.groupby(data, key=lambda x: x.args_key(figkey)):
         group = list(group)

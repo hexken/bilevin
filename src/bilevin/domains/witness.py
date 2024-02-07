@@ -4,11 +4,11 @@ from typing import Optional, TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
-from torch import Tensor
 import torch as to
 
 from domains.domain import Domain, State
 from enums import Color, ActionDir
+
 if TYPE_CHECKING:
     from search.node import SearchNode
 
@@ -209,7 +209,9 @@ class Witness(Domain):
         elif action == ActionDir.RIGHT:
             return ActionDir.LEFT
 
-    def _actions(self, parent_action: ActionDir, state: WitnessState) -> list[ActionDir]:
+    def _actions(
+        self, parent_action: ActionDir, state: WitnessState
+    ) -> list[ActionDir]:
         """
         Successor function used by planners trying to solve the puzzle. The method returns
         a list with legal actions for the state. The valid actions for the domain are {U, D, L, R}.

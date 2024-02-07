@@ -11,7 +11,6 @@ from torch import from_numpy
 from torch.nn.functional import one_hot
 
 from domains.domain import Domain, State
-from search.utils import Problem
 
 
 def get_goal_state() -> Cube3State:

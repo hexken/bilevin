@@ -39,7 +39,7 @@ class Domain(ABC):
         return self.initial_state
 
     def update(self, node: SearchNode):
-        self.aux_closed[node.state.__hash__()] = node
+        self.aux_closed[node] = node
 
     def actions(self, parent_action, state: State) -> tuple[list, Tensor]:
         actions = self._actions(parent_action, state)
