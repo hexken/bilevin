@@ -61,7 +61,7 @@ python src/bilevin/main.py \
     --backward-heuristic-layers 256 198 128 \
     --backward-heuristic-lr $lr \
     \
-    --validate-every-n-stage 1 \
+    --validate-every-n-stage 10 \
     --stage-begin-validate 5 \
     --checkpoint-every-n-batch 300 \
     --validate-every-epoch \
