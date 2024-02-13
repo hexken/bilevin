@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
-#SBATCH --time=6:00:00
+#SBATCH --time=8:00:00
 #SBATCH --array=1-10
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/stp5/phs/%j.out
 
@@ -60,7 +60,7 @@ python src/bilevin/main.py \
     --backward-heuristic-layers 256 198 128 \
     --backward-heuristic-lr $lr \
     \
-    --validate-every-n-stage 1 \
+    --validate-every-n-stage 10 \
     --stage-begin-validate 5 \
     --checkpoint-every-n-batch 300 \
     --validate-every-epoch \
@@ -73,5 +73,5 @@ python src/bilevin/main.py \
     --min-solve-ratio-exp 0 \
     --n-final-stage-epochs 20 \
     \
-    --n-batch-tail 400 \
+    --n-batch-tail 100 \
     \
