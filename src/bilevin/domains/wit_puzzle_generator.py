@@ -14,28 +14,40 @@ from search.utils import Problem
 # todo allow randomized start location?
 
 
+def get_n_adj(state, row, col):
+    return int(
+        state.v_segs[row, col]
+        + state.v_segs[row, col + 1]
+        + state.h_segs[row, col]
+        + state.h_segs[row + 1, col]
+    )
+
+
 def triangle_puzzle_from_path(
     rng, marker_prob, domain, state
 ) -> None | list[tuple[int, int, int]]:
     markers = []
-    for row, col in product(range(domain.width), range(domain.width)):
-        n_adj = int(
-            state.v_segs[row, col]
-            + state.v_segs[row, col + 1]
-            + state.h_segs[row, col]
-            + state.h_segs[row + 1, col]
-        )
-
+    indices = np.array(list(product(range(domain.width), range(domain.width))))
+    unused_path_adjacent_indices = []
+    for row, col in indices:
+        n_adj = get_n_adj(state, row, col)
         if n_adj == 0:
             continue
         elif n_adj == 4:
             domain.plot(state)
             raise ValueError("cell has 4 adjacent segments")
-        if rng.random() <= marker_prob and n_adj >= 1:
-            markers.append((row, col, n_adj))
+        else:  # n_adj > 0
+            if rng.random() <= marker_prob:
+                markers.append((row, col, n_adj))
+            else:
+                unused_path_adjacent_indices.append((row, col))
 
+    # make sure at least width // 2 markers present
     if len(markers) < domain.width // 2:
-        return None
+        n = domain.width // 2 - len(markers)
+        for row, col in rng.choice(unused_path_adjacent_indices, size=n, replace=False):
+            n_adj = get_n_adj(state, row, col)
+            markers.append((row, col, n_adj))
 
     return markers
 
