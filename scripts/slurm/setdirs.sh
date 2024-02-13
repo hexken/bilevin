@@ -1,5 +1,5 @@
 usage() {
-	echo "usage: <dir> r|m"
+	echo "usage: <dir> d|c|r"
 	exit
 }
 
@@ -7,16 +7,18 @@ if [[ $# -ne 2 ]]; then
 	usage
 fi
 
-if [[ $2 == "r" ]]; then
-	cmd="rm -rf"
-elif [[ $2 == "m" ]]; then
-	cmd="mkdir -p"
+if [[ $2 == "d" ]]; then
+    rm -rf ~/bilevin/slurm_outputs/${1}
+    rm -rf ~/bilevin/runs/${1}
+elif [[ $2 == "c" ]]; then
+    mkdir -p ~/bilevin/slurm_outputs/${1}
+    mkdir -p ~/bilevin/runs/${1}
+elif [[ $2 == "r" ]]; then
+    rm -rf ~/bilevin/slurm_outputs/${1}
+    rm -rf ~/bilevin/runs/${1}
+    mkdir -p ~/bilevin/slurm_outputs/${1}
+    mkdir -p ~/bilevin/runs/${1}
 else
 	usage
 	exit
 fi
-
-eval ${cmd} ~/bilevin/slurm_outputs/${1}
-eval ${cmd} ~/bilevin/runs/${1}
-ls -d ~/bilevin/slurm_outputs/${1}
-ls -d ~/bilevin/runs/${1}
