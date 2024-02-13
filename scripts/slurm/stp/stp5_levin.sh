@@ -5,7 +5,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=6:00:00
 #SBATCH --array=1-10
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/stp4/phs/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/stp5/levin/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -20,7 +20,7 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/slurm/stp/phs_args.txt
+argfile=/scratch/tjhia/bilevin/scripts/slurm/stp/levin_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
@@ -33,14 +33,14 @@ python src/bilevin/main.py \
     --agent $agent \
     --seed $seed \
     --weight-mse-loss 0.1 \
-    --runsdir-path runs/socs/stp4/phs \
+    --runsdir-path runs/socs/stp5/levin \
     --exp-name "" \
-    --problems-path problems/stp4/125000-train.pkl \
-    --valid-path problems/stp4/1000-valid.pkl \
+    --problems-path problems/stp5/225000-train.pkl \
+    --valid-path problems/stp5/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
-    --loss-fn traj_nll_mse_loss \
+    --loss-fn traj_nll_loss \
     --grad-steps 10 \
     \
     --num-kernels 32 \
@@ -66,7 +66,7 @@ python src/bilevin/main.py \
     --validate-every-epoch \
     \
     --time-budget 300 \
-    --train-expansion-budget 2000 \
+    --train-expansion-budget 7000 \
     \
     --min-batches-per-stage 1250 \
     --min-solve-ratio-stage 0.9 \

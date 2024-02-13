@@ -29,78 +29,33 @@ if [ "$1" = "d" ]; then
 elif [ "$1" = "4" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain stp \
-    --output-path  new_problems/stp4/ \
-    --seed 6258 \
-    --width  4 \
-    --n-problems-per-stage  1800 \
-    --randomize-curriculum-steps \
-    --stages-multiple  5 \
-    --n-problems-final-stage 10000 \
-    --n-stages  51 \
-    --n-valid  1000 \
-    --n-test 1000 \
-    --randomize-test-steps \
-    --test-steps  500
-elif [ "$1" = "4c" ]; then
-    python src/bilevin/domains/puzzle_generator.py \
-    --domain stp \
-    --output-path  new_problems/stp4c/ \
-    --seed 6258 \
-    --width  4 \
-    --n-problems-per-stage  5000 \
-    --randomize-curriculum-steps \
-    --stages-multiple  5 \
-    --n-problems-final-stage 10000 \
-    --n-stages  21 \
-    --n-valid  1000 \
-    --n-test 1000 \
-    --randomize-test-steps \
-    --test-steps  500
-elif [ "$1" = "4c2" ]; then
-    python src/bilevin/domains/puzzle_generator.py \
-    --domain stp \
-    --output-path  new_problems/stp4c2/ \
+    --output-path  problems/stp4/ \
     --seed 4238 \
     --width  4 \
     --n-problems-per-stage  10000 \
     --randomize-curriculum-steps \
     --stages-multiple  5 \
     --n-problems-final-stage 25000 \
-    --n-stages  6 \
+    --n-stages  11 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \
-    --test-steps  500
-elif [ "$1" = "5c2" ]; then
+    --test-steps  1000
+elif [ "$1" = "5" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain stp \
-    --output-path  new_problems/stp5c2/ \
-    --seed 2271 \
+    --output-path  problems/stp5/ \
+    --seed 1274 \
     --width  5 \
     --n-problems-per-stage  10000 \
     --randomize-curriculum-steps \
     --stages-multiple  5 \
     --n-problems-final-stage 25000 \
-    --n-stages  6 \
+    --n-stages  21 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \
-    --test-steps  500
-elif [ "$1" = "5" ]; then
-    python src/bilevin/domains/puzzle_generator.py \
-    --domain stp \
-    --output-path  new_problems/stp5/ \
-    --seed 126 \
-    --width  5 \
-    --n-problems-per-stage  1800 \
-    --randomize-curriculum-steps \
-    --stages-multiple  5 \
-    --n-problems-final-stage 10000 \
-    --n-stages  51 \
-    --n-valid  1000 \
-    --n-test 1000 \
-    --randomize-test-steps \
-    --test-steps  500
+    --test-steps  1000
 else
     usage
 fi

@@ -5,7 +5,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=6:00:00
 #SBATCH --array=1-10
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/stp4c2/astar/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/stp4/astar/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -34,10 +34,10 @@ python src/bilevin/main.py \
     --seed $seed \
     --weight-astar 2 \
     --weight-mse-loss 1 \
-    --runsdir-path runs/socs/stp4c2/astar \
+    --runsdir-path runs/socs/stp4/astar \
     --exp-name "" \
-    --problems-path new_problems/stp4c2/75000-train.pkl \
-    --valid-path new_problems/stp4c2/1000-valid.pkl \
+    --problems-path problems/stp4/125000-train.pkl \
+    --valid-path problems/stp4/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
