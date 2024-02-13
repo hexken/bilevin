@@ -18,6 +18,7 @@ class WitnessState(State):
     A Witness State.
     Note that start/head/goal row/col's refer to the grid, not cell locations
     Note that head_row and head_col are only consistent with grids/segs upon initialization if they're 0
+    # todo grid isn't necessary, can be inferred from v_segs, h_segs, and head_row/col
     """
 
     def __init__(

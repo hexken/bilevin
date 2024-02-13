@@ -41,39 +41,37 @@ def triangle_puzzle_from_path(
 
 
 def colors_puzzle_from_path(
-    rng, marker_prob, domain, state
+    rng, marker_prob, colors, domain, state
 ) -> None | list[tuple[int, int, int]]:
     regions = connected_components(domain, state)
 
-    min_num_regions = 2
-    if domain.width == 3:
-        min_num_regions = 2
-    if domain.width >= 4:
+    if domain.width == 4:
+        min_num_regions = 3
+    elif domain.width == 5:
         min_num_regions = 4
-    if domain.width == 10:
+    elif domain.width == 6:
         min_num_regions = 5
 
     if len(regions) < min_num_regions:
+        # todo heuristic to make sure there are enough regions, maybe avoid repeating actions
+        # print("Not enough regions")
         return None
 
     # fill regions with colors, only keep sufficiently non empty ones
-    colors = random.choices(range(1, domain.max_num_colors + 1), k=len(regions))
-    unique_colors_used = set()
+    colors = rng.permutation(colors)
     markers = []
-    non_unit_regions_unique_colors = 0
-    for region in regions:
-        region_arr = np.array(sorted(region))
-        region_mask = rng.random(len(region_arr)) < marker_prob
-        region_arr = region_arr[region_mask]
-        if len(region_arr):
-            color = colors.pop()
-            if len(region_arr) > 1 and color not in unique_colors_used:
-                non_unit_regions_unique_colors += 1
-            unique_colors_used.add(color)
-            markers.extend([(row, col, color) for row, col in region_arr])
+    for i, region in enumerate(regions):
+        color = colors[i % len(colors)]
+        region_indices = np.array(sorted(region))
+        marker_mask = rng.random(len(region_indices)) <= marker_prob
+        region_markers = region_indices[marker_mask]
+        if len(region_markers) > 0:
+            markers.extend([(row, col, color) for row, col in region_markers])
+        else:
+            # make sure at least one marker is placed
+            row, col = rng.choice(region_indices, axis=0)
+            markers.append((row, col, color))
 
-    if non_unit_regions_unique_colors < domain.width // 2:
-        return None
     return markers
 
 
@@ -91,6 +89,7 @@ def generate_problems(
     problems = []
     id = id_counter_start
     init_state = WitnessState(width=args.width, head_init_row=0, head_init_col=0)
+    colors = np.arange(1, 5)
 
     while len(problems) < n_problems:
         head_at_goal = False
@@ -121,15 +120,16 @@ def generate_problems(
             continue
 
         # heuristic to make sure the path is not too short
-        if (state.v_segs.sum() + state.h_segs.sum()) / state.grid.shape[
-            0
-        ] ** 2 < min_path_ratio:
+        if (state.v_segs.sum() + state.h_segs.sum()) / (
+            state.head_row + state.head_col
+        ) < min_path_ratio:
+            # print("Path too short")
             continue
 
         if args.puzzle == "triangles":
             markers = triangle_puzzle_from_path(rng, marker_prob, domain, state)
         elif args.puzzle == "colors":
-            markers = colors_puzzle_from_path(rng, marker_prob, domain, state)
+            markers = colors_puzzle_from_path(rng, marker_prob, colors, domain, state)
         else:
             raise ValueError(f"Unknown puzzle type {args.puzzle}")
 
@@ -239,14 +239,13 @@ def main():
         "--min-path-ratio-limits",
         type=float,
         nargs="+",
-        default=[0.4, 0.8],
+        default=[1.0, 1.5],
         help="path that generated problem must be >= this ratio of squared width",
     )
     parser.add_argument(
         "--test-min-path-ratio",
         type=float,
-        nargs="+",
-        default=0.8,
+        default=1.0,
         help="path that generated problem must be >= this ratio of squared width",
     )
     parser.add_argument(
