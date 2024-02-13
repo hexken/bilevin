@@ -3,8 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
-#SBATCH --time=0:15:00
-#SBATCH --array=1,6
+#SBATCH --time=6:00:00
+#SBATCH --array=1-10
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/stp4c2/levin/%j.out
 
 source $HOME/bilevin-env2/bin/activate
@@ -62,7 +62,7 @@ python src/bilevin/main.py \
     \
     --validate-every-n-stage 1 \
     --stage-begin-validate 5 \
-    --checkpoint-every-n-batch 200 \
+    --checkpoint-every-n-batch 300 \
     --validate-every-epoch \
     \
     --time-budget 300 \

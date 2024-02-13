@@ -27,19 +27,19 @@ if [ "$1" = "d" ]; then
     --test-min-path-ratio 0.8 \
     --n-valid  100 \
     --n-test  100
-elif [ "$1" = "4" ]; then
+elif [ "$1" = "4c2" ]; then
     python src/bilevin/domains/wit_puzzle_generator.py \
     --puzzle  "triangles" \
     --seed  1743 \
     --width  4 \
     --output-path  new_problems/tri4c2/ \
-    --n-stages 51 \
+    --n-stages 6 \
     --n-problems-per-stage 10000 \
-    --marker-prob-limits  0.3 0.59 \
-    --min-path-ratio-limits 0.4 0.79 \
-    --n-problems-final-stage 10000 \
+    --marker-prob-limits  0.2 0.35 \
+    --min-path-ratio-limits 1.0 1.5 \
+    --n-problems-final-stage 25000 \
     --test-marker-prob 0.6 \
-    --test-min-path-ratio 0.8 \
+    --test-min-path-ratio 1.25 \
     --n-valid  1000 \
     --n-test  1000
 elif [ $1 = "5" ]; then
