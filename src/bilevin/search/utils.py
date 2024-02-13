@@ -66,7 +66,7 @@ def print_search_summary(
 ):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
-        solved_df = search_df.dropna()
+        solved_df = search_df[search_df["len"].notna()]
         solved = len(solved_df) / len(search_df)
         time = solved_df["time"].mean()
         if bidirectional:
