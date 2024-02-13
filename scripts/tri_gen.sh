@@ -32,9 +32,9 @@ elif [ "$1" = "4" ]; then
     --puzzle  "triangles" \
     --seed  1743 \
     --width  4 \
-    --output-path  problems/tri4/ \
+    --output-path  new_problems/tri4c2/ \
     --n-stages 51 \
-    --n-problems-per-stage 1800 \
+    --n-problems-per-stage 10000 \
     --marker-prob-limits  0.3 0.59 \
     --min-path-ratio-limits 0.4 0.79 \
     --n-problems-final-stage 10000 \

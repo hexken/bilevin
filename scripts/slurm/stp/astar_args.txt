@@ -1,0 +1,10 @@
+1 AStar
+2 AStar
+3 AStar
+4 AStar
+5 AStar
+1 BiAStarAlt
+2 BiAStarAlt
+3 BiAStarAlt
+4 BiAStarAlt
+5 BiAStarAlt

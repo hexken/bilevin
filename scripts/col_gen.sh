@@ -31,11 +31,11 @@ elif [ "$1" = "4" ]; then
     --puzzle  "colors" \
     --seed  2723 \
     --width  4 \
-    --output-path  new_problems/col4/ \
+    --output-path  new_problems/col4c2/ \
     --n-stages 51 \
-    --n-problems-per-stage 1800 \
-    --marker-prob-limits  0.3 0.59 \
-    --min-path-ratio-limits 0.4 0.79 \
+    --n-problems-per-stage 10000 \
+    --marker-prob-limits  0.2 0.35 \
+    --min-path-ratio-limits 0.3 0.5 \
     --n-problems-final-stage 10000 \
     --test-marker-prob 0.6 \
     --test-min-path-ratio 0.8 \

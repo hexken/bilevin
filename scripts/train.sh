@@ -12,10 +12,11 @@ python src/bilevin/main.py \
     --seed 1 \
     --world-size 4 \
     --mode train \
-    --agent PHS \
+    --agent BiAStarAlt \
     --weight-astar 2.5 \
-    --loss-fn levin_avg_mse_loss \
-    --max-grad-norm 2.0 \
+    --weight-mse-loss 0.1 \
+    --loss-fn mse_loss \
+    --max-grad-norm 1.0 \
     --optimizer Adam \
     --grad-steps 10 \
     \
@@ -45,12 +46,12 @@ python src/bilevin/main.py \
     --checkpoint-every-n-batch 100 \
     \
     --time-budget 300 \
-    --train-expansion-budget 2000 \
+    --train-expansion-budget 10 \
     \
-    --min-batches-per-stage 800 \
+    --min-batches-per-stage 50 \
     --min-solve-ratio-stage 0.9 \
     --min-solve-ratio-exp 0 \
     --n-final-stage-epochs 5 \
     \
-    --n-batch-tail 100 \
+    --n-batch-tail 25 \
     \
