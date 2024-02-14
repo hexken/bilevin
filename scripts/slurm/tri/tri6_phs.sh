@@ -5,7 +5,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=8:00:00
 #SBATCH --array=1-10
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/col4/phs/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/tri6/phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -33,10 +33,10 @@ python src/bilevin/main.py \
     --agent $agent \
     --seed $seed \
     --weight-mse-loss 0.1 \
-    --runsdir-path runs/socs/col4/phs \
+    --runsdir-path runs/socs/tri6/phs \
     --exp-name "" \
-    --problems-path problems/col4/125000-train.pkl \
-    --valid-path problems/col4/1000-valid.pkl \
+    --problems-path problems/tri6/125000-train.pkl \
+    --valid-path problems/tri6/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
