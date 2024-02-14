@@ -11,8 +11,6 @@ from domains.puzzle_generator import save_problemset
 from domains.witness import Witness, WitnessState
 from search.utils import Problem
 
-# todo allow randomized start location?
-
 
 def get_n_adj(state, row, col):
     return int(
@@ -64,12 +62,18 @@ def colors_puzzle_from_path(
     elif domain.width == 6:
         min_num_regions = 5
 
+    # todo heuristic to make sure there are enough regions, maybe avoid repeating actions
     if len(regions) < min_num_regions:
-        # todo heuristic to make sure there are enough regions, maybe avoid repeating actions
         # print("Not enough regions")
         return None
 
-    # fill regions with colors, only keep sufficiently non empty ones
+    n_unit_regions = 0
+    for region in regions:
+        if len(region) == 1:
+            n_unit_regions += 1
+        if n_unit_regions > 1:
+            return None
+
     colors = rng.permutation(colors)
     markers = []
     for i, region in enumerate(regions):
@@ -105,7 +109,7 @@ def generate_problems(
 
     while len(problems) < n_problems:
         head_at_goal = False
-        goal = random.choice(goal_choices)
+        goal = rng.choice(goal_choices)
         domain = Witness(
             puzzle=args.puzzle,
             initial_state=init_state,
@@ -131,11 +135,11 @@ def generate_problems(
         if not head_at_goal:
             continue
 
-        # heuristic to make sure the path is not too short
-        if (state.v_segs.sum() + state.h_segs.sum()) / (
-            state.head_row + state.head_col
-        ) < min_path_ratio:
-            # print("Path too short")
+        # puzzle independent heuristics to make sure the path is not too short
+        path_len = state.v_segs.sum() + state.h_segs.sum()
+        if path_len < 4:
+            continue
+        elif path_len < min_path_ratio * args.width:
             continue
 
         if args.puzzle == "triangles":
@@ -148,7 +152,7 @@ def generate_problems(
         if markers is None:
             continue
 
-        hshable = (goal, tuple(markers))
+        hshable = (tuple(goal), tuple(markers))
         if hshable in exclude_problemsepcs:
             continue
         else:
@@ -251,14 +255,14 @@ def main():
         "--min-path-ratio-limits",
         type=float,
         nargs="+",
-        default=[1.0, 1.5],
-        help="path that generated problem must be >= this ratio of squared width",
+        default=[1.0, 3.0],
+        help="path that generated problem must be >= this ratio of width",
     )
     parser.add_argument(
         "--test-min-path-ratio",
         type=float,
-        default=1.0,
-        help="path that generated problem must be >= this ratio of squared width",
+        default=2.0,
+        help="path that generated problem must be >= this ratio of width",
     )
     parser.add_argument(
         "--n-stages",
@@ -280,19 +284,15 @@ def main():
     random.seed(args.seed)
     rng = np.random.default_rng(args.seed)
 
-    goals_dups = (
-        [(0, i) for i in range(args.width + 1)]
-        + [(i, 0) for i in range(args.width + 1)]
-        + [(args.width, i) for i in range(args.width + 1)]
-        + [(i, args.width) for i in range(args.width + 1)]
-    )
-    goals = set()
-    for goal in goals_dups:
-        goals.add(goal)
-    goals.remove((0, 0))
-    goals = list(goals)
+    border = set()
+    for row, col in product((0, args.width), range(args.width + 1)):
+        border.add((row, col))
+    for row, col in product(range(args.width + 1), (0, args.width)):
+        border.add((row, col))
 
-    problem_specs = set()
+    start = (0, 0)  # todo allow random start location?
+    border.remove(start)
+    goals = list(sorted(border))
 
     dummy_init_state = WitnessState(width=args.width, head_init_row=0, head_init_col=0)
     dummy_domain = Witness(
@@ -341,6 +341,7 @@ def main():
     print(f" min path ratios: {min_path_ratios.tolist()}")
     print(f"  {n_problems_final_stage} problems for final stage.")
 
+    problem_specs = set()
     with tqdm.tqdm(total=total_num_curriculum_problems) as pbar:
         pbar.set_description("Curriculum problems")
         for i in range(len(marker_probs)):

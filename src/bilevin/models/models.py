@@ -71,7 +71,6 @@ class SuperModel(nn.Module):
             update_common_params(args, params)
             learnable_params.append(params)
 
-            # todo is it okay to pass shared feature params to optimizer twice?
             if self.is_bidirectional:
                 if self.share_feature_net:
                     self.backward_feature_net: nn.Module = self.forward_feature_net
