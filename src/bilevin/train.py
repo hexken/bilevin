@@ -1,15 +1,16 @@
 from argparse import Namespace
-from pathlib import Path
 import pickle
 import sys
 from timeit import default_timer as timer
+import tracemalloc
 
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
+from test import test
 import torch as to
-from torch.nn.utils import clip_grad_norm_ as clip_
 import torch.distributed as dist
+from torch.nn.utils import clip_grad_norm_ as clip_
 
 from loaders import ProblemLoader
 from models.models import SuperModel
@@ -20,7 +21,7 @@ from search.utils import (
     print_search_summary,
     search_result_header,
 )
-from test import test
+from utils import display_top
 
 
 def train(
@@ -30,6 +31,7 @@ def train(
     train_loader: ProblemLoader,
     valid_loader: ProblemLoader,
 ):
+    # tracemalloc.start()
     batch_size: int = args.world_size
     expansion_budget: int = args.train_expansion_budget
     min_batches_per_stage: int = args.min_batches_per_stage
@@ -209,10 +211,6 @@ def train(
         end_time = timer()
         sol_len = np.nan if not traj else len(traj[0])
 
-        # to clear the domain cache
-        if bidirectional:
-            problem.domain.reset()
-
         local_search_results[:] = np.nan
         local_search_results[0] = problem.id
         local_search_results[1] = end_time - start_time
@@ -376,6 +374,9 @@ def train(
         stage_batches_seen += 1
         stage_batches_this_budget += 1
 
+        # if stage_batches_seen % 100 == 0:
+        #     snapshot = tracemalloc.take_snapshot()
+        #     display_top(snapshot)
         # Stage completion checks
         solve_ratio = None
         if stage_batches_seen >= min_batches_per_stage:

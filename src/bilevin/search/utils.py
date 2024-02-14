@@ -1,11 +1,13 @@
 from __future__ import annotations
+from copy import deepcopy
 import random
+from typing import TYPE_CHECKING
 import warnings
 
 import numpy as np
 import pandas as pd
 import torch as to
-from typing import TYPE_CHECKING
+
 
 if TYPE_CHECKING:
     from domains.domain import Domain
@@ -14,13 +16,17 @@ if TYPE_CHECKING:
 class Problem:
     def __init__(self, id: int, domain: Domain):
         self.id: int = id
-        self.domain: Domain = domain
+        self._domain: Domain = domain
 
     def __hash__(self):
         return self.id.__hash__()
 
     def __eq__(self, other):
         return self.id == other.id
+
+    @property
+    def domain(self):
+        return deepcopy(self._domain)
 
 
 search_result_header = [

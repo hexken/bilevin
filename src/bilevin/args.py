@@ -40,6 +40,14 @@ def parse_args():
         default=1,
         help="number of epochs to train on final curriculum stage",
     )
+    # parser.add_argument(
+    #     "--all-final-stage",
+    #     const=True,
+    #     nargs="?",
+    #     type=strtobool,
+    #     default=False,
+    #     help="disregard min-batches-per-stage and train on all batches in final stage",
+    # )
     parser.add_argument(
         "--min-solve-ratio-stage",
         type=float,
