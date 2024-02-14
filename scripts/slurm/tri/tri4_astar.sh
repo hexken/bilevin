@@ -5,7 +5,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=8:00:00
 #SBATCH --array=1-10
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/tri4/phs/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/tri4/astar/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -20,7 +20,7 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/slurm/stp/phs_args.txt
+argfile=/scratch/tjhia/bilevin/scripts/slurm/stp/astar_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
@@ -32,15 +32,16 @@ lr=0.0001
 python src/bilevin/main.py \
     --agent $agent \
     --seed $seed \
-    --weight-mse-loss 0.1 \
-    --runsdir-path runs/socs/tri4/phs \
+    --weight-astar 2 \
+    --weight-mse-loss 1 \
+    --runsdir-path runs/socs/tri4/astar \
     --exp-name "" \
     --problems-path problems/tri4/125000-train.pkl \
     --valid-path problems/tri4/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
-    --loss-fn traj_nll_mse_loss \
+    --loss-fn mse_loss \
     --grad-steps 10 \
     \
     --num-kernels 32 \
