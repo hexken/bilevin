@@ -35,6 +35,7 @@ class Domain(ABC):
         pass
 
     def _reset(self) -> State:
+        del self.aux_closed
         self.aux_closed = {}
         return self.initial_state
 

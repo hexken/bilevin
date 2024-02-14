@@ -40,9 +40,12 @@ def triangle_puzzle_from_path(
             else:
                 unused_path_adjacent_indices.append((row, col))
 
-    # make sure at least width // 2 markers present
-    if len(markers) < domain.width // 2:
-        n = domain.width // 2 - len(markers)
+    # if len(markers) < domain.width // 2:
+    #     n = domain.width // 2 - len(markers)
+
+    # make sure at least one marker is placed
+    if len(markers) < 1:
+        n = 1
         for row, col in rng.choice(unused_path_adjacent_indices, size=n, replace=False):
             n_adj = get_n_adj(state, row, col)
             markers.append((row, col, n_adj))
@@ -56,11 +59,11 @@ def colors_puzzle_from_path(
     regions = connected_components(domain, state)
 
     if domain.width == 4:
-        min_num_regions = 3
+        min_num_regions = 2
     elif domain.width == 5:
-        min_num_regions = 4
+        min_num_regions = 3
     elif domain.width == 6:
-        min_num_regions = 5
+        min_num_regions = 4
 
     # todo heuristic to make sure there are enough regions, maybe avoid repeating actions
     if len(regions) < min_num_regions:
@@ -137,9 +140,11 @@ def generate_problems(
 
         # puzzle independent heuristics to make sure the path is not too short
         path_len = state.v_segs.sum() + state.h_segs.sum()
-        if path_len < 4:
-            continue
-        elif path_len < min_path_ratio * args.width:
+        # if path_len < 4:
+        #     continue
+        # elif path_len < min_path_ratio * args.width:
+        #     continue
+        if path_len < min_path_ratio * args.width:
             continue
 
         if args.puzzle == "triangles":
