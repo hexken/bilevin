@@ -2,7 +2,7 @@
 #SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --mem=4G
+#SBATCH --mem=6G
 #SBATCH --time=8:00:00
 #SBATCH --array=1-10
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/tri5/astar/%j.out
