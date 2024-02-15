@@ -40,19 +40,17 @@ def parse_args():
         default=1,
         help="number of epochs to train on final curriculum stage",
     )
-    # parser.add_argument(
-    #     "--all-final-stage",
-    #     const=True,
-    #     nargs="?",
-    #     type=strtobool,
-    #     default=False,
-    #     help="disregard min-batches-per-stage and train on all batches in final stage",
-    # )
     parser.add_argument(
         "--min-solve-ratio-stage",
         type=float,
         default=0,
         help="advance curriculum if the last n-tail-batch batches has at least this solve ratio and at least min-batches-per-stage batches have been attempted",
+    )
+    parser.add_argument(
+        "--min-solve-ratio-final-stage",
+        type=float,
+        default=0,
+        help="terminate final stage 'epoch' if the last n-tail-batch batches has at least this solve ratio and at least min-batches-per-stage batches have been attempted",
     )
     parser.add_argument(
         "--min-solve-ratio-exp",
@@ -71,6 +69,24 @@ def parse_args():
         type=int,
         default=-1,
         help="minimum number of batches to attempt for each curriculum stage. Set to 0 for no minimum. Set to -1 to use the number of batches in the stage.",
+    )
+    parser.add_argument(
+        "--max-batches-per-stage",
+        type=int,
+        default=-1,
+        help="maximum number of batches to attempt for each curriculum stage. Set to 0 for no max. Set to -1 to use the number of batches in the stage.",
+    )
+    parser.add_argument(
+        "--min-batches-final-stage",
+        type=int,
+        default=-1,
+        help="minimum number of batches to attempt for final stage. Set to 0 for no minimum. Set to -1 to use the number of batches in the stage.",
+    )
+    parser.add_argument(
+        "--max-batches-final-stage",
+        type=int,
+        default=-1,
+        help="maximum number of batches to attempt for final stage. Set to 0 for no max. Set to -1 to use the number of batches in the stage.",
     )
     parser.add_argument(
         "--checkpoint-path",

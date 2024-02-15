@@ -33,20 +33,29 @@ def train(
 ):
     # tracemalloc.start()
     batch_size: int = args.world_size
+
     expansion_budget: int = args.train_expansion_budget
-    min_batches_per_stage: int = args.min_batches_per_stage
-    min_solve_ratio_stage: float = args.min_solve_ratio_stage
-    min_solve_ratio_exp: float = args.min_solve_ratio_exp
-    n_batch_tail: int = args.n_batch_tail
     max_expansion_budget: int = args.max_expansion_budget
-    reduce_lr = False
+
+    min_batches_per_stage: int = args.min_batches_per_stage
+    max_batches_per_stage: int = args.max_batches_per_stage
+    min_batches_final_stage: int = args.min_batches_final_stage
+    max_batches_final_stage: int = args.max_batches_final_stage
+    n_batch_tail: int = args.n_batch_tail
+
+    min_solve_ratio_stage: float = args.min_solve_ratio_stage
+    min_solve_ratio_final_stage: float = args.min_solve_ratio_final_stage
+    min_solve_ratio_exp: float = args.min_solve_ratio_exp
 
     batch_begin_validate: int = args.batch_begin_validate
-    stage_begin_validate: int = args.stage_begin_validate
     validate_every_n_batch: int = args.validate_every_n_batch
+    stage_begin_validate: int = args.stage_begin_validate
     validate_every_n_stage: bool = args.validate_every_n_stage
     validate_every_epoch: bool = args.validate_every_epoch
+
     checkpoint_every_n_batch: int = args.checkpoint_every_n_batch
+
+    reduce_lr = False
 
     best_models_log = args.logdir / "best_models.txt"
     if rank == 0:
@@ -124,6 +133,9 @@ def train(
             baccs = chkpt_dict["baccs"]
             batches = chkpt_dict["batches"]
             min_batches_per_stage = chkpt_dict["min_batches_per_stage"]
+            max_batches_per_stage = chkpt_dict["max_batches_per_stage"]
+            min_batches_final_stage = chkpt_dict["min_batches_final_stage"]
+            max_batches_final_stage = chkpt_dict["max_batches_final_stage"]
 
             expansion_budget = chkpt_dict["current_exp_budget"]
             best_valid_expanded = chkpt_dict["best_valid_expanded"]
@@ -163,6 +175,14 @@ def train(
 
             if min_batches_per_stage == -1:
                 min_batches_per_stage = len(train_loader.stage_problems)
+            if max_batches_per_stage == -1:
+                max_batches_per_stage = len(train_loader.stage_problems)
+
+            if min_batches_final_stage == -1:
+                min_batches_final_stage = len(train_loader.stage_problems)
+            if max_batches_final_stage == -1:
+                max_batches_final_stage = len(train_loader.stage_problems)
+
             if n_batch_tail == -1:
                 n_batch_tail = len(train_loader.stage_problems)
 
@@ -377,18 +397,40 @@ def train(
         # if stage_batches_seen % 100 == 0:
         #     snapshot = tracemalloc.take_snapshot()
         #     display_top(snapshot)
+
         # Stage completion checks
         solve_ratio = None
-        if stage_batches_seen >= min_batches_per_stage:
-            if min_solve_ratio_stage > 0:
-                # don't care about solve ratio if we're at the last stage?
-                if train_loader.stage == train_loader.n_stages:
+        if train_loader.stage < train_loader.n_stages:
+            if stage_batches_seen >= min_batches_per_stage:
+                if min_solve_ratio_stage > 0:
+                    if len(batch_solve_ratios) >= n_batch_tail:
+                        solve_ratio = (
+                            sum(batch_solve_ratios[-n_batch_tail:]) / n_batch_tail
+                        )
+                        if solve_ratio >= min_solve_ratio_stage:
+                            train_loader.stage_complete = True
+                else:
                     train_loader.stage_complete = True
-                elif len(batch_solve_ratios) >= n_batch_tail:
-                    solve_ratio = np.array(batch_solve_ratios[-n_batch_tail:]).mean()
-                    if solve_ratio >= min_solve_ratio_stage:
-                        train_loader.stage_complete = True
-            else:
+            if (
+                stage_batches_seen >= max_batches_per_stage
+                and max_batches_per_stage > 0
+            ):
+                train_loader.stage_complete = True
+        else:  # final stage
+            if stage_batches_seen >= min_batches_final_stage:
+                if min_solve_ratio_final_stage > 0:
+                    if len(batch_solve_ratios) >= n_batch_tail:
+                        solve_ratio = (
+                            sum(batch_solve_ratios[-n_batch_tail:]) / n_batch_tail
+                        )
+                        if solve_ratio >= min_solve_ratio_final_stage:
+                            train_loader.stage_complete = True
+                else:
+                    train_loader.stage_complete = True
+            if (
+                stage_batches_seen >= max_batches_final_stage
+                and max_batches_final_stage > 0
+            ):
                 train_loader.stage_complete = True
 
         # Increase expansion budget checks
@@ -399,9 +441,7 @@ def train(
             and stage_batches_this_budget >= n_batch_tail
         ):
             if solve_ratio is None:
-                solve_ratio = (
-                    ~np.isnan(np.array(batch_solve_ratios[-n_batch_tail:]))
-                ).mean()
+                solve_ratio = sum(batch_solve_ratios[-n_batch_tail:]) / n_batch_tail
             if solve_ratio < min_solve_ratio_exp:
                 old_budget = expansion_budget
                 expansion_budget *= 2
@@ -621,6 +661,9 @@ def train(
                     "batch_solve_ratios": batch_solve_ratios,
                     "stage_batches_this_budget": stage_batches_this_budget,
                     "min_batches_per_stage": min_batches_per_stage,
+                    "max_batches_per_stage": max_batches_per_stage,
+                    "min_batches_final_stage": min_batches_final_stage,
+                    "max_batches_final_stage": max_batches_final_stage,
                     "final_stage_epoch": final_stage_epoch,
                     "batches_seen": batches_seen,
                     "loader_states": loader_states,
