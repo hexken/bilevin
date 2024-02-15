@@ -2,9 +2,9 @@
 #SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --mem=4G
-#SBATCH --time=8:00:00
-#SBATCH --array=1-10
+#SBATCH --mem=8G
+#SBATCH --time=20:00:00
+#SBATCH --array=6-10
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/stp5/astar/%j.out
 
 source $HOME/bilevin-env2/bin/activate
@@ -36,7 +36,7 @@ python src/bilevin/main.py \
     --weight-mse-loss 1 \
     --runsdir-path runs/socs/stp5/astar \
     --exp-name "" \
-    --problems-path problems/stp5/225000-train.pkl \
+    --problems-path problems/stp5/550000-train.pkl \
     --valid-path problems/stp5/1000-valid.pkl \
     --world-size 4 \
     --mode train \
@@ -61,18 +61,19 @@ python src/bilevin/main.py \
     --backward-heuristic-layers 256 198 128 \
     --backward-heuristic-lr $lr \
     \
-    --validate-every-n-stage 10 \
-    --stage-begin-validate 5 \
-    --checkpoint-every-n-batch 300 \
+    --validate-every-n-stage 5 \
     --validate-every-epoch \
+    --checkpoint-every-n-batch 300 \
     \
     --time-budget 300 \
     --train-expansion-budget 7000 \
     \
     --min-batches-per-stage 1250 \
+    --max-batches-per-stage 2500 \
+    --min-batches-final-stage 1250 \
     --min-solve-ratio-stage 0.9 \
     --min-solve-ratio-exp 0 \
-    --n-final-stage-epochs 20 \
+    --n-final-stage-epochs 25 \
     \
     --n-batch-tail 100 \
     \
