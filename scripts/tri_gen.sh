@@ -17,14 +17,14 @@ if [ "$1" = "d" ]; then
     --puzzle  "triangles" \
     --seed  1743 \
     --width  4 \
-    --output-path  problems/tri4d/ \
-    --n-stages 26 \
+    --output-path  problems2/tri4d/ \
+    --n-stages 11 \
     --n-problems-per-stage 100 \
-    --marker-prob-limits  0.3 0.59 \
-    --min-path-ratio-limits 0.4 0.79 \
-    --n-problems-final-stage 2500 \
+    --marker-prob-limits  0.1 0.5 \
+    --min-path-ratio-limits 0.0 2.0 \
+    --n-problems-final-stage 250 \
     --test-marker-prob 0.6 \
-    --test-min-path-ratio 0.8 \
+    --test-min-path-ratio 2.0 \
     --n-valid  100 \
     --n-test  100
 elif [ "$1" = "4" ]; then
@@ -34,10 +34,10 @@ elif [ "$1" = "4" ]; then
     --width  4 \
     --output-path  problems/tri4/ \
     --n-stages 11 \
-    --n-problems-per-stage 10000 \
-    --marker-prob-limits  0.2 0.5 \
-    --min-path-ratio-limits 1.0 2.0 \
-    --n-problems-final-stage 25000 \
+    --n-problems-per-stage 25000 \
+    --marker-prob-limits  0.1 0.5 \
+    --min-path-ratio-limits 0.0 2.0 \
+    --n-problems-final-stage 50000 \
     --test-marker-prob 0.6 \
     --test-min-path-ratio 2.0 \
     --n-valid  1000 \
@@ -49,10 +49,10 @@ elif [ "$1" = "5" ]; then
     --width  5 \
     --output-path  problems/tri5/ \
     --n-stages 11 \
-    --n-problems-per-stage 10000 \
-    --marker-prob-limits  0.2 0.5 \
-    --min-path-ratio-limits 1.0 2.0 \
-    --n-problems-final-stage 25000 \
+    --n-problems-per-stage 25000 \
+    --marker-prob-limits  0.1 0.5 \
+    --min-path-ratio-limits 0.0 2.0 \
+    --n-problems-final-stage 50000 \
     --test-marker-prob 0.6 \
     --test-min-path-ratio 2.0 \
     --n-valid  1000 \
@@ -64,10 +64,10 @@ elif [ "$1" = "6" ]; then
     --width  6 \
     --output-path  problems/tri6/ \
     --n-stages 11 \
-    --n-problems-per-stage 10000 \
-    --marker-prob-limits  0.2 0.5 \
-    --min-path-ratio-limits 1.0 2.0 \
-    --n-problems-final-stage 25000 \
+    --n-problems-per-stage 25000 \
+    --marker-prob-limits  0.1 0.5 \
+    --min-path-ratio-limits 0.0 2.0 \
+    --n-problems-final-stage 50000 \
     --test-marker-prob 0.6 \
     --test-min-path-ratio 2.0 \
     --n-valid  1000 \

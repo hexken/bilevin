@@ -32,10 +32,10 @@ elif [ "$1" = "4" ]; then
     --output-path  problems/stp4/ \
     --seed 4238 \
     --width  4 \
-    --n-problems-per-stage  10000 \
+    --n-problems-per-stage  25000 \
     --randomize-curriculum-steps \
     --stages-multiple  5 \
-    --n-problems-final-stage 25000 \
+    --n-problems-final-stage 50000 \
     --n-stages  11 \
     --n-valid  1000 \
     --n-test 1000 \
@@ -47,10 +47,10 @@ elif [ "$1" = "5" ]; then
     --output-path  problems/stp5/ \
     --seed 1274 \
     --width  5 \
-    --n-problems-per-stage  10000 \
+    --n-problems-per-stage  25000 \
     --randomize-curriculum-steps \
     --stages-multiple  5 \
-    --n-problems-final-stage 25000 \
+    --n-problems-final-stage 50000 \
     --n-stages  21 \
     --n-valid  1000 \
     --n-test 1000 \

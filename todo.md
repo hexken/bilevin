@@ -1,9 +1,4 @@
-- should we prioritize backward model when costs are equal? as we are now?
-- Maybe we should actually use expanding a common state as the stopping condition, and report the
-  plp of this expanded state, instead of using a common generates state. This is more in-line with
-  the analysis, though maybe we can do analysis using the generated also?
-- regen pancake and cube3, test cc params
-
+# exp params
 - stp4c
 - astar - lr 0.001 w2.5/3
 - biastar - they all suck, choose one with good loss?
@@ -26,12 +21,10 @@ tri4
 - astar w2.5
 - biastar alt, w2.5. bfs sucks
 
-- allow continuing for more epochs
-- try separate feature net (again)
 - try path "contractions"
 - grad steps for each traj?
 
+# todo
 
-- verticla line when curr ends
-
-- memory leak?
+- lots of ooms, especially for wit envs
+- phs optimizer problem sharing feature net?
