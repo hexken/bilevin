@@ -79,15 +79,7 @@ class BiDirBFS(Agent):
                     None,
                 )
 
-            if f_open[0] < b_open[0]:
-                direction = SearchDir.FORWARD
-                _goal_feats = None
-                _domain = f_domain
-                _open = f_open
-                _closed = f_closed
-                other_domain = b_domain
-                n_forw_expanded += 1
-            else:
+            if b_open[0] < f_open[0]:
                 direction = SearchDir.BACKWARD
                 _domain = b_domain
                 _goal_feats = b_goal_feats
@@ -95,6 +87,14 @@ class BiDirBFS(Agent):
                 _closed = b_closed
                 other_domain = f_domain
                 n_backw_expanded += 1
+            else:
+                direction = SearchDir.FORWARD
+                _goal_feats = None
+                _domain = f_domain
+                _open = f_open
+                _closed = f_closed
+                other_domain = b_domain
+                n_forw_expanded += 1
 
             node = heapq.heappop(_open)
             n_total_expanded += 1
