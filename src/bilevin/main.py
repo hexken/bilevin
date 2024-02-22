@@ -94,7 +94,7 @@ def run(
     )
     # alloc, g1, g2 = gc.get_threshold()
     # print(f"GC threshold: {alloc}, {g1}, {g2}")
-    # gc.set_threshold(50_000, g1 * 2, g2 * 2)
+    # gc.set_threshold(50_000, 10, 10)
 
     if args.mode == "train":
         valid_loader = ProblemLoader(

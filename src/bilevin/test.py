@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path
 import pickle
 from timeit import default_timer as timer
@@ -10,8 +11,8 @@ import torch as to
 import torch.distributed as dist
 
 from loaders import ProblemLoader
-from search.agent import Agent
 from models.models import SuperModel
+from search.agent import Agent
 from search.utils import print_search_summary
 from search.utils import int_columns, search_result_header
 
@@ -58,7 +59,7 @@ def test(
         for i, problem in enumerate(local_problems):
             if local_solved_problems[i]:
                 continue
-
+            problem = deepcopy(problem)
             start_time = timer()
             (
                 n_forw_expanded,

@@ -31,7 +31,7 @@ def train(
     train_loader: ProblemLoader,
     valid_loader: ProblemLoader,
 ):
-    tracemalloc.start()
+    # tracemalloc.start()
     batch_size: int = args.world_size
 
     expansion_budget: int = args.train_expansion_budget
@@ -396,9 +396,9 @@ def train(
         stage_batches_seen += 1
         stage_batches_this_budget += 1
 
-        if batches_seen % 5 == 0:
-            if rank == 0:
-                display_top(tracemalloc.take_snapshot(), limit=25)
+        # if batches_seen % 5 == 0:
+        #     if rank == 0:
+        #         display_top(tracemalloc.take_snapshot(), limit=25)
 
         # Stage completion checks
         solve_ratio = None
