@@ -43,7 +43,7 @@ def generate_step_problems(
             steps = rng.integers(min_steps, max_steps + 1)
         else:
             steps = max_steps
-        state = init_domain.reset()
+        state = init_domain.init()
         avail_actions, _ = init_domain.actions_unpruned(state)
         action = rng.choice(avail_actions)
         state = init_domain.result(state, action)
