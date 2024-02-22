@@ -44,11 +44,11 @@ class PancakePuzzle(Domain):
         self.goal_state: PancakePuzzleState
         self.goal_state_t: to.Tensor
 
-    def reset(self) -> State:
+    def init(self) -> State:
         if self.forward:
             self.goal_state = get_goal_state(self.num_pancakes)
             self.goal_state_t = self.state_tensor(self.goal_state)
-        return self._reset()
+        return self._init()
 
     @property
     def state_t_width(self) -> int:

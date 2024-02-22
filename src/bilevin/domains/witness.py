@@ -74,7 +74,7 @@ class Witness(Domain):
         self.goal_col = goal_col
         self.markers = markers
 
-    def reset(self) -> State:
+    def init(self) -> State:
         self.goal_state_t = None
         if self.puzzle == "triangles":
             self.max_num_colors = 3  # blue, red, green
@@ -112,7 +112,7 @@ class Witness(Domain):
         else:
             raise ValueError("Invalid puzzle type")
 
-        return self._reset()
+        return self._init()
 
     def update(self, node: SearchNode):
         state: WitnessState = node.state

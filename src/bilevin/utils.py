@@ -3,6 +3,7 @@ import socket
 import tracemalloc
 
 
+
 def display_top(snapshot, key_type="lineno", limit=25):
     """
     from https://docs.python.org/3/library/tracemalloc.html

@@ -8,7 +8,7 @@ import torch as to
 from enums import SearchDir
 from search.agent import Agent
 from search.traj import from_goal_node
-from search.utils import Problem
+from search.problem import Problem
 
 
 class UniDir(Agent):
@@ -31,7 +31,7 @@ class UniDir(Agent):
         problem_id = problem.id
         domain = problem.domain
 
-        state = domain.reset()
+        state = domain.init()
         state_t = domain.state_tensor(state).unsqueeze(0)
         actions, mask = domain.actions_unpruned(state)
         node = self.make_start_node(

@@ -104,7 +104,7 @@ def generate_problems(
             markers=[],
         )
         # generate a path from start to goal
-        state: WitnessState = domain.reset()
+        state: WitnessState = domain.init()
         while True:
             actions, _ = domain.actions_unpruned(state)
             if not actions:

@@ -87,12 +87,12 @@ class Cube3(Domain):
         self.goal_state: Cube3State
         self.goal_state_t: to.Tensor
 
-    def reset(self) -> State:
+    def init(self) -> State:
         self._actions_list = [i for i in range(self.num_actions)]
         if self.forward:
             self.goal_state = get_goal_state()
             self.goal_state_t = self.state_tensor(self.goal_state)
-        return self._reset()
+        return self._init()
 
     @property
     def state_t_width(self) -> int:

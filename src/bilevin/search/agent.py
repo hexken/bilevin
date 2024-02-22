@@ -10,7 +10,7 @@ from domains.domain import State
 from enums import SearchDir
 from models.models import SuperModel
 from search.node import SearchNode
-from search.utils import Problem
+from search.problem import Problem
 
 if TYPE_CHECKING:
     from search.traj import Trajectory

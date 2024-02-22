@@ -8,11 +8,11 @@ import tqdm
 
 from domains.cube3 import Cube3
 from domains.cube3 import get_goal_state as cube3ggs
-from domains.stp import SlidingTilePuzzle
-from domains.stp import get_goal_state as stpggs
 from domains.pancake import PancakePuzzle
 from domains.pancake import get_goal_state as pancakeggs
-from search.utils import Problem
+from domains.stp import SlidingTilePuzzle
+from domains.stp import get_goal_state as stpggs
+from search.problem import Problem
 
 
 def save_problemset(pth, problemset_dict, suffix):

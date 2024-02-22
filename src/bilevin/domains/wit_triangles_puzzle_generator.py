@@ -116,7 +116,7 @@ def main():
                 **problem,
             )
             # generate a path from start to goal
-            state = wit.reset()
+            state = wit.init()
             assert isinstance(state, WitnessState)
             while True:
                 actions, _ = wit.actions_unpruned(state)

@@ -31,10 +31,10 @@ class Domain(ABC):
         self.goal_state_t: Optional[Tensor] = None
 
     @abstractmethod
-    def reset(self) -> State:
+    def init(self) -> State:
         pass
 
-    def _reset(self) -> State:
+    def _init(self) -> State:
         del self.aux_closed
         self.aux_closed = {}
         return self.initial_state

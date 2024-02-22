@@ -4,9 +4,9 @@ from timeit import default_timer as timer
 
 import torch as to
 
+from search.problem import Problem
 from enums import SearchDir
 from search.agent import Agent
-from search.utils import Problem
 
 
 class BiDirAlt(Agent):
@@ -28,7 +28,7 @@ class BiDirAlt(Agent):
 
         problem_id = problem.id
         f_domain = problem.domain
-        f_state = f_domain.reset()
+        f_state = f_domain.init()
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
         f_actions, f_mask = f_domain.actions_unpruned(f_state)
         f_start_node = self.make_start_node(
@@ -47,7 +47,7 @@ class BiDirAlt(Agent):
             b_goal_feats = None
 
         b_domain = f_domain.backward_domain()
-        b_state = b_domain.reset()
+        b_state = b_domain.init()
         b_state_t = b_domain.state_tensor(b_state).unsqueeze(0)
         b_actions, b_mask = b_domain.actions_unpruned(b_state)
 

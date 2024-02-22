@@ -53,14 +53,14 @@ class SlidingTilePuzzle(Domain):
         self.goal_state: SlidingTilePuzzleState
         self.goal_state_t: to.Tensor
 
-    def reset(self) -> State:
+    def init(self) -> State:
         self.width = self.initial_state.tiles.shape[0]
         self.num_tiles = self.width**2
 
         if self.forward:
             self.goal_state = get_goal_state(self.width)
             self.goal_state_t = self.state_tensor(self.goal_state)
-        return self._reset()
+        return self._init()
 
     @property
     def state_t_width(self) -> int:

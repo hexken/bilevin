@@ -31,7 +31,7 @@ def train(
     train_loader: ProblemLoader,
     valid_loader: ProblemLoader,
 ):
-    # tracemalloc.start()
+    tracemalloc.start()
     batch_size: int = args.world_size
 
     expansion_budget: int = args.train_expansion_budget
@@ -237,6 +237,7 @@ def train(
         local_search_results[2] = n_forw_expanded
         local_search_results[3] = n_backw_expanded
         local_search_results[4] = sol_len
+        del problem
 
         if traj:
             solved_flag[0] = 1
@@ -391,12 +392,13 @@ def train(
                                 baccs.append(batch_bacc)
                                 print(f"bacc: {batch_bacc:.3f}")
 
+        del traj
         stage_batches_seen += 1
         stage_batches_this_budget += 1
 
-        # if stage_batches_seen % 100 == 0:
-        #     snapshot = tracemalloc.take_snapshot()
-        #     display_top(snapshot)
+        if batches_seen % 5 == 0:
+            if rank == 0:
+                display_top(tracemalloc.take_snapshot(), limit=25)
 
         # Stage completion checks
         solve_ratio = None

@@ -1,6 +1,8 @@
+from copy import deepcopy
+
 import numpy as np
 
-from search.utils import Problem
+from search.problem import Problem
 
 
 class ProblemLoader:
@@ -49,18 +51,14 @@ class ProblemLoader:
         self.repeat_stage = state["repeat_stage"]
         self.loaded_state = True
 
-        probs: list[Problem] = self.problems[self.stage - 1]
-        self.stage_problems = np.empty(len(probs), dtype=object)
-        self.stage_problems[:] = probs
+        self.stage_problems = self.problems[self.stage - 1]
 
     def _advance_stage(self) -> bool:
         """Returns True if there are no more stages"""
         self.stage += 1
         if self.stage > self.n_stages:
             return True
-        probs: list[Problem] = self.problems[self.stage - 1]
-        self.stage_problems = np.empty(len(probs), dtype=object)
-        self.stage_problems[:] = probs
+        self.stage_problems = self.problems[self.stage - 1]
         if self.shuffle:
             self._indices = self.rng.permutation(len(self.stage_problems))
         else:
@@ -85,5 +83,4 @@ class ProblemLoader:
             if self.shuffle:
                 self._indices = self.rng.permutation(len(self.stage_problems))
                 self._idx = 0
-        assert isinstance(problem, Problem)
-        return problem
+        return deepcopy(problem)

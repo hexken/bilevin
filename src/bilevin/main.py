@@ -1,13 +1,17 @@
+from copy import deepcopy
 import datetime
+import gc
 import json
 import os
 from pathlib import Path
 import pickle as pkl
 import time
 from timeit import default_timer as timer
+import tracemalloc
 
 from filelock import FileLock, Timeout
 import numpy as np
+from test import test
 import torch as to
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -18,7 +22,6 @@ from search.astar import AStar, BiAStarAlt, BiAStarBFS
 from search.levin import BiLevinAlt, BiLevinBFS, Levin
 from search.phs import BiPHSAlt, BiPHSBFS, PHS
 from search.utils import set_seeds
-from test import test
 from train import train
 from utils import find_free_port
 
@@ -89,6 +92,9 @@ def run(
         local_problems,
         seed=local_seed,
     )
+    # alloc, g1, g2 = gc.get_threshold()
+    # print(f"GC threshold: {alloc}, {g1}, {g2}")
+    # gc.set_threshold(50_000, g1 * 2, g2 * 2)
 
     if args.mode == "train":
         valid_loader = ProblemLoader(
@@ -177,8 +183,8 @@ if __name__ == "__main__":
     conditional_backward = (
         args.conditional_backward and pset_dict["domain_name"] != "Witness"
     )
-    dummy_domain = pset_dict["problems"][0][0].domain
-    num_features = dummy_domain.state_tensor(dummy_domain.reset()).size().numel()
+    dummy_domain = deepcopy(pset_dict["problems"][0][0].domain)
+    num_features = dummy_domain.state_tensor(dummy_domain.init()).size().numel()
     derived_args = {
         "conditional_backward": conditional_backward,
         "state_t_width": dummy_domain.state_t_width,
@@ -263,7 +269,13 @@ if __name__ == "__main__":
             ),
         )
         proc.start()
+        problems[rank] = None
+        if valid_problems:
+            valid_problems[rank] = None
         processes.append(proc)
+
+    del problems
+    del valid_problems
 
     for proc in processes:
         proc.join()

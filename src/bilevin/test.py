@@ -72,9 +72,6 @@ def test(
             end_time = timer()
             sol_len = np.nan if not traj else len(traj[0])
 
-            if bidirectional:
-                problem.domain.reset()
-
             local_search_results[i, 0] = problem.id
             local_search_results[i, 1] = end_time - start_time
             local_search_results[i, 2] = n_forw_expanded

@@ -253,14 +253,14 @@ def window_avg_over_index(data: list[pd.DataFrame], y_data_label, window_size=5)
 
 def main():
     colors = mpl.colormaps["tab10"].colors
-    f = open("socs_stp4cphs.pkl", "rb")
+    f = open("socs_stp4.pkl", "rb")
     allruns = pkl.load(f)
-    saveroot = Path("figs/socsstp4c/")
+    saveroot = Path("figs/socs/")
     saveroot.mkdir(exist_ok=True, parents=True)
-    figkey = ["agent"]
-    legendkey = ["share_feature_net", "forward_policy_lr"]
+    figkey = ["problems_path"]
+    legendkey = ["agent"]
     data = sorted(allruns.values(), key=lambda x: x.args_key(figkey))
-    for loss_lr, group in itertools.groupby(data, key=lambda x: x.args_key(figkey)):
+    for fkey, group in itertools.groupby(data, key=lambda x: x.args_key(figkey)):
         group = list(group)
         group = sorted(group, key=lambda x: x.args_key(legendkey))
         grouped_data = {}
@@ -268,7 +268,7 @@ def main():
             legend_name = runseeds.args_key(legendkey)
             grouped_data[legend_name] = runseeds
         fig, ax = plt.subplots(3, 2, sharex=True, figsize=(12, 10))
-        fig.suptitle(f"{loss_lr}", size=16)
+        fig.suptitle(f"{fkey}", size=16)
         ax[0, 0].set_title(f"Train")
         ax[0, 1].set_title(f"Valid")
         ax[0, 0].set_ylabel("Solved", size=14)
@@ -301,14 +301,14 @@ def main():
                 rsdata, "len", ax=ax[2, 1], color=color, label=legend_name
             )
             ax[2, 1].set_xlabel("Time (s)", size=14)
-            print(f"Plotted {loss_lr} {legend_name}")
+            print(f"Plotted {fkey} {legend_name}")
 
         handles, labels = ax[2, 1].get_legend_handles_labels()
         it = iter(handles)
         handles = [(a, next(it)) for a in it]
         fig.legend(handles, labels[::2])
         fig.tight_layout()
-        fig.savefig(saveroot / f"{loss_lr}.pdf", bbox_inches="tight")
+        fig.savefig(saveroot / f"stp4.pdf", bbox_inches="tight")
         # plt.show()()
 
 
