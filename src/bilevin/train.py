@@ -263,6 +263,7 @@ def train(
 
         world_batch_results_t = to.stack(world_search_results, dim=0)
         batch_results_arr = world_batch_results_t.numpy()
+        del world_batch_results_t
         batch_print_df = pd.DataFrame(batch_results_arr, columns=search_result_header)
         for col in int_columns:
             batch_print_df[col] = batch_print_df[col].astype(pd.UInt32Dtype())
@@ -298,6 +299,7 @@ def train(
                     floatfmt=".2f",
                 )
             )
+        del batch_print_df
 
         for i in range(batch_size):
             ids.append(batch_results_arr[i, 0])
@@ -311,6 +313,7 @@ def train(
             bgs.append(batch_results_arr[i, 8])
             baps.append(batch_results_arr[i, 9])
             bhes.append(batch_results_arr[i, 10])
+        del batch_results_arr
 
         if num_procs_found_solution > 0:
             to.set_grad_enabled(True)
@@ -348,6 +351,7 @@ def train(
                 # sync grads
                 all_grads_list = [param.grad.view(-1) for param in model.parameters()]
                 all_grads = to.cat(all_grads_list)
+                del all_grads_list
                 dist.all_reduce(all_grads, op=dist.ReduceOp.SUM)
                 all_grads.div_(num_procs_found_solution)
                 if max_grad_norm > 0:
@@ -359,6 +363,7 @@ def train(
                         all_grads[offset : offset + numel].view_as(param.grad.data)
                     )
                     offset += numel
+                del all_grads
 
                 optimizer.step()
 
@@ -392,7 +397,7 @@ def train(
                                 baccs.append(batch_bacc)
                                 print(f"bacc: {batch_bacc:.3f}")
 
-        del traj
+        del traj, f_traj, b_traj
         stage_batches_seen += 1
         stage_batches_this_budget += 1
 
@@ -522,13 +527,12 @@ def train(
                     stage_search_df,
                     bidirectional,
                 )
-                del stage_search_df
                 print_model_train_summary(
                     stage_model_train_df,
                     bidirectional,
                     policy_based,
                 )
-                del stage_model_train_df
+                del stage_search_df, stage_model_train_df
                 print(f"\nTime: {timer() - stage_start_time:.2f}s")
                 print(
                     "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
@@ -675,7 +679,7 @@ def train(
                 new_checkpoint_path = args.logdir / f"checkpoint_b{batches_seen}.pkl"
                 with new_checkpoint_path.open("wb") as f:
                     to.save(chkpt_dict, f)
-                del chkpt_dict
+                del loader_states, chkpt_dict
                 if not args.keep_all_checkpoints:
                     old_checkpoint_path.unlink(missing_ok=True)
                     old_checkpoint_path = new_checkpoint_path

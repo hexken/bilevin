@@ -78,6 +78,7 @@ def test(
             local_search_results[i, 2] = n_forw_expanded
             local_search_results[i, 3] = n_backw_expanded
             local_search_results[i, 4] = sol_len
+            del problem
 
             if traj:
                 f_traj, b_traj = traj
@@ -89,6 +90,7 @@ def test(
                     local_search_results[i, 8] = b_traj.partial_g_cost
                     local_search_results[i, 9] = b_traj.avg_action_prob
                     local_search_results[i, 10] = b_traj.avg_h_abs_error
+                del traj, f_traj, b_traj
 
         dist.monitored_barrier()
 
@@ -176,6 +178,7 @@ def test(
 
         with pth.open("wb") as f:
             pickle.dump(stage_search_df, f)
+        del stage_search_df
 
     # only correct for rank 0
     return (
