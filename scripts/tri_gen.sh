@@ -75,5 +75,3 @@ elif [ "$1" = "6" ]; then
 else
     usage
 fi
-
-

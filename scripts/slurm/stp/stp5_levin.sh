@@ -2,10 +2,10 @@
 #SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --mem=8G
-#SBATCH --time=24:00:00
-#SBATCH --array=1-10
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/stp5/levin/%j.out
+#SBATCH --mem=14G
+#SBATCH --time=30:00:00
+#SBATCH --array=1,6
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/stp5/levin/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -33,7 +33,7 @@ python src/bilevin/main.py \
     --agent $agent \
     --seed $seed \
     --weight-mse-loss 0.1 \
-    --runsdir-path runs/socs/stp5/levin \
+    --runsdir-path runs/thes/stp5/levin \
     --exp-name "" \
     --problems-path problems/stp5/550000-train.pkl \
     --valid-path problems/stp5/1000-valid.pkl \
@@ -71,7 +71,6 @@ python src/bilevin/main.py \
     --max-batches-per-stage 2500 \
     --min-batches-final-stage 1250 \
     --min-solve-ratio-stage 0.9 \
-    --min-solve-ratio-exp 0 \
     --n-final-stage-epochs 25 \
     \
     --n-batch-tail 100 \

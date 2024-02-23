@@ -22,9 +22,5 @@ tri4
 - biastar alt, w2.5. bfs sucks
 
 - try path "contractions"
-- grad steps for each traj?
 
 # todo
-
-- lots of ooms, especially for wit envs
-- phs optimizer problem sharing feature net?

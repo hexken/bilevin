@@ -16,11 +16,11 @@ if [ "$1" = "d" ]; then
     --domain cube3 \
     --seed 3541 \
     --output-path  problems/cube3d/ \
-    --n-problems-per-stage  10 \
+    --n-problems-per-stage  250 \
     --stages-multiple  1 \
-    --n-stages  100 \
+    --n-stages  11 \
     --randomize-curriculum-steps \
-    --n-problems-final-stage  250 \
+    --n-problems-final-stage  500 \
     --n-valid  100 \
     --n-test  100 \
     --test-steps 100 \
@@ -29,12 +29,12 @@ elif [ "$1" = "3" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain cube3 \
     --seed 3541 \
-    --output-path  new_problems/cube3/ \
+    --output-path  problems/cube3/ \
     --randomize-curriculum-steps \
-    --n-problems-per-stage  1800 \
-    --stages-multiple  1 \
-    --n-stages  51 \
-    --n-problems-final-stage  10000 \
+    --n-problems-per-stage 25000 \
+    --stages-multiple  2 \
+    --n-stages 21 \
+    --n-problems-final-stage 50000 \
     --n-valid  1000 \
     --n-test  1000 \
     --test-steps  50 \

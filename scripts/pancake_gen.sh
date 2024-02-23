@@ -4,7 +4,7 @@ export PYTHONPATH=$SCRIPT_DIR/../src/bilevin
 cd $SCRIPT_DIR/../
 
 usage() {
-    echo "Usage: $0 [d|12|16|32|64]"
+    echo "Usage: $0 [d|14|18]"
     exit 1
 }
 if [ $# -ne 1 ]; then
@@ -14,78 +14,48 @@ fi
 if [ "$1" = "d" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain pancake \
-    --output-path  problems/pancake16d/ \
+    --output-path  problems/pancake14d/ \
     --seed 658 \
-    --width  16 \
-    --n-problems-per-stage  25 \
+    --width  14 \
+    --n-problems-per-stage  250 \
     --randomize-curriculum-steps \
-    --stages-multiple  1 \
-    --n-problems-final-stage 2500 \
-    --n-stages  101 \
+    --stages-multiple  5 \
+    --n-problems-final-stage 500 \
+    --n-stages  11 \
     --n-valid  100 \
     --n-test 100 \
     --randomize-test-steps \
     --test-steps  100
-elif [ "$1" = "12" ]; then
+elif [ "$1" = "14" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain pancake \
-    --output-path  problems/pancake12/ \
+    --output-path  problems/pancake14/ \
     --seed 658 \
-    --width  12 \
-    --n-problems-per-stage  250 \
+    --width  14 \
+    --n-problems-per-stage  25000 \
     --randomize-curriculum-steps \
-    --stages-multiple  1 \
-    --n-problems-final-stage 25000 \
-    --n-stages  101 \
+    --stages-multiple  5 \
+    --n-problems-final-stage 50000 \
+    --n-stages  11 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \
     --test-steps  100
-elif [ "$1" = "16" ]; then
+elif [ "$1" = "18" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain pancake \
-    --output-path  problems/pancake16/ \
+    --output-path  problems/pancake18/ \
     --seed 358 \
-    --width  16 \
-    --n-problems-per-stage  250 \
+    --width  18 \
+    --n-problems-per-stage  25000 \
     --randomize-curriculum-steps \
-    --stages-multiple  1 \
-    --n-problems-final-stage 25000 \
-    --n-stages  101 \
+    --stages-multiple  5 \
+    --n-problems-final-stage 50000 \
+    --n-stages  21 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \
-    --test-steps  100
-elif [ "$1" = "32" ]; then
-    python src/bilevin/domains/puzzle_generator.py \
-    --domain pancake \
-    --output-path  problems/pancake32/ \
-    --seed 3721 \
-    --width  32 \
-    --n-problems-per-stage  250 \
-    --randomize-curriculum-steps \
-    --stages-multiple  1 \
-    --n-problems-final-stage 25000 \
-    --n-stages  101 \
-    --n-valid  1000 \
-    --n-test 1000 \
-    --randomize-test-steps \
-    --test-steps  100
-elif [ "$1" = "64" ]; then
-    python src/bilevin/domains/puzzle_generator.py \
-    --domain pancake \
-    --output-path  problems/pancake64/ \
-    --seed 3358 \
-    --width  64 \
-    --n-problems-per-stage  250 \
-    --randomize-curriculum-steps \
-    --stages-multiple  1 \
-    --n-problems-final-stage 25000 \
-    --n-stages  101 \
-    --n-valid  1000 \
-    --n-test 1000 \
-    --randomize-test-steps \
-    --test-steps  100
+    --test-steps  200
 else
     usage
 fi

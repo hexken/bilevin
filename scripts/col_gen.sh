@@ -14,16 +14,16 @@ fi
 if [ "$1" = "d" ]; then
     python src/bilevin/domains/wit_puzzle_generator.py \
     --puzzle  "colors" \
-    --seed  1233 \
+    --seed  2723 \
     --width  4 \
     --output-path  problems/col4d/ \
-    --n-stages 26 \
-    --n-problems-per-stage 100 \
-    --marker-prob-limits  0.3 0.59 \
+    --n-stages 11 \
+    --n-problems-per-stage 1000 \
+    --marker-prob-limits  0.1 0.5 \
     --min-path-ratio-limits 0.0 2.0 \
-    --n-problems-final-stage 2500 \
+    --n-problems-final-stage 2000 \
     --test-marker-prob 0.6 \
-    --test-min-path-ratio 0.8 \
+    --test-min-path-ratio 2.0 \
     --n-valid  100 \
     --n-test  100
 elif [ "$1" = "4" ]; then

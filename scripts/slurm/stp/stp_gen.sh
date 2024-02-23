@@ -2,9 +2,9 @@
 #SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --mem=2G
-#SBATCH --time=2:00:00
-#SBATCH --array=5
+#SBATCH --mem=3G
+#SBATCH --time=1:30:00
+#SBATCH --array=4,5
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/%j.out
 
 source $HOME/bilevin-env2/bin/activate

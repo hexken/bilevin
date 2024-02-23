@@ -2,10 +2,10 @@
 #SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --mem=6G
-#SBATCH --time=8:00:00
-#SBATCH --array=1-10
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/socs/col5/phs/%j.out
+#SBATCH --mem=16G
+#SBATCH --time=24:00:00
+#SBATCH --array=1,6
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/col5/phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -33,9 +33,9 @@ python src/bilevin/main.py \
     --agent $agent \
     --seed $seed \
     --weight-mse-loss 0.1 \
-    --runsdir-path runs/socs/col5/phs \
+    --runsdir-path runs/thes/col5/phs \
     --exp-name "" \
-    --problems-path problems/col5/125000-train.pkl \
+    --problems-path problems/col5/300000-train.pkl \
     --valid-path problems/col5/1000-valid.pkl \
     --world-size 4 \
     --mode train \
@@ -60,18 +60,18 @@ python src/bilevin/main.py \
     --backward-heuristic-layers 256 198 128 \
     --backward-heuristic-lr $lr \
     \
-    --validate-every-n-stage 10 \
-    --stage-begin-validate 5 \
-    --checkpoint-every-n-batch 300 \
+    --validate-every-n-stage 5 \
     --validate-every-epoch \
+    --checkpoint-every-n-batch 300 \
     \
     --time-budget 300 \
-    --train-expansion-budget 2000 \
+    --train-expansion-budget 7000 \
     \
     --min-batches-per-stage 1250 \
+    --max-batches-per-stage 2500 \
+    --min-batches-final-stage 1250 \
     --min-solve-ratio-stage 0.9 \
-    --min-solve-ratio-exp 0 \
-    --n-final-stage-epochs 20 \
+    --n-final-stage-epochs 25 \
     \
     --n-batch-tail 100 \
     \

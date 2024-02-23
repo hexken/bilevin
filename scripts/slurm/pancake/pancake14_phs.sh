@@ -2,10 +2,10 @@
 #SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --mem=12G
-#SBATCH --time=8:00:00
-#SBATCH --array=1,6
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/tri4/levin/%j.out
+#SBATCH --mem=8G
+#SBATCH --time=4:00:00
+#SBATCH --array=1-10
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/pancake14/phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -20,7 +20,7 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/slurm/stp/levin_args.txt
+argfile=/scratch/tjhia/bilevin/scripts/slurm/stp/phs_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
@@ -30,17 +30,18 @@ lr=0.0001
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
+    --no-feature-net \
     --agent $agent \
     --seed $seed \
     --weight-mse-loss 0.1 \
-    --runsdir-path runs/thes/tri4/levin \
+    --runsdir-path runs/thes/pancake14/phs \
     --exp-name "" \
-    --problems-path problems/tri4/300000-train.pkl \
-    --valid-path problems/tri4/1000-valid.pkl \
+    --problems-path problems/pancake14/300000-train.pkl \
+    --valid-path problems/pancake14/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
-    --loss-fn traj_nll_loss \
+    --loss-fn traj_nll_mse_loss \
     --grad-steps 10 \
     \
     --num-kernels 32 \

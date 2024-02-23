@@ -2,10 +2,10 @@
 #SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --mem=12G
-#SBATCH --time=8:00:00
+#SBATCH --mem=16G
+#SBATCH --time=24:00:00
 #SBATCH --array=1,6
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/tri4/levin/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/cube3/phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -20,7 +20,7 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/slurm/stp/levin_args.txt
+argfile=/scratch/tjhia/bilevin/scripts/slurm/stp/phs_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
@@ -33,18 +33,18 @@ python src/bilevin/main.py \
     --agent $agent \
     --seed $seed \
     --weight-mse-loss 0.1 \
-    --runsdir-path runs/thes/tri4/levin \
+    --runsdir-path runs/thes/cube3/phs \
     --exp-name "" \
-    --problems-path problems/tri4/300000-train.pkl \
-    --valid-path problems/tri4/1000-valid.pkl \
+    --problems-path problems/cube3/550000-train.pkl \
+    --valid-path problems/cube3/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
-    --loss-fn traj_nll_loss \
+    --loss-fn traj_nll_mse_loss \
     --grad-steps 10 \
     \
     --num-kernels 32 \
-    --kernel-size 1 2 \
+    --kernel-size 2 2 \
     \
     --conditional-backward \
     \
@@ -65,7 +65,7 @@ python src/bilevin/main.py \
     --checkpoint-every-n-batch 300 \
     \
     --time-budget 300 \
-    --train-expansion-budget 2000 \
+    --train-expansion-budget 7000 \
     \
     --min-batches-per-stage 1250 \
     --max-batches-per-stage 2500 \
