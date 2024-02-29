@@ -631,7 +631,7 @@ def train(
                 reduce_lr = None
 
         # Checkpoint
-        if (batches_seen % checkpoint_every_n_batch == 0) or done_training:
+        if (batches_seen % checkpoint_every_n_batch == 0) or done_training or validate:
             ts = timer()
             loader_states = [None] * args.world_size
             dist.gather_object(
