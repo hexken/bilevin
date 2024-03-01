@@ -12,8 +12,6 @@ import matplotlib as mpl
 from natsort import natsorted
 import pandas as pd
 
-import plotting.keys as pkeys
-
 
 class RunSingle:
     def __init__(self, path: Path, keys: list[str]):
@@ -108,7 +106,7 @@ def process_run(run_name: str, runs: list[RunSingle], batch_size=4, min_valids=2
             lambda x: (x // batch_size) + 1
         )
         run_search_df["solved"] = run_search_df["len"].map(pd.notna)
-        run_search_df = make_exp_col(run_search_df)
+        run_search_df = add_sum_fb_exp(run_search_df)
         run_search_df = int_cols_to_float(run_search_df)
         curr_end_times.append(
             run_search_df[run_search_df["epoch"] == 1]
@@ -137,7 +135,7 @@ def process_run(run_name: str, runs: list[RunSingle], batch_size=4, min_valids=2
         run_valid_df["start_time"] = run_valid_df["batch"].map(
             lambda x: batch_times.loc[:x].sum()
         )
-        run_valid_df = make_exp_col(run_valid_df)
+        run_valid_df = add_sum_fb_exp(run_valid_df)
         run_valid_df = int_cols_to_float(run_valid_df)
 
         train_dfs.append(run_train_df)
@@ -170,6 +168,8 @@ def get_runs_data(
     grouped_runs = itertools.groupby(all_runs, lambda x: x.name)
     # Prepare sorting by algorithm
     runs_combined = [(name, list(runs)) for name, runs in grouped_runs]
+    for name, runs in runs_combined:
+        print(f"Found {len(runs)} paths matching {name}")
     runs_data = OrderedDict()
 
     # print(list(*zip(*runs_combined)))
@@ -193,7 +193,7 @@ def get_runs_data(
     return runs_data
 
 
-def make_exp_col(df: pd.DataFrame) -> pd.DataFrame:
+def add_sum_fb_exp(df: pd.DataFrame) -> pd.DataFrame:
     if "fexp" in df.columns and "bexp" in df.columns:
         df["exp"] = df["fexp"] + df["bexp"]
     else:
@@ -256,7 +256,8 @@ class LineStyleMapper:
         self.uni_ls = "-"
         self.bibfs_ls = "--"
         self.bialt_ls = ":"
-        self.used_colors = set()
+        self.bi_hatch = "||"
+        self.uni_hatch = None
 
     def get_ls(self, s: str):
         if "AStar" in s:
@@ -266,21 +267,20 @@ class LineStyleMapper:
         elif "PHS" in s:
             c = self.cmap.colors[self.phs_c]
         else:
-            i = 3
-            while i in self.used_colors:
-                i += 1
-            if i >= len(self.cmap.colors):
-                c = 0
-            else:
-                c = self.cmap.colors[i]
+            raise ValueError(f"Unknown algorithm: {s}")
 
-        self.used_colors.add(c)
+        # if "Alt" in s:
+        #     ls = self.bialt_ls
+        # elif "BFS" in s:
+        #     ls = self.bibfs_ls
+        # else:
+        #     ls = self.uni_ls
 
-        if "Alt" in s:
-            ls = self.bialt_ls
-        elif "BFS" in s:
+        if "Bi" in s:
             ls = self.bibfs_ls
+            h = self.bi_hatch
         else:
             ls = self.uni_ls
+            h = self.uni_hatch
 
-        return c, ls
+        return c, ls, h

@@ -7,21 +7,137 @@ from cycler import cycler
 import matplotlib as mpl
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
-from natsort import natsorted
 import numpy as np
 import pandas as pd
 
+from natsort import natsorted
 import plotting.keys as pkeys
-from plotting.utils import (
-    LineStyleMapper,
-    PdfTemplate,
-    get_runs_data,
-)
+from plotting.utils import RunSeeds
+from plotting.utils import LineStyleMapper, PdfTemplate, get_runs_data
 
 cmap = mpl.colormaps["tab20"]
 mpl.rcParams["axes.prop_cycle"] = cycler(color=cmap.colors)
 mpl.rcParams["axes.linewidth"] = 1
 mpl.rc("lines", linewidth=1, linestyle="-")
+
+
+def plot_search(
+    run_data,
+    y_data_label: str,
+    ax,
+    style,
+    label=None,
+    batch_size=4,
+    n_final_stage_epochs=25,
+):
+    # plot seeds corresponding to a run
+    dfs = run_data["search"]
+    notna_dfs = []
+    for df in dfs:
+        dfg = df[["stage", "epoch", y_data_label]]
+        dfg = dfg.groupby(df["batch"] // batch_size)
+        dfg = dfg.aggregate({"stage": "max", "epoch": "max", y_data_label: "mean"})
+        dfg = dfg.groupby(["stage", "epoch"], as_index=True).mean()
+        notna_dfs.append(dfg)
+
+    df = pd.concat(notna_dfs, axis=1)
+    central = df.median(axis=1)
+    lower = df.min(axis=1)
+    upper = df.max(axis=1)
+    maxs = max(s for s, _ in df.index.values)
+    xlabels = [f"s{s}e{e}" if s >= maxs else f"s{s}" for s, e in df.index.values]
+    xticks = np.arange(1, len(xlabels) + 1)
+
+    color, linestyle, hatch = style
+    ax.plot(xticks, central, color=color, linestyle=linestyle, label=label)
+    ax.fill_between(
+        xticks,
+        lower,
+        upper,
+        edgecolor=(*color, 0.1),
+        hatch=hatch,
+        facecolor=(*color, 0.1),
+        label=label,
+    )
+    ax.set_xticks(xticks, xlabels, rotation=70)
+
+
+def plot_valid(
+    run_data,
+    y_data_label: str,
+    ax,
+    style,
+    label=None,
+):
+    # plot seeds corresponding to a run
+    dfs = run_data["valid"]
+    notna_dfs = []
+    min_n_vals = dfs[0]["batch"].nunique()
+    for df in dfs:
+        dfg = df.groupby(df["batch"], as_index=False)
+        dfg = dfg.aggregate({y_data_label: "mean"})[y_data_label]
+        if len(dfg) != min_n_vals:
+            print(f"Warning: incomplete run detected: {len(df)} != {min_n_vals}")
+            min_n_vals = len(dfg)
+        notna_dfs.append(dfg)
+
+    # notna_dfs = [df.iloc[:min_n_vals] for df in notna_dfs]
+    df = pd.concat(notna_dfs, axis=1)
+    central = df.median(axis=1)
+    lower = df.min(axis=1)
+    upper = df.max(axis=1)
+    n_valids = np.arange(1, min_n_vals + 1)
+
+    color, linestyle, hatch = style
+    ax.plot(n_valids, central, color=color, linestyle=linestyle, label=label)
+    ax.fill_between(
+        n_valids,
+        lower,
+        upper,
+        edgecolor=(*color, 0.1),
+        hatch=hatch,
+        facecolor=(*color, 0.1),
+        label=label,
+    )
+
+
+def plot_search_vs_batch(
+    run_data,
+    y_data_label: str,
+    ax,
+    style,
+    label=None,
+    batch_size=4,
+    n_final_stage_epochs=25,
+    window_size=75,
+):
+    # plot seeds corresponding to a run
+    dfs = run_data["search"]
+    notna_dfs = []
+    for df in dfs:
+        dfg = df[y_data_label]
+        dfg = dfg.groupby(df["batch"] // batch_size, as_index=True).mean()
+        dfg = dfg.rolling(window_size, min_periods=1).mean()
+        # dfg = dfg.groupby(["stage", "epoch"], as_index=True).mean()
+        notna_dfs.append(dfg)
+
+    df = pd.concat(notna_dfs, axis=1)
+    central = df.median(axis=1)
+    lower = df.min(axis=1)
+    upper = df.max(axis=1)
+    xs = df.index.values
+
+    color, linestyle, hatch = style
+    ax.plot(xs, central, color=color, linestyle=linestyle, label=label)
+    ax.fill_between(
+        xs,
+        lower,
+        upper,
+        edgecolor=(*color, 0.1),
+        hatch=hatch,
+        facecolor=(*color, 0.1),
+        label=label,
+    )
 
 
 def plot_search_vs_time(
@@ -32,7 +148,7 @@ def plot_search_vs_time(
     linestyle=None,
     label=None,
     batch_size=4,
-    window_size=50,
+    window_size=200,
 ):
     # plot seeds corresponding to a run
     dfs = run_data["search"]
@@ -47,7 +163,7 @@ def plot_search_vs_time(
         notna_dfs.append(dfg)
 
     df = pd.concat(notna_dfs, axis=1)
-    means = df.mean(axis=1)
+    means = df.median(axis=1)
     mins = df.min(axis=1)
     maxs = df.max(axis=1)
 
@@ -62,212 +178,129 @@ def plot_search_vs_time(
     )
 
 
-def plot_valid_vs_time(
-    run_data,
-    y_data_label: str,
-    ax,
-    color=None,
-    linestyle=None,
-    label=None,
-):
-    # plot seeds corresponding to a run
-    dfs = run_data["valid"]
-    notna_dfs = []
-    xs = []
-    for df in dfs:
-        x = df["start_time"].unique()
-        xs.append(x)
-
-        dfg = df.groupby(df["batch"], as_index=False).mean()[y_data_label]
-        notna_dfs.append(dfg)
-
-    min_len = min(len(x) for x in xs)
-    notna_dfs = [df.iloc[:min_len] for df in notna_dfs]
-    df = pd.concat(notna_dfs, axis=1)
-    xs = [x[:min_len] for x in xs]
-    xs = np.array(xs).mean(axis=0)
-    means = df.mean(axis=1)
-    mins = df.min(axis=1)
-    maxs = df.max(axis=1)
-
-    ax.plot(xs, means, color=color, linestyle=linestyle, label=label)
-    ax.fill_between(
-        xs,
-        mins,
-        maxs,
-        alpha=0.1,
-        color=color,
-        label=label,
-    )
-
-
-def window_avg_over_index(data: list[pd.DataFrame], y_data_label, window_size=5):
+def window_avgs(data: list[pd.DataFrame], y_data_label, window_size=75):
     aggr_dfs = []
     for df in data:
         df = df[y_data_label]
-        df = df.groupby(df.index // window_size).mean()
+        df = df.rolling(window_size, min_periods=1).mean()
         aggr_dfs.append(df)
 
+    xs = df.index.values
     df = pd.concat(aggr_dfs, axis=1)
-    xs = df.index.map(lambda x: x // window_size)
-    means = df.mean(axis=1)
+    means = df.median(axis=1)
     mins = df.min(axis=1)
     maxs = df.max(axis=1)
 
     return xs, means, mins, maxs
 
 
-# def plot_bi_policy_model(run_name, run_data, ax=None):
-#     fig, ax = plt.subplots(2, 2, figsize=(12, 10), sharex=True)
-#     fl = ax[0, 0]
-#     fa = ax[1, 0]
-#     bl = ax[0, 1]
-#     ba = ax[1, 1]
-
-#     ls_mapper = LineStyleMapper()
-#     c, ls = ls_mapper.get_ls(run_name)
-
-#     xs, means, mins, maxs = window_avg_over_index(run_data, run_data["floss"])
-#     fl.plot(xs, means, label=run_name, color=c, linestyle=ls)
-#     fl.fill_between(
-#         xs,
-#         mins,
-#         maxs,
-#         alpha=0.1,
-#         color=c,
-#         label=run_name,
-#     )
-
-#     xs, means, mins, maxs = window_avg_over_index(run_data, "facc")
-#     fa.plot(xs, means, label=run_name, color=c, linestyle=ls)
-#     fa.fill_between(
-#         xs,
-#         mins,
-#         maxs,
-#         alpha=0.1,
-#         color=c,
-#         label=run_name,
-#     )
-#     xs, means, mins, maxs = window_avg_over_index(run_data, "bloss")
-#     bl.plot(xs, means, label=run_name, color=c, linestyle=ls)
-#     bl.fill_between(
-#         xs,
-#         mins,
-#         maxs,
-#         alpha=0.1,
-#         color=c,
-#         label=run_name,
-#     )
-
-#     xs, means, mins, maxs = window_avg_over_index(run_data, "bacc")
-#     ba.plot(xs, means, label=run_name, color=c, linestyle=ls)
-#     ba.fill_between(
-#         xs,
-#         mins,
-#         maxs,
-#         alpha=0.1,
-#         color=c,
-#         label=run_name,
-#     )
-#     return fig
+def plot_medians(ax, run_data, y_label, color):
+    xs, central, lower, upper = window_avgs(run_data, y_label)
+    ax.plot(xs, central, color=color)
+    ax.fill_between(
+        xs,
+        lower,
+        upper,
+        edgecolor=(*color, 0.1),
+        facecolor=(*color, 0.1),
+    )
 
 
-# def plot_uni_policy_model(run_name, run_data, ax=None):
-#     fig, (fl, fa) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+def plot_bi_policy_model(run_data: dict, label: str):
+    fig, ax = plt.subplots(2, 2, figsize=(12, 10), sharex=True)
+    fl = ax[0, 0]
+    fa = ax[1, 0]
+    bl = ax[0, 1]
+    ba = ax[1, 1]
 
-#     ls_mapper = LineStyleMapper()
-#     c, ls = ls_mapper.get_ls(run_name)
+    ls_mapper = LineStyleMapper()
+    color, _, _ = ls_mapper.get_ls(label)
 
-#     xs, means, mins, maxs = window_avg_over_index(run_data, "floss")
-#     fl.plot(xs, means, label=run_name, color=c, linestyle=ls)
-#     fl.fill_between(
-#         xs,
-#         mins,
-#         maxs,
-#         alpha=0.1,
-#         color=c,
-#         label=run_name,
-#     )
-
-#     xs, means, mins, maxs = window_avg_over_index(run_data, "facc")
-#     fa.plot(xs, means, label=run_name, color=c, linestyle=ls)
-#     fa.fill_between(
-#         xs,
-#         mins,
-#         maxs,
-#         alpha=0.1,
-#         color=c,
-#         label=run_name,
-#     )
-#     return fig
+    plot_medians(fl, run_data["train"], "floss", color)
+    plot_medians(fa, run_data["train"], "facc", color)
+    plot_medians(bl, run_data["train"], "bloss", color)
+    plot_medians(ba, run_data["train"], "bacc", color)
+    return fig
 
 
-# def plot_bi_heuristic_model(run_name, run_data, ax=None):
-#     fig, (fl, bl) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+def plot_bi_heuristic_model(run_data: dict, label: str):
+    fig, ax = plt.subplots(1, 2, figsize=(12, 10), sharex=True)
+    fl = ax[0, 0]
+    bl = ax[0, 1]
 
-#     ls_mapper = LineStyleMapper()
-#     c, ls = ls_mapper.get_ls(run_name)
+    ls_mapper = LineStyleMapper()
+    color, _, _ = ls_mapper.get_ls(label)
 
-#     xs, means, mins, maxs = window_avg_over_index(run_data, "floss")
-#     fl.plot(xs, means, label=run_name, color=c, linestyle=ls)
-#     fl.fill_between(
-#         xs,
-#         mins,
-#         maxs,
-#         alpha=0.1,
-#         color=c,
-#         label=run_name,
-#     )
-
-#     xs, means, mins, maxs = window_avg_over_index(run_data, "bloss")
-#     bl.plot(xs, means, label=run_name, color=c, linestyle=ls)
-#     bl.fill_between(
-#         xs,
-#         mins,
-#         maxs,
-#         alpha=0.1,
-#         color=c,
-#         label=run_name,
-#     )
-#     return fig
+    plot_medians(fl, run_data["train"], "floss", color)
+    plot_medians(bl, run_data["train"], "bloss", color)
+    return fig
 
 
-# def plot_uni_heuristic_model(run_name, run_data, ax=None):
-#     fig, fl = plt.subplots(figsize=(12, 10), sharex=True)
+def plot_uni_policy_model(run_data: dict, label: str):
+    fig, ax = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+    fl = ax[0]
+    fa = ax[1]
 
-#     ls_mapper = LineStyleMapper()
-#     c, ls = ls_mapper.get_ls(run_name)
+    ls_mapper = LineStyleMapper()
+    color, _, _ = ls_mapper.get_ls(label)
 
-#     xs, means, mins, maxs = window_avg_over_index(run_data, "floss")
-#     fl.plot(xs, means, label=run_name, color=c, linestyle=ls)
-#     fl.fill_between(
-#         xs,
-#         mins,
-#         maxs,
-#         alpha=0.1,
-#         color=c,
-#         label=run_name,
-#     )
-#     return fig
+    plot_medians(fl, run_data["train"], "floss", color)
+    plot_medians(fa, run_data["train"], "facc", color)
+    return fig
 
 
-def main():
-    colors = mpl.colormaps["tab10"].colors
-    f = open("socs_stp4.pkl", "rb")
-    allruns = pkl.load(f)
-    saveroot = Path("figs/socs/")
+def plot_uni_heuristic_model(run_data: dict, label: str):
+    fig, ax = plt.subplots(1, 1, figsize=(12, 10), sharex=True)
+    fl = ax
+    ls_mapper = LineStyleMapper()
+    color, _, _ = ls_mapper.get_ls(label)
+
+    plot_medians(fl, run_data["train"], "floss", color)
+    return fig
+
+
+def plot_bi_policy_heuristic_model(run_data: dict, label: str):
+    fig, ax = plt.subplots(3, 2, figsize=(12, 10), sharex=True)
+    flp = ax[0, 0]
+    fa = ax[1, 0]
+    flh = ax[2, 1]
+
+    blp = ax[0, 1]
+    ba = ax[1, 1]
+    blh = ax[2, 1]
+
+    ls_mapper = LineStyleMapper()
+    color, _, _ = ls_mapper.get_ls(label)
+
+    plot_medians(flp, run_data["train"], "floss", color)
+    plot_medians(fa, run_data["train"], "facc", color)
+    plot_medians(flh, run_data["train"], "bloss", color)
+
+    plot_medians(blp, run_data["train"], "bloss", color)
+    plot_medians(ba, run_data["train"], "bacc", color)
+    plot_medians(blh, run_data["train"], "bacc", color)
+    return fig
+
+
+def plot_domain(run_data: dict, outdir_root: str):
+    saveroot = Path(outdir_root)
     saveroot.mkdir(exist_ok=True, parents=True)
     figkey = ["problems_path"]
     legendkey = ["agent"]
-    data = sorted(allruns.values(), key=lambda x: x.args_key(figkey))
+    data = sorted(run_data.values(), key=lambda x: x.args_key(figkey))
+    ls_mapper = LineStyleMapper()
+    # todo they should all have same prob path anyway
     for fkey, group in itertools.groupby(data, key=lambda x: x.args_key(figkey)):
+        fkey = Path(fkey).parent.name
         group = list(group)
         group = sorted(group, key=lambda x: x.args_key(legendkey))
         grouped_data = {}
         for runseeds in group:
             legend_name = runseeds.args_key(legendkey)
             grouped_data[legend_name] = runseeds
-        fig, ax = plt.subplots(3, 2, sharex=True, figsize=(12, 10))
+
+        # search and val
+        fig, ax = plt.subplots(3, 2, figsize=(12, 10))
         fig.suptitle(f"{fkey}", size=16)
         ax[0, 0].set_title(f"Train")
         ax[0, 1].set_title(f"Valid")
@@ -275,32 +308,58 @@ def main():
         ax[1, 0].set_ylabel("Expanded", size=14)
         ax[2, 0].set_ylabel("Solution length", size=14)
 
+        # search vs batch
+        fig2, ax2 = plt.subplots(3, 1, figsize=(12, 10))
+        fig2.suptitle(f"{fkey}", size=16)
+        ax2[0].set_title(f"Train")
+        ax2[0].set_ylabel("Solved", size=14)
+        ax2[1].set_ylabel("Expanded", size=14)
+        ax2[2].set_ylabel("Solution length", size=14)
+
         labels = []
         for i, (legend_name, runseeds) in enumerate(grouped_data.items()):
-            rsdata = runseeds.data
-            color = colors[i % len(colors)]
-            labels.append(legend_name)
-            plot_search_vs_time(
-                rsdata, "solved", ax=ax[0, 0], color=color, label=legend_name
-            )
-            plot_search_vs_time(
-                rsdata, "exp", ax=ax[1, 0], color=color, label=legend_name
-            )
-            plot_search_vs_time(
-                rsdata, "len", ax=ax[2, 0], color=color, label=legend_name
-            )
-            ax[2, 0].set_xlabel("Time (s)", size=14)
+            style = ls_mapper.get_ls(legend_name)
+            # c = colors[i % len(colors)]
 
-            plot_valid_vs_time(
-                rsdata, "solved", ax=ax[0, 1], color=color, label=legend_name
+            # search and val
+            rsdata = runseeds.data
+            labels.append(legend_name)
+            plot_search(
+                rsdata,
+                "solved",
+                ax=ax[0, 0],
+                style=style,
+                label=legend_name,
             )
-            plot_valid_vs_time(
-                rsdata, "exp", ax=ax[1, 1], color=color, label=legend_name
+            plot_search(rsdata, "exp", ax=ax[1, 0], style=style, label=legend_name)
+            plot_search(rsdata, "len", ax=ax[2, 0], style=style, label=legend_name)
+            # ax[2, 0].set_xlabel("Time (s)", size=14)
+
+            plot_valid(
+                rsdata,
+                "solved",
+                ax=ax[0, 1],
+                style=style,
+                label=legend_name,
             )
-            plot_valid_vs_time(
-                rsdata, "len", ax=ax[2, 1], color=color, label=legend_name
+            plot_valid(rsdata, "exp", ax=ax[1, 1], style=style, label=legend_name)
+            plot_valid(rsdata, "len", ax=ax[2, 1], style=style, label=legend_name)
+            # ax[2, 1].set_xlabel("Time (s)", size=14)
+
+            # search vs batch
+            plot_search_vs_batch(
+                rsdata,
+                "solved",
+                ax=ax2[0],
+                style=style,
+                label=legend_name,
             )
-            ax[2, 1].set_xlabel("Time (s)", size=14)
+            plot_search_vs_batch(
+                rsdata, "exp", ax=ax2[1], style=style, label=legend_name
+            )
+            plot_search_vs_batch(
+                rsdata, "len", ax=ax2[2], style=style, label=legend_name
+            )
             print(f"Plotted {fkey} {legend_name}")
 
         handles, labels = ax[2, 1].get_legend_handles_labels()
@@ -308,8 +367,22 @@ def main():
         handles = [(a, next(it)) for a in it]
         fig.legend(handles, labels[::2])
         fig.tight_layout()
-        fig.savefig(saveroot / f"stp4.pdf", bbox_inches="tight")
-        # plt.show()()
+        fig.savefig(saveroot / f"{fkey}.pdf", bbox_inches="tight")
+
+        fig2.tight_layout()
+        fig2.savefig(saveroot / f"{fkey}_batch.pdf", bbox_inches="tight")
+
+
+def main():
+    colors = mpl.colormaps["tab10"].colors
+    dom_paths = list(Path("data/thes/runs_data/").glob("*.pkl"))
+    print("Found domains:")
+    for dom in dom_paths:
+        print(dom.stem)
+
+    for dom in dom_paths[-1:]:
+        dom_data = pkl.load(dom.open("rb"))
+        plot_domain(dom_data, f"figs/thes/{dom.stem}")
 
 
 if __name__ == "__main__":
