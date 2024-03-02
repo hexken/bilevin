@@ -4,9 +4,16 @@ import sys
 from natsort import natsorted
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python prepare_test.py <domain_dir>")
+    if len(sys.argv) != 3:
+        print("Usage: python prepare_test.py <domain_dir> <best|last>")
         sys.exit(1)
+
+    if sys.argv[2] == "best":
+        model_suffix = "_best_expanded.pt"
+    elif sys.argv[2] == "last":
+        model_suffix = "_lastest.pt"
+    else:
+        raise ValueError("Invalid model suffix")
 
     domdir = Path(sys.argv[1])
     for agentdir in domdir.glob("*/"):
@@ -24,7 +31,7 @@ if __name__ == "__main__":
 
         runargs = []
         for rundir in natsorted(agentdir.glob("*train*")):
-            model_pth = list(rundir.glob("model_best_expanded.pt"))[0]
+            model_pth = list(rundir.glob(f"model{model_suffix}"))[0]
             if agents[0] in rundir.name:
                 i = 0
             elif agents[1] in rundir.name:
