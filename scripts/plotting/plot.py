@@ -178,7 +178,7 @@ def plot_search_vs_time(
     )
 
 
-def window_avgs(data: list[pd.DataFrame], y_data_label, window_size=100):
+def batch_window_mean(data: list[pd.DataFrame], y_data_label, window_size=100):
     aggr_dfs = []
     max_batch = max(df.index.values[-1] for df in data)
     for df in data:
@@ -197,7 +197,7 @@ def window_avgs(data: list[pd.DataFrame], y_data_label, window_size=100):
 
 
 def plot_medians(ax, run_data, y_label, color):
-    xs, central, lower, upper = window_avgs(run_data, y_label)
+    xs, central, lower, upper = batch_window_mean(run_data, y_label)
     ax.plot(xs, central, color=color)
     ax.fill_between(
         xs,
