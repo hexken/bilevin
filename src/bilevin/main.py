@@ -197,7 +197,7 @@ if __name__ == "__main__":
     agent_class = globals()[args.agent]
     agent = agent_class(logdir, args, derived_args)
 
-    if args.valid_path:
+    if args.mode == "train" and args.valid_path:
         with args.valid_path.open("rb") as f:
             vset_dict = pkl.load(f)
         valid_problems, world_num_valid_problems = split_by_rank(
