@@ -18,13 +18,13 @@ if __name__ == "__main__":
     domdir = Path(sys.argv[1])
     for agentdir in domdir.glob("*/"):
         if agentdir.name == "astar":
-            outfile = domdir / "astar_args.txt"
+            outfile = domdir / "astar_args_test.txt"
             agents = ("_AStar", "_BiAStarAlt")
         elif agentdir.name == "levin":
-            outfile = domdir / "levin_args.txt"
+            outfile = domdir / "levin_args_test.txt"
             agents = ("_Levin", "_BiLevin")
         elif agentdir.name == "phs":
-            outfile = domdir / "phs_args.txt"
+            outfile = domdir / "phs_args_test.txt"
             agents = ("_PHS", "_BiPHSBFS")
         else:
             continue

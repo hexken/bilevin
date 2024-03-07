@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --account=rrg-lelis
+#SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=16G
-#SBATCH --time=40:00:00
-#SBATCH --array=1-2,4,6-10
+#SBATCH --time=24:00:00
+#SBATCH --array=1,6
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/tri5/astar/%j.out
 
 source $HOME/bilevin-env2/bin/activate
@@ -25,11 +25,11 @@ args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
 lr=0.0001
-chk=$(echo $args | cut -d' ' -f3)
+# chk=$(echo $args | cut -d' ' -f3)
 
+    # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
-    --checkpoint-path $chk \
     --agent $agent \
     --seed $seed \
     --weight-astar 2 \

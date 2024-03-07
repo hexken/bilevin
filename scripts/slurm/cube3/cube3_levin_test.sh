@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=16G
-#SBATCH --time=96:00:00
+#SBATCH --time=24:00:00
 #SBATCH --array=1,6
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/cube3/levin/%j.out
 
@@ -25,11 +25,11 @@ args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
 lr=0.0001
-chk=$(echo $args | cut -d' ' -f3)
+# chk=$(echo $args | cut -d' ' -f3)
 
+    # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
-    --checkpoint-path $chk \
     --agent $agent \
     --seed $seed \
     --weight-mse-loss 0.1 \

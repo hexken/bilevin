@@ -3,8 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=12G
-#SBATCH --time=1:15:00
-#SBATCH --array=6
+#SBATCH --time=12:00:00
+#SBATCH --array=1,6
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/tri4/astar/%j.out
 
 source $HOME/bilevin-env2/bin/activate
@@ -30,7 +30,6 @@ lr=0.0001
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
-    --checkpoint-path runs/thes/tri4/astar/tri4-300000-train_BiAStarAlt_1_26023360-6/checkpoint_b54300.pkl \
     --agent $agent \
     --seed $seed \
     --weight-astar 2 \
