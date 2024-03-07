@@ -217,7 +217,6 @@ def parse_args():
         nargs=2,
         type=int,
         default=[1, 2],
-        required=True,
         help="depth x height/width of convolution kernel",
     )
     parser.add_argument(
