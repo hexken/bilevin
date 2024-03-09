@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=2G
-#SBATCH --time=01:00:00
+#SBATCH --time=00:30:00
 #SBATCH --array=1,6
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/pancake14/phs/%j.out
 
