@@ -191,7 +191,7 @@ def parse_args():
         "--backward-policy-layers",
         action="store",
         nargs="+",
-        default=[256, 192, 128],
+        default=[256, 198, 128],
         type=int,
         help="hidden layer sizes of backward policy",
     )
@@ -207,7 +207,7 @@ def parse_args():
         "--backward-heuristic-layers",
         action="store",
         nargs="+",
-        default=[256, 192, 128],
+        default=[256, 198, 128],
         type=int,
         help="hidden layer sizes of backward heruistic",
     )
