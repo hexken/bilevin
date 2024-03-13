@@ -114,6 +114,7 @@ def run(
             problems_loader,
             valid_loader,
         )
+        (logdir / "training_completed.txt").open("w").close()
     else:
         if rank == 0:
             print("\nTesting...")
@@ -129,8 +130,6 @@ def run(
     if rank == 0:
         total_time = timer() - rel_start_time
         print(f"Finished!\nTotal time: {total_time:.2f} seconds")
-        with (logdir / "total_time_seconds.txt").open("w") as f:
-            f.write(f"{total_time:.2f}")
 
 
 if __name__ == "__main__":
