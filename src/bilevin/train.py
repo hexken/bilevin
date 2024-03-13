@@ -58,8 +58,7 @@ def train(
     reduce_lr = False
 
     best_models_log = args.logdir / "best_models.txt"
-    if rank == 0:
-        best_models_log = best_models_log.open("a")
+    train_times_log = args.logdir / "train_times.txt"
 
     model: SuperModel = agent.model
     bidirectional: bool = agent.is_bidirectional
@@ -523,6 +522,13 @@ def train(
                     "wb"
                 ) as f:
                     pickle.dump(stage_model_train_df, f)
+
+                total_stage_time = timer() - stage_start_time
+
+                e = 1 if final_stage_epoch == 0 else final_stage_epoch
+                with train_times_log.open("a") as f:
+                    f.write(f"{old_stage} {e} {total_stage_time:.2f}\n")
+
                 print_search_summary(
                     stage_search_df,
                     bidirectional,
@@ -533,7 +539,7 @@ def train(
                     policy_based,
                 )
                 del stage_search_df, stage_model_train_df
-                print(f"\nTime: {timer() - stage_start_time:.2f}s")
+                print(f"\nTime: {total_stage_time:.2f}s")
                 print(
                     "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
                 )
@@ -601,12 +607,15 @@ def train(
                     valid_total_time,
                 ) = valid_results
 
+                stage_start_time += valid_total_time
+
                 if valid_total_expanded <= best_valid_expanded:
                     best_valid_expanded = valid_total_expanded
                     print("Saving best model")
-                    best_models_log.write(
-                        f"batch {batches_seen} solved {valid_solved} exp {valid_total_expanded}\n"
-                    )
+                    with best_models_log.open("a") as f:
+                        f.write(
+                            f"batch {batches_seen} solved {valid_solved} exp {valid_total_expanded}\n"
+                        )
                     agent.save_model("best_expanded", log=False)
 
                 if (
@@ -617,11 +626,9 @@ def train(
                     reduce_lr = True
                     print("Reducing learning rate")
 
-                best_models_log.flush()
                 print(
                     ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                 )
-                stage_start_time += valid_total_time
                 sys.stdout.flush()
 
             dist.monitored_barrier()
@@ -689,6 +696,4 @@ def train(
 
         if done_training:
             dist.monitored_barrier()
-            if rank == 0:
-                best_models_log.close()
             break
