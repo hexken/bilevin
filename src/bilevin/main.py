@@ -180,9 +180,11 @@ if __name__ == "__main__":
     print(f"Logging to {str(logdir)}")
 
     # Witness domains don't support conditional backward search
-    conditional_backward = (
-        args.conditional_backward and pset_dict["domain_name"] != "Witness"
-    )
+    if pset_dict["domain_name"] != "Witness" and (not args.no_conditional_backward):
+        conditional_backward = True
+    else:
+        conditional_backward = False
+
     dummy_domain = deepcopy(pset_dict["problems"][0][0].domain)
     num_features = dummy_domain.state_tensor(dummy_domain.init()).size().numel()
     derived_args = {

@@ -227,11 +227,11 @@ def parse_args():
         help="number of convolution kernels",
     )
     parser.add_argument(
-        "--conditional-backward",
+        "--no-conditional-backward",
         const=True,
         nargs="?",
         type=strtobool,
-        default=True,
+        default=False,
         help="pass the problem's initial (forward) state to the backward policy/heuristic in addition to a current (backward) state",
     )
     parser.add_argument(
