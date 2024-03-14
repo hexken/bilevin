@@ -57,8 +57,8 @@ def train(
 
     reduce_lr = False
 
-    best_models_log = args.logdir / "best_models.txt"
-    train_times_log = args.logdir / "train_times.txt"
+    best_models_log = (args.logdir / "best_models.txt").open("a")
+    train_times_log = (args.logdir / "train_times.txt").open("a")
 
     model: SuperModel = agent.model
     bidirectional: bool = agent.is_bidirectional
@@ -526,8 +526,7 @@ def train(
                 total_stage_time = timer() - stage_start_time
 
                 e = 1 if final_stage_epoch == 0 else final_stage_epoch
-                with train_times_log.open("a") as f:
-                    f.write(f"{old_stage} {e} {total_stage_time:.2f}\n")
+                train_times_log.write(f"{old_stage} {e} {total_stage_time:.2f}\n")
 
                 print_search_summary(
                     stage_search_df,
@@ -612,10 +611,9 @@ def train(
                 if valid_total_expanded <= best_valid_expanded:
                     best_valid_expanded = valid_total_expanded
                     print("Saving best model")
-                    with best_models_log.open("a") as f:
-                        f.write(
-                            f"batch {batches_seen} solved {valid_solved} exp {valid_total_expanded}\n"
-                        )
+                    best_models_log.write(
+                        f"batch {batches_seen} solved {valid_solved} exp {valid_total_expanded}\n"
+                    )
                     agent.save_model("best_expanded", log=False)
 
                 if (
