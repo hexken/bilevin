@@ -41,6 +41,21 @@ elif [ "$1" = "4" ]; then
     --n-test 1000 \
     --randomize-test-steps \
     --test-steps  1000
+elif [ "$1" = "4nc" ]; then
+    python src/bilevin/domains/puzzle_generator.py \
+    --domain stp \
+    --output-path  problems/stp4nc/ \
+    --seed 4238 \
+    --width  4 \
+    --n-problems-per-stage  0 \
+    --randomize-curriculum-steps \
+    --stages-multiple  1 \
+    --n-problems-final-stage 50000 \
+    --n-stages  1 \
+    --n-valid  1000 \
+    --n-test 1000 \
+    --randomize-test-steps \
+    --test-steps  1000
 elif [ "$1" = "5" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain stp \
@@ -52,6 +67,21 @@ elif [ "$1" = "5" ]; then
     --stages-multiple  5 \
     --n-problems-final-stage 50000 \
     --n-stages  21 \
+    --n-valid  1000 \
+    --n-test 1000 \
+    --randomize-test-steps \
+    --test-steps  1000
+elif [ "$1" = "5nc" ]; then
+    python src/bilevin/domains/puzzle_generator.py \
+    --domain stp \
+    --output-path  problems/stp5nc/ \
+    --seed 1274 \
+    --width  5 \
+    --n-problems-per-stage  0 \
+    --randomize-curriculum-steps \
+    --stages-multiple  1 \
+    --n-problems-final-stage 50000 \
+    --n-stages  1 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \

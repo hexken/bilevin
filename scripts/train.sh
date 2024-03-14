@@ -6,16 +6,16 @@ lr=0.0001
 python src/bilevin/main.py \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems2/tri4d/1250-train.pkl \
-    --valid-path problems2/tri4d/100-valid.pkl \
+    --problems-path problems/stp4nc/500-train.pkl \
+    --valid-path problems/stp4nc/1000-valid.pkl \
     --master-port 34568 \
     --seed 1 \
     --world-size 4 \
     --mode train \
-    --agent  BiAStarAlt \
+    --agent  BiPHSBFS \
     --weight-astar 2.5 \
     --weight-mse-loss 0.1 \
-    --loss-fn mse_loss \
+    --loss-fn traj_nll_mse_loss \
     --max-grad-norm 1.0 \
     --optimizer Adam \
     --grad-steps 10 \
@@ -23,8 +23,6 @@ python src/bilevin/main.py \
     --share-feature-net \
     --num-kernels 32 \
     --kernel-size 1 2 \
-    \
-    --conditional-backward \
     \
     --forward-feature-net-lr $lr \
     --forward-policy-layers 128 \
@@ -41,20 +39,20 @@ python src/bilevin/main.py \
     --stage-begin-validate 1 \
     --validate-every-n-stage 10 \
     --validate-every-epoch \
-    --checkpoint-every-n-batch 5 \
+    --checkpoint-every-n-batch 100 \
     \
     --time-budget 300 \
-    --train-expansion-budget 2000 \
+    --train-expansion-budget 10 \
     \
-    --min-batches-per-stage 10 \
-    --max-batches-per-stage 25 \
-    --min-batches-final-stage 20 \
-    --max-batches-final-stage 55 \
+    --min-batches-per-stage -1 \
+    --max-batches-per-stage -1 \
+    --min-batches-final-stage -1 \
+    --max-batches-final-stage -1 \
     --min-solve-ratio-stage 0.9 \
     --min-solve-ratio-exp 0 \
-    --n-final-stage-epochs 5 \
+    --n-final-stage-epochs 10 \
     \
-    --n-batch-tail 5 \
+    --n-batch-tail 1 \
     \
     # --batch-begin-validate 1 \
     # --validate-every-n-batch 50 \
