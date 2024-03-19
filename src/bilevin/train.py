@@ -103,7 +103,6 @@ def train(
         baccs = []
         batches = []
 
-        in_final_stage = False
         final_stage_epoch = 1 if train_loader.n_stages == 1 else 0
         batches_seen = 0
         batch_solve_ratios = []
@@ -173,20 +172,17 @@ def train(
             stage_start_time = timer()
             old_stage = train_loader.stage
 
-            if min_batches_per_stage == -1:
+            if args.min_batches_per_stage == -1:
                 min_batches_per_stage = len(train_loader.stage_problems)
-            if max_batches_per_stage == -1:
+            if args.max_batches_per_stage == -1:
                 max_batches_per_stage = len(train_loader.stage_problems)
 
-            if min_batches_final_stage == -1:
+            if args.min_batches_final_stage == -1:
                 min_batches_final_stage = len(train_loader.stage_problems)
-            if max_batches_final_stage == -1:
+            if args.max_batches_final_stage == -1:
                 max_batches_final_stage = len(train_loader.stage_problems)
 
-            print(f"stage {train_loader.stage}")
-            print(f"max batches final stage: {max_batches_final_stage}")
-
-            if n_batch_tail == -1:
+            if args.n_batch_tail == -1:
                 n_batch_tail = len(train_loader.stage_problems)
 
             stage_batches_seen = 0
