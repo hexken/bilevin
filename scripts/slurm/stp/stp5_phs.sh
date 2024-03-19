@@ -2,7 +2,7 @@
 #SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --mem=14G
+#SBATCH --mem=4G
 #SBATCH --time=24:00:00
 #SBATCH --array=1,6
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/stp5/phs/%j.out
@@ -35,18 +35,12 @@ python src/bilevin/main.py \
     --weight-mse-loss 0.1 \
     --runsdir-path runs/thes/stp5/phs \
     --exp-name "" \
-    --problems-path problems/stp5/550000-train.pkl \
+    --problems-path problems/stp5/70000-train.pkl \
     --valid-path problems/stp5/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
     --loss-fn traj_nll_mse_loss \
-    --grad-steps 10 \
-    \
-    --num-kernels 32 \
-    --kernel-size 1 2 \
-    \
-    --conditional-backward \
     \
     --forward-feature-net-lr $lr \
     --forward-policy-layers 128 \
@@ -60,18 +54,12 @@ python src/bilevin/main.py \
     --backward-heuristic-layers 256 198 128 \
     --backward-heuristic-lr $lr \
     \
-    --validate-every-n-stage 5 \
     --validate-every-epoch \
     --checkpoint-every-n-batch 300 \
     \
-    --time-budget 300 \
     --train-expansion-budget 7000 \
     \
-    --min-batches-per-stage 1250 \
-    --max-batches-per-stage 2500 \
-    --min-batches-final-stage 1250 \
-    --min-solve-ratio-stage 0.9 \
-    --n-final-stage-epochs 25 \
+    --n-final-stage-epochs 50 \
     \
     --n-batch-tail 100 \
     \

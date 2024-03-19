@@ -32,30 +32,30 @@ elif [ "$1" = "14" ]; then
     --output-path  problems/pancake14/ \
     --seed 658 \
     --width  14 \
-    --n-problems-per-stage  25000 \
+    --n-problems-per-stage  1000 \
     --randomize-curriculum-steps \
     --stages-multiple  5 \
     --n-problems-final-stage 50000 \
-    --n-stages  11 \
+    --n-stages  4 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \
-    --test-steps  100
+    --test-steps  500
 elif [ "$1" = "18" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain pancake \
     --output-path  problems/pancake18/ \
     --seed 358 \
     --width  18 \
-    --n-problems-per-stage  25000 \
+    --n-problems-per-stage  1000 \
     --randomize-curriculum-steps \
     --stages-multiple  5 \
     --n-problems-final-stage 50000 \
-    --n-stages  21 \
+    --n-stages  5 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \
-    --test-steps  200
+    --test-steps  500
 else
     usage
 fi

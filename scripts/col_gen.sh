@@ -32,8 +32,8 @@ elif [ "$1" = "4" ]; then
     --seed  2723 \
     --width  4 \
     --output-path  problems/col4/ \
-    --n-stages 11 \
-    --n-problems-per-stage 25000 \
+    --n-stages 1 \
+    --n-problems-per-stage 1 \
     --marker-prob-limits  0.1 0.5 \
     --min-path-ratio-limits 0.0 2.0 \
     --n-problems-final-stage 50000 \
@@ -47,23 +47,8 @@ elif [ "$1" = "5" ]; then
     --seed  1753 \
     --width  5 \
     --output-path  problems/col5/ \
-    --n-stages 11 \
-    --n-problems-per-stage 25000 \
-    --marker-prob-limits  0.1 0.5 \
-    --min-path-ratio-limits 0.0 2.0 \
-    --n-problems-final-stage 50000 \
-    --test-marker-prob 0.6 \
-    --test-min-path-ratio 2.0 \
-    --n-valid  1000 \
-    --n-test  1000
-elif [ "$1" = "6" ]; then
-    python src/bilevin/domains/wit_puzzle_generator.py \
-    --puzzle  "colors" \
-    --seed  2183 \
-    --width  6 \
-    --output-path  problems/col6/ \
-    --n-stages 11 \
-    --n-problems-per-stage 25000 \
+    --n-stages 1 \
+    --n-problems-per-stage 1 \
     --marker-prob-limits  0.1 0.5 \
     --min-path-ratio-limits 0.0 2.0 \
     --n-problems-final-stage 50000 \
