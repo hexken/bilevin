@@ -29,14 +29,14 @@ if [ "$1" = "d" ]; then
 elif [ "$1" = "4" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain stp \
-    --output-path  problems/stp4/ \
+    --output-path  problems/stp4d/ \
     --seed 4238 \
     --width  4 \
-    --n-problems-per-stage  1000 \
+    --n-problems-per-stage  10 \
     --randomize-curriculum-steps \
     --stages-multiple  5 \
-    --n-problems-final-stage 50000 \
-    --n-stages  11 \
+    --n-problems-final-stage 500 \
+    --n-stages  5 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \

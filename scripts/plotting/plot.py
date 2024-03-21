@@ -7,13 +7,11 @@ from cycler import cycler
 import matplotlib as mpl
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+from natsort import natsorted
 import numpy as np
 import pandas as pd
 
-from natsort import natsorted
-import plotting.keys as pkeys
-from plotting.utils import RunSeeds
-from plotting.utils import LineStyleMapper, PdfTemplate, get_runs_data
+from utils import LineStyleMapper, PdfTemplate, get_runs_data
 
 cmap = mpl.colormaps["tab20"]
 mpl.rcParams["axes.prop_cycle"] = cycler(color=cmap.colors)
@@ -439,7 +437,7 @@ def plot_domain(run_data: dict, outdir: str):
 
 def main():
     colors = mpl.colormaps["tab10"].colors
-    dom_paths = list(Path("data/thes/runs_data/").glob("*.pkl"))
+    dom_paths = list(Path("data/pkls/").glob("*.pkl"))
     print("Found domains:")
     for dom in dom_paths:
         print(dom.stem)

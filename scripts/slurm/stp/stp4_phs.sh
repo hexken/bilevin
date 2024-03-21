@@ -4,7 +4,7 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
 #SBATCH --time=24:00:00
-#SBATCH --array=6
+#SBATCH --array=1,6
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/stp4/phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
@@ -32,10 +32,7 @@ lr=0.0001
 python src/bilevin/main.py \
     --agent $agent \
     --seed $seed \
-    --weight-mse-loss 1 \
     --runsdir-path runs/thes/stp4/phs \
-    --share-feature-net \
-    --exp-name "sf_w1" \
     --problems-path problems/stp4/60000-train.pkl \
     --valid-path problems/stp4/1000-valid.pkl \
     --world-size 4 \
@@ -56,7 +53,7 @@ python src/bilevin/main.py \
     --backward-heuristic-lr $lr \
     \
     --validate-every-epoch \
-    --checkpoint-every-n-batch 300 \
+    --checkpoint-every-n-batch 750 \
     \
     --train-expansion-budget 2000 \
     \

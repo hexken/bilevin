@@ -33,7 +33,6 @@ python src/bilevin/main.py \
     --agent $agent \
     --seed $seed \
     --weight-astar 2.5 \
-    --weight-mse-loss 1 \
     --runsdir-path runs/thes/stp4/astar \
     --exp-name "" \
     --problems-path problems/stp4/60000-train.pkl \
@@ -56,7 +55,7 @@ python src/bilevin/main.py \
     --backward-heuristic-lr $lr \
     \
     --validate-every-epoch \
-    --checkpoint-every-n-batch 300 \
+    --checkpoint-every-n-batch 750 \
     \
     --train-expansion-budget 2000 \
     \

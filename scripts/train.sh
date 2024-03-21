@@ -6,8 +6,8 @@ lr=0.0001
 python src/bilevin/main.py \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/stp4nc/500-train.pkl \
-    --valid-path problems/stp4nc/1000-valid.pkl \
+    --problems-path problems/stp4d/540-train.pkl \
+    --valid-path problems/stp4d/1000-valid.pkl \
     --master-port 34568 \
     --seed 1 \
     --world-size 4 \
@@ -42,17 +42,18 @@ python src/bilevin/main.py \
     --checkpoint-every-n-batch 100 \
     \
     --time-budget 300 \
-    --train-expansion-budget 10 \
+    --train-expansion-budget 1 \
     \
-    --min-batches-per-stage -1 \
-    --max-batches-per-stage -1 \
-    --min-batches-final-stage -1 \
-    --max-batches-final-stage -1 \
-    --min-solve-ratio-stage 0.9 \
-    --min-solve-ratio-exp 0 \
-    --n-final-stage-epochs 10 \
+    --n-final-stage-epochs 5 \
     \
-    --n-batch-tail 1 \
+    --n-batch-tail 10 \
     \
     # --batch-begin-validate 1 \
     # --validate-every-n-batch 50 \
+    # --min-batches-per-stage -1 \
+    # --max-batches-per-stage -1 \
+    # --min-batches-final-stage -1 \
+    # --max-batches-final-stage -1 \
+    # --min-solve-ratio-stage 0 \
+    # --min-solve-ratio-exp 0 \
+    # \
