@@ -5,7 +5,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=00:10:00
 #SBATCH --array=1,6
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/stp4/phs/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/pancake22/astar/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -20,7 +20,7 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/slurm/stp/phs_args.txt
+argfile=/scratch/tjhia/bilevin/scripts/slurm/stp/astar_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
@@ -30,15 +30,18 @@ lr=0.0001
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
+    --no-feature-net \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/thes/stp4/phs \
-    --problems-path problems/stp4/60000-train.pkl \
-    --valid-path problems/stp4/1000-valid.pkl \
+    --weight-astar 2.5 \
+    --runsdir-path runs/thes/pancake22/astar \
+    --exp-name "" \
+    --problems-path problems/pancake22/55000-train.pkl \
+    --valid-path problems/pancake22/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
-    --loss-fn traj_nll_mse_loss \
+    --loss-fn mse_loss \
     \
     --forward-feature-net-lr $lr \
     --forward-policy-layers 128 \
@@ -55,7 +58,7 @@ python src/bilevin/main.py \
     --validate-every-epoch \
     --checkpoint-every-n-batch 750 \
     \
-    --train-expansion-budget 2000 \
+    --train-expansion-budget 4000 \
     \
     --n-final-stage-epochs 50 \
     \

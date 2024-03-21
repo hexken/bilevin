@@ -56,6 +56,21 @@ elif [ "$1" = "18" ]; then
     --n-test 1000 \
     --randomize-test-steps \
     --test-steps  500
+elif [ "$1" = "22" ]; then
+    python src/bilevin/domains/puzzle_generator.py \
+    --domain pancake \
+    --output-path  problems/pancake22/ \
+    --seed 2321 \
+    --width  22 \
+    --n-problems-per-stage  1000 \
+    --randomize-curriculum-steps \
+    --stages-multiple  5 \
+    --n-problems-final-stage 50000 \
+    --n-stages  6 \
+    --n-valid  1000 \
+    --n-test 1000 \
+    --randomize-test-steps \
+    --test-steps  500
 else
     usage
 fi

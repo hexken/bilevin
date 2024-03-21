@@ -5,7 +5,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=00:10:00
 #SBATCH --array=1,6
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/stp4/phs/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/pancake22/phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -30,11 +30,12 @@ lr=0.0001
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
+    --no-feature-net \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/thes/stp4/phs \
-    --problems-path problems/stp4/60000-train.pkl \
-    --valid-path problems/stp4/1000-valid.pkl \
+    --runsdir-path runs/thes/pancake22/phs \
+    --problems-path problems/pancake22/55000-train.pkl \
+    --valid-path problems/pancake22/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
@@ -55,7 +56,7 @@ python src/bilevin/main.py \
     --validate-every-epoch \
     --checkpoint-every-n-batch 750 \
     \
-    --train-expansion-budget 2000 \
+    --train-expansion-budget 4000 \
     \
     --n-final-stage-epochs 50 \
     \
