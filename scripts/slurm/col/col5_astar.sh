@@ -35,7 +35,7 @@ python src/bilevin/main.py \
     --weight-astar 2.5 \
     --runsdir-path runs/thes/col5/astar \
     --exp-name "" \
-    --problems-path problems/col5/60000-train.pkl \
+    --problems-path problems/col5/50000-train.pkl \
     --valid-path problems/col5/1000-valid.pkl \
     --world-size 4 \
     --mode train \
