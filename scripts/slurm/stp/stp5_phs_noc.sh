@@ -4,7 +4,7 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=14G
 #SBATCH --time=72:00:00
-#SBATCH --array=1,6
+#SBATCH --array=1-10
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/stp5nc/phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate

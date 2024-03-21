@@ -3,8 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=16G
-#SBATCH --time=00:10:00
-#SBATCH --array=1,6
+#SBATCH --time=120:00:00
+#SBATCH --array=1-10
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/col5/levin/%j.out
 
 source $HOME/bilevin-env2/bin/activate
