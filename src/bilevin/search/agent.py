@@ -89,5 +89,5 @@ class Agent(ABC):
     @abstractmethod
     def search(
         self, problem: Problem, exp_budget: int, time_budget: float
-    ) -> tuple[int, int, tuple[Trajectory, Optional[Trajectory]]]:
+    ) -> tuple[int, int, Optional[tuple[Trajectory, Optional[Trajectory]]]]:
         pass
