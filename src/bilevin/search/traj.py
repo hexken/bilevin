@@ -53,6 +53,7 @@ def from_common_node(
     num_expanded: int,
     goal_state_t: Optional[Tensor] = None,
     forward: bool = True,
+    set_masks: bool = False,
 ) -> Trajectory:
     """
     Returns a new trajectory going from dir1_start to dir2_start, passing through
@@ -90,6 +91,7 @@ def from_common_node(
         partial_g_cost=dir1_common.g,
         goal_state_t=goal_state_t,
         forward=forward,
+        set_masks=set_masks,
     )
 
 
@@ -101,6 +103,7 @@ def from_goal_node(
     partial_g_cost: int,
     goal_state_t: Optional[Tensor] = None,
     forward: bool = True,
+    set_masks: bool = False,
 ) -> Trajectory:
     """
     Receives a SearchNode representing a solution to the problem.
@@ -118,6 +121,7 @@ def from_goal_node(
     masks = []
 
     while node:
+        print(node.actions_mask)
         state_t = domain.state_tensor(node.state)
         states.append(state_t)
         actions.append(action)
@@ -127,12 +131,14 @@ def from_goal_node(
 
     states = to.stack(tuple(reversed(states)))
     actions = to.tensor(tuple(reversed(actions)))
-    masks = to.stack(tuple(reversed(masks)))
+    if set_masks:
+        masks = to.stack(tuple(reversed(masks)))
+    else:
+        masks = to.Tensor(0)
 
-    log_probs, h = agent.model(
-        states, mask=masks, forward=forward, goal_state_t=goal_state_t
-    )
+    preds = agent.model(states, mask=masks, forward=forward, goal_state_t=goal_state_t)
     if agent.has_policy:
+        log_probs = preds[0]
         nlls = nll_loss(log_probs, actions, reduction="none")
         action_prob = to.exp(-nlls).mean().item()
     else:
@@ -140,6 +146,7 @@ def from_goal_node(
 
     cost_to_gos = to.arange(len(states), 0, -1, dtype=to.float32)
     if agent.has_heuristic:
+        h = preds[1]
         h_abs_error = to.abs(h - cost_to_gos).mean().item()
     else:
         h_abs_error = nan

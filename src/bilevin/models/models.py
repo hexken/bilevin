@@ -230,7 +230,10 @@ class SuperModel(nn.Module):
                 logits = logits.masked_fill(mask, -1e9)
             log_probs = log_softmax(logits, dim=-1)
 
-        return log_probs, h
+        if log_probs is not None or h is not None:
+            return log_probs, h
+        else:
+            return feats
 
 
 class StateHeuristic(nn.Module):

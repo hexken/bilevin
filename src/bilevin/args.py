@@ -371,6 +371,7 @@ def parse_args():
             "PHS",
             "BiPHSBFS",
             "BiPHSAlt",
+            "ApproxFF"
         ],
         help="name of the search agent to use",
     )
