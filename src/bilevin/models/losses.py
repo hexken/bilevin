@@ -37,8 +37,8 @@ def metric_loss(
         loss += to.clamp(sqnorm - 1.0, min=0.0).pow(2)
 
     # forward/backward adjacents
-    for i in range(len(f_traj.states)):
-        sqnorm = (f_states_feats[i] - b_states_feats[n - i - 1]).pow(2).sum()
+    for i in range(len(f_traj.states) - 1):
+        sqnorm = (f_states_feats[i] - b_states_feats[n - i - 2]).pow(2).sum()
         loss += sqnorm
         loss += to.clamp(sqnorm - 1.0, min=0.0).pow(2)
 
