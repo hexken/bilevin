@@ -8,6 +8,7 @@ from torch import Tensor, full
 from search.traj import from_common_node
 
 if TYPE_CHECKING:
+    from search.traj import MetricTrajectory
     from search.traj import Trajectory
     from search.node import SearchNode
     from search.agent import Agent
@@ -68,7 +69,10 @@ class Domain(ABC):
         node: SearchNode,
         other_domain: Domain,
         num_expanded: int,
-    ) -> Optional[tuple[Trajectory, Trajectory]]:
+        metric=False,
+    ) -> (
+        tuple[Trajectory, Trajectory] | tuple[MetricTrajectory, MetricTrajectory] | None
+    ):
         """
         Returns a trajectory if state is a solution to this problem, None otherwise.
         """
@@ -86,7 +90,12 @@ class Domain(ABC):
                 b_domain = self
 
             f_traj = from_common_node(
-                agent, f_domain, f_common_node, b_common_node, num_expanded
+                agent,
+                f_domain,
+                f_common_node,
+                b_common_node,
+                num_expanded,
+                metric=metric,
             )
             b_traj = from_common_node(
                 agent,
@@ -96,6 +105,7 @@ class Domain(ABC):
                 num_expanded,
                 b_domain.goal_state_t,
                 forward=False,
+                metric=metric,
             )
 
             return (f_traj, b_traj)

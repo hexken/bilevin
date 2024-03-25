@@ -8,10 +8,41 @@ import torch.nn as nn
 from torch.nn.functional import cross_entropy, log_softmax, nll_loss
 from torch.nn.functional import mse_loss as mse
 
-from search.traj import Trajectory
+from search.traj import MetricTrajectory, Trajectory
 
 if TYPE_CHECKING:
     from models.models import SuperModel
+
+
+def metric_loss(
+    f_traj: MetricTrajectory, b_traj: MetricTrajectory, model: SuperModel, weight=1.0
+):
+    loss = 0.0
+    n = len(f_traj)
+    # compute all necessary features
+    f_states_feats = model(f_traj.states)
+    b_states_feats = model(b_traj.states, forward=False)
+
+    f_children_feats = [model(children) for children in f_traj.children]
+    b_children_feats = [model(children, forward=False) for children in b_traj.children]
+
+    for feats, children_feats in zip(f_states_feats, f_children_feats):
+        sqnorm = (children_feats - feats).pow(2).sum()
+        loss += sqnorm
+        loss += to.clamp(sqnorm - 1.0, min=0.0).pow(2)
+
+    for feats, children_feats in zip(b_states_feats, b_children_feats):
+        sqnorm = (children_feats - feats).pow(2).sum()
+        loss += sqnorm
+        loss += to.clamp(sqnorm - 1.0, min=0.0).pow(2)
+
+    # forward/backward adjacents
+    for i in range(len(f_traj.states)):
+        sqnorm = (f_states_feats[i] - b_states_feats[n - i - 1]).pow(2).sum()
+        loss += sqnorm
+        loss += to.clamp(sqnorm - 1.0, min=0.0).pow(2)
+
+    return loss
 
 
 def mse_loss(traj: Trajectory, model: SuperModel, weight=1.0):

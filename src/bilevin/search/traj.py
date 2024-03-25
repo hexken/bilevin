@@ -14,6 +14,25 @@ if TYPE_CHECKING:
     from domains.domain import Domain
 
 
+class MetricTrajectory:
+    def __init__(
+        self,
+        states: Tensor,
+        children: list[list[Tensor]],
+        partial_g_cost: int,  # g_cost of node that generated sol.
+        forward: bool = True,
+    ):
+        self.states = states
+        self.children = children
+        self._len = len(self.states)
+        self.partial_g_cost = partial_g_cost
+        self.avg_action_prob = nan
+        self.avg_h_abs_error = nan
+
+    def __len__(self):
+        return self._len
+
+
 class Trajectory:
     def __init__(
         self,
@@ -54,7 +73,8 @@ def from_common_node(
     goal_state_t: Optional[Tensor] = None,
     forward: bool = True,
     set_masks: bool = False,
-) -> Trajectory:
+    metric=False,
+) -> Trajectory | MetricTrajectory:
     """
     Returns a new trajectory going from dir1_start to dir2_start, passing through
     merge(dir1_common, dir2_common).
@@ -83,19 +103,69 @@ def from_common_node(
         dir2_parent_action = dir2_parent_node.parent_action
         dir2_parent_node = dir2_parent_node.parent
 
-    return from_goal_node(
-        agent,
-        domain=dir1_domain,
-        goal_node=dir1_node,
-        num_expanded=num_expanded,
-        partial_g_cost=dir1_common.g,
-        goal_state_t=goal_state_t,
+    if not metric:
+        return from_goal_node_actions(
+            agent,
+            domain=dir1_domain,
+            goal_node=dir1_node,
+            num_expanded=num_expanded,
+            partial_g_cost=dir1_common.g,
+            goal_state_t=goal_state_t,
+            forward=forward,
+            set_masks=set_masks,
+        )
+    else:
+        return from_goal_node_metric(
+            agent,
+            domain=dir1_domain,
+            goal_node=dir1_node,
+            partial_g_cost=dir1_common.g,
+            forward=forward,
+        )
+
+
+def from_goal_node_metric(
+    agent: Agent,
+    domain: Domain,
+    goal_node: SearchNode,
+    partial_g_cost: int,
+    forward: bool = True,
+) -> MetricTrajectory:
+    """
+    Receives a SearchNode representing a solution to the problem.
+    Backtracks the path performed by search, collecting state-action pairs along the way.
+
+    actions[i] is the action taken in state[i] to get to state[i+1]
+    """
+    assert domain.is_goal(goal_node.state)
+    node = goal_node.parent
+
+    states = []
+    children = []
+
+    while node:
+        state = node.state
+        state_t = domain.state_tensor(state)
+        states.append(state_t)
+        children.append(
+            to.stack(
+                [domain.state_tensor(domain.result(state, a)) for a in node.actions]
+            )
+        )
+        node = node.parent
+
+    states = to.stack(tuple(reversed(states)))
+    children = list(reversed(children))
+
+    return MetricTrajectory(
+        states=states,
+        children=children,
         forward=forward,
-        set_masks=set_masks,
+        partial_g_cost=partial_g_cost,
     )
 
 
-def from_goal_node(
+def from_goal_node_actions(
     agent: Agent,
     domain: Domain,
     goal_node: SearchNode,
@@ -121,7 +191,6 @@ def from_goal_node(
     masks = []
 
     while node:
-        print(node.actions_mask)
         state_t = domain.state_tensor(node.state)
         states.append(state_t)
         actions.append(action)

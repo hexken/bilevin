@@ -13,6 +13,7 @@ import torch.distributed as dist
 from torch.nn.utils import clip_grad_norm_ as clip_
 
 from loaders import ProblemLoader
+from search.approx_ff import ApproxFF
 from models.models import SuperModel
 from search.agent import Agent
 from search.utils import (
@@ -319,33 +320,40 @@ def train(
             model.train()
             for grad_step in range(1, args.grad_steps + 1):
                 optimizer.zero_grad(set_to_none=False)
-                if f_traj:
-                    (
-                        f_loss,
-                        _,
-                        f_acc,
-                    ) = loss_fn(f_traj, model)
-
-                    local_opt_results[0] = f_loss.item()
-                    local_opt_results[1] = f_acc
-
-                    if b_traj:
-                        (
-                            b_loss,
-                            _,
-                            b_acc,
-                        ) = loss_fn(b_traj, model)
-
-                        local_opt_results[2] = b_loss.item()
-                        local_opt_results[3] = b_acc
-
-                        loss = f_loss + b_loss
+                if isinstance(agent, ApproxFF):
+                    if traj:
+                        loss = loss_fn(f_traj, b_traj, model)
+                        local_opt_results[0] = loss.item()
                     else:
-                        loss = f_loss
-
-                    loss.backward()
+                        local_opt_results[:] = 0
                 else:
-                    local_opt_results[:] = 0
+                    if f_traj:
+                        (
+                            f_loss,
+                            _,
+                            f_acc,
+                        ) = loss_fn(f_traj, model)
+
+                        local_opt_results[0] = f_loss.item()
+                        local_opt_results[1] = f_acc
+
+                        if b_traj:
+                            (
+                                b_loss,
+                                _,
+                                b_acc,
+                            ) = loss_fn(b_traj, model)
+
+                            local_opt_results[2] = b_loss.item()
+                            local_opt_results[3] = b_acc
+
+                            loss = f_loss + b_loss
+                        else:
+                            loss = f_loss
+
+                        loss.backward()
+                    else:
+                        local_opt_results[:] = 0
 
                 # sync grads
                 all_grads_list = [param.grad.view(-1) for param in model.parameters()]

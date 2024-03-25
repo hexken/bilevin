@@ -7,7 +7,7 @@ import torch as to
 
 from enums import SearchDir
 from search.agent import Agent
-from search.traj import from_goal_node
+from search.traj import from_goal_node_actions
 from search.problem import Problem
 
 
@@ -70,7 +70,7 @@ class UniDir(Agent):
 
                 if new_node not in closed:
                     if domain.is_goal(new_state):
-                        traj = from_goal_node(
+                        traj = from_goal_node_actions(
                             self,
                             domain=domain,
                             goal_node=new_node,

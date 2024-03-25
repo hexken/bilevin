@@ -226,7 +226,7 @@ class ApproxFF(Agent):
                         parent_action=a,
                         actions=new_state_actions,
                         actions_mask=None,
-                        g=0,
+                        g=node.g + 1,
                         f=0.0,
                         log_prob=0.0,
                     )
@@ -237,6 +237,7 @@ class ApproxFF(Agent):
                             new_node,
                             other_domain,
                             n_total_expanded,
+                            metric=True,
                         )
 
                         if trajs:  # solution found
