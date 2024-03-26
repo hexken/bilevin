@@ -51,9 +51,7 @@ class SuperModel(nn.Module):
             if self.kernel_size[0] > 1:
                 self.state_t_depth: int = derived_args["state_t_depth"]
                 reduced_depth = self.state_t_depth - 2 * self.kernel_size[0] + 2
-                self.num_features = (
-                    self.num_kernels * reduced_depth * reduced_width**2
-                )
+                self.num_features = self.num_kernels * reduced_depth * reduced_width**2
             else:
                 self.num_features = self.num_kernels * reduced_width**2
 
@@ -164,6 +162,17 @@ class SuperModel(nn.Module):
             if "mse" in args.loss_fn:
                 self.loss_fn = partial(
                     getattr(losses, args.loss_fn), weight=args.weight_mse_loss
+                )
+            elif "metric" in args.loss_fn:
+                self.loss_fn = partial(
+                    getattr(losses, args.loss_fn),
+                    children_weight=args.children_weight,
+                    adj_consistency=args.adj_consistency,
+                    adj_weight=args.adj_weight,
+                    ends_consistency=args.ends_consistency,
+                    ends_weight=args.ends_weight,
+                    n_samples=args.n_samples,
+                    samples_weight=args.samples_weight,
                 )
             else:
                 self.loss_fn = getattr(losses, args.loss_fn)

@@ -35,10 +35,50 @@ def parse_args():
         help="number of batch expansions for approx ff",
     )
     parser.add_argument(
-        "--weight-metric-loss",
+        "--children-weight",
         type=float,
         default=1.0,
-        help="weight to use for mse loss when agent has a policy and heurisic",
+        help="weight to use for penalty for children consistency loss in approx ff",
+    )
+    parser.add_argument(
+        "--n-samples",
+        type=int,
+        default=0,
+        help="number of state pairs to sample for fb non-adjacant consistency loss term in approx ff",
+    )
+    parser.add_argument(
+        "--samples-weight",
+        type=float,
+        default=1.0,
+        help="weight to use for penalty for sampled state pairs consistency loss in approx ff",
+    )
+    parser.add_argument(
+        "--adj-consistency",
+        const=True,
+        nargs="?",
+        type=strtobool,
+        default=False,
+        help="use the fb adjacent consistency loss term in approx ff",
+    )
+    parser.add_argument(
+        "--adj-weight",
+        type=float,
+        default=1.0,
+        help="weight to use penalty for adjacent consistency loss term in approx ff",
+    )
+    parser.add_argument(
+        "--ends-consistency",
+        const=True,
+        nargs="?",
+        type=strtobool,
+        default=False,
+        help="use the fb ends consistency loss term in approx ff",
+    )
+    parser.add_argument(
+        "--ends-weight",
+        type=float,
+        default=1.0,
+        help="weight to use for ends consistency loss term in approx ff",
     )
     parser.add_argument(
         "--weight-mse-loss",

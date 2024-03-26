@@ -1,9 +1,10 @@
 from __future__ import annotations
-
 from math import ceil
 from typing import TYPE_CHECKING
 
+import numpy as np
 import torch as to
+from torch import clamp, exp, log, sum
 import torch.nn as nn
 from torch.nn.functional import cross_entropy, log_softmax, nll_loss
 from torch.nn.functional import mse_loss as mse
@@ -14,8 +15,19 @@ if TYPE_CHECKING:
     from models.models import SuperModel
 
 
+# todo can also sample pair of states in the solution traj and add constraint that their dist is <=
+# dist in the traj.
 def metric_loss(
-    f_traj: MetricTrajectory, b_traj: MetricTrajectory, model: SuperModel, weight=1.0
+    f_traj: MetricTrajectory,
+    b_traj: MetricTrajectory,
+    model: SuperModel,
+    adj_consistency: bool = False,
+    ends_consistency: bool = False,
+    n_samples: int = 0,
+    children_weight=1.0,
+    adj_weight=1.0,
+    ends_weight=1.0,
+    samples_weight=1.0,
 ):
     loss = 0.0
     n = len(f_traj)
@@ -26,21 +38,48 @@ def metric_loss(
     f_children_feats = [model(children) for children in f_traj.children]
     b_children_feats = [model(children, forward=False) for children in b_traj.children]
 
+    # make a node and it's childrens features similar while keeping their distances 1
+    # forward
     for feats, children_feats in zip(f_states_feats, f_children_feats):
-        sqnorm = (children_feats - feats).pow(2).sum()
-        loss += sqnorm
-        loss += weight * (sqnorm - 1.0) ** 2
+        sq_dist = (children_feats - feats).pow(2).sum()
+        loss += sq_dist
+        loss += children_weight * (sq_dist - 1.0) ** 2
 
+    # backward
     for feats, children_feats in zip(b_states_feats, b_children_feats):
-        sqnorm = (children_feats - feats).pow(2).sum()
-        loss += sqnorm
-        loss += weight * (sqnorm - 1.0) ** 2
+        sq_dist = (children_feats - feats).pow(2).sum()
+        loss += sq_dist
+        loss += children_weight * (sq_dist - 1.0) ** 2
 
-    # forward/backward adjacents
-    for i in range(len(f_traj.states) - 1):
-        sqnorm = (f_states_feats[i] - b_states_feats[n - i - 2]).pow(2).sum()
-        loss += sqnorm
-        loss += weight * (sqnorm - 1.0) ** 2
+    # make the forward and backward model features of consecutive states along the solution
+    # trajectory similar, while keeping their distances 1
+    # redundent when the forward and backward models share all parameters
+    if adj_consistency:
+        for i in range(len(f_traj.states) - 1):
+            sq_dist = (f_states_feats[i] - b_states_feats[n - i - 2]).pow(2).sum()
+            loss += sq_dist
+            loss += adj_weight * (sq_dist - 1.0) ** 2
+
+    # make sq dist between forward feats of start node and backward feats of end node
+    # <= sq number of actions in the traj
+    if ends_consistency:
+        sq_traj_dist = (len(f_traj.states) - 1) ** 2
+        sq_dist = (f_states_feats[-1] - b_states_feats[0]).pow(2).sum()
+        loss += ends_weight * clamp(sq_traj_dist - sq_dist, min=0) ** 2
+
+    # sample pairs of states in the solution traj and add constraint that their features
+    # sq dist <= sq dist in the traj
+    if n_samples > 0:
+        # make sure samples at least two actions separated
+        if n_samples > n - 2:
+            n_samples = n - 2
+        indices = np.arange(n - 1)
+        s1_indices = np.random.choice(indices, n_samples, replace=False)
+        s2_indices = np.random.randint(s1_indices, n, n_samples)
+        for i, j in zip(s1_indices, s2_indices):
+            sq_traj_dist = (j - i) ** 2
+            sq_dist = (f_states_feats[i] - b_states_feats[n - j - 1]).pow(2).sum()
+            loss += samples_weight * clamp(sq_traj_dist - sq_dist, min=0) ** 2
 
     return loss
 
