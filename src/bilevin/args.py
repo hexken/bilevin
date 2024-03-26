@@ -35,6 +35,12 @@ def parse_args():
         help="number of batch expansions for approx ff",
     )
     parser.add_argument(
+        "--weight-metric-loss",
+        type=float,
+        default=1.0,
+        help="weight to use for mse loss when agent has a policy and heurisic",
+    )
+    parser.add_argument(
         "--weight-mse-loss",
         type=float,
         default=1.0,

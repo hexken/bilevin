@@ -1,16 +1,25 @@
 from __future__ import annotations
+from argparse import Namespace
+from dataclasses import dataclass, field
 from heapq import heappop, heappush, heapreplace
+from pathlib import Path
 from timeit import default_timer as timer
 
 import numpy as np
+from sklearn.cluster import kmeans_plusplus
 import torch as to
-from torch.linalg import norm
+from torch.linalg import vector_norm as norm
 
 from enums import SearchDir
 from search.agent import Agent
 from search.node import SearchNode
 from search.problem import Problem
-from sklearn.cluster import kmeans_plusplus
+
+
+@dataclass(order=True)
+class LandMark:
+    dist: float
+    state_feats: to.Tensor = field(compare=False)
 
 
 class ApproxFF(Agent):
@@ -110,8 +119,8 @@ class ApproxFF(Agent):
             [f_domain.state_tensor(node.state) for node in f_topen]
         )
         open_feats = self.model(open_state_ts)
-        f_coreset, _ = kmeans_plusplus(open_feats.numpy(), self.k)
-        f_coreset = to.from_numpy(f_coreset)
+        f_landmarks, _ = kmeans_plusplus(open_feats.numpy(), self.k)
+        f_landmarks = to.from_numpy(f_landmarks)
 
         # backward OPEN init
         n_backw_expanded = 0
@@ -143,8 +152,8 @@ class ApproxFF(Agent):
             [b_domain.state_tensor(node.state) for node in b_topen]
         )
         open_feats = self.model(open_state_ts, forward=False)
-        b_coreset, _ = kmeans_plusplus(open_feats.numpy(), self.k)
-        b_coreset = to.from_numpy(b_coreset)
+        b_landmarks, _ = kmeans_plusplus(open_feats.numpy(), self.k)
+        b_landmarks = to.from_numpy(b_landmarks)
 
         f_open = [f_start_node]
         f_closed = {f_start_node: f_start_node}
@@ -152,15 +161,15 @@ class ApproxFF(Agent):
         b_open = [b_start_node]
         b_closed = {b_start_node: b_start_node}
 
-        f_coreheap = []
-        for c in f_coreset:
-            d_est = norm(b_coreset - c, axis=1).min().item()
-            heappush(f_coreheap, (d_est, c))
+        f_landmark_heap = []
+        for c in f_landmarks:
+            dist = norm(b_landmarks - c, dim=1).min().item()
+            heappush(f_landmark_heap, LandMark(dist, c))
 
-        b_coreheap = []
-        for c in b_coreset:
-            d_est = norm(f_coreset - c, axis=1).min().item()
-            heappush(b_coreheap, (d_est, c))
+        b_landmark_heap = []
+        for c in b_landmarks:
+            dist = norm(f_landmarks - c, dim=1).min().item()
+            heappush(b_landmark_heap, LandMark(dist, c))
 
         n_total_expanded = n_forw_expanded + n_backw_expanded
         # print(f"Initial expanded: {n_total_expanded}")
@@ -181,18 +190,18 @@ class ApproxFF(Agent):
 
             if direction == SearchDir.FORWARD:
                 next_direction = SearchDir.BACKWARD
-                _coreset = f_coreset
-                _coreheap = f_coreheap
-                _other_coreset = b_coreset
+                _landmarks = f_landmarks
+                _landmark_heap = f_landmark_heap
+                _other_landmarks = b_landmarks
                 _domain = f_domain
                 _open = f_open
                 _closed = f_closed
                 other_domain = b_domain
             else:
                 next_direction = SearchDir.FORWARD
-                _coreset = b_coreset
-                _coreheap = b_coreheap
-                _other_coreset = f_coreset
+                _landmarks = b_landmarks
+                _landmark_heap = b_landmark_heap
+                _other_landmarks = f_landmarks
                 _domain = b_domain
                 _open = b_open
                 _closed = b_closed
@@ -254,24 +263,24 @@ class ApproxFF(Agent):
                             state_t = _domain.state_tensor(new_state)
                             state_t_of_children_to_be_evaluated.append(state_t)
 
-            # compute heuristics, update coreset
+            # compute heuristics, update landmarks
             if len(children_to_be_evaluated) > 0:
-                state_ts = to.stack(state_t_of_children_to_be_evaluated)
-                state_feats = self.model(
-                    state_ts, forward=direction == SearchDir.FORWARD
+                states_ts = to.stack(state_t_of_children_to_be_evaluated)
+                states_feats = self.model(
+                    states_ts, forward=direction == SearchDir.FORWARD
                 )
                 for i, child in enumerate(children_to_be_evaluated):
-                    d_est = norm(_other_coreset - state_feats[i], axis=1).min().item()
-                    child.f = d_est
+                    dist = norm(_other_landmarks - states_feats[i], dim=1).min().item()
+                    child.f = dist
                     heappush(_open, child)
-                    if d_est <= _coreheap[0][0]:
-                        heapreplace(_coreheap, (d_est, state_feats[i]))
+                    if dist <= _landmark_heap[0].dist:
+                        heapreplace(_landmark_heap, LandMark(dist, states_feats[i]))
 
-                    new_coreset = to.stack([c[1] for c in _coreheap])
-                    if direction == SearchDir.FORWARD:
-                        f_coreset = new_coreset
-                    else:
-                        b_coreset = new_coreset
+                new_landmarks = to.stack([c.state_feats for c in _landmark_heap])
+                if direction == SearchDir.FORWARD:
+                    f_landmarks = new_landmarks
+                else:
+                    b_landmarks = new_landmarks
 
         print(f"Emptied opens for problem {problem_id}")
         return (
