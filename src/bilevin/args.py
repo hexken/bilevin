@@ -23,6 +23,18 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
+        "--ff-k",
+        type=int,
+        default=8,
+        help="size of coresets for approx ff",
+    )
+    parser.add_argument(
+        "--ff-b",
+        type=int,
+        default=16,
+        help="number of batch expansions for approx ff",
+    )
+    parser.add_argument(
         "--weight-mse-loss",
         type=float,
         default=1.0,
@@ -372,7 +384,7 @@ def parse_args():
             "PHS",
             "BiPHSBFS",
             "BiPHSAlt",
-            "ApproxFF"
+            "ApproxFF",
         ],
         help="name of the search agent to use",
     )

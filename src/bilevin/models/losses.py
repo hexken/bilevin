@@ -29,18 +29,18 @@ def metric_loss(
     for feats, children_feats in zip(f_states_feats, f_children_feats):
         sqnorm = (children_feats - feats).pow(2).sum()
         loss += sqnorm
-        loss += to.clamp(sqnorm - 1.0, min=0.0).pow(2)
+        loss += weight * to.clamp(sqnorm - 1.0, min=0.0).pow(2)
 
     for feats, children_feats in zip(b_states_feats, b_children_feats):
         sqnorm = (children_feats - feats).pow(2).sum()
         loss += sqnorm
-        loss += to.clamp(sqnorm - 1.0, min=0.0).pow(2)
+        loss += weight * to.clamp(sqnorm - 1.0, min=0.0).pow(2)
 
     # forward/backward adjacents
     for i in range(len(f_traj.states) - 1):
         sqnorm = (f_states_feats[i] - b_states_feats[n - i - 2]).pow(2).sum()
         loss += sqnorm
-        loss += to.clamp(sqnorm - 1.0, min=0.0).pow(2)
+        loss += weight * to.clamp(sqnorm - 1.0, min=0.0).pow(2)
 
     return loss
 

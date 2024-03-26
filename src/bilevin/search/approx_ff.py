@@ -1,9 +1,8 @@
 from __future__ import annotations
-from heapq import heappush, heappop, heapreplace
+from heapq import heappop, heappush, heapreplace
 from timeit import default_timer as timer
 
 import numpy as np
-from sklearn.cluster import kmeans_plusplus
 import torch as to
 from torch.linalg import norm
 
@@ -11,14 +10,14 @@ from enums import SearchDir
 from search.agent import Agent
 from search.node import SearchNode
 from search.problem import Problem
+from sklearn.cluster import kmeans_plusplus
 
 
 class ApproxFF(Agent):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.k = 4
-        self.b = 16
-        self.alpha = 0.9
+    def __init__(self, logdir: Path, args: Namespace, aux_args: dict):
+        super().__init__(logdir, args, aux_args)
+        self.k = args.ff_k
+        self.b = args.ff_b
 
     @property
     def is_bidirectional(self):
@@ -155,12 +154,12 @@ class ApproxFF(Agent):
 
         f_coreheap = []
         for c in f_coreset:
-            d_est = norm(b_coreset - c, axis=1).min()
+            d_est = norm(b_coreset - c, axis=1).min().item()
             heappush(f_coreheap, (d_est, c))
 
         b_coreheap = []
         for c in b_coreset:
-            d_est = norm(f_coreset - c, axis=1).min()
+            d_est = norm(f_coreset - c, axis=1).min().item()
             heappush(b_coreheap, (d_est, c))
 
         n_total_expanded = n_forw_expanded + n_backw_expanded
@@ -262,7 +261,7 @@ class ApproxFF(Agent):
                     state_ts, forward=direction == SearchDir.FORWARD
                 )
                 for i, child in enumerate(children_to_be_evaluated):
-                    d_est = norm(_other_coreset - state_feats[i], axis=1).min()
+                    d_est = norm(_other_coreset - state_feats[i], axis=1).min().item()
                     child.f = d_est
                     heappush(_open, child)
                     if d_est <= _coreheap[0][0]:
