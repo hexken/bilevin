@@ -212,7 +212,6 @@ class ApproxFF(Agent):
             try:
                 for _ in range(self.n_batch_expansions):
                     nodes.append(heappop(_open))
-                    n_total_expanded += 1
             except IndexError:
                 pass
 
@@ -220,6 +219,7 @@ class ApproxFF(Agent):
                 n_forw_expanded += len(nodes)
             else:
                 n_backw_expanded += len(nodes)
+            n_total_expanded += len(nodes)
 
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []

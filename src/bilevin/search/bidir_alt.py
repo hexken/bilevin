@@ -1,17 +1,21 @@
 from __future__ import annotations
+from argparse import Namespace
+from heapq import heappop, heappush
 import heapq
+from pathlib import Path
 from timeit import default_timer as timer
 
 import torch as to
 
-from search.problem import Problem
 from enums import SearchDir
 from search.agent import Agent
+from search.problem import Problem
 
 
 class BiDirAlt(Agent):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, logdir: Path, args: Namespace, aux_args: dict):
+        super().__init__(logdir, args, aux_args)
+        self.n_batch_expansions = args.n_batch_expansions
 
     @property
     def is_bidirectional(self):
@@ -99,46 +103,59 @@ class BiDirAlt(Agent):
                 other_domain = f_domain
                 n_backw_expanded += 1
 
-            node = heapq.heappop(_open)
-            n_total_expanded += 1
+            # try to expand b nodes
+            nodes = []
+            try:
+                for _ in range(self.n_batch_expansions):
+                    nodes.append(heappop(_open))
+            except IndexError:
+                pass
+
+            if direction == SearchDir.FORWARD:
+                n_forw_expanded += len(nodes)
+            else:
+                n_backw_expanded += len(nodes)
+
+            n_total_expanded += len(nodes)
 
             masks = []
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []
-            for a in node.actions:
-                new_state = _domain.result(node.state, a)
-                new_state_actions, mask = _domain.actions(a, new_state)
-                new_node = self.make_partial_child_node(
-                    node,
-                    a,
-                    new_state_actions,
-                    mask,
-                    new_state,
-                )
-
-                if new_node not in _closed:
-                    trajs = _domain.try_make_solution(
-                        self,
-                        new_node,
-                        other_domain,
-                        n_total_expanded,
+            for node in nodes:
+                for a in node.actions:
+                    new_state = _domain.result(node.state, a)
+                    new_state_actions, mask = _domain.actions(a, new_state)
+                    new_node = self.make_partial_child_node(
+                        node,
+                        a,
+                        new_state_actions,
+                        mask,
+                        new_state,
                     )
 
-                    if trajs is not None:  # solution found
-                        return (
-                            n_forw_expanded,
-                            n_backw_expanded,
-                            trajs,
+                    if new_node not in _closed:
+                        trajs = _domain.try_make_solution(
+                            self,
+                            new_node,
+                            other_domain,
+                            n_total_expanded,
                         )
 
-                    _closed[new_node] = new_node
-                    _domain.update(new_node)
+                        if trajs is not None:  # solution found
+                            return (
+                                n_forw_expanded,
+                                n_backw_expanded,
+                                trajs,
+                            )
 
-                    if new_state_actions:
-                        children_to_be_evaluated.append(new_node)
-                        state_t = _domain.state_tensor(new_state)
-                        state_t_of_children_to_be_evaluated.append(state_t)
-                        masks.append(mask)
+                        _closed[new_node] = new_node
+                        _domain.update(new_node)
+
+                        if new_state_actions:
+                            children_to_be_evaluated.append(new_node)
+                            state_t = _domain.state_tensor(new_state)
+                            state_t_of_children_to_be_evaluated.append(state_t)
+                            masks.append(mask)
 
             if len(children_to_be_evaluated) > 0:
                 self.finalize_children_nodes(

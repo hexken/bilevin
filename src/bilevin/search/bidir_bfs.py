@@ -1,5 +1,8 @@
 from __future__ import annotations
+from argparse import Namespace
+from heapq import heappop, heappush
 import heapq
+from pathlib import Path
 from timeit import default_timer as timer
 
 import torch as to
@@ -10,8 +13,9 @@ from search.problem import Problem
 
 
 class BiDirBFS(Agent):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, logdir: Path, args: Namespace, aux_args: dict):
+        super().__init__(logdir, args, aux_args)
+        self.n_batch_expansions = args.n_batch_expansions
 
     @property
     def is_bidirectional(self):
@@ -79,63 +83,69 @@ class BiDirBFS(Agent):
                     None,
                 )
 
-            if b_open[0] < f_open[0]:
-                direction = SearchDir.BACKWARD
-                _domain = b_domain
-                _goal_feats = b_goal_feats
-                _open = b_open
-                _closed = b_closed
-                other_domain = f_domain
-                n_backw_expanded += 1
-            else:
-                direction = SearchDir.FORWARD
-                _goal_feats = None
-                _domain = f_domain
-                _open = f_open
-                _closed = f_closed
-                other_domain = b_domain
-                n_forw_expanded += 1
+            nodes = []
+            try:
+                for _ in range(self.n_batch_expansions):
+                    if b_open[0] < f_open[0]:
+                        direction = SearchDir.BACKWARD
+                        _domain = b_domain
+                        _goal_feats = b_goal_feats
+                        _open = b_open
+                        _closed = b_closed
+                        other_domain = f_domain
+                        n_backw_expanded += 1
+                    else:
+                        direction = SearchDir.FORWARD
+                        _goal_feats = None
+                        _domain = f_domain
+                        _open = f_open
+                        _closed = f_closed
+                        other_domain = b_domain
+                        n_forw_expanded += 1
 
-            node = heapq.heappop(_open)
-            n_total_expanded += 1
+                    node = heapq.heappop(_open)
+            except IndexError:
+                pass
 
+            n_total_expanded += len(nodes)
             masks = []
             children_to_be_evaluated = []
             state_t_of_children_to_be_evaluated = []
-            for a in node.actions:
-                new_state = _domain.result(node.state, a)
-                new_state_actions, mask = _domain.actions(a, new_state)
-                new_node = self.make_partial_child_node(
-                    node,
-                    a,
-                    new_state_actions,
-                    mask,
-                    new_state,
-                )
-
-                if new_node not in _closed:
-                    trajs = _domain.try_make_solution(
-                        self,
-                        new_node,
-                        other_domain,
-                        n_total_expanded,
+            for node in nodes:
+                for a in node.actions:
+                    new_state = _domain.result(node.state, a)
+                    new_state_actions, mask = _domain.actions(a, new_state)
+                    new_node = self.make_partial_child_node(
+                        node,
+                        a,
+                        new_state_actions,
+                        mask,
+                        new_state,
                     )
 
-                    if trajs:  # solution found
-                        return (
-                            n_forw_expanded,
-                            n_backw_expanded,
-                            trajs,
+                    if new_node not in _closed:
+                        trajs = _domain.try_make_solution(
+                            self,
+                            new_node,
+                            other_domain,
+                            n_total_expanded,
                         )
 
-                    _closed[new_node] = new_node
-                    _domain.update(new_node)
+                        if trajs:  # solution found
+                            return (
+                                n_forw_expanded,
+                                n_backw_expanded,
+                                trajs,
+                            )
 
-                    if new_state_actions:
-                        children_to_be_evaluated.append(new_node)
-                        state_t = _domain.state_tensor(new_state)
-                        state_t_of_children_to_be_evaluated.append(state_t)
-                        masks.append(mask)
+                        _closed[new_node] = new_node
+                        _domain.update(new_node)
+
+                        if new_state_actions:
+                            children_to_be_evaluated.append(new_node)
+                            state_t = _domain.state_tensor(new_state)
+                            state_t_of_children_to_be_evaluated.append(state_t)
+                            masks.append(mask)
 
             if len(children_to_be_evaluated) > 0:
                 self.finalize_children_nodes(
