@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --account=def-lelis
+#SBATCH --account=rrg-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem=4G
