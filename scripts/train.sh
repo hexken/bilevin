@@ -6,23 +6,27 @@ lr=0.0001
 python src/bilevin/main.py \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/stp4d/600-train.pkl \
-    --valid-path problems/stp4d/1000-valid.pkl \
+    --problems-path problems/stp4/60000-train.pkl \
+    --valid-path problems/stp4/1000-valid.pkl \
     --master-port 34568 \
     --seed 1 \
     --world-size 4 \
-    --mode train \
-    --agent  AStar \
-    --weight-astar 2.5 \
-    --weight-mse-loss 0.1 \
-    --ff-b 16 \
     --ff-k 8 \
-    --loss-fn mse_loss \
+    --ff-b 32 \
+    --adj-consistency \
+    --ends-consistency \
+    --n-samples 10 \
+    --mode train \
+    --agent  ApproxFF \
+    --weight-astar 2.5 \
+    --adj-weight 5 \
+    --share-feature-net \
+    --weight-mse-loss 0.1 \
+    --loss-fn metric_loss \
     --max-grad-norm 1.0 \
     --optimizer Adam \
     --grad-steps 10 \
     \
-    --share-feature-net \
     --num-kernels 32 \
     --kernel-size 1 2 \
     \
