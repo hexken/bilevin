@@ -15,8 +15,6 @@ if TYPE_CHECKING:
     from models.models import SuperModel
 
 
-# todo can also sample pair of states in the solution traj and add constraint that their dist is <=
-# dist in the traj.
 def metric_loss(
     f_traj: MetricTrajectory,
     b_traj: MetricTrajectory,

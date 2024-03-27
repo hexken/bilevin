@@ -222,8 +222,9 @@ def parse_args():
     parser.add_argument(
         "--loss-fn",
         type=str,
-        default="levin_loss",
+        default="default",
         choices=[
+            "default",
             "traj_nll_mse_loss",
             "traj_nll_loss",
             "levin_sum_mse_loss",

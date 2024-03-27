@@ -13,11 +13,14 @@ from search.node import SearchNode
 from search.unidir import UniDir
 
 from search.agent import Agent
+
 # if TYPE_CHECKING:
 
 
 class AStarBase(Agent):
     def __init__(self, logdir, args, model_args):
+        if args.loss_fn == "default":
+            args.loss_fn = "mse_loss"
         super().__init__(logdir, args, model_args)
         self.w = args.weight_astar
 
@@ -98,8 +101,8 @@ class AStarBase(Agent):
 
 
 class AStar(UniDir, AStarBase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, logdir, args, aux_args):
+        super().__init__(logdir, args, aux_args)
 
 
 class BiAStarBFS(BiDirBFS, AStarBase):

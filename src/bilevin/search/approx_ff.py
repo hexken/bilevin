@@ -24,9 +24,11 @@ class LandMark:
 
 class ApproxFF(Agent):
     def __init__(self, logdir: Path, args: Namespace, aux_args: dict):
-        super().__init__(logdir, args, aux_args)
+        if args.loss_fn == "default":
+            args.loss_fn = "metric_loss"
         self.n_landmarks = args.n_landmarks
         self.n_batch_expansions = args.n_batch_expansions
+        super().__init__(logdir, args, aux_args)
 
     @property
     def is_bidirectional(self):

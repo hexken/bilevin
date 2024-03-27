@@ -14,6 +14,8 @@ from search.node import SearchNode
 
 class LevinBase(Agent):
     def __init__(self, logdir, args, model_args):
+        if args.loss_fn == "default":
+            args.loss_fn = "traj_nll_loss"
         super().__init__(logdir, args, model_args)
 
     @property
@@ -101,8 +103,8 @@ class LevinBase(Agent):
 
 
 class Levin(UniDir, LevinBase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, logdir, args, aux_args):
+        super().__init__(logdir, args, aux_args)
 
 
 class BiLevinBFS(BiDirBFS, LevinBase):

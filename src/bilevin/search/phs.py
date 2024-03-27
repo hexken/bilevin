@@ -14,6 +14,8 @@ from search.node import SearchNode
 
 class PHSBase(Agent):
     def __init__(self, logdir, args, model_args):
+        if args.loss_fn == "default":
+            args.loss_fn = "traj_nll_mse_loss"
         super().__init__(logdir, args, model_args)
 
     @property
@@ -109,8 +111,8 @@ class PHSBase(Agent):
 
 
 class PHS(UniDir, PHSBase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, logdir, args, aux_args):
+        super().__init__(logdir, args, aux_args)
 
 
 class BiPHSBFS(BiDirBFS, PHSBase):

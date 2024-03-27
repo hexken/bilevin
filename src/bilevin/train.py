@@ -65,9 +65,9 @@ def train(
     bidirectional: bool = agent.is_bidirectional
     policy_based: bool = agent.has_policy
     heuristic_based: bool = agent.has_heuristic
-    optimizer = agent.model.optimizer
+    optimizer = agent.optimizer
     max_grad_norm = args.max_grad_norm
-    loss_fn = agent.model.loss_fn
+    loss_fn = agent.loss_fn
 
     solved_flag = to.zeros(1, dtype=to.uint8)
     local_opt_results = to.zeros(4, dtype=to.float64)

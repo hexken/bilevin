@@ -1,16 +1,20 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from argparse import Namespace
+from functools import partial
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
 import torch as to
+from torch import optim
 
 from domains.domain import State
 from enums import SearchDir
+from models import losses
 from models.models import SuperModel
 from search.node import SearchNode
 from search.problem import Problem
+
 
 if TYPE_CHECKING:
     from search.traj import Trajectory
@@ -23,7 +27,31 @@ class Agent(ABC):
         aux_args["has_heuristic"] = self.has_heuristic
 
         self.logdir: Path = logdir
+        self.args: Namespace = args
         self.model: SuperModel = SuperModel(args, aux_args)
+
+        if args.mode == "train":
+            self.optimizer = getattr(optim, args.optimizer)(
+                self.model.learnable_params,
+            )
+
+            if "mse" in args.loss_fn:
+                self.loss_fn = partial(
+                    getattr(losses, args.loss_fn), weight=args.weight_mse_loss
+                )
+            elif "metric" in args.loss_fn:
+                self.loss_fn = partial(
+                    getattr(losses, args.loss_fn),
+                    children_weight=args.children_weight,
+                    adj_consistency=args.adj_consistency,
+                    adj_weight=args.adj_weight,
+                    ends_consistency=args.ends_consistency,
+                    ends_weight=args.ends_weight,
+                    n_samples=args.n_samples,
+                    samples_weight=args.samples_weight,
+                )
+            else:
+                self.loss_fn = getattr(losses, args.loss_fn)
 
     def save_model(
         self,
