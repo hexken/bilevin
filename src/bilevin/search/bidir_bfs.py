@@ -1,5 +1,6 @@
 from __future__ import annotations
 from argparse import Namespace
+from dataclasses import dataclass, field
 from heapq import heappop, heappush
 import heapq
 from pathlib import Path
@@ -7,9 +8,22 @@ from timeit import default_timer as timer
 
 import torch as to
 
+from domains.domain import Domain
 from enums import SearchDir
 from search.agent import Agent
+from search.node import SearchNode
 from search.problem import Problem
+
+
+@dataclass(order=True)
+class DirectionalNode:
+    f: float
+    snode: SearchNode = field(compare=False)
+    direction: SearchDir = field(compare=False)
+    _open: list = field(compare=False)
+    _closed: dict = field(compare=False)
+    _domain: Domain = field(compare=False)
+    _other_domain: Domain = field(compare=False)
 
 
 class BiDirBFS(Agent):
