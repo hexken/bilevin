@@ -112,7 +112,6 @@ def from_common_node(
             partial_g_cost=dir1_common.g,
             goal_state_t=goal_state_t,
             forward=forward,
-            set_masks=set_masks,
         )
     else:
         return from_goal_node_metric(
@@ -173,7 +172,6 @@ def from_goal_node_actions(
     partial_g_cost: int,
     goal_state_t: Optional[Tensor] = None,
     forward: bool = True,
-    set_masks: bool = False,
 ) -> Trajectory:
     """
     Receives a SearchNode representing a solution to the problem.
@@ -200,10 +198,7 @@ def from_goal_node_actions(
 
     states = to.stack(tuple(reversed(states)))
     actions = to.tensor(tuple(reversed(actions)))
-    if set_masks:
-        masks = to.stack(tuple(reversed(masks)))
-    else:
-        masks = to.Tensor(0)
+    masks = to.stack(tuple(reversed(masks)))
 
     preds = agent.model(states, mask=masks, forward=forward, goal_state_t=goal_state_t)
     if agent.has_policy:

@@ -103,16 +103,16 @@ class BiDirBFS(Agent):
                 flen = len(f_open)
                 blen = len(b_open)
                 if flen == 0 and blen > 0:
-                    node = heappop(b_open)
+                    nodes.append(heappop(b_open))
                 elif blen == 0 and flen > 0:
-                    node = heappop(f_open)
+                    nodes.append(heappop(f_open))
                 elif flen == 0 and blen == 0:
                     break
                 else:
                     if b_open[0] < f_open[0]:
-                        node = heappop(b_open)
+                        nodes.append(heappop(b_open))
                     else:
-                        node = heappop(f_open)
+                        nodes.append(heappop(f_open))
 
             n_total_expanded += len(nodes)
 
