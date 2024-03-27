@@ -4,8 +4,30 @@ from typing import TYPE_CHECKING
 
 from torch import Tensor
 
+from enums import SearchDir
+
 if TYPE_CHECKING:
-    from domains.domain import State
+    from domains.domain import State, Domain
+
+
+class DirStructures:
+    def __init__(
+        self,
+        direction: SearchDir,
+        open: list[SearchNode],
+        closed: dict[SearchNode, SearchNode],
+        domain: Domain,
+        other_domain: Domain,
+        goal_feats: Optional[Tensor] = None,
+        expanded: int = 0,
+    ):
+        self.direction = direction
+        self.open = open
+        self.closed = closed
+        self.domain = domain
+        self.other_domain = other_domain
+        self.goal_feats = goal_feats
+        self.expanded = expanded
 
 
 class SearchNode:
@@ -20,7 +42,8 @@ class SearchNode:
         log_prob: float,
         log_action_probs: Optional[Tensor] = None,
         h: Optional[float] = None,
-        f: Optional[float] = None,
+        f: float = 0,
+        ds: Optional[DirStructures] = None,
     ):
         self.state = state
         self.parent = parent
@@ -32,6 +55,7 @@ class SearchNode:
         self.log_action_probs = log_action_probs
         self.h = h
         self.f = f
+        self.dir_structures = ds
 
     def __eq__(self, other):
         """

@@ -1,29 +1,16 @@
 from __future__ import annotations
 from argparse import Namespace
-from dataclasses import dataclass, field
 from heapq import heappop, heappush
-import heapq
 from pathlib import Path
 from timeit import default_timer as timer
+from typing import Optional
 
 import torch as to
 
-from domains.domain import Domain
 from enums import SearchDir
 from search.agent import Agent
-from search.node import SearchNode
+from search.node import DirStructures
 from search.problem import Problem
-
-
-@dataclass(order=True)
-class DirectionalNode:
-    f: float
-    snode: SearchNode = field(compare=False)
-    direction: SearchDir = field(compare=False)
-    _open: list = field(compare=False)
-    _closed: dict = field(compare=False)
-    _domain: Domain = field(compare=False)
-    _other_domain: Domain = field(compare=False)
 
 
 class BiDirBFS(Agent):
@@ -82,8 +69,22 @@ class BiDirBFS(Agent):
         b_open = [b_start_node]
 
         n_total_expanded = 0
-        n_forw_expanded = 0
-        n_backw_expanded = 0
+
+        f_dir_struct = DirStructures(
+            SearchDir.FORWARD, f_open, f_closed, f_domain, b_domain, expanded=0
+        )
+        f_start_node.dir_structures = f_dir_struct
+
+        b_dir_struct = DirStructures(
+            SearchDir.BACKWARD,
+            b_open,
+            b_closed,
+            b_domain,
+            f_domain,
+            goal_feats=b_goal_feats,
+            expanded=0,
+        )
+        b_start_node.dir_structures = b_dir_struct
 
         while len(f_open) > 0 and len(b_open) > 0:
             if (
@@ -92,43 +93,42 @@ class BiDirBFS(Agent):
                 and timer() - start_time >= time_budget
             ):
                 return (
-                    n_forw_expanded,
-                    n_backw_expanded,
+                    f_dir_struct.expanded,
+                    b_dir_struct.expanded,
                     None,
                 )
 
             nodes = []
-            try:
-                for _ in range(self.n_batch_expansions):
+            for _ in range(self.n_batch_expansions):
+                flen = len(f_open)
+                blen = len(b_open)
+                if flen == 0 and blen > 0:
+                    node = heappop(b_open)
+                elif blen == 0 and flen > 0:
+                    node = heappop(f_open)
+                elif flen == 0 and blen == 0:
+                    break
+                else:
                     if b_open[0] < f_open[0]:
-                        direction = SearchDir.BACKWARD
-                        _domain = b_domain
-                        _goal_feats = b_goal_feats
-                        _open = b_open
-                        _closed = b_closed
-                        other_domain = f_domain
-                        n_backw_expanded += 1
+                        node = heappop(b_open)
                     else:
-                        direction = SearchDir.FORWARD
-                        _goal_feats = None
-                        _domain = f_domain
-                        _open = f_open
-                        _closed = f_closed
-                        other_domain = b_domain
-                        n_forw_expanded += 1
-
-                    node = heapq.heappop(_open)
-            except IndexError:
-                pass
+                        node = heappop(f_open)
 
             n_total_expanded += len(nodes)
-            masks = []
-            children_to_be_evaluated = []
-            state_t_of_children_to_be_evaluated = []
+
+            f_masks = []
+            f_children_to_be_evaluated = []
+            f_state_t_of_children_to_be_evaluated = []
+
+            b_masks = []
+            b_children_to_be_evaluated = []
+            b_state_t_of_children_to_be_evaluated = []
             for node in nodes:
+                ds = node.dir_structures
+                ds.expanded += 1
                 for a in node.actions:
-                    new_state = _domain.result(node.state, a)
-                    new_state_actions, mask = _domain.actions(a, new_state)
+                    new_state = ds.domain.result(node.state, a)
+                    new_state_actions, mask = ds.domain.actions(a, new_state)
                     new_node = self.make_partial_child_node(
                         node,
                         a,
@@ -136,44 +136,59 @@ class BiDirBFS(Agent):
                         mask,
                         new_state,
                     )
+                    new_node.dir_structures = ds
 
-                    if new_node not in _closed:
-                        trajs = _domain.try_make_solution(
+                    if new_node not in ds.closed:
+                        trajs = ds.domain.try_make_solution(
                             self,
                             new_node,
-                            other_domain,
+                            ds.other_domain,
                             n_total_expanded,
                         )
 
                         if trajs:  # solution found
                             return (
-                                n_forw_expanded,
-                                n_backw_expanded,
+                                f_dir_struct.expanded,
+                                b_dir_struct.expanded,
                                 trajs,
                             )
 
-                        _closed[new_node] = new_node
-                        _domain.update(new_node)
+                        ds.closed[new_node] = new_node
+                        ds.domain.update(new_node)
 
                         if new_state_actions:
-                            children_to_be_evaluated.append(new_node)
-                            state_t = _domain.state_tensor(new_state)
-                            state_t_of_children_to_be_evaluated.append(state_t)
-                            masks.append(mask)
+                            state_t = ds.domain.state_tensor(new_state)
+                            if ds.direction == SearchDir.FORWARD:
+                                f_children_to_be_evaluated.append(new_node)
+                                f_state_t_of_children_to_be_evaluated.append(state_t)
+                                f_masks.append(mask)
+                            else:
+                                b_children_to_be_evaluated.append(new_node)
+                                b_state_t_of_children_to_be_evaluated.append(state_t)
+                                b_masks.append(mask)
 
-            if len(children_to_be_evaluated) > 0:
+            if len(f_children_to_be_evaluated) > 0:
                 self.finalize_children_nodes(
-                    _open,
-                    direction,
-                    children_to_be_evaluated,
-                    state_t_of_children_to_be_evaluated,
-                    masks,
-                    _goal_feats,
+                    f_open,
+                    SearchDir.FORWARD,
+                    f_children_to_be_evaluated,
+                    f_state_t_of_children_to_be_evaluated,
+                    f_masks,
+                    None,
+                )
+            if len(b_children_to_be_evaluated) > 0:
+                self.finalize_children_nodes(
+                    b_open,
+                    SearchDir.BACKWARD,
+                    b_children_to_be_evaluated,
+                    b_state_t_of_children_to_be_evaluated,
+                    b_masks,
+                    b_goal_feats,
                 )
 
         print(f"Emptied opens for problem {problem_id}")
         return (
-            n_forw_expanded,
-            n_backw_expanded,
+            f_dir_struct.expanded,
+            b_dir_struct.expanded,
             None,
         )

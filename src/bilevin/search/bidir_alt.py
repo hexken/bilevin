@@ -9,6 +9,7 @@ import torch as to
 
 from enums import SearchDir
 from search.agent import Agent
+from search.node import DirStructures
 from search.problem import Problem
 
 
@@ -71,6 +72,27 @@ class BiDirAlt(Agent):
         n_forw_expanded = 0
         n_backw_expanded = 0
 
+        f_dir_struct = DirStructures(
+            SearchDir.FORWARD,
+            f_open,
+            f_closed,
+            f_domain,
+            b_domain,
+            expanded=0,
+        )
+        f_start_node.dir_structures = f_dir_struct
+
+        b_dir_struct = DirStructures(
+            SearchDir.BACKWARD,
+            b_open,
+            b_closed,
+            b_domain,
+            f_domain,
+            goal_feats=b_goal_feats,
+            expanded=0,
+        )
+        b_start_node.dir_structures = b_dir_struct
+
         next_direction = SearchDir.FORWARD
         while len(f_open) > 0 and len(b_open) > 0:
             if (
@@ -79,8 +101,8 @@ class BiDirAlt(Agent):
                 and timer() - start_time >= time_budget
             ):
                 return (
-                    n_forw_expanded,
-                    n_backw_expanded,
+                    f_dir_struct.expanded,
+                    b_dir_struct.expanded,
                     None,
                 )
 
@@ -88,34 +110,20 @@ class BiDirAlt(Agent):
 
             if direction == SearchDir.FORWARD:
                 next_direction = SearchDir.BACKWARD
-                _goal_feats = None
-                _domain = f_domain
-                _open = f_open
-                _closed = f_closed
-                other_domain = b_domain
-                n_forw_expanded += 1
+                ds = f_dir_struct
             else:
                 next_direction = SearchDir.FORWARD
-                _domain = b_domain
-                _goal_feats = b_goal_feats
-                _open = b_open
-                _closed = b_closed
-                other_domain = f_domain
-                n_backw_expanded += 1
+                ds = b_dir_struct
 
             # try to expand b nodes
             nodes = []
             try:
                 for _ in range(self.n_batch_expansions):
-                    nodes.append(heappop(_open))
+                    nodes.append(heappop(ds.open))
             except IndexError:
                 pass
 
-            if direction == SearchDir.FORWARD:
-                n_forw_expanded += len(nodes)
-            else:
-                n_backw_expanded += len(nodes)
-
+            ds.expanded += len(nodes)
             n_total_expanded += len(nodes)
 
             masks = []
@@ -123,8 +131,8 @@ class BiDirAlt(Agent):
             state_t_of_children_to_be_evaluated = []
             for node in nodes:
                 for a in node.actions:
-                    new_state = _domain.result(node.state, a)
-                    new_state_actions, mask = _domain.actions(a, new_state)
+                    new_state = ds.domain.result(node.state, a)
+                    new_state_actions, mask = ds.domain.actions(a, new_state)
                     new_node = self.make_partial_child_node(
                         node,
                         a,
@@ -133,43 +141,43 @@ class BiDirAlt(Agent):
                         new_state,
                     )
 
-                    if new_node not in _closed:
-                        trajs = _domain.try_make_solution(
+                    if new_node not in ds.closed:
+                        trajs = ds.domain.try_make_solution(
                             self,
                             new_node,
-                            other_domain,
+                            ds.other_domain,
                             n_total_expanded,
                         )
 
                         if trajs is not None:  # solution found
                             return (
-                                n_forw_expanded,
-                                n_backw_expanded,
+                                f_dir_struct.expanded,
+                                b_dir_struct.expanded,
                                 trajs,
                             )
 
-                        _closed[new_node] = new_node
-                        _domain.update(new_node)
+                        ds.closed[new_node] = new_node
+                        ds.domain.update(new_node)
 
                         if new_state_actions:
                             children_to_be_evaluated.append(new_node)
-                            state_t = _domain.state_tensor(new_state)
+                            state_t = ds.domain.state_tensor(new_state)
                             state_t_of_children_to_be_evaluated.append(state_t)
                             masks.append(mask)
 
             if len(children_to_be_evaluated) > 0:
                 self.finalize_children_nodes(
-                    _open,
+                    ds.open,
                     direction,
                     children_to_be_evaluated,
                     state_t_of_children_to_be_evaluated,
                     masks,
-                    _goal_feats,
+                    ds.goal_feats,
                 )
 
         print(f"Emptied opens for problem {problem_id}")
         return (
-            n_forw_expanded,
-            n_backw_expanded,
+            f_dir_struct.expanded,
+            b_dir_struct.expanded,
             None,
         )
