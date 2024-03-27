@@ -25,8 +25,8 @@ class LandMark:
 class ApproxFF(Agent):
     def __init__(self, logdir: Path, args: Namespace, aux_args: dict):
         super().__init__(logdir, args, aux_args)
-        self.k = args.ff_k
-        self.b = args.ff_b
+        self.n_landmarks = args.n_landmarks
+        self.n_batch_expansions = args.n_batch_expansions
 
     @property
     def is_bidirectional(self):
@@ -94,7 +94,7 @@ class ApproxFF(Agent):
         curr_g = 0
         f_topen = [f_start_node]
         f_tclosed = {f_start_node}
-        while f_topen[0].g == curr_g or len(f_topen) < self.b:
+        while f_topen[0].g == curr_g or len(f_topen) < self.n_batch_expansions:
             node = f_topen.pop(0)
             n_forw_expanded += 1
             for a in node.actions:
@@ -119,7 +119,7 @@ class ApproxFF(Agent):
             [f_domain.state_tensor(node.state) for node in f_topen]
         )
         open_feats = self.model(open_state_ts)
-        f_landmarks, _ = kmeans_plusplus(open_feats.numpy(), self.k)
+        f_landmarks, _ = kmeans_plusplus(open_feats.numpy(), self.n_landmarks)
         f_landmarks = to.from_numpy(f_landmarks)
 
         # backward OPEN init
@@ -127,7 +127,7 @@ class ApproxFF(Agent):
         curr_g = 0
         b_topen = [b_start_node]
         b_tclosed = {b_start_node}
-        while b_topen[0].g == curr_g or len(b_topen) < self.b:
+        while b_topen[0].g == curr_g or len(b_topen) < self.n_batch_expansions:
             node = b_topen.pop(0)
             n_backw_expanded += 1
             for a in node.actions:
@@ -152,7 +152,7 @@ class ApproxFF(Agent):
             [b_domain.state_tensor(node.state) for node in b_topen]
         )
         open_feats = self.model(open_state_ts, forward=False)
-        b_landmarks, _ = kmeans_plusplus(open_feats.numpy(), self.k)
+        b_landmarks, _ = kmeans_plusplus(open_feats.numpy(), self.n_landmarks)
         b_landmarks = to.from_numpy(b_landmarks)
 
         f_open = [f_start_node]
@@ -210,7 +210,7 @@ class ApproxFF(Agent):
             # try to expand b nodes
             nodes = []
             try:
-                for _ in range(self.b):
+                for _ in range(self.n_batch_expansions):
                     nodes.append(heappop(_open))
                     n_total_expanded += 1
             except IndexError:

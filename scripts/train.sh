@@ -11,8 +11,8 @@ python src/bilevin/main.py \
     --master-port 34568 \
     --seed 1 \
     --world-size 4 \
-    --ff-k 8 \
-    --ff-b 32 \
+    --n-landmarks 8 \
+    --n-batch-expansions 32 \
     --adj-consistency \
     --ends-consistency \
     --n-samples 10 \

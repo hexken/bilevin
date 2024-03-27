@@ -23,13 +23,13 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--ff-k",
+        "--n-landmarks",
         type=int,
         default=8,
         help="size of coresets for approx ff",
     )
     parser.add_argument(
-        "--ff-b",
+        "--n-batch-expansions",
         type=int,
         default=16,
         help="number of batch expansions for approx ff",
