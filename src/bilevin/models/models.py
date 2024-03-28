@@ -271,9 +271,8 @@ class StateGoalHeuristic(nn.Module):
         self.output_layer = nn.Linear(hidden_layer_sizes[-1], 1)
 
     def forward(self, state_feats: to.Tensor, goal_feats: to.Tensor):
-        bs = state_feats.shape[0]
-        if goal_feats.shape[0] != bs:
-            goal_feats = goal_feats.expand(bs, -1)
+        assert state_feats.dim() == 2
+        goal_feats = goal_feats.expand(state_feats.shape[0], -1)
 
         x = to.cat((state_feats, goal_feats), dim=-1)
         for l in self.layers:
@@ -333,9 +332,8 @@ class StateGoalPolicy(nn.Module):
         self.output_layer = nn.Linear(hidden_layer_sizes[-1], num_actions)
 
     def forward(self, state_feats: to.Tensor, goal_feats: to.Tensor):
-        bs = state_feats.shape[0]
-        if goal_feats.shape[0] != bs:
-            goal_feats = goal_feats.expand(bs, -1)
+        assert state_feats.dim() == 2
+        goal_feats = goal_feats.expand(state_feats.shape[0], -1)
 
         x = to.cat((state_feats, goal_feats), dim=-1)
         for l in self.layers:
