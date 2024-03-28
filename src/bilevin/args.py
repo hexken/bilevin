@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument(
         "--n-batch-expansions",
         type=int,
-        default=16,
+        default=32,
         help="number of batch expansions for approx ff",
     )
     parser.add_argument(

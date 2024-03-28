@@ -40,8 +40,9 @@ python src/bilevin/main.py \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
-    --loss-fn mse_loss \
+    --loss-fn default \
     \
+    --share-feature-net t \
     --forward-feature-net-lr $lr \
     --forward-policy-layers 128 \
     --forward-policy-lr $lr \

@@ -41,7 +41,7 @@ python src/bilevin/main.py \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
-    --loss-fn traj_nll_loss \
+    --loss-fn default \
     --grad-steps 10 \
     \
     --num-kernels 32 \

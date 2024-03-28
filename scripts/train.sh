@@ -17,12 +17,12 @@ python src/bilevin/main.py \
     --ends-consistency \
     --n-samples 10 \
     --mode train \
-    --agent  BiAStarAlt \
+    --agent  ApproxFF \
     --weight-astar 2.5 \
     --adj-weight 5 \
     --share-feature-net \
     --weight-mse-loss 0.1 \
-    --loss-fn mse_loss \
+    --loss-fn default \
     --max-grad-norm 1.0 \
     --optimizer Adam \
     --grad-steps 10 \

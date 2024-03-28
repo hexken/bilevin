@@ -24,30 +24,28 @@ argfile=/scratch/tjhia/bilevin/scripts/slurm/stp/ff_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
-ffk=$(echo $args | cut -d' ' -f3)
-ffb=$(echo $args | cut -d' ' -f4)
-ffw=$(echo $args | cut -d' ' -f5)
+n_landmarks=$(echo $args | cut -d' ' -f3)
+n_batch_expansions=$(echo $args | cut -d' ' -f4)
 lr=0.0001
 # chk=$(echo $args | cut -d' ' -f3)
 
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
-    --ff-k $ffk \
-    --ff-b $ffb \
-    --weight-metric-loss $ffw \
-    --share-feature-net t \
+    --n-landmarks $n_landmarks \
+    --n-batch-expansions $n_batch_expansions \
     --agent $agent \
     --seed $seed \
     --runsdir-path runs/thes/stp4/ff \
-    --exp-name "k${ffk}_b${ffb}_w${ffw}_sf${sf}" \
+    --exp-name "k${n_landmarks}_b${n_batch_expansions}" \
     --problems-path problems/stp4/60000-train.pkl \
     --valid-path problems/stp4/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
-    --loss-fn traj_nll_loss \
+    --loss-fn default \
     \
+    --share-feature-net t \
     --forward-feature-net-lr $lr \
     --forward-policy-layers 128 \
     --forward-policy-lr $lr \
