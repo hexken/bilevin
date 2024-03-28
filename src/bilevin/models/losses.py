@@ -63,6 +63,7 @@ def metric_loss(
     if ends_consistency:
         sq_traj_dist = (len(f_traj.states) - 1) ** 2
         sq_dist = (f_states_feats[-1] - b_states_feats[0]).pow(2).sum()
+        loss += -sq_dist
         loss += ends_weight * clamp(sq_traj_dist - sq_dist, min=0) ** 2
 
     # sample pairs of states in the solution traj and add constraint that their features
@@ -77,6 +78,7 @@ def metric_loss(
         for i, j in zip(s1_indices, s2_indices):
             sq_traj_dist = (j - i) ** 2
             sq_dist = (f_states_feats[i] - b_states_feats[n - j - 1]).pow(2).sum()
+            loss += -sq_dist
             loss += samples_weight * clamp(sq_traj_dist - sq_dist, min=0) ** 2
 
     return loss
