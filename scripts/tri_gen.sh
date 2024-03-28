@@ -16,13 +16,13 @@ if [ "$1" = "d" ]; then
     python src/bilevin/domains/wit_puzzle_generator.py \
     --puzzle  "triangles" \
     --seed  1743 \
-    --width  4 \
-    --output-path  problems2/tri4d/ \
+    --width  5 \
+    --output-path  problems/tri5d/ \
     --n-stages 1 \
     --n-problems-per-stage 1 \
     --marker-prob-limits  0.1 0.5 \
     --min-path-ratio-limits 0.0 2.0 \
-    --n-problems-final-stage 250 \
+    --n-problems-final-stage 1000 \
     --test-marker-prob 0.6 \
     --test-min-path-ratio 2.0 \
     --n-valid  100 \

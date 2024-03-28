@@ -57,7 +57,7 @@ python src/bilevin/main.py \
     \
     --train-expansion-budget 2000 \
     \
-    --n-final-stage-epochs 50 \
+    --n-final-stage-epochs 20 \
     \
     --n-batch-tail 100 \
     \

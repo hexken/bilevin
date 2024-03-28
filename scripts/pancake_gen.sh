@@ -51,7 +51,7 @@ elif [ "$1" = "18" ]; then
     --randomize-curriculum-steps \
     --stages-multiple  5 \
     --n-problems-final-stage 50000 \
-    --n-stages  5 \
+    --n-stages  1 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \
@@ -66,7 +66,7 @@ elif [ "$1" = "22" ]; then
     --randomize-curriculum-steps \
     --stages-multiple  5 \
     --n-problems-final-stage 50000 \
-    --n-stages  6 \
+    --n-stages  1 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \

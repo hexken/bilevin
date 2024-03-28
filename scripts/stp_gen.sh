@@ -14,33 +14,33 @@ fi
 if [ "$1" = "d" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain stp \
-    --output-path  problems/stp4d/ \
+    --output-path  problems/stp5d/ \
     --seed 658 \
-    --width  4 \
+    --width  5 \
     --n-problems-per-stage  100 \
     --randomize-curriculum-steps \
     --stages-multiple  20 \
-    --n-problems-final-stage 2500 \
-    --n-stages  26 \
+    --n-problems-final-stage 1000 \
+    --n-stages  1 \
     --n-valid  100 \
     --n-test 100 \
     --randomize-test-steps \
-    --test-steps  500
+    --test-steps  1000
 elif [ "$1" = "4" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain stp \
-    --output-path  problems/stp4d/ \
+    --output-path  problems/stp4/ \
     --seed 4238 \
     --width  4 \
     --n-problems-per-stage  10 \
     --randomize-curriculum-steps \
     --stages-multiple  5 \
-    --n-problems-final-stage 500 \
+    --n-problems-final-stage 50000 \
     --n-stages  5 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \
-    --test-steps  1000
+    --test-steps  500
 elif [ "$1" = "5" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain stp \
@@ -51,11 +51,11 @@ elif [ "$1" = "5" ]; then
     --randomize-curriculum-steps \
     --stages-multiple  5 \
     --n-problems-final-stage 50000 \
-    --n-stages  21 \
+    --n-stages  1 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \
-    --test-steps  1000
+    --test-steps  500
 else
     usage
 fi
