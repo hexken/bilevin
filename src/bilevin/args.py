@@ -295,6 +295,23 @@ def parse_args():
         help="pass the problem's initial (forward) state to the backward policy/heuristic in addition to a current (backward) state",
     )
     parser.add_argument(
+        "--feature-net-type",
+        type=str,
+        default="conv",
+        choices=[
+            "conv",
+            "linear",
+        ],
+        help="type of feature net to use",
+    )
+    parser.add_argument(
+        "--n-units",
+        action="store",
+        default=128,
+        type=int,
+        help="number of units per layer in linear feature net",
+    )
+    parser.add_argument(
         "--no-feature-net",
         const=True,
         nargs="?",

@@ -43,23 +43,30 @@ class SuperModel(nn.Module):
                 f_feat_lr = args.forward_feature_net_lr
                 b_feat_lr = args.backward_feature_net_lr
 
-            reduced_width: int = self.state_t_width - 2 * self.kernel_size[1] + 2
-            if self.kernel_size[0] > 1:
-                self.state_t_depth: int = derived_args["state_t_depth"]
-                reduced_depth = self.state_t_depth - 2 * self.kernel_size[0] + 2
-                self.num_features = (
-                    self.num_kernels * reduced_depth * reduced_width**2
-                )
-            else:
-                self.num_features = self.num_kernels * reduced_width**2
+            if args.feature_net_type == "conv":
+                reduced_width: int = self.state_t_width - 2 * self.kernel_size[1] + 2
+                if self.kernel_size[0] > 1:
+                    self.state_t_depth: int = derived_args["state_t_depth"]
+                    reduced_depth = self.state_t_depth - 2 * self.kernel_size[0] + 2
+                    self.num_features = (
+                        self.num_kernels * reduced_depth * reduced_width**2
+                    )
+                else:
+                    self.num_features = self.num_kernels * reduced_width**2
 
-            self.forward_feature_net: nn.Module = ConvFeatureNet(
-                self.in_channels,
-                self.state_t_width,
-                self.kernel_size,
-                self.num_kernels,
-                self.num_actions,
-            )
+                self.forward_feature_net: nn.Module = ConvFeatureNet(
+                    self.in_channels,
+                    self.state_t_width,
+                    self.kernel_size,
+                    self.num_kernels,
+                    self.num_actions,
+                )
+            else:  # linear feature net
+                self.num_raw_features = derived_args["num_features"]
+                self.forward_feature_net: nn.Module = LinearFeatureNet(
+                    self.num_raw_features, args.n_units
+                )
+                self.num_features = args.n_units
             params = {
                 "params": self.forward_feature_net.parameters(),
                 "lr": f_feat_lr,
@@ -71,13 +78,18 @@ class SuperModel(nn.Module):
                 if self.share_feature_net:
                     self.backward_feature_net: nn.Module = self.forward_feature_net
                 else:
-                    self.backward_feature_net: nn.Module = ConvFeatureNet(
-                        self.in_channels,
-                        self.state_t_width,
-                        self.kernel_size,
-                        self.num_kernels,
-                        self.num_actions,
-                    )
+                    if args.feature_net_type == "conv":
+                        self.backward_feature_net: nn.Module = ConvFeatureNet(
+                            self.in_channels,
+                            self.state_t_width,
+                            self.kernel_size,
+                            self.num_kernels,
+                            self.num_actions,
+                        )
+                    else:
+                        self.backward_feature_net: nn.Module = LinearFeatureNet(
+                            self.num_features, args.n_units
+                        )
                     params = {
                         "params": self.backward_feature_net.parameters(),
                         "lr": b_feat_lr,
@@ -342,6 +354,24 @@ class StateGoalPolicy(nn.Module):
         logits = self.output_layer(x)
 
         return logits
+
+
+class LinearFeatureNet(nn.Module):
+    """Assumes a square sized input with state_t_width side length"""
+
+    def __init__(self, num_raw_features: int, num_units: int):
+        super().__init__()
+        self.num_raw_features: int = num_raw_features
+        self.num_units: int = num_units
+        self.layer1 = nn.Linear(num_raw_features, num_units)
+        self.layer2 = nn.Linear(num_units, num_units)
+
+    def forward(self, state_ts: to.Tensor):
+        state_ts = state_ts.flatten(start_dim=1)
+        x = F.relu(self.layer1(state_ts))
+        x = F.relu(self.layer2(x))
+
+        return x
 
 
 class ConvFeatureNet(nn.Module):
