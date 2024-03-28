@@ -535,6 +535,7 @@ def train(
 
                 e = 1 if final_stage_epoch == 0 else final_stage_epoch
                 train_times_log.write(f"{old_stage} {e} {total_stage_time:.2f}\n")
+                train_times_log.flush()
 
                 print_search_summary(
                     stage_search_df,

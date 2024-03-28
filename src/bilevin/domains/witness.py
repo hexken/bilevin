@@ -38,16 +38,17 @@ class WitnessState(State):
 
             self.v_segs = np.zeros((self.width, self.width + 1))
             self.h_segs = np.zeros((self.width + 1, self.width))
+            self._hash = (
+                self.h_segs.tobytes(),
+                self.v_segs.tobytes(),
+            ).__hash__()
 
     def __hash__(self) -> int:
         """
         Note that these hash and eq implementations imply the states are generated
         from the same problem
         """
-        return (
-            self.h_segs.tobytes(),
-            self.v_segs.tobytes(),
-        ).__hash__()
+        return self._hash
 
     def __eq__(self, other) -> bool:
         return (
@@ -318,6 +319,10 @@ class Witness(Domain):
             new_state.grid[new_state.head_row, new_state.head_col - 1] = 1
             new_state.head_col -= 1
 
+        new_state._hash = (
+            new_state.h_segs.tobytes(),
+            new_state.v_segs.tobytes(),
+        ).__hash__()
         return new_state
 
     def is_head_at_goal(self, state: WitnessState) -> bool:

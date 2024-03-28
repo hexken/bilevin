@@ -25,6 +25,7 @@ class SlidingTilePuzzleState(State):
         self.blank_row: int = blank_row
         self.blank_col: int = blank_col
         self.width = len(tiles)
+        self._hash = tiles.tobytes().__hash__()
 
     def __repr__(self) -> str:
         mlw = self.tiles.shape[0] ** 2
@@ -36,7 +37,7 @@ class SlidingTilePuzzleState(State):
         return self.__repr__()
 
     def __hash__(self) -> int:
-        return self.tiles.tobytes().__hash__()
+        return self._hash
 
     def __eq__(self, other: SlidingTilePuzzleState) -> bool:
         return (self.tiles == other.tiles).all()

@@ -20,6 +20,7 @@ class PancakePuzzleState(State):
         pancakes: np.ndarray,
     ):
         self.pancakes: np.ndarray = pancakes
+        self._hash = pancakes.tobytes().__hash__()
 
     def __repr__(self) -> str:
         return self.pancakes.__repr__()
@@ -28,7 +29,7 @@ class PancakePuzzleState(State):
         return self.pancakes.__str__()
 
     def __hash__(self) -> int:
-        return self.pancakes.tobytes().__hash__()
+        return self._hash
 
     def __eq__(self, other: PancakePuzzleState) -> bool:
         return (self.pancakes == other.pancakes).all()
@@ -71,7 +72,7 @@ class PancakePuzzle(Domain):
         self,
         state: PancakePuzzleState,
     ) -> to.Tensor:
-        t =  transpose(one_hot(from_numpy(state.pancakes)).float(), 1, 0)
+        t = transpose(one_hot(from_numpy(state.pancakes)).float(), 1, 0)
         return t
 
     def reverse_action(self, action: int) -> int:
@@ -90,7 +91,9 @@ class PancakePuzzle(Domain):
     def _actions_unpruned(self, state: PancakePuzzleState):
         return [i for i in range(self.num_actions)]
 
-    def result(self, state: PancakePuzzleState, action: ActionDir) -> PancakePuzzleState:
+    def result(
+        self, state: PancakePuzzleState, action: ActionDir
+    ) -> PancakePuzzleState:
         pancakes = state.pancakes.copy()
         pancakes[action:] = np.flip(state.pancakes[action:])
         new_state = PancakePuzzleState(pancakes)
