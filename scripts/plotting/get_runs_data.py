@@ -15,10 +15,10 @@ def prepare_domain(domain_pth, keys, outfile):
 
 
 if __name__ == "__main__":
-    indir = Path(sys.argv[1])
     if len(sys.argv) < 3:
         print("Usage: python get_runs.py <indir> [all] [<keys>] <outfile|outdir>")
         sys.exit(1)
+    indir = Path(sys.argv[1])
 
     if sys.argv[2].lower() == "all":
         keys = sys.argv[3:-1] if len(sys.argv) > 4 else ["agent"]

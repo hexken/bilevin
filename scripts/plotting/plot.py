@@ -70,21 +70,19 @@ def plot_valid(
     # plot seeds corresponding to a run
     dfs = run_data["valid"]
     notna_dfs = []
-    min_n_vals = dfs[0]["batch"].nunique()
     for df in dfs:
         dfg = df.groupby(df["batch"], as_index=False)
         dfg = dfg.aggregate({y_data_label: "mean"})[y_data_label]
-        if len(dfg) != min_n_vals:
-            print(f"Warning: incomplete run detected: {len(df)} != {min_n_vals}")
-            min_n_vals = len(dfg)
         notna_dfs.append(dfg)
 
+    min_n = min(len(df) for df in notna_dfs)
+    max_n = max(len(df) for df in notna_dfs)
     # notna_dfs = [df.iloc[:min_n_vals] for df in notna_dfs]
     df = pd.concat(notna_dfs, axis=1)
     central = df.median(axis=1)
     lower = df.min(axis=1)
     upper = df.max(axis=1)
-    n_valids = np.arange(1, min_n_vals + 1)
+    n_valids = np.arange(1, max_n + 1)
 
     color, linestyle, hatch = style
     ax.plot(n_valids, central, color=color, linestyle=linestyle, label=label)
@@ -400,25 +398,25 @@ def plot_domain(run_data: dict, outdir: str):
             plot_search_vs_batch(rsdata, "exp", ax=ax2[1], style=style, label=agent)
             plot_search_vs_batch(rsdata, "len", ax=ax2[2], style=style, label=agent)
             # make model train plots
-            if "Bi" in agent:
-                if "PHS" in agent:
-                    f, a = plot_bi_policy_heuristic_model(rsdata, agent)
-                elif "Levin" in agent:
-                    f, a = plot_bi_policy_model(rsdata, agent)
-                elif "AStar" in agent:
-                    f, a = plot_bi_heuristic_model(rsdata, agent)
-                else:
-                    raise ValueError(f"Unknown agent: {agent}")
-            else:
-                if "PHS" in agent:
-                    f, a = plot_uni_policy_heuristic_model(rsdata, agent)
-                elif "Levin" in agent:
-                    f, a = plot_uni_policy_model(rsdata, agent)
-                elif "AStar" in agent:
-                    f, a = plot_uni_heuristic_model(rsdata, agent)
-                else:
-                    raise ValueError(f"Unknown agent: {agent}")
-            f.savefig(saveroot / f"{agent}_model.pdf", bbox_inches="tight")
+            # if "Bi" in agent:
+            #     if "PHS" in agent:
+            #         f, a = plot_bi_policy_heuristic_model(rsdata, agent)
+            #     elif "Levin" in agent:
+            #         f, a = plot_bi_policy_model(rsdata, agent)
+            #     elif "AStar" in agent:
+            #         f, a = plot_bi_heuristic_model(rsdata, agent)
+            #     else:
+            #         raise ValueError(f"Unknown agent: {agent}")
+            # else:
+            #     if "PHS" in agent:
+            #         f, a = plot_uni_policy_heuristic_model(rsdata, agent)
+            #     elif "Levin" in agent:
+            #         f, a = plot_uni_policy_model(rsdata, agent)
+            #     elif "AStar" in agent:
+            #         f, a = plot_uni_heuristic_model(rsdata, agent)
+            #     else:
+            #         raise ValueError(f"Unknown agent: {agent}")
+            # f.savefig(saveroot / f"{agent}_model.pdf", bbox_inches="tight")
             plt.close()
             print(f"Plotted {fkey} {agent}")
 
@@ -437,14 +435,14 @@ def plot_domain(run_data: dict, outdir: str):
 
 def main():
     colors = mpl.colormaps["tab10"].colors
-    dom_paths = list(Path("data/pkls/").glob("*.pkl"))
+    dom_paths = list(Path("thes2/pickles/").glob("*.pkl"))
     print("Found domains:")
     for dom in dom_paths:
         print(dom.stem)
 
     for dom in dom_paths:
         dom_data = pkl.load(dom.open("rb"))
-        plot_domain(dom_data, f"figs/thes/{dom.stem}")
+        plot_domain(dom_data, f"figs/thes2/{dom.stem}")
 
 
 if __name__ == "__main__":
