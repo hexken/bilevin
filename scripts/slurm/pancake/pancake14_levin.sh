@@ -30,12 +30,12 @@ lr=0.0001
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
-    --no-feature-net \
+    --feature-net-type linear \
     --agent $agent \
     --seed $seed \
     --runsdir-path runs/thes/pancake14/levin \
     --exp-name "" \
-    --problems-path problems/pancake14/53000-train.pkl \
+    --problems-path problems/pancake14/85000-train.pkl \
     --valid-path problems/pancake14/1000-valid.pkl \
     --world-size 4 \
     --mode train \
@@ -57,7 +57,7 @@ python src/bilevin/main.py \
     --validate-every-epoch \
     --checkpoint-every-n-batch 750 \
     \
-    --train-expansion-budget 1000 \
+    --train-expansion-budget 2000 \
     \
     --n-final-stage-epochs 20 \
     \
