@@ -30,6 +30,7 @@ lr=0.0001
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
+    --n-batch-expansions 32 \
     --agent $agent \
     --seed $seed \
     --weight-astar 2.5 \
@@ -57,7 +58,7 @@ python src/bilevin/main.py \
     --validate-every-epoch \
     --checkpoint-every-n-batch 750 \
     \
-    --train-expansion-budget 7000 \
+    --train-expansion-budget 8000 \
     \
     --n-final-stage-epochs 20 \
     \

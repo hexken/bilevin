@@ -32,11 +32,11 @@ elif [ "$1" = "14" ]; then
     --output-path  problems/pancake14/ \
     --seed 658 \
     --width  14 \
-    --n-problems-per-stage  1000 \
+    --n-problems-per-stage  5000 \
     --randomize-curriculum-steps \
-    --stages-multiple  5 \
+    --stages-multiple  4 \
     --n-problems-final-stage 50000 \
-    --n-stages  4 \
+    --n-stages  8 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \
@@ -47,11 +47,11 @@ elif [ "$1" = "18" ]; then
     --output-path  problems/pancake18/ \
     --seed 358 \
     --width  18 \
-    --n-problems-per-stage  1000 \
+    --n-problems-per-stage  5000 \
     --randomize-curriculum-steps \
-    --stages-multiple  5 \
+    --stages-multiple  4 \
     --n-problems-final-stage 50000 \
-    --n-stages  1 \
+    --n-stages  10 \
     --n-valid  1000 \
     --n-test 1000 \
     --randomize-test-steps \

@@ -30,6 +30,7 @@ lr=0.0001
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
+    --n-batch-expansions 32 \
     --agent $agent \
     --seed $seed \
     --runsdir-path runs/thes/tri4/phs \

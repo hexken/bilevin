@@ -6,24 +6,26 @@ lr=0.0001
 python src/bilevin/main.py \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/stp5/50000-train.pkl \
-    --valid-path problems/stp5/1000-valid.pkl \
+    --problems-path problems/col5/50000-train.pkl \
+    --valid-path problems/col5/1000-valid.pkl \
     --master-port 34568 \
     --seed 1 \
     --world-size 4 \
-    --n-landmarks 8 \
+    --n-landmarks 16 \
     --n-batch-expansions 32 \
-    --adj-consistency \
+    --feature-net-type conv \
+    --share-feature-net f\
+    --no-feature-net f \
+    --adj-consistency f \
+    --adj-weight 5 \
     --ends-consistency \
-    --children-weight 5 \
     --ends-weight 5 \
+    --children-weight 5 \
     --n-samples 10 \
-    --share-feature-net \
     --samples-weight 5 \
     --mode train \
-    --agent  BiPHSBFS \
+    --agent  AStar \
     --weight-astar 2.5 \
-    --adj-weight 5 \
     --weight-mse-loss 0.1 \
     --loss-fn default \
     --max-grad-norm 1.0 \
@@ -51,7 +53,7 @@ python src/bilevin/main.py \
     --checkpoint-every-n-batch 100 \
     \
     --time-budget 300 \
-    --train-expansion-budget 64000 \
+    --train-expansion-budget 8000 \
     \
     --n-final-stage-epochs 5 \
     \

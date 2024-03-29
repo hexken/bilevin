@@ -67,7 +67,7 @@ python src/bilevin/main.py \
     --checkpoint-every-n-batch 300 \
     \
     --time-budget 300 \
-    --train-expansion-budget 7000 \
+    --train-expansion-budget 8000 \
     \
     --min-batches-per-stage 1250 \
     --max-batches-per-stage 2500 \
