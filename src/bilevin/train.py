@@ -324,6 +324,7 @@ def train(
                     if traj:
                         loss = loss_fn(f_traj, b_traj, model)
                         local_opt_results[0] = loss.item()
+                        loss.backward()
                     else:
                         local_opt_results[:] = 0
                 else:

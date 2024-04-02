@@ -181,14 +181,14 @@ if __name__ == "__main__":
 
     # Witness domains don't support conditional backward search
     if pset_dict["domain_name"] != "Witness" and (not args.no_conditional_backward):
-        conditional_backward = True
+        args.conditional_backward = True
     else:
-        conditional_backward = False
+        args.conditional_backward = False
 
     dummy_domain = deepcopy(pset_dict["problems"][0][0].domain)
     num_features = dummy_domain.state_tensor(dummy_domain.init()).size().numel()
     derived_args = {
-        "conditional_backward": conditional_backward,
+        "conditional_backward": args.conditional_backward,
         "state_t_width": dummy_domain.state_t_width,
         "state_t_depth": dummy_domain.state_t_depth,
         "num_actions": dummy_domain.num_actions,

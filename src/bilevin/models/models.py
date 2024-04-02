@@ -373,6 +373,23 @@ class LinearFeatureNet(nn.Module):
 
         return x
 
+class LinearEmbedding(nn.Module):
+    """Assumes a square sized input with state_t_width side length"""
+
+    def __init__(self, num_raw_features: int, num_units: int):
+        super().__init__()
+        self.num_raw_features: int = num_raw_features
+        self.num_units: int = num_units
+        self.layer1 = nn.Linear(num_raw_features, num_units)
+        self.layer2 = nn.Linear(num_units, num_units)
+
+    def forward(self, state_ts: to.Tensor):
+        state_ts = state_ts.flatten(start_dim=1)
+        x = F.relu(self.layer1(state_ts))
+        x = F.relu(self.layer2(x))
+
+        return x
+
 
 class ConvFeatureNet(nn.Module):
     """Assumes a square sized input with state_t_width side length"""

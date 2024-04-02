@@ -38,16 +38,21 @@ def metric_loss(
 
     # make a node and it's childrens features similar while keeping their distances 1
     # forward
+    forw_c_loss = 0.0
     for feats, children_feats in zip(f_states_feats, f_children_feats):
         sq_dist = (children_feats - feats).pow(2).sum()
-        loss += sq_dist
-        loss += children_weight * (sq_dist - 1.0) ** 2
+        forw_c_loss += sq_dist
+        forw_c_loss += children_weight * (sq_dist - 1.0) ** 2
+
+    forw_c_loss /= n
 
     # backward
+    backw_c_loss = 0.0
     for feats, children_feats in zip(b_states_feats, b_children_feats):
         sq_dist = (children_feats - feats).pow(2).sum()
-        loss += sq_dist
-        loss += children_weight * (sq_dist - 1.0) ** 2
+        backw_c_loss += sq_dist
+        backw_c_loss += children_weight * (sq_dist - 1.0) ** 2
+    backw_c_loss /= n
 
     # make the forward and backward model features of consecutive states along the solution
     # trajectory similar, while keeping their distances 1
@@ -60,17 +65,20 @@ def metric_loss(
 
     # make sq dist between forward feats of start node and backward feats of end node
     # <= sq number of actions in the traj
+    ends_loss = 0.0
     if ends_consistency:
         sq_traj_dist = (len(f_traj.states) - 1) ** 2
         sq_dist = (f_states_feats[-1] - b_states_feats[0]).pow(2).sum()
-        loss += -sq_dist
-        loss += ends_weight * clamp(sq_traj_dist - sq_dist, min=0) ** 2
+        # loss += -sq_dist
+        ends_loss += ends_weight * clamp(sq_traj_dist - sq_dist, min=0) ** 2
+    ends_loss /= 2.0
 
     # sample pairs of states in the solution traj and add constraint that their features
     # sq dist <= sq dist in the traj
-    if n_samples > 0:
+    sample_loss = 0.0
+    if n_samples > 0 and n > 2:
         # make sure samples at least two actions separated
-        if n_samples > n - 2:
+        if n > 2:
             n_samples = n - 2
         indices = np.arange(n - 1)
         s1_indices = np.random.choice(indices, n_samples, replace=False)
@@ -78,8 +86,11 @@ def metric_loss(
         for i, j in zip(s1_indices, s2_indices):
             sq_traj_dist = (j - i) ** 2
             sq_dist = (f_states_feats[i] - b_states_feats[n - j - 1]).pow(2).sum()
-            loss += -sq_dist
-            loss += samples_weight * clamp(sq_traj_dist - sq_dist, min=0) ** 2
+            # loss += -sq_dist
+            sample_loss += samples_weight * clamp(sq_traj_dist - sq_dist, min=0) ** 2
+        sample_loss /= n_samples
+
+    loss = forw_c_loss + backw_c_loss + loss + ends_loss + sample_loss
 
     return loss
 
