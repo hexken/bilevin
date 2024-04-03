@@ -6,8 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.functional import log_softmax
 
-from models.utils import update_common_params
-
 
 class PolicyOrHeuristicModel(nn.Module):
     def __init__(
@@ -19,19 +17,18 @@ class PolicyOrHeuristicModel(nn.Module):
 
         self.is_bidirectional: bool = derived_args["bidirectional"]
 
-        self.num_actions: int = derived_args["num_actions"]
-        self.in_channels: int = derived_args["in_channels"]
-        self.state_t_width: int = derived_args["state_t_width"]
-        self.state_t_depth: int = derived_args["state_t_depth"]
-        self.kernel_size: tuple[int, int] = args.kernel_size
-        self.num_kernels: int = args.num_kernels
-
         self.has_policy: bool = derived_args["has_policy"]
         self.has_heuristic: bool = derived_args["has_heuristic"]
 
         self.has_feature_net: bool = not args.no_feature_net
         self.share_feature_net: bool = args.share_feature_net
         self.conditional_backward: bool = derived_args["conditional_backward"]
+
+        num_actions: int = derived_args["num_actions"]
+        in_channels: int = derived_args["in_channels"]
+        state_t_width: int = derived_args["state_t_width"]
+        state_t_depth: int = derived_args["state_t_depth"]
+        kernel_size: tuple[int, int] = args.kernel_size
 
         learnable_params = []
         # create feature net if necessary
@@ -44,29 +41,27 @@ class PolicyOrHeuristicModel(nn.Module):
                 b_feat_lr = args.backward_feature_net_lr
 
             if args.feature_net_type == "conv":
-                self.num_features = get_num_features_after_cnn(
-                    self.kernel_size,
-                    self.state_t_width,
-                    self.state_t_depth,
-                    self.num_kernels,
-                )
-
                 self.forward_feature_net: nn.Module = CNN(
-                    self.in_channels,
-                    self.kernel_size,
-                    self.num_kernels,
+                    in_channels,
+                    kernel_size,
+                    args.n_kernels,
+                )
+                self.num_features = get_num_features_after_cnn(
+                    kernel_size,
+                    state_t_width,
+                    state_t_depth,
+                    args.n_kernels,
                 )
             else:  # linear feature net
-                self.num_raw_features = derived_args["num_features"]
+                num_raw_features = derived_args["num_features"]
                 self.forward_feature_net: nn.Module = MLP(
-                    self.num_raw_features, args.forward_feature_layers, args.n_units
+                    num_raw_features, args.forward_feature_layers, args.n_embed_dim
                 )
-                self.num_features = args.n_units
+                num_features = args.n_embed_dim
             params = {
                 "params": self.forward_feature_net.parameters(),
                 "lr": f_feat_lr,
             }
-            update_common_params(args, params)
             learnable_params.append(params)
 
             if self.is_bidirectional:
@@ -75,62 +70,59 @@ class PolicyOrHeuristicModel(nn.Module):
                 else:
                     if args.feature_net_type == "conv":
                         self.backward_feature_net: nn.Module = CNN(
-                            self.in_channels,
-                            self.kernel_size,
-                            self.num_kernels,
+                            in_channels,
+                            kernel_size,
+                            args.n_kernels,
                         )
                     else:
                         self.backward_feature_net: nn.Module = MLP(
-                            self.num_features,
+                            num_features,
                             args.backward_feature_layers,
-                            args.n_units,
+                            args.n_embed_dim,
                         )
                     params = {
                         "params": self.backward_feature_net.parameters(),
                         "lr": b_feat_lr,
                     }
-                    update_common_params(args, params)
                     learnable_params.append(params)
         else:
             # no feature net
-            self.num_features = derived_args["num_features"]
+            num_features = derived_args["num_features"]
 
         # create policy/herusitic nets
         if self.has_policy:
             self.forward_policy: nn.Module = MLP(
-                self.num_features,
+                num_features,
                 args.forward_policy_layers,
-                self.num_actions,
+                num_actions,
             )
             params = {
                 "params": self.forward_policy.parameters(),
                 "lr": args.forward_policy_lr,
             }
-            update_common_params(args, params)
             learnable_params.append(params)
             if self.is_bidirectional:
                 if self.conditional_backward:
                     self.backward_policy: nn.Module = MLPc(
-                        self.num_features,
+                        2 * num_features,
                         args.backward_policy_layers,
-                        self.num_actions,
+                        num_actions,
                     )
                 else:
                     self.backward_policy: nn.Module = MLP(
-                        self.num_features,
+                        2 * num_features,
                         args.backward_policy_layers,
-                        self.num_actions,
+                        num_actions,
                     )
                 params = {
                     "params": self.backward_policy.parameters(),
                     "lr": args.backward_policy_lr,
                 }
-                update_common_params(args, params)
                 learnable_params.append(params)
 
         if self.has_heuristic:
             self.forward_heuristic: nn.Module = MLP(
-                self.num_features,
+                num_features,
                 args.forward_heuristic_layers,
                 1,
             )
@@ -138,26 +130,23 @@ class PolicyOrHeuristicModel(nn.Module):
                 "params": self.forward_heuristic.parameters(),
                 "lr": args.forward_heuristic_lr,
             }
-            update_common_params(args, params)
             learnable_params.append(params)
             if self.is_bidirectional:
                 if self.conditional_backward:
                     self.backward_heuristic: nn.Module = MLPc(
-                        self.num_features, args.backward_heuristic_layers, 1
+                        2 * num_features, args.backward_heuristic_layers, 1
                     )
                 else:
                     self.backward_heuristic: nn.Module = MLP(
-                        self.num_features, args.backward_heuristic_layers, 1
+                        2 * num_features, args.backward_heuristic_layers, 1
                     )
                 params = {
                     "params": self.backward_heuristic.parameters(),
                     "lr": args.backward_heuristic_lr,
                 }
-                update_common_params(args, params)
                 learnable_params.append(params)
 
         self.learnable_params = learnable_params
-        # load model if specified explicitly or from checkpoint
         load_model(args, self)
 
     def forward(
@@ -218,61 +207,99 @@ class PolicyOrHeuristicModel(nn.Module):
             return feats
 
 
-class MetricModel(nn.Module):
+class BYOL(nn.Module):
     def __init__(
         self,
         args: Namespace,
         derived_args: dict,
+        tau: float = 0.99,
+    ):
+        super().__init__()
+        self.online = _BYOL(args, derived_args)
+        self.target = _BYOL(args, derived_args, make_predictor=False)
+        self.tau
+
+    def update_target(self):
+        # todo no predictor in target
+        for online, target in zip(self.online.parameters(), self.target.parameters()):
+            target.data = self.tau * target.data + (1 - self.tau) * online.data
+
+    def forward(
+        self,
+        state1_t: to.Tensor,
+        state2_t: to.Tensor,
+    ):
+        states = to.cat((state1_t, state2_t), dim=0)
+        _, online_preds = self.online(states, for_loss=True)
+        online_pred1, online_pred2 = to.chunk(online_preds, 2, dim=0)
+
+        with to.no_grad():
+            _, target_preds = self.target(states, for_loss=True)
+            target_proj1, target_proj2 = to.chunk(target_preds, 2, dim=0)
+
+        # todo may need to detach target_projs
+        return online_pred1, online_pred2, target_proj1, target_proj2
+
+
+class _BYOL(nn.Module):
+    def __init__(
+        self,
+        args: Namespace,
+        derived_args: dict,
+        make_predictor: bool = True,
     ):
         super().__init__()
 
-        self.num_actions: int = derived_args["num_actions"]
-        self.in_channels: int = derived_args["in_channels"]
-        self.state_t_width: int = derived_args["state_t_width"]
-        self.state_t_depth: int = derived_args["state_t_depth"]
-        self.kernel_size: tuple[int, int] = args.kernel_size
-        self.num_kernels: int = args.num_kernels
+        num_actions: int = derived_args["num_actions"]
+        in_channels: int = derived_args["in_channels"]
+        state_t_width: int = derived_args["state_t_width"]
+        state_t_depth: int = derived_args["state_t_depth"]
+        kernel_size: tuple[int, int] = args.kernel_size
 
-        self.num_features = get_num_features_after_cnn(
-            self.kernel_size,
-            self.state_t_width,
-            self.state_t_depth,
-            self.num_kernels,
+        num_features = get_num_features_after_cnn(
+            kernel_size,
+            state_t_width,
+            state_t_depth,
+            args.n_kernels,
         )
         layer_sizes = [2 * self.num_features]
 
-        self.forward_encoder: nn.Module = CNN(
-            self.in_channels,
-            self.kernel_size,
-            self.num_kernels,
+        self.encoder: nn.Module = CNN(
+            in_channels,
+            kernel_size,
+            args.n_kernels,
         )
-        self.forward_projector: nn.Module = MLP(
-            self.num_features, layer_sizes, args.n_embed_dim
-        )
+        self.projector: nn.Module = MLP(num_features, layer_sizes, args.n_embed_dim)
 
-        self.forward_predictor = MLP(args.n_units, layer_sizes, args.n_embed_dim)
+        if make_predictor:
+            self.forward_predictor = MLP(
+                args.n_embed_dim, layer_sizes, args.n_embed_dim
+            )
+        else:
+            self.forward_predictor = None
 
-        self.backward_encoder: nn.Module = CNN(
-            self.in_channels,
-            self.kernel_size,
-            self.num_kernels,
-        )
-        self.backward_projector: nn.Module = MLP(
-            self.num_features, layer_sizes, args.n_embed_dim
-        )
+    def forward(
+        self,
+        state_t: to.Tensor,
+        for_loss: bool = False,
+    ):
+        x = self.encoder(state_t)
+        if for_loss:
+            y = self.projector(x)
+            if self.predictor is not None:
+                y = self.predictor(y)
+        else:
+            y = None
 
-        load_model(args, self)
-
-    def forward(self, state_t: to.Tensor, forward: bool = True):
-        pass
+        return x, y
 
 
 class MLP(nn.Module):
     def __init__(
         self,
         in_size: int,
-        hidden_layer_sizes: list[int] = [128],
-        out_size: int = 128,
+        hidden_layer_sizes: list[int],
+        out_size: int,
     ):
         super().__init__()
         self.layers = nn.ModuleList([nn.Linear(in_size, hidden_layer_sizes[0])])
@@ -295,15 +322,15 @@ class MLPc(MLP):
     def __init__(
         self,
         in_size: int,
-        hidden_layer_sizes: list[int] = [128],
-        out_size: int = 128,
+        hidden_layer_sizes: list[int],
+        out_size: int,
     ):
         super().__init__(in_size, hidden_layer_sizes, out_size)
 
-    def forward(self, x1: to.Tensor, x2: Optional[to.Tensor] = None):
-        if x2 is not None:
-            x2 = x2.expand(x1.shape[0], -1)
-            x1 = to.cat((x1, x2), dim=-1)
+    def forward(self, x1: to.Tensor, x2: to.Tensor):
+        assert x1.dim() == 2
+        x2 = x2.expand(x1.shape[0], -1)
+        x1 = to.cat((x1, x2), dim=-1)
 
         for l in self.layers:
             x1 = F.relu(l(x1))
@@ -321,10 +348,7 @@ class CNN(nn.Module):
         num_filters: int,
     ):
         super().__init__()
-        self._kernel_size: tuple[int, int] = kernel_size
-        self._filters: int = num_filters
-
-        if self._kernel_size[0] > 1:
+        if kernel_size[0] > 1:
             ks = (*kernel_size, kernel_size[1])
             self.conv1 = nn.Conv3d(
                 in_channels,

@@ -6,13 +6,23 @@ import numpy as np
 import torch as to
 from torch import clamp, exp, log, sum
 import torch.nn as nn
-from torch.nn.functional import cross_entropy, log_softmax, nll_loss
+from torch.nn.functional import cross_entropy, log_softmax, nll_loss, normalize
 from torch.nn.functional import mse_loss as mse
 
 from search.traj import MetricTrajectory, Trajectory
 
 if TYPE_CHECKING:
-    from models.models import PolicyOrHeuristicModel
+    from models.models import PolicyOrHeuristicModel, BYOL
+
+
+def _byol_loss(x, y):
+    x = normalize(x, dim=-1, p=2)
+    y = normalize(y, dim=-1, p=2)
+    return 2 - 2 * (x * y).sum(dim=-1)
+
+
+def byol_loss(f_traj: Trajectory, b_traj: Trajectory, model: BYOL):
+    pass
 
 
 def metric_loss(
@@ -27,6 +37,7 @@ def metric_loss(
     ends_weight=1.0,
     samples_weight=1.0,
 ):
+    # todo wip, see if normalizing works
     loss = 0.0
     n = len(f_traj)
     # compute all necessary features

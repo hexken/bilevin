@@ -83,7 +83,7 @@ def parse_args():
     parser.add_argument(
         "--weight-mse-loss",
         type=float,
-        default=1.0,
+        default=5.0,
         help="weight to use for mse loss when agent has a policy and heurisic",
     )
     parser.add_argument(
@@ -195,20 +195,6 @@ def parse_args():
         help="add L2 regularization to loss",
     )
     parser.add_argument(
-        "--momentum",
-        type=float,
-        default=0.0,
-        help="momentum, if applicable",
-    )
-    parser.add_argument(
-        "--nesterov",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=False,
-        help="use nesterov momentum, if applicable",
-    )
-    parser.add_argument(
         "--max-grad-norm",
         type=float,
         default=-1,
@@ -235,22 +221,6 @@ def parse_args():
         help="loss function",
     )
     parser.add_argument(
-        "--forward-policy-layers",
-        action="store",
-        nargs="+",
-        default=[128],
-        type=int,
-        help="hidden layer sizes of forward policy",
-    )
-    parser.add_argument(
-        "--forward-policy-layers",
-        action="store",
-        nargs="+",
-        default=[128],
-        type=int,
-        help="hidden layer sizes of forward policy",
-    )
-    parser.add_argument(
         "--forward-feature-layers",
         action="store",
         nargs="+",
@@ -265,6 +235,14 @@ def parse_args():
         default=[128, 128],
         type=int,
         help="hidden layer sizes of backward policy",
+    )
+    parser.add_argument(
+        "--forward-policy-layers",
+        action="store",
+        nargs="+",
+        default=[128],
+        type=int,
+        help="hidden layer sizes of forward policy",
     )
     parser.add_argument(
         "--backward-policy-layers",

@@ -11,7 +11,7 @@ from torch import optim
 from domains.domain import State
 from enums import SearchDir
 from models import losses
-from models.models import PolicyOrHeuristicModel
+from models.models import PolicyOrHeuristicModel, _BYOL
 from search.node import SearchNode
 from search.problem import Problem
 
@@ -29,12 +29,15 @@ class Agent(ABC):
         self.logdir: Path = logdir
         self.args: Namespace = args
         # todo right model type
-        self.model: PolicyOrHeuristicModel = PolicyOrHeuristicModel(args, aux_args)
+        if args.agent == "ApproxFF":
+            self.model = _BYOL(args, aux_args)
+        else:
+            self.model = PolicyOrHeuristicModel(args, aux_args)
 
         if args.mode == "train":
             # todo right optimizer params
             self.optimizer = getattr(optim, args.optimizer)(
-                self.model.learnable_params,
+                self.model.learnable_params, weight_decay=args.weight_decay
             )
 
             if "mse" in args.loss_fn:
