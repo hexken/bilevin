@@ -11,7 +11,7 @@ from torch import optim
 from domains.domain import State
 from enums import SearchDir
 from models import losses
-from models.models import PolicyOrHeuristicModel, _BYOL
+from models.models import PolicyOrHeuristicModel, BYOL
 from search.node import SearchNode
 from search.problem import Problem
 
@@ -30,7 +30,7 @@ class Agent(ABC):
         self.args: Namespace = args
         # todo right model type
         if args.agent == "ApproxFF":
-            self.model = _BYOL(args, aux_args)
+            self.model = BYOL(args, aux_args)
         else:
             self.model = PolicyOrHeuristicModel(args, aux_args)
 
@@ -44,6 +44,7 @@ class Agent(ABC):
                 self.loss_fn = partial(
                     getattr(losses, args.loss_fn), weight=args.weight_mse_loss
                 )
+                self.traj_type = "default"
             elif "metric" in args.loss_fn:
                 self.loss_fn = partial(
                     getattr(losses, args.loss_fn),
@@ -55,8 +56,13 @@ class Agent(ABC):
                     n_samples=args.n_samples,
                     samples_weight=args.samples_weight,
                 )
+                self.traj_type = "metric"
+            elif "byol" in args.loss_fn:
+                self.loss_fn = getattr(losses, args.loss_fn)
+                self.traj_type = "byol"
             else:
                 self.loss_fn = getattr(losses, args.loss_fn)
+                self.traj_type = "default"
 
     def save_model(
         self,

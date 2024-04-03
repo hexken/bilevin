@@ -25,7 +25,7 @@ class LandMark:
 class ApproxFF(Agent):
     def __init__(self, logdir: Path, args: Namespace, aux_args: dict):
         if args.loss_fn == "default":
-            args.loss_fn = "metric_loss"
+            args.loss_fn = "byol_loss"
         self.n_landmarks = args.n_landmarks
         self.n_batch_expansions = args.n_batch_expansions
         super().__init__(logdir, args, aux_args)
@@ -61,6 +61,8 @@ class ApproxFF(Agent):
         start_time = timer()
         n_total_expanded = 0
         problem_id = problem.id
+
+        model = self.model.online
 
         f_domain = problem.domain
         f_state = f_domain.init()
@@ -120,7 +122,7 @@ class ApproxFF(Agent):
         open_state_ts = to.stack(
             [f_domain.state_tensor(node.state) for node in f_topen]
         )
-        open_feats = self.model(open_state_ts)
+        open_feats = model(open_state_ts)
         f_landmarks, _ = kmeans_plusplus(open_feats.numpy(), self.n_landmarks)
         f_landmarks = to.from_numpy(f_landmarks)
 
@@ -153,7 +155,7 @@ class ApproxFF(Agent):
         open_state_ts = to.stack(
             [b_domain.state_tensor(node.state) for node in b_topen]
         )
-        open_feats = self.model(open_state_ts, forward=False)
+        open_feats = model(open_state_ts)
         b_landmarks, _ = kmeans_plusplus(open_feats.numpy(), self.n_landmarks)
         b_landmarks = to.from_numpy(b_landmarks)
 
@@ -247,7 +249,6 @@ class ApproxFF(Agent):
                             new_node,
                             other_domain,
                             n_total_expanded,
-                            metric=True,
                         )
 
                         if trajs:  # solution found
@@ -268,9 +269,7 @@ class ApproxFF(Agent):
             # compute heuristics, update landmarks
             if len(children_to_be_evaluated) > 0:
                 states_ts = to.stack(state_t_of_children_to_be_evaluated)
-                states_feats = self.model(
-                    states_ts, forward=direction == SearchDir.FORWARD
-                )
+                states_feats = model(states_ts)
                 for i, child in enumerate(children_to_be_evaluated):
                     dist = norm(_other_landmarks - states_feats[i], dim=1).min().item()
                     child.f = dist

@@ -320,9 +320,9 @@ def train(
             model.train()
             for grad_step in range(1, args.grad_steps + 1):
                 optimizer.zero_grad(set_to_none=False)
-                if isinstance(agent, ApproxFF):
+                if agent.traj_type == "byol":
                     if traj:
-                        loss = loss_fn(f_traj, b_traj, model)
+                        loss = loss_fn(f_traj, model)
                         local_opt_results[0] = loss.item()
                         loss.backward()
                     else:

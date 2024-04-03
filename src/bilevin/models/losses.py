@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch.nn.functional import cross_entropy, log_softmax, nll_loss, normalize
 from torch.nn.functional import mse_loss as mse
 
-from search.traj import MetricTrajectory, Trajectory
+from search.traj import MetricTrajectory, Trajectory, BYOLTrajectory
 
 if TYPE_CHECKING:
     from models.models import PolicyOrHeuristicModel, BYOL
@@ -21,9 +21,20 @@ def _byol_loss(x, y):
     return 2 - 2 * (x * y).sum(dim=-1)
 
 
-def byol_loss(f_traj: Trajectory, b_traj: Trajectory, model: BYOL):
-    #todo
-    pass
+def byol_loss(traj: BYOLTrajectory, model: BYOL):
+    loss = 0.0
+    n = 0
+    # todo adjacent states will each have 2 terms in the loss
+    for s, cs in zip(traj.states, traj.children):
+        s = s.unsqueeze(0)
+        for c in cs:
+            n += 1
+            c = c.unsqueeze(0)
+            online_pred1, online_pred2, target_proj1, target_proj2 = model(s, c)
+            l1 = _byol_loss(online_pred1, target_proj2)
+            l2 = _byol_loss(online_pred2, target_proj1)
+            loss += (l1 + l2).mean()
+    return loss / n
 
 
 def metric_loss(

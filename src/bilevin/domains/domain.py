@@ -69,7 +69,6 @@ class Domain(ABC):
         node: SearchNode,
         other_domain: Domain,
         num_expanded: int,
-        metric=False,
     ) -> (
         tuple[Trajectory, Trajectory] | tuple[MetricTrajectory, MetricTrajectory] | None
     ):
@@ -95,18 +94,18 @@ class Domain(ABC):
                 f_common_node,
                 b_common_node,
                 num_expanded,
-                metric=metric,
             )
-            b_traj = from_common_node(
-                agent,
-                b_domain,
-                b_common_node,
-                f_common_node,
-                num_expanded,
-                b_domain.goal_state_t,
-                forward=False,
-                metric=metric,
-            )
+            b_traj = None
+            if not agent.traj_type == "byol":
+                b_traj = from_common_node(
+                    agent,
+                    b_domain,
+                    b_common_node,
+                    f_common_node,
+                    num_expanded,
+                    b_domain.goal_state_t,
+                    forward=False,
+                )
 
             return (f_traj, b_traj)
         else:

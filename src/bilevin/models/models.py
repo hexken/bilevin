@@ -47,7 +47,7 @@ class PolicyOrHeuristicModel(nn.Module):
                     kernel_size,
                     args.n_kernels,
                 )
-                self.num_features = get_num_features_after_cnn(
+                num_features = get_num_features_after_cnn(
                     kernel_size,
                     state_t_width,
                     state_t_depth,
@@ -104,14 +104,14 @@ class PolicyOrHeuristicModel(nn.Module):
             learnable_params.append(params)
             if self.is_bidirectional:
                 if self.conditional_backward:
-                    self.backward_policy: nn.Module = MLPc(
+                    self.backward_policy: nn.Module = MLP(
                         2 * num_features,
                         args.backward_policy_layers,
                         num_actions,
                     )
                 else:
                     self.backward_policy: nn.Module = MLP(
-                        2 * num_features,
+                        num_features,
                         args.backward_policy_layers,
                         num_actions,
                     )
@@ -134,12 +134,12 @@ class PolicyOrHeuristicModel(nn.Module):
             learnable_params.append(params)
             if self.is_bidirectional:
                 if self.conditional_backward:
-                    self.backward_heuristic: nn.Module = MLPc(
+                    self.backward_heuristic: nn.Module = MLP(
                         2 * num_features, args.backward_heuristic_layers, 1
                     )
                 else:
                     self.backward_heuristic: nn.Module = MLP(
-                        2 * num_features, args.backward_heuristic_layers, 1
+                        num_features, args.backward_heuristic_layers, 1
                     )
                 params = {
                     "params": self.backward_heuristic.parameters(),
@@ -216,9 +216,12 @@ class BYOL(nn.Module):
         tau: float = 0.99,
     ):
         super().__init__()
-        self.online = _BYOL(args, derived_args)
-        self.target = _BYOL(args, derived_args, make_predictor=False)
-        self.tau
+        self.online: nn.Module = _BYOL(args, derived_args)
+        self.learnable_params = [
+            {"params": self.online.parameters(), "lr": args.forward_feature_net_lr}
+        ]
+        self.target: nn.Module = _BYOL(args, derived_args, make_predictor=False)
+        self.tau = tau
 
     def update_target(self):
         # todo no predictor in target
@@ -241,8 +244,8 @@ class BYOL(nn.Module):
         online_pred1, online_pred2 = to.chunk(online_preds, 2, dim=0)
 
         with to.no_grad():
-            _, target_preds = self.target(states, for_loss=True)
-            target_proj1, target_proj2 = to.chunk(target_preds, 2, dim=0)
+            target_projs, _ = self.target(states, for_loss=True)
+            target_proj1, target_proj2 = to.chunk(target_projs, 2, dim=0)
 
         # todo may need to detach target_projs
         return online_pred1, online_pred2, target_proj1, target_proj2
@@ -268,7 +271,7 @@ class _BYOL(nn.Module):
             state_t_depth,
             args.n_kernels,
         )
-        layer_sizes = [2 * self.num_features]
+        layer_sizes = [2 * num_features]
 
         self.encoder: nn.Module = CNN(
             in_channels,
@@ -277,12 +280,11 @@ class _BYOL(nn.Module):
         )
         self.projector: nn.Module = MLP(num_features, layer_sizes, args.n_embed_dim)
 
+        self.predictor: Optional[nn.Module]
         if make_predictor:
-            self.forward_predictor = MLP(
-                args.n_embed_dim, layer_sizes, args.n_embed_dim
-            )
+            self.predictor = MLP(args.n_embed_dim, layer_sizes, args.n_embed_dim)
         else:
-            self.forward_predictor = None
+            self.predictor = None
 
     def forward(
         self,
@@ -294,10 +296,11 @@ class _BYOL(nn.Module):
             y = self.projector(x)
             if self.predictor is not None:
                 y = self.predictor(y)
+            else:
+                y = None
+            return x, y
         else:
-            y = None
-
-        return x, y
+            return x
 
 
 class MLP(nn.Module):
@@ -317,26 +320,10 @@ class MLP(nn.Module):
         )
         self.output_layer = nn.Linear(hidden_layer_sizes[-1], out_size)
 
-    def forward(self, x1: to.Tensor):
-        for l in self.layers:
-            x1 = F.relu(l(x1))
-        out = self.output_layer(x1)
-        return out
-
-
-class MLPc(MLP):
-    def __init__(
-        self,
-        in_size: int,
-        hidden_layer_sizes: list[int],
-        out_size: int,
-    ):
-        super().__init__(in_size, hidden_layer_sizes, out_size)
-
-    def forward(self, x1: to.Tensor, x2: to.Tensor):
-        assert x1.dim() == 2
-        x2 = x2.expand(x1.shape[0], -1)
-        x1 = to.cat((x1, x2), dim=-1)
+    def forward(self, x1: to.Tensor, x2: Optional[to.Tensor] = None):
+        if x2 is not None:
+            x2 = x2.expand(x1.shape[0], -1)
+            x1 = to.cat((x1, x2), dim=-1)
 
         for l in self.layers:
             x1 = F.relu(l(x1))
