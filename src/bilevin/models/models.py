@@ -220,7 +220,9 @@ class PolicyOrHeuristicModel(nn.Module):
 
 class MetricModel(nn.Module):
     def __init__(
-        self, args: Namespace, derived_args: dict, make_predictor: bool = True
+        self,
+        args: Namespace,
+        derived_args: dict,
     ):
         super().__init__()
 
@@ -237,6 +239,7 @@ class MetricModel(nn.Module):
             self.state_t_depth,
             self.num_kernels,
         )
+        layer_sizes = [2 * self.num_features]
 
         self.forward_encoder: nn.Module = CNN(
             self.in_channels,
@@ -244,10 +247,10 @@ class MetricModel(nn.Module):
             self.num_kernels,
         )
         self.forward_projector: nn.Module = MLP(
-            self.num_features, args.forward_policargs, args.n_embed_dim
+            self.num_features, layer_sizes, args.n_embed_dim
         )
 
-        self.predictor = MLP(args.n_units, args.n_units)
+        self.forward_predictor = MLP(args.n_units, layer_sizes, args.n_embed_dim)
 
         self.backward_encoder: nn.Module = CNN(
             self.in_channels,
@@ -255,18 +258,13 @@ class MetricModel(nn.Module):
             self.num_kernels,
         )
         self.backward_projector: nn.Module = MLP(
-            self.num_features, args.forward_policargs, args.n_embed_dim
+            self.num_features, layer_sizes, args.n_embed_dim
         )
 
         load_model(args, self)
 
-    # def forward(self, state_t: to.Tensor):
-    # x = self.encoder(state_t)
-    # x = self.projector(x)
-    # if self.predictor:
-    #     x = self.predictor(x)
-
-    # return x
+    def forward(self, state_t: to.Tensor, forward: bool = True):
+        pass
 
 
 class MLP(nn.Module):

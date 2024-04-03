@@ -28,9 +28,11 @@ class Agent(ABC):
 
         self.logdir: Path = logdir
         self.args: Namespace = args
+        # todo right model type
         self.model: PolicyOrHeuristicModel = PolicyOrHeuristicModel(args, aux_args)
 
         if args.mode == "train":
+            # todo right optimizer params
             self.optimizer = getattr(optim, args.optimizer)(
                 self.model.learnable_params,
             )
