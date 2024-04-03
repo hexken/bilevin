@@ -4,6 +4,7 @@ from typing import Optional
 import torch as to
 import torch.nn as nn
 import torch.nn.functional as F
+from itertools import chain
 from torch.nn.functional import log_softmax
 
 
@@ -221,7 +222,13 @@ class BYOL(nn.Module):
 
     def update_target(self):
         # todo no predictor in target
-        for online, target in zip(self.online.parameters(), self.target.parameters()):
+        online_params = chain(
+            self.online.encoder.parameters(), self.online.projector.parameters()
+        )
+        target_params = chain(
+            self.target.encoder.parameters(), self.target.projector.parameters()
+        )
+        for online, target in zip(online_params, target_params):
             target.data = self.tau * target.data + (1 - self.tau) * online.data
 
     def forward(
@@ -250,7 +257,6 @@ class _BYOL(nn.Module):
     ):
         super().__init__()
 
-        num_actions: int = derived_args["num_actions"]
         in_channels: int = derived_args["in_channels"]
         state_t_width: int = derived_args["state_t_width"]
         state_t_depth: int = derived_args["state_t_depth"]

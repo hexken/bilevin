@@ -22,6 +22,7 @@ def _byol_loss(x, y):
 
 
 def byol_loss(f_traj: Trajectory, b_traj: Trajectory, model: BYOL):
+    #todo
     pass
 
 
