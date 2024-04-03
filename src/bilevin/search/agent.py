@@ -11,7 +11,7 @@ from torch import optim
 from domains.domain import State
 from enums import SearchDir
 from models import losses
-from models.models import SuperModel
+from models.models import PolicyOrHeuristicModel
 from search.node import SearchNode
 from search.problem import Problem
 
@@ -28,7 +28,7 @@ class Agent(ABC):
 
         self.logdir: Path = logdir
         self.args: Namespace = args
-        self.model: SuperModel = SuperModel(args, aux_args)
+        self.model: PolicyOrHeuristicModel = PolicyOrHeuristicModel(args, aux_args)
 
         if args.mode == "train":
             self.optimizer = getattr(optim, args.optimizer)(

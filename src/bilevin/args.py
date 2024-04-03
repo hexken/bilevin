@@ -243,6 +243,30 @@ def parse_args():
         help="hidden layer sizes of forward policy",
     )
     parser.add_argument(
+        "--forward-policy-layers",
+        action="store",
+        nargs="+",
+        default=[128],
+        type=int,
+        help="hidden layer sizes of forward policy",
+    )
+    parser.add_argument(
+        "--forward-feature-layers",
+        action="store",
+        nargs="+",
+        default=[128, 128],
+        type=int,
+        help="hidden layer sizes of forward policy",
+    )
+    parser.add_argument(
+        "--backward-feature-layers",
+        action="store",
+        nargs="+",
+        default=[128, 128],
+        type=int,
+        help="hidden layer sizes of backward policy",
+    )
+    parser.add_argument(
         "--backward-policy-layers",
         action="store",
         nargs="+",
@@ -275,7 +299,7 @@ def parse_args():
         help="depth x height/width of convolution kernel",
     )
     parser.add_argument(
-        "--num-kernels",
+        "--n-kernels",
         action="store",
         default=32,
         type=int,
@@ -300,11 +324,11 @@ def parse_args():
         help="type of feature net to use",
     )
     parser.add_argument(
-        "--n-units",
+        "--n-embed-dim",
         action="store",
         default=128,
         type=int,
-        help="number of units per layer in linear feature net",
+        help="size of linear embedding",
     )
     parser.add_argument(
         "--no-feature-net",

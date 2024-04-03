@@ -11,7 +11,7 @@ import torch as to
 import torch.distributed as dist
 
 from loaders import ProblemLoader
-from models.models import SuperModel
+from models.models import PolicyOrHeuristicModel
 from search.agent import Agent
 from search.utils import print_search_summary
 from search.utils import int_columns, search_result_header
@@ -34,7 +34,7 @@ def test(
 
     world_num_problems: int = len(problems_loader)
 
-    model: SuperModel = agent.model
+    model: PolicyOrHeuristicModel = agent.model
     bidirectional: bool = agent.is_bidirectional
     policy_based: bool = agent.has_policy
     heuristic_based: bool = agent.has_heuristic

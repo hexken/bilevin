@@ -14,7 +14,7 @@ from torch.nn.utils import clip_grad_norm_ as clip_
 
 from loaders import ProblemLoader
 from search.approx_ff import ApproxFF
-from models.models import SuperModel
+from models.models import PolicyOrHeuristicModel
 from search.agent import Agent
 from search.utils import (
     int_columns,
@@ -61,7 +61,7 @@ def train(
     best_models_log = (args.logdir / "best_models.txt").open("a")
     train_times_log = (args.logdir / "train_times.txt").open("a")
 
-    model: SuperModel = agent.model
+    model: PolicyOrHeuristicModel = agent.model
     bidirectional: bool = agent.is_bidirectional
     policy_based: bool = agent.has_policy
     heuristic_based: bool = agent.has_heuristic
