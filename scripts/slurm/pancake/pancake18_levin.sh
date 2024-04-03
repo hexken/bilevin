@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
-#SBATCH --time=48:00:00
+#SBATCH --time=80:00:00
 #SBATCH --array=1-10
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/pancake18/levin/%j.out
 
@@ -30,11 +30,11 @@ lr=0.0001
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
+    --share-feature-net \
     --feature-net-type linear \
     --agent $agent \
     --seed $seed \
     --runsdir-path runs/thes/pancake18/levin \
-    --exp-name "" \
     --problems-path problems/pancake18/95000-train.pkl \
     --valid-path problems/pancake18/1000-valid.pkl \
     --world-size 4 \

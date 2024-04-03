@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
-#SBATCH --time=120:00:00
+#SBATCH --time=80:00:00
 #SBATCH --array=1-10
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/stp5/levin/%j.out
 
@@ -34,7 +34,6 @@ python src/bilevin/main.py \
     --agent $agent \
     --seed $seed \
     --runsdir-path runs/thes/stp5/levin \
-    --exp-name "" \
     --problems-path problems/stp5/100000-train.pkl \
     --valid-path problems/stp5/1000-valid.pkl \
     --world-size 4 \

@@ -2,29 +2,30 @@
 
 export OMP_NUM_THREADS=1
 
-lr=0.0001
+flr=0.0001
+blr=0.0001
 python src/bilevin/main.py \
+    --agent  BiPHSBFS \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/col5/50000-train.pkl \
-    --valid-path problems/col5/1000-valid.pkl \
+    --problems-path problems/stp4lt/1000-train.pkl \
+    --valid-path problems/stp4/1000-valid.pkl \
     --master-port 34568 \
     --seed 1 \
     --world-size 4 \
-    --n-landmarks 16 \
+    --n-landmarks 8 \
     --n-batch-expansions 32 \
     --feature-net-type conv \
-    --share-feature-net f\
+    --share-feature-net t\
     --no-feature-net f \
     --adj-consistency f \
-    --adj-weight 5 \
+    --adj-weight 1 \
     --ends-consistency \
-    --ends-weight 5 \
-    --children-weight 5 \
+    --ends-weight 1 \
+    --children-weight 1 \
     --n-samples 10 \
     --samples-weight 5 \
     --mode train \
-    --agent  AStar \
     --weight-astar 2.5 \
     --weight-mse-loss 0.1 \
     --loss-fn default \
@@ -32,28 +33,28 @@ python src/bilevin/main.py \
     --optimizer Adam \
     --grad-steps 10 \
     \
-    --num-kernels 32 \
+    --n-kernels 32 \
     --kernel-size 1 2 \
     \
-    --forward-feature-net-lr $lr \
+    --forward-feature-net-lr $flr \
     --forward-policy-layers 128 \
-    --forward-policy-lr $lr \
+    --forward-policy-lr $flr \
     --forward-heuristic-layers 128 \
-    --forward-heuristic-lr $lr \
+    --forward-heuristic-lr $flr \
     \
-    --backward-feature-net-lr $lr \
+    --backward-feature-net-lr $blr \
     --backward-policy-layers 256 198 128 \
-    --backward-policy-lr $lr \
+    --backward-policy-lr $blr \
     --backward-heuristic-layers 256 298 128 \
-    --backward-heuristic-lr $lr \
+    --backward-heuristic-lr $blr \
     \
     --stage-begin-validate 1 \
     --validate-every-n-stage 10 \
-    --validate-every-epoch \
+    --validate-every-epoch f\
     --checkpoint-every-n-batch 100 \
     \
     --time-budget 300 \
-    --train-expansion-budget 8000 \
+    --train-expansion-budget 2000 \
     \
     --n-final-stage-epochs 5 \
     \

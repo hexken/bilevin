@@ -39,18 +39,21 @@ def metric_loss(
     # make a node and it's childrens features similar while keeping their distances 1
     # forward
     forw_c_loss = 0.0
+    n = 0
     for feats, children_feats in zip(f_states_feats, f_children_feats):
+        n += len(children_feats)
         sq_dist = (children_feats - feats).pow(2).sum()
-        forw_c_loss += sq_dist
+        # forw_c_loss += sq_dist
         forw_c_loss += children_weight * (sq_dist - 1.0) ** 2
-
     forw_c_loss /= n
 
     # backward
     backw_c_loss = 0.0
+    n = 0
     for feats, children_feats in zip(b_states_feats, b_children_feats):
+        n += len(children_feats)
         sq_dist = (children_feats - feats).pow(2).sum()
-        backw_c_loss += sq_dist
+        # backw_c_loss += sq_dist
         backw_c_loss += children_weight * (sq_dist - 1.0) ** 2
     backw_c_loss /= n
 

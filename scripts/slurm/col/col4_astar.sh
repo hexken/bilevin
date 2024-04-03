@@ -3,8 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
-#SBATCH --time=120:00:00
-#SBATCH --array=1-10
+#SBATCH --time=8:00:00
+#SBATCH --array=6
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/col4/astar/%j.out
 
 source $HOME/bilevin-env2/bin/activate
@@ -30,11 +30,11 @@ lr=0.0001
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
-    --n-batch-expansions 32 \
+    --n-batch-expansions 16 \
     --agent $agent \
     --seed $seed \
     --weight-astar 2.5 \
-    --runsdir-path runs/thes/col4/astar \
+    --runsdir-path runs/thes/col4/astar_b16 \
     --exp-name "" \
     --problems-path problems/col4/50000-train.pkl \
     --valid-path problems/col4/1000-valid.pkl \

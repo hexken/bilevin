@@ -435,14 +435,14 @@ def plot_domain(run_data: dict, outdir: str):
 
 def main():
     colors = mpl.colormaps["tab10"].colors
-    dom_paths = list(Path("data/").glob("*.pkl"))
+    dom_paths = list(Path("/home/ken/Envs/thes/").glob("*.pkl"))
     print("Found domains:")
     for dom in dom_paths:
         print(dom.stem)
 
     for dom in dom_paths:
         dom_data = pkl.load(dom.open("rb"))
-        plot_domain(dom_data, f"figs/thes/{dom.stem}")
+        plot_domain(dom_data, f"figs/thes_april/{dom.stem}")
 
 
 if __name__ == "__main__":

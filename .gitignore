@@ -1,5 +1,8 @@
 env
 notebooks/
+thes2/
+old_problems/
+figs/
 data/
 .run/
 *.ipynb filter=strip-notebook-output
