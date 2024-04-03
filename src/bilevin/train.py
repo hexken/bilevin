@@ -14,7 +14,7 @@ from torch.nn.utils import clip_grad_norm_ as clip_
 
 from loaders import ProblemLoader
 from search.approx_ff import ApproxFF
-from models.models import SuperModel
+from models.models import PolicyOrHeuristicModel
 from search.agent import Agent
 from search.utils import (
     int_columns,
@@ -61,7 +61,7 @@ def train(
     best_models_log = (args.logdir / "best_models.txt").open("a")
     train_times_log = (args.logdir / "train_times.txt").open("a")
 
-    model: SuperModel = agent.model
+    model: PolicyOrHeuristicModel = agent.model
     bidirectional: bool = agent.is_bidirectional
     policy_based: bool = agent.has_policy
     heuristic_based: bool = agent.has_heuristic
@@ -320,9 +320,9 @@ def train(
             model.train()
             for grad_step in range(1, args.grad_steps + 1):
                 optimizer.zero_grad(set_to_none=False)
-                if isinstance(agent, ApproxFF):
+                if agent.traj_type == "byol":
                     if traj:
-                        loss = loss_fn(f_traj, b_traj, model)
+                        loss = loss_fn(f_traj, model)
                         local_opt_results[0] = loss.item()
                         loss.backward()
                     else:
@@ -404,6 +404,9 @@ def train(
                             if policy_based:
                                 baccs.append(batch_bacc)
                                 print(f"bacc: {batch_bacc:.3f}")
+
+            if isinstance(agent, ApproxFF):
+                agent.model.update_target()
 
         del traj, f_traj, b_traj
         stage_batches_seen += 1

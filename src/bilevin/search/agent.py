@@ -11,7 +11,7 @@ from torch import optim
 from domains.domain import State
 from enums import SearchDir
 from models import losses
-from models.models import SuperModel
+from models.models import PolicyOrHeuristicModel, BYOL
 from search.node import SearchNode
 from search.problem import Problem
 
@@ -28,17 +28,24 @@ class Agent(ABC):
 
         self.logdir: Path = logdir
         self.args: Namespace = args
-        self.model: SuperModel = SuperModel(args, aux_args)
+        # todo right model type
+        self.model: to.nn.Module
+        if args.agent == "ApproxFF":
+            self.model = BYOL(args, aux_args)
+        else:
+            self.model = PolicyOrHeuristicModel(args, aux_args)
 
         if args.mode == "train":
+            # todo right optimizer params
             self.optimizer = getattr(optim, args.optimizer)(
-                self.model.learnable_params,
+                self.model.learnable_params, weight_decay=args.weight_decay
             )
 
             if "mse" in args.loss_fn:
                 self.loss_fn = partial(
                     getattr(losses, args.loss_fn), weight=args.weight_mse_loss
                 )
+                self.traj_type = "default"
             elif "metric" in args.loss_fn:
                 self.loss_fn = partial(
                     getattr(losses, args.loss_fn),
@@ -50,8 +57,13 @@ class Agent(ABC):
                     n_samples=args.n_samples,
                     samples_weight=args.samples_weight,
                 )
+                self.traj_type = "metric"
+            elif "byol" in args.loss_fn:
+                self.loss_fn = getattr(losses, args.loss_fn)
+                self.traj_type = "byol"
             else:
                 self.loss_fn = getattr(losses, args.loss_fn)
+                self.traj_type = "default"
 
     def save_model(
         self,

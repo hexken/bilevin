@@ -83,7 +83,7 @@ def parse_args():
     parser.add_argument(
         "--weight-mse-loss",
         type=float,
-        default=1.0,
+        default=5.0,
         help="weight to use for mse loss when agent has a policy and heurisic",
     )
     parser.add_argument(
@@ -195,20 +195,6 @@ def parse_args():
         help="add L2 regularization to loss",
     )
     parser.add_argument(
-        "--momentum",
-        type=float,
-        default=0.0,
-        help="momentum, if applicable",
-    )
-    parser.add_argument(
-        "--nesterov",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=False,
-        help="use nesterov momentum, if applicable",
-    )
-    parser.add_argument(
         "--max-grad-norm",
         type=float,
         default=-1,
@@ -233,6 +219,22 @@ def parse_args():
             "metric_loss",
         ],
         help="loss function",
+    )
+    parser.add_argument(
+        "--forward-feature-layers",
+        action="store",
+        nargs="+",
+        default=[128, 128],
+        type=int,
+        help="hidden layer sizes of forward policy",
+    )
+    parser.add_argument(
+        "--backward-feature-layers",
+        action="store",
+        nargs="+",
+        default=[128, 128],
+        type=int,
+        help="hidden layer sizes of backward policy",
     )
     parser.add_argument(
         "--forward-policy-layers",
@@ -275,7 +277,7 @@ def parse_args():
         help="depth x height/width of convolution kernel",
     )
     parser.add_argument(
-        "--num-kernels",
+        "--n-kernels",
         action="store",
         default=32,
         type=int,
@@ -300,11 +302,11 @@ def parse_args():
         help="type of feature net to use",
     )
     parser.add_argument(
-        "--n-units",
+        "--n-embed-dim",
         action="store",
         default=128,
         type=int,
-        help="number of units per layer in linear feature net",
+        help="size of linear embedding",
     )
     parser.add_argument(
         "--no-feature-net",

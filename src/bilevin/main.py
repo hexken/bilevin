@@ -186,14 +186,14 @@ if __name__ == "__main__":
         args.conditional_backward = False
 
     dummy_domain = deepcopy(pset_dict["problems"][0][0].domain)
-    num_features = dummy_domain.state_tensor(dummy_domain.init()).size().numel()
+    num_raw_features = dummy_domain.state_tensor(dummy_domain.init()).size().numel()
     derived_args = {
         "conditional_backward": args.conditional_backward,
         "state_t_width": dummy_domain.state_t_width,
         "state_t_depth": dummy_domain.state_t_depth,
         "num_actions": dummy_domain.num_actions,
         "in_channels": dummy_domain.in_channels,
-        "num_features": num_features,
+        "num_raw_features": num_raw_features,
     }
 
     agent_class = globals()[args.agent]

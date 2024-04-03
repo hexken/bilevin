@@ -14,6 +14,25 @@ if TYPE_CHECKING:
     from domains.domain import Domain
 
 
+class BYOLTrajectory:
+    def __init__(
+        self,
+        states: Tensor,
+        children: list[list[Tensor]],
+        partial_g_cost: int,  # g_cost of node that generated sol.
+        forward: bool = True,
+    ):
+        self.states = states
+        self.children = children
+        self._len = len(self.states)
+        self.partial_g_cost = partial_g_cost
+        self.avg_action_prob = nan
+        self.avg_h_abs_error = nan
+
+    def __len__(self):
+        return self._len
+
+
 class MetricTrajectory:
     def __init__(
         self,
@@ -73,8 +92,7 @@ def from_common_node(
     goal_state_t: Optional[Tensor] = None,
     forward: bool = True,
     set_masks: bool = False,
-    metric=False,
-) -> Trajectory | MetricTrajectory:
+) -> Trajectory | MetricTrajectory | BYOLTrajectory:
     """
     Returns a new trajectory going from dir1_start to dir2_start, passing through
     merge(dir1_common, dir2_common).
@@ -103,7 +121,7 @@ def from_common_node(
         dir2_parent_action = dir2_parent_node.parent_action
         dir2_parent_node = dir2_parent_node.parent
 
-    if not metric:
+    if agent.traj_type == "default":
         return from_goal_node_actions(
             agent,
             domain=dir1_domain,
@@ -113,7 +131,7 @@ def from_common_node(
             goal_state_t=goal_state_t,
             forward=forward,
         )
-    else:
+    elif agent.traj_type == "metric":
         return from_goal_node_metric(
             agent,
             domain=dir1_domain,
@@ -121,6 +139,54 @@ def from_common_node(
             partial_g_cost=dir1_common.g,
             forward=forward,
         )
+    elif agent.traj_type == "byol":
+        return from_goal_node_byol(
+            agent, dir1_domain, dir1_node, dir1_common.g, forward
+        )
+
+    else:
+        raise ValueError(f"Invalid traj_type: {agent.traj_type}")
+
+
+def from_goal_node_byol(
+    agent: Agent,
+    domain: Domain,
+    goal_node: SearchNode,
+    partial_g_cost: int,
+    forward: bool = True,
+) -> BYOLTrajectory:
+    """
+    Receives a SearchNode representing a solution to the problem.
+    Backtracks the path performed by search, collecting state-action pairs along the way.
+
+    actions[i] is the action taken in state[i] to get to state[i+1]
+    """
+    assert domain.is_goal(goal_node.state)
+    node = goal_node.parent
+
+    states = []
+    children = []
+
+    while node:
+        state = node.state
+        state_t = domain.state_tensor(state)
+        states.append(state_t)
+        children.append(
+            to.stack(
+                [domain.state_tensor(domain.result(state, a)) for a in node.actions]
+            )
+        )
+        node = node.parent
+
+    states = to.stack(states)
+    children = list(children)
+
+    return BYOLTrajectory(
+        states=states,
+        children=children,
+        forward=forward,
+        partial_g_cost=partial_g_cost,
+    )
 
 
 def from_goal_node_metric(

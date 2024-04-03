@@ -6,19 +6,50 @@ import numpy as np
 import torch as to
 from torch import clamp, exp, log, sum
 import torch.nn as nn
-from torch.nn.functional import cross_entropy, log_softmax, nll_loss
+from torch.nn.functional import cross_entropy, log_softmax, nll_loss, normalize
 from torch.nn.functional import mse_loss as mse
 
-from search.traj import MetricTrajectory, Trajectory
+from search.traj import MetricTrajectory, Trajectory, BYOLTrajectory
 
 if TYPE_CHECKING:
-    from models.models import SuperModel
+    from models.models import PolicyOrHeuristicModel, BYOL
+
+
+def _byol_loss(x, y):
+    x = normalize(x, dim=-1, p=2)
+    y = normalize(y, dim=-1, p=2)
+    return 2 - 2 * (x * y).sum(dim=-1)
+
+
+def byol_loss(traj: BYOLTrajectory, model: BYOL):
+    #todo batch loss
+    loss = 0.0
+    n = 0
+    # todo adjacent states will each have 2 terms in the loss
+    for s1, cs in zip(traj.states, traj.children):
+        s1 = s1.unsqueeze(0)
+        for s2 in cs:
+            n += 1
+            s2 = s2.unsqueeze(0)
+            online_pred1, online_pred2, target_proj1, target_proj2 = model(s1, s2)
+            l1 = _byol_loss(online_pred1, target_proj2)
+            l2 = _byol_loss(online_pred2, target_proj1)
+            loss += (l1 + l2).mean()
+    # for i in range(len(traj.states) - 1):
+    #     s1 = traj.states[i].unsqueeze(0)
+    #     s2 = traj.states[i + 1].unsqueeze(0)
+    #     n += 1
+    #     online_pred1, online_pred2, target_proj1, target_proj2 = model(s1, s2)
+    #     l1 = _byol_loss(online_pred1, target_proj2)
+    #     l2 = _byol_loss(online_pred2, target_proj1)
+    #     loss += (l1 + l2).mean()
+    return loss / n
 
 
 def metric_loss(
     f_traj: MetricTrajectory,
     b_traj: MetricTrajectory,
-    model: SuperModel,
+    model: PolicyOrHeuristicModel,
     adj_consistency: bool = False,
     ends_consistency: bool = False,
     n_samples: int = 0,
@@ -27,6 +58,7 @@ def metric_loss(
     ends_weight=1.0,
     samples_weight=1.0,
 ):
+    # todo wip, see if normalizing works
     loss = 0.0
     n = len(f_traj)
     # compute all necessary features
@@ -98,7 +130,7 @@ def metric_loss(
     return loss
 
 
-def mse_loss(traj: Trajectory, model: SuperModel, weight=1.0):
+def mse_loss(traj: Trajectory, model: PolicyOrHeuristicModel, weight=1.0):
     _, h = model(
         traj.states,
         forward=traj.forward,
@@ -110,7 +142,7 @@ def mse_loss(traj: Trajectory, model: SuperModel, weight=1.0):
     return loss, 0.0, 0.0
 
 
-def cross_entropy_loss(traj: Trajectory, model: SuperModel):
+def cross_entropy_loss(traj: Trajectory, model: PolicyOrHeuristicModel):
     n_actions = len(traj)
     log_probs, _ = model(
         traj.states,
@@ -126,7 +158,7 @@ def cross_entropy_loss(traj: Trajectory, model: SuperModel):
     return loss, avg_action_nll, acc
 
 
-def cross_entropy_mse_loss(traj: Trajectory, model: SuperModel, weight=1.0):
+def cross_entropy_mse_loss(traj: Trajectory, model: PolicyOrHeuristicModel, weight=1.0):
     n_actions = len(traj)
     log_probs, hs = model(
         traj.states,
@@ -145,7 +177,7 @@ def cross_entropy_mse_loss(traj: Trajectory, model: SuperModel, weight=1.0):
     return loss, avg_action_nll, acc
 
 
-def levin_avg_mse_loss(traj: Trajectory, model: SuperModel, weight=1.0):
+def levin_avg_mse_loss(traj: Trajectory, model: PolicyOrHeuristicModel, weight=1.0):
     n_actions = len(traj)
     log_probs, hs = model(
         traj.states,
@@ -164,7 +196,7 @@ def levin_avg_mse_loss(traj: Trajectory, model: SuperModel, weight=1.0):
     return loss, avg_action_nll, acc
 
 
-def traj_nll_mse_loss(traj: Trajectory, model: SuperModel, weight=1.0):
+def traj_nll_mse_loss(traj: Trajectory, model: PolicyOrHeuristicModel, weight=1.0):
     n_actions = len(traj)
     log_probs, hs = model(
         traj.states,
@@ -183,7 +215,7 @@ def traj_nll_mse_loss(traj: Trajectory, model: SuperModel, weight=1.0):
     return loss, avg_action_nll, acc
 
 
-def levin_sum_mse_loss(traj: Trajectory, model: SuperModel, weight=1.0):
+def levin_sum_mse_loss(traj: Trajectory, model: PolicyOrHeuristicModel, weight=1.0):
     n_actions = len(traj)
     log_probs, hs = model(
         traj.states,
@@ -202,7 +234,7 @@ def levin_sum_mse_loss(traj: Trajectory, model: SuperModel, weight=1.0):
     return loss, avg_action_nll, acc
 
 
-def levin_avg_loss(traj: Trajectory, model: SuperModel):
+def levin_avg_loss(traj: Trajectory, model: PolicyOrHeuristicModel):
     n_actions = len(traj)
     log_probs, hs = model(
         traj.states,
@@ -220,7 +252,7 @@ def levin_avg_loss(traj: Trajectory, model: SuperModel):
     return loss, avg_action_nll, acc
 
 
-def traj_nll_loss(traj: Trajectory, model: SuperModel):
+def traj_nll_loss(traj: Trajectory, model: PolicyOrHeuristicModel):
     n_actions = len(traj)
     log_probs, hs = model(
         traj.states,
@@ -236,7 +268,7 @@ def traj_nll_loss(traj: Trajectory, model: SuperModel):
     return loss, avg_action_nll, acc
 
 
-def levin_sum_loss(traj: Trajectory, model: SuperModel):
+def levin_sum_loss(traj: Trajectory, model: PolicyOrHeuristicModel):
     n_actions = len(traj)
     log_probs, hs = model(
         traj.states,
@@ -254,7 +286,7 @@ def levin_sum_loss(traj: Trajectory, model: SuperModel):
     return loss, avg_action_nll, acc
 
 
-def cross_entropy_mid_loss(traj: Trajectory, model: SuperModel):
+def cross_entropy_mid_loss(traj: Trajectory, model: PolicyOrHeuristicModel):
     mid_idx = ceil(len(traj) / 2)
     mask = traj.masks[:mid_idx]
     actions = traj.actions[:mid_idx]
