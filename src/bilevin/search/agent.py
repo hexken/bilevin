@@ -29,6 +29,7 @@ class Agent(ABC):
         self.logdir: Path = logdir
         self.args: Namespace = args
         # todo right model type
+        self.model: to.nn.Module
         if args.agent == "ApproxFF":
             self.model = BYOL(args, aux_args)
         else:

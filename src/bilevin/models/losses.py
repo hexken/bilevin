@@ -22,18 +22,27 @@ def _byol_loss(x, y):
 
 
 def byol_loss(traj: BYOLTrajectory, model: BYOL):
+    #todo batch loss
     loss = 0.0
     n = 0
     # todo adjacent states will each have 2 terms in the loss
-    for s, cs in zip(traj.states, traj.children):
-        s = s.unsqueeze(0)
-        for c in cs:
+    for s1, cs in zip(traj.states, traj.children):
+        s1 = s1.unsqueeze(0)
+        for s2 in cs:
             n += 1
-            c = c.unsqueeze(0)
-            online_pred1, online_pred2, target_proj1, target_proj2 = model(s, c)
+            s2 = s2.unsqueeze(0)
+            online_pred1, online_pred2, target_proj1, target_proj2 = model(s1, s2)
             l1 = _byol_loss(online_pred1, target_proj2)
             l2 = _byol_loss(online_pred2, target_proj1)
             loss += (l1 + l2).mean()
+    # for i in range(len(traj.states) - 1):
+    #     s1 = traj.states[i].unsqueeze(0)
+    #     s2 = traj.states[i + 1].unsqueeze(0)
+    #     n += 1
+    #     online_pred1, online_pred2, target_proj1, target_proj2 = model(s1, s2)
+    #     l1 = _byol_loss(online_pred1, target_proj2)
+    #     l2 = _byol_loss(online_pred2, target_proj1)
+    #     loss += (l1 + l2).mean()
     return loss / n
 
 

@@ -1,6 +1,7 @@
 from argparse import Namespace
 from typing import Optional
 
+import timeit
 import torch as to
 import torch.nn as nn
 import torch.nn.functional as F
@@ -213,7 +214,7 @@ class BYOL(nn.Module):
         self,
         args: Namespace,
         derived_args: dict,
-        tau: float = 0.99,
+        tau: float = 0.90,
     ):
         super().__init__()
         self.online: nn.Module = _BYOL(args, derived_args)
@@ -223,15 +224,18 @@ class BYOL(nn.Module):
         self.target: nn.Module = _BYOL(args, derived_args, make_predictor=False)
         self.tau = tau
 
+        self.online_params = [
+            *self.online.encoder.parameters(),
+            *self.online.projector.parameters(),
+        ]
+
+        self.target_params = [
+            *self.target.encoder.parameters(),
+            *self.target.projector.parameters(),
+        ]
+
     def update_target(self):
-        # todo no predictor in target
-        online_params = chain(
-            self.online.encoder.parameters(), self.online.projector.parameters()
-        )
-        target_params = chain(
-            self.target.encoder.parameters(), self.target.projector.parameters()
-        )
-        for online, target in zip(online_params, target_params):
+        for online, target in zip(self.online_params, self.target_params):
             target.data = self.tau * target.data + (1 - self.tau) * online.data
 
     def forward(
@@ -241,11 +245,11 @@ class BYOL(nn.Module):
     ):
         states = to.cat((state1_t, state2_t), dim=0)
         _, online_preds = self.online(states, for_loss=True)
-        online_pred1, online_pred2 = to.chunk(online_preds, 2, dim=0)
+        online_pred1, online_pred2 = online_preds
 
         with to.no_grad():
             target_projs, _ = self.target(states, for_loss=True)
-            target_proj1, target_proj2 = to.chunk(target_projs, 2, dim=0)
+            target_proj1, target_proj2 = target_projs
 
         # todo may need to detach target_projs
         return online_pred1, online_pred2, target_proj1, target_proj2

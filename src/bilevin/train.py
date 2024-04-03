@@ -405,6 +405,9 @@ def train(
                                 baccs.append(batch_bacc)
                                 print(f"bacc: {batch_bacc:.3f}")
 
+            if isinstance(agent, ApproxFF):
+                agent.model.update_target()
+
         del traj, f_traj, b_traj
         stage_batches_seen += 1
         stage_batches_this_budget += 1
