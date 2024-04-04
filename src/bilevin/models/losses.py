@@ -90,13 +90,14 @@ def metric(
         forw_c_loss /= n
 
         # backward
-        n = 0
-        for feats, children_feats in zip(b_states_feats, b_children_feats):
-            n += len(children_feats)
-            sq_dist = (children_feats - feats).pow(2).sum()
-            # backw_c_loss += sq_dist
-            backw_c_loss += (sq_dist - 1.0) ** 2
-        backw_c_loss /= n
+        if backward_children:
+            n = 0
+            for feats, children_feats in zip(b_states_feats, b_children_feats):
+                n += len(children_feats)
+                sq_dist = (children_feats - feats).pow(2).sum()
+                # backw_c_loss += sq_dist
+                backw_c_loss += (sq_dist - 1.0) ** 2
+            backw_c_loss /= n
 
     # make the forward and backward model features of consecutive states along the solution
     # trajectory similar, while keeping their distances 1
