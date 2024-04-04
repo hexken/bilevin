@@ -28,42 +28,42 @@ class Agent(ABC):
 
         self.logdir: Path = logdir
         self.args: Namespace = args
-        # todo right model type
+
+        if "mse" in args.loss_fn:
+            self.loss_fn = partial(
+                getattr(losses, args.loss_fn), weight=args.weight_mse_loss
+            )
+            self.traj_type = "default"
+        elif "metric" in args.loss_fn:
+            self.loss_fn = partial(
+                getattr(losses, args.loss_fn),
+                backward_children=args.backward_children,
+                use_children=args.use_children,
+                children_weight=args.children_weight,
+                adj_consistency=args.adj_consistency,
+                adj_weight=args.adj_weight,
+                ends_consistency=args.ends_consistency,
+                ends_weight=args.ends_weight,
+                n_samples=args.n_samples,
+                samples_weight=args.samples_weight,
+            )
+            self.traj_type = "metric"
+        elif "byol" in args.loss_fn:
+            self.loss_fn = getattr(losses, args.loss_fn)
+            self.traj_type = "byol"
+        else:
+            self.loss_fn = getattr(losses, args.loss_fn)
+            self.traj_type = "default"
+
         self.model: to.nn.Module
-        if args.agent == "ApproxFF":
+        if self.traj_type == "byol":
             self.model = BYOL(args, aux_args)
         else:
             self.model = PolicyOrHeuristicModel(args, aux_args)
 
-        if args.mode == "train":
-            # todo right optimizer params
-            self.optimizer = getattr(optim, args.optimizer)(
-                self.model.learnable_params, weight_decay=args.weight_decay
-            )
-
-            if "mse" in args.loss_fn:
-                self.loss_fn = partial(
-                    getattr(losses, args.loss_fn), weight=args.weight_mse_loss
-                )
-                self.traj_type = "default"
-            elif "metric" in args.loss_fn:
-                self.loss_fn = partial(
-                    getattr(losses, args.loss_fn),
-                    children_weight=args.children_weight,
-                    adj_consistency=args.adj_consistency,
-                    adj_weight=args.adj_weight,
-                    ends_consistency=args.ends_consistency,
-                    ends_weight=args.ends_weight,
-                    n_samples=args.n_samples,
-                    samples_weight=args.samples_weight,
-                )
-                self.traj_type = "metric"
-            elif "byol" in args.loss_fn:
-                self.loss_fn = getattr(losses, args.loss_fn)
-                self.traj_type = "byol"
-            else:
-                self.loss_fn = getattr(losses, args.loss_fn)
-                self.traj_type = "default"
+        self.optimizer = getattr(optim, args.optimizer)(
+            self.model.learnable_params, weight_decay=args.weight_decay
+        )
 
     def save_model(
         self,

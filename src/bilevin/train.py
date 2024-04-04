@@ -13,7 +13,6 @@ import torch.distributed as dist
 from torch.nn.utils import clip_grad_norm_ as clip_
 
 from loaders import ProblemLoader
-from search.approx_ff import ApproxFF
 from models.models import PolicyOrHeuristicModel
 from search.agent import Agent
 from search.utils import (
@@ -249,6 +248,8 @@ def train(
                 local_search_results[8] = b_traj.partial_g_cost
                 local_search_results[9] = b_traj.avg_action_prob
                 local_search_results[10] = b_traj.avg_h_abs_error
+            if agent.traj_type == "byol":
+                local_search_results[8] = len(f_traj) - f_traj.partial_g_cost
 
         else:
             f_traj = b_traj = None
@@ -323,6 +324,13 @@ def train(
                 if agent.traj_type == "byol":
                     if traj:
                         loss = loss_fn(f_traj, model)
+                        local_opt_results[0] = loss.item()
+                        loss.backward()
+                    else:
+                        local_opt_results[:] = 0
+                elif agent.traj_type == "metric":
+                    if traj:
+                        loss = loss_fn(f_traj,b_traj, model)
                         local_opt_results[0] = loss.item()
                         loss.backward()
                     else:
@@ -405,7 +413,7 @@ def train(
                                 baccs.append(batch_bacc)
                                 print(f"bacc: {batch_bacc:.3f}")
 
-            if isinstance(agent, ApproxFF):
+            if agent.traj_type == "byol":
                 agent.model.update_target()
 
         del traj, f_traj, b_traj

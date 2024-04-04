@@ -15,7 +15,7 @@ from search.node import SearchNode
 class PHSBase(Agent):
     def __init__(self, logdir, args, model_args):
         if args.loss_fn == "default":
-            args.loss_fn = "traj_nll_mse_loss"
+            args.loss_fn = "traj_nll_mse"
         super().__init__(logdir, args, model_args)
 
     @property

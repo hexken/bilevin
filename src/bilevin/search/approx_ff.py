@@ -25,7 +25,7 @@ class LandMark:
 class ApproxFF(Agent):
     def __init__(self, logdir: Path, args: Namespace, aux_args: dict):
         if args.loss_fn == "default":
-            args.loss_fn = "byol_loss"
+            args.loss_fn = "byol"
         self.n_landmarks = args.n_landmarks
         self.n_batch_expansions = args.n_batch_expansions
         super().__init__(logdir, args, aux_args)
@@ -62,7 +62,10 @@ class ApproxFF(Agent):
         n_total_expanded = 0
         problem_id = problem.id
 
-        model = self.model.online
+        if self.traj_type == "byol":
+            model = self.model.online
+        else:
+            model = self.model
 
         f_domain = problem.domain
         f_state = f_domain.init()

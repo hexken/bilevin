@@ -20,7 +20,7 @@ from search.agent import Agent
 class AStarBase(Agent):
     def __init__(self, logdir, args, model_args):
         if args.loss_fn == "default":
-            args.loss_fn = "mse_loss"
+            args.loss_fn = "mse"
         super().__init__(logdir, args, model_args)
         self.w = args.weight_astar
 

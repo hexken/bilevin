@@ -53,6 +53,22 @@ def parse_args():
         help="weight to use for penalty for sampled state pairs consistency loss in approx ff",
     )
     parser.add_argument(
+        "--use-children",
+        const=True,
+        nargs="?",
+        type=strtobool,
+        default=False,
+        help="use children terms in metric and byol losses",
+    )
+    parser.add_argument(
+        "--backward-children",
+        const=True,
+        nargs="?",
+        type=strtobool,
+        default=False,
+        help="use backward children term in metric loss (useful when not sharing feature net)",
+    )
+    parser.add_argument(
         "--adj-consistency",
         const=True,
         nargs="?",
@@ -206,17 +222,18 @@ def parse_args():
         default="default",
         choices=[
             "default",
-            "traj_nll_mse_loss",
-            "traj_nll_loss",
-            "levin_sum_mse_loss",
-            "levin_avg_mse_loss",
-            "levin_sum_loss",
-            "levin_avg_loss",
-            "cross_entropy_loss",
-            "cross_entropy_mid_loss",
-            "cross_entropy_mse_loss",
-            "mse_loss",
-            "metric_loss",
+            "byol",
+            "traj_nll_mse",
+            "traj_nll",
+            "levin_sum_mse",
+            "levin_avg_mse",
+            "levin_sum",
+            "levin_avg",
+            "cross_entropy",
+            "cross_entropy_mid",
+            "cross_entropy_mse",
+            "mse",
+            "metric",
         ],
         help="loss function",
     )
