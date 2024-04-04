@@ -115,3 +115,5 @@ class BiLevinBFS(BiDirBFS, LevinBase):
 class BiLevinAlt(BiDirAlt, LevinBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+BiLevin = BiLevinBFS

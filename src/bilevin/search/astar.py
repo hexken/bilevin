@@ -113,3 +113,5 @@ class BiAStarBFS(BiDirBFS, AStarBase):
 class BiAStarAlt(BiDirAlt, AStarBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+BiAStar = BiAStarAlt

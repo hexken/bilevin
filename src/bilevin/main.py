@@ -7,7 +7,6 @@ from pathlib import Path
 import pickle as pkl
 import time
 from timeit import default_timer as timer
-import tracemalloc
 
 from filelock import FileLock, Timeout
 import numpy as np
@@ -18,10 +17,7 @@ import torch.multiprocessing as mp
 
 from args import parse_args
 from loaders import ProblemLoader
-from search.astar import AStar, BiAStarAlt, BiAStarBFS
-from search.levin import BiLevinAlt, BiLevinBFS, Levin
-from search.phs import BiPHSAlt, BiPHSBFS, PHS
-from search.approx_ff import ApproxFF
+import search
 from search.utils import set_seeds
 from train import train
 from utils import find_free_port
@@ -93,9 +89,6 @@ def run(
         local_problems,
         seed=local_seed,
     )
-    # alloc, g1, g2 = gc.get_threshold()
-    # print(f"GC threshold: {alloc}, {g1}, {g2}")
-    # gc.set_threshold(50_000, 10, 10)
 
     if args.mode == "train":
         valid_loader = ProblemLoader(
@@ -196,7 +189,7 @@ if __name__ == "__main__":
         "num_raw_features": num_raw_features,
     }
 
-    agent_class = globals()[args.agent]
+    agent_class = getattr(search, args.agent)
     agent = agent_class(logdir, args, derived_args)
 
     if args.mode == "train" and args.valid_path:

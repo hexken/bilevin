@@ -123,3 +123,5 @@ class BiPHSBFS(BiDirBFS, PHSBase):
 class BiPHSAlt(BiDirAlt, PHSBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+BiPHS = BiPHSBFS
