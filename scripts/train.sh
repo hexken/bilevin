@@ -5,30 +5,32 @@ export OMP_NUM_THREADS=1
 flr=0.0001
 blr=0.0001
 python src/bilevin/main.py \
-    --agent  BiPHSBFS \
+    --agent ApproxFF \
+    --loss-fn metric \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/stp4lt/1000-train.pkl \
+    --problems-path problems/stp4/100000-train.pkl \
     --valid-path problems/stp4/1000-valid.pkl \
     --master-port 34568 \
     --seed 1 \
     --world-size 4 \
-    --n-landmarks 8 \
+    --n-landmarks 16 \
     --n-batch-expansions 32 \
     --feature-net-type conv \
-    --share-feature-net t\
     --no-feature-net f \
+    --share-feature-net f\
+    --use-children t\
+    --backward-children f\
     --adj-consistency f \
-    --adj-weight 1 \
-    --ends-consistency \
+    --ends-consistency f\
+    --n-samples 0 \
+    --adj-weight 5 \
     --ends-weight 1 \
     --children-weight 1 \
-    --n-samples 10 \
-    --samples-weight 5 \
+    --samples-weight 1 \
     --mode train \
     --weight-astar 2.5 \
     --weight-mse-loss 0.1 \
-    --loss-fn default \
     --max-grad-norm 1.0 \
     --optimizer Adam \
     --grad-steps 10 \

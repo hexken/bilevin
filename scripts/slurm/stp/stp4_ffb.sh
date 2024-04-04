@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --account=rrg-lelis
+#SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
-#SBATCH --time=48:00:00
-#SBATCH --array=1-48
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/col4/ff/%j.out
+#SBATCH --time=24:00:00
+#SBATCH --array=1-2
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/stp4/ffb/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -25,26 +25,36 @@ args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
 n_landmarks=$(echo $args | cut -d' ' -f3)
-n_batch_expansions=$(echo $args | cut -d' ' -f4)
 lr=0.0001
 # chk=$(echo $args | cut -d' ' -f3)
 
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
+    --exp-name children \
+    --loss-fn byol \
+    --share-feature-net t \
+    --use-children t \
+    --backward-children t \
+    --adj-consistency t \
+    --ends-consistency f \
+    --n-samples 0 \
+    --adj-weight 1 \
+    --ends-weight 1 \
+    --children-weight 1 \
+    --samples-weight 1 \
+    --n-batch-expansions 32 \
     --n-landmarks $n_landmarks \
-    --n-batch-expansions $n_batch_expansions \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/thes/col4/ff \
-    --exp-name "k${n_landmarks}_b${n_batch_expansions}" \
-    --problems-path problems/col4/50000-train.pkl \
-    --valid-path problems/col4/1000-valid.pkl \
+    --runsdir-path runs/thes/stp4/ffb \
+    --problems-path problems/stp4/100000-train.pkl \
+    --valid-path problems/stp4/1000-valid.pkl \
     --world-size 4 \
     --mode train \
     --max-grad-norm 1.0 \
-    --loss-fn default \
     \
+    --share-feature-net t \
     --forward-feature-net-lr $lr \
     --forward-policy-layers 128 \
     --forward-policy-lr $lr \
