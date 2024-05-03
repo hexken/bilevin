@@ -152,7 +152,7 @@ def metric(
     return loss
 
 
-def mse(traj: Trajectory, model: PolicyOrHeuristicModel, weight=1.0):
+def mse(traj: Trajectory, model: PolicyOrHeuristicModel):
     _, h = model(
         traj.states,
         forward=traj.forward,
