@@ -3,9 +3,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
-#SBATCH --time=80:00:00
+#SBATCH --time=48:00:00
 #SBATCH --array=1-10
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/tri4/phs/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes2/tri4/phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -33,7 +33,7 @@ python src/bilevin/main.py \
     --n-batch-expansions 32 \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/thes/tri4/phs \
+    --runsdir-path runs/thes2/tri4/phs \
     --problems-path problems/tri4/50000-train.pkl \
     --valid-path problems/tri4/1000-valid.pkl \
     --world-size 4 \

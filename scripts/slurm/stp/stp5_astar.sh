@@ -3,9 +3,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
-#SBATCH --time=8:00:00
-#SBATCH --array=6
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/stp5/astar/%j.out
+#SBATCH --time=00:10:00
+#SBATCH --array=11
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes2/stp5/astar/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -34,7 +34,7 @@ python src/bilevin/main.py \
     --agent $agent \
     --seed $seed \
     --weight-astar 2.5 \
-    --runsdir-path runs/thes/stp5/astar_b16 \
+    --runsdir-path runs/thes2/stp5/astar_b16 \
     --exp-name "" \
     --problems-path problems/stp5/100000-train.pkl \
     --valid-path problems/stp5/1000-valid.pkl \
