@@ -26,12 +26,13 @@ def plot_search(
     style,
     label=None,
     batch_size=4,
-    n_final_stage_epochs=25,
+    max_epoch=10,
 ):
     # plot seeds corresponding to a run
     dfs = run_data["search"]
     notna_dfs = []
     for df in dfs:
+        df = df[df["epoch"] <= max_epoch]
         dfg = df[["stage", "epoch", y_data_label]]
         dfg = dfg.groupby(df["batch"] // batch_size)
         dfg = dfg.aggregate({"stage": "max", "epoch": "max", y_data_label: "mean"})
@@ -66,6 +67,7 @@ def plot_valid(
     ax,
     style,
     label=None,
+    max_epoch=10,
 ):
     # plot seeds corresponding to a run
     dfs = run_data["valid"]
@@ -73,6 +75,7 @@ def plot_valid(
     for df in dfs:
         dfg = df.groupby(df["batch"], as_index=False)
         dfg = dfg.aggregate({y_data_label: "mean"})[y_data_label]
+        dfg = dfg[:max_epoch]
         notna_dfs.append(dfg)
 
     min_n = min(len(df) for df in notna_dfs)
@@ -82,7 +85,7 @@ def plot_valid(
     central = df.median(axis=1)
     lower = df.min(axis=1)
     upper = df.max(axis=1)
-    n_valids = np.arange(1, max_n + 1)
+    n_valids = np.arange(1, max_epoch + 1)
 
     color, linestyle, hatch = style
     ax.plot(n_valids, central, color=color, linestyle=linestyle, label=label)
@@ -325,12 +328,13 @@ def plot_uni_policy_heuristic_model(run_data: dict, label: str):
     return fig, ax
 
 
-def plot_domain(run_data: dict, outdir: str):
+def plot_domain(run_data: dict, outdir: str, max_epoch=10):
     saveroot = Path(outdir)
     saveroot.mkdir(exist_ok=True, parents=True)
     figkey = ["problems_path"]
     legendkey = ["agent"]
     data = sorted(run_data.values(), key=lambda x: x.args_key(figkey))
+    print(data)
     ls_mapper = LineStyleMapper()
     # todo they should all have same prob path anyway
     for fkey, group in itertools.groupby(data, key=lambda x: x.args_key(figkey)):
@@ -372,9 +376,24 @@ def plot_domain(run_data: dict, outdir: str):
                 ax=ax[0, 0],
                 style=style,
                 label=agent,
+                max_epoch=max_epoch,
             )
-            plot_search(rsdata, "exp", ax=ax[1, 0], style=style, label=agent)
-            plot_search(rsdata, "len", ax=ax[2, 0], style=style, label=agent)
+            plot_search(
+                rsdata,
+                "exp",
+                ax=ax[1, 0],
+                style=style,
+                label=agent,
+                max_epoch=max_epoch,
+            )
+            plot_search(
+                rsdata,
+                "len",
+                ax=ax[2, 0],
+                style=style,
+                label=agent,
+                max_epoch=max_epoch,
+            )
 
             plot_valid(
                 rsdata,
@@ -382,21 +401,36 @@ def plot_domain(run_data: dict, outdir: str):
                 ax=ax[0, 1],
                 style=style,
                 label=agent,
+                max_epoch=max_epoch,
             )
-            plot_valid(rsdata, "exp", ax=ax[1, 1], style=style, label=agent)
-            plot_valid(rsdata, "len", ax=ax[2, 1], style=style, label=agent)
+            plot_valid(
+                rsdata,
+                "exp",
+                ax=ax[1, 1],
+                style=style,
+                label=agent,
+                max_epoch=max_epoch,
+            )
+            plot_valid(
+                rsdata,
+                "len",
+                ax=ax[2, 1],
+                style=style,
+                label=agent,
+                max_epoch=max_epoch,
+            )
             ax[2, 1].set_xlabel("Valid #", size=14)
 
             # fill search vs batch plots
-            plot_search_vs_batch(
-                rsdata,
-                "solved",
-                ax=ax2[0],
-                style=style,
-                label=agent,
-            )
-            plot_search_vs_batch(rsdata, "exp", ax=ax2[1], style=style, label=agent)
-            plot_search_vs_batch(rsdata, "len", ax=ax2[2], style=style, label=agent)
+            # plot_search_vs_batch(
+            #     rsdata,
+            #     "solved",
+            #     ax=ax2[0],
+            #     style=style,
+            #     label=agent,
+            # )
+            # plot_search_vs_batch(rsdata, "exp", ax=ax2[1], style=style, label=agent)
+            # plot_search_vs_batch(rsdata, "len", ax=ax2[2], style=style, label=agent)
             # make model train plots
             # if "Bi" in agent:
             #     if "PHS" in agent:
@@ -429,20 +463,20 @@ def plot_domain(run_data: dict, outdir: str):
         plt.close()
 
         fig2.tight_layout()
-        fig2.savefig(saveroot / f"search_vs_batch.pdf", bbox_inches="tight")
+        fig2.savefig(saveroot / f"search_train.pdf", bbox_inches="tight")
         plt.close()
 
 
 def main():
     colors = mpl.colormaps["tab10"].colors
-    dom_paths = list(Path("/home/ken/Envs/thes/").glob("*.pkl"))
+    dom_paths = list(Path("/home/ken/Projects/bilevin/thes_good/").glob("*.pkl"))
     print("Found domains:")
     for dom in dom_paths:
         print(dom.stem)
 
     for dom in dom_paths:
         dom_data = pkl.load(dom.open("rb"))
-        plot_domain(dom_data, f"figs/thes_april/{dom.stem}")
+        plot_domain(dom_data, f"figs/thes_good/{dom.stem}")
 
 
 if __name__ == "__main__":
