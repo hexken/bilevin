@@ -25,6 +25,10 @@ if __name__ == "__main__":
 
     for domdir in dom_dirs:
         for run in natsorted(domdir.glob("*/*/")):
+            # if "_PHS" in run.name:
+            #     continue
+            # if "AStar" in run.name:
+            #     continue
             good_run = False
             for search_data in run.glob("search*.pkl"):
                 if s.match(search_data.name) is not None:
@@ -32,9 +36,13 @@ if __name__ == "__main__":
                     break
 
             if not good_run:
-                print(run.name)
                 m = s2.match(run.name)
                 agent = m.group(1)
                 seed = m.group(2)
-                chkpt = natsorted(run.glob("checkpoint*.pkl"))[-1]
+                print(run.name)
+                chkpt = list(natsorted(run.glob("checkpoint*.pkl")))
+                if len(chkpt) == 0:
+                    print(f"No checkpoints found for {run}")
+                    continue
+                chkpt = chkpt[-1]
                 outfile.write(f"{seed} {agent} {chkpt}\n")
