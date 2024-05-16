@@ -31,16 +31,16 @@ def plot_search(
 ):
     # plot seeds corresponding to a run
     dfs = run_data["search"]
-    notna_dfs = []
+    dfs = []
     for df in dfs:
         df = df[df["epoch"] <= max_epoch]
         dfg = df[["stage", "epoch", y_data_label]]
         dfg = dfg.groupby(df["batch"] // batch_size)
         dfg = dfg.aggregate({"stage": "max", "epoch": "max", y_data_label: "mean"})
         dfg = dfg.groupby(["stage", "epoch"], as_index=True).mean()
-        notna_dfs.append(dfg)
+        dfs.append(dfg)
 
-    df = pd.concat(notna_dfs, axis=1)
+    df = pd.concat(dfs, axis=1)
     central = df.median(axis=1)
     lower = df.min(axis=1)
     upper = df.max(axis=1)
@@ -72,17 +72,16 @@ def plot_valid(
 ):
     # plot seeds corresponding to a run
     dfs = run_data["valid"]
-    notna_dfs = []
+    dfs = []
     for df in dfs:
         dfg = df.groupby(df["batch"], as_index=False)
         dfg = dfg.aggregate({y_data_label: "mean"})[y_data_label]
         dfg = dfg[:max_epoch]
-        notna_dfs.append(dfg)
+        dfs.append(dfg)
 
-    min_n = min(len(df) for df in notna_dfs)
-    max_n = max(len(df) for df in notna_dfs)
-    # notna_dfs = [df.iloc[:min_n_vals] for df in notna_dfs]
-    df = pd.concat(notna_dfs, axis=1)
+    min_n = min(len(df) for df in dfs)
+    max_n = max(len(df) for df in dfs)
+    df = pd.concat(dfs, axis=1)
     central = df.median(axis=1)
     lower = df.min(axis=1)
     upper = df.max(axis=1)
