@@ -8,19 +8,25 @@ def prepare_domain(domdir, model_suffix):
     for agentdir in domdir.glob("*/"):
         if agentdir.name == "astar":
             outfile = domdir / "astar_args_test.txt"
-            agents = ("_AStar", "_BiAStarAlt")
+            agents = ("_AStar", "_BiAStar")
         elif agentdir.name == "levin":
             outfile = domdir / "levin_args_test.txt"
             agents = ("_Levin", "_BiLevin")
         elif agentdir.name == "phs":
             outfile = domdir / "phs_args_test.txt"
-            agents = ("_PHS", "_BiPHSBFS")
+            agents = ("_PHS", "_BiPHS")
         else:
             continue
 
         runargs = []
         for rundir in natsorted(agentdir.glob("*train*")):
-            model_pth = list(rundir.glob(f"model{model_suffix}"))[0]
+            models = list(rundir.glob(f"model{model_suffix}"))
+            if not models:
+                print(f"Skipping {rundir.name}, no models")
+                continue
+            elif len(models) > 1:
+                print(f"Found more than one model {rundir.name}")
+            model_pth = models[0]
             if agents[0] in rundir.name:
                 i = 0
             elif agents[1] in rundir.name:
