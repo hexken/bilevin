@@ -1,11 +1,12 @@
 #!/bin/bash
+#SBATCH --constraint=cascade
 #SBATCH --account=rrg-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=2G
-#SBATCH --time=00:30:00
-#SBATCH --array=1-10
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/col4/phs/%j.out
+#SBATCH --time=00:15:00
+#SBATCH --array=1-20
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes_test/col4/phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -20,15 +21,13 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/data/thes/col4/phs_args_test.txt
+argfile=/scratch/tjhia/bilevin/thes_good/col4/phs_args_test.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 agent=$(echo $args | cut -d' ' -f1)
 model_path=$(echo $args | cut -d' ' -f2)
-# chk=$(echo $args | cut -d' ' -f3)
-
-    # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
+    --n-batch-expansions 32 \
     --world-size 4 \
     --test-expansion-budget 2000 \
     --problems-path problems/col4/1000-test.pkl \
