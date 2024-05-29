@@ -48,7 +48,25 @@ class RunSeeds:
         return len(self.paths)
 
 
-def process_run(run_name: str, runs: list[RunSingle], batch_size=4, min_valids=25):
+def process_test_run(run_name: str, runs: list[RunSingle], model_suffix):
+    test_datas = []
+    for r in runs:
+        rp = r.path
+        test_dirs = list(rp.glob(f"*test_model_{model_suffix}*"))
+        if len(test_dirs) == 0:
+            print(f"no test data for {rp}")
+            continue
+        elif len(test_dirs) > 1:
+            print(f"multiple test dirs for {rp}")
+        data = test_dirs[0] / "test.pkl"
+        df = pkl.load(data.open("rb"))
+        test_datas.append(df)
+    return test_datas
+
+
+def process_train_run(
+    run_name: str, runs: list[RunSingle], batch_size=4, min_valids=25
+):
     batch_regex = re.compile(".*_b(\d+).pkl")
     train_dfs = []
     search_dfs = []
@@ -156,8 +174,11 @@ def process_run(run_name: str, runs: list[RunSingle], batch_size=4, min_valids=2
         }
 
 
-def get_runs_data(
-    pths: Path | Iterable[Path], keys: list[str], batch_size=4, min_valids=25
+def get_train_data(
+    pths: Path | Iterable[Path],
+    keys: list[str],
+    batch_size=4,
+    min_valids=25,
 ) -> dict:
     # get list of paths for each run_name, specified by group_key (should correpsond to seeds)
     if isinstance(pths, Path):
@@ -175,7 +196,46 @@ def get_runs_data(
     # print(list(*zip(*runs_combined)))
     with ProcessPoolExecutor() as executor:
         future_to_run = {
-            executor.submit(process_run, name, runs, batch_size, min_valids): (
+            executor.submit(process_train_run, name, runs, batch_size, min_valids): (
+                name,
+                runs,
+            )
+            for name, runs in runs_combined
+        }
+        for f in as_completed(future_to_run):
+            try:
+                name, runs = future_to_run[f]
+                data = f.result()
+                if data is not None:
+                    runs_data[name] = RunSeeds(runs, data)
+            except Exception as exc:
+                print(f"Run {name} generated an exception: {exc}")
+
+    return runs_data
+
+
+def get_test_data(
+    pths: Path | Iterable[Path],
+    keys: list[str],
+    model_suffix: str,
+) -> dict:
+    # get list of paths for each run_name, specified by group_key (should correpsond to seeds)
+    if isinstance(pths, Path):
+        pths = [pths]
+
+    all_runs = [RunSingle(rp, keys) for pth in pths for rp in pth.glob("*/")]
+    all_runs.sort(key=lambda x: x.name)
+    grouped_runs = itertools.groupby(all_runs, lambda x: x.name)
+    # Prepare sorting by algorithm
+    runs_combined = [(name, list(runs)) for name, runs in grouped_runs]
+    for name, runs in runs_combined:
+        print(f"Found {len(runs)} paths matching {name}")
+    runs_data = OrderedDict()
+
+    # print(list(*zip(*runs_combined)))
+    with ProcessPoolExecutor() as executor:
+        future_to_run = {
+            executor.submit(process_test_run, name, runs, model_suffix): (
                 name,
                 runs,
             )

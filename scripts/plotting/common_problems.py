@@ -4,6 +4,7 @@ import pickle as pkl
 import sys
 
 import numpy as np
+import pandas as pd
 
 
 def reorder_agents(dom_data):
@@ -13,6 +14,42 @@ def reorder_agents(dom_data):
         assert agent in dom_data
         new_dom_data[agent] = dom_data[agent]
     return new_dom_data
+
+
+def get_common_train(data: pd.DataFrame):
+    run1 = data[0]
+    ids = set(run1[run1["epoch"] == 10]["id"].astype(int))
+    for run in data[1:]:
+        rundata = run[run["epoch"] == 10]
+        solved = rundata[rundata["len"] > 0]["id"].astype(int)
+        ids = ids.intersection(solved)
+    return ids
+
+
+def get_common_valid(data: pd.DataFrame):
+    run1 = data[0]
+    ids = set(run1.iloc[-1000:]["id"].astype(int))
+    for run in data[1:]:
+        rundata = run.iloc[-1000:]
+        solved = rundata[rundata["solved"] == True]["id"].astype(int)
+        ids = ids.intersection(solved)
+    return ids
+
+
+def get_common_test(agent_dir, agent, model_suffix):
+    for run in agent_dir.glob("*/"):
+        if agent in run.name:
+            test_dirs = list(run.glob(f"*test_model_{model_suffix}*"))
+            if len(test_dirs) == 0:
+                print(f"no test data for {run}")
+                continue
+            elif len(test_dirs) > 1:
+                print(f"multiple test dirs for {run}")
+            data = test_dirs[0] / "test.pkl"
+
+
+def get_common_domain(dom_pkl, agents_common_problems):
+    pass
 
 
 def compute_train_stats(key, dom, dom_data, ids, ignore=None):
@@ -49,11 +86,11 @@ def compute_train_stats(key, dom, dom_data, ids, ignore=None):
                 exps.append(epoch_probs["exp"].mean())
                 lens.append(epoch_probs["fg"].mean())
         print(
-            f"{dom} {key} {agent} \n\texps {np.mean(exps)} +- {np.std(exps)} \n\tlens {np.mean(lens)} +- {np.std(lens)}"
+            f"{dom} {key} {agent} \n\texps {np.mean(exps):.3f} +- {np.std(exps):.3f} \n\tlens {np.mean(lens):.3f} +- {np.std(lens):.3f}"
         )
         if "Bi" in agent:
             print(
-                f"\tfb_exps {np.mean(fb_exps)} +- {np.std(fb_exps)} \n\tfb_lens {np.mean(fb_lens)} +- {np.std(fb_lens)}"
+                f"\tfb_exps {np.mean(fb_exps):.3f} +- {np.std(fb_exps):.3f} \n\tfb_lens {np.mean(fb_lens):.3f} +- {np.std(fb_lens):.3f}"
             )
 
 
@@ -64,6 +101,11 @@ if __name__ == "__main__":
 
     inq = Path(sys.argv[1])
     doms = ("tri4", "tri5", "col4", "col5", "stp4", "stp5")
+    agents = {
+        "phs": ("_PHS", "_BiPHS"),
+        "levin": ("_Levin", "_BiLevin"),
+        "astar": ("_AStar", "_BiAStar"),
+    }
     keys = ["search", "valid"]
     if inq.is_dir():
         common_ids = OrderedDict()
@@ -83,16 +125,6 @@ if __name__ == "__main__":
                     continue
                 if dom == "stp5" and agent == "BiPHS":
                     continue
-                for run in adata.data["search"]:
-                    search_epoch_data = run[run["epoch"] == 10]
-                    search_solved_ids = set(
-                        search_epoch_data[search_epoch_data["len"] > 0]["id"].astype(
-                            int
-                        )
-                    )
-                    common_search_ids = common_search_ids.intersection(
-                        search_solved_ids
-                    )
                 for run in adata.data["valid"]:
                     valid_epoch_data = run.iloc[-1000:]
                     valid_solved_ids = set(
