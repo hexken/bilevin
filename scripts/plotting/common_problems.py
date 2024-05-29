@@ -15,14 +15,12 @@ def reorder_agents(dom_data):
     return new_dom_data
 
 
-def compute_stats(key, dom, dom_data, ids):
+def compute_train_stats(key, dom, dom_data, ids, ignore=None):
     for agent, adata in dom_data.items():
-        if dom == "col5" and agent == "AStar":
-            continue
-        if dom == "stp5" and agent == "BiPHS":
-            continue
         lens = []
         exps = []
+        if ignore and dom in ignore and agent in ignore[dom]:
+            continue
         if "Bi" in agent:
             fb_lens = []
             fb_exps = []
@@ -112,13 +110,14 @@ if __name__ == "__main__":
             search_ids = common_ids[dom]["search"]
             valid_ids = common_ids[dom]["valid"]
             for key in keys:
-                compute_stats(key, dom, dom_data, common_ids[dom][key])
+                compute_train_stats(key, dom, dom_data, common_ids[dom][key])
 
         pkl.dump(common_ids, Path(sys.argv[2]).open("wb"))
 
     else:
         common_ids = pkl.load(inq.open("rb"))
+        ignore = {"col5": {"AStar"}, "stp5": {"BiPHS"}}
         for dom, ids in common_ids.items():
             dom_data = pkl.load(Path(f"{inq.parent}/{dom}.pkl").open("rb"))
             for key in keys:
-                compute_stats(key, dom, dom_data, ids[key])
+                compute_train_stats(key, dom, dom_data, ids[key], ignore)

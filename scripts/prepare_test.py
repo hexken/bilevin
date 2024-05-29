@@ -4,7 +4,45 @@ import sys
 from natsort import natsorted
 
 
-def prepare_domain(domdir, model_suffix):
+def prepare_unfinished(domdir, model_suffix):
+    for agentdir in domdir.glob("*/"):
+        if agentdir.name == "astar":
+            outfile = domdir / "astar_args_test_unfinished.txt"
+            agents = ("_AStar", "_BiAStar")
+        elif agentdir.name == "levin":
+            outfile = domdir / "levin_args_test_unfinished.txt"
+            agents = ("_Levin", "_BiLevin")
+        elif agentdir.name == "phs":
+            outfile = domdir / "phs_args_test_unfinished.txt"
+            agents = ("_PHS", "_BiPHS")
+        else:
+            continue
+
+        runargs = []
+        for rundir in natsorted(agentdir.glob("*train*")):
+            dirs = rundir.glob("f*test_model_{model_suffix}*")
+            if len(list(dirs)) == 0:
+                models = list(rundir.glob(f"model{model_suffix}"))
+                if not models:
+                    print(f"Skipping {rundir.name}, no models")
+                    continue
+                elif len(models) > 1:
+                    print(f"Found more than one model {rundir.name}")
+                model_pth = models[0]
+                if agents[0] in rundir.name:
+                    i = 0
+                elif agents[1] in rundir.name:
+                    i = 1
+                else:
+                    print(f"Skipping {rundir.name}")
+                    continue
+                args = f"{agents[i][1:]} {model_pth}"
+                runargs.append(args)
+
+        outfile.write_text("\n".join(runargs))
+
+
+def prepare_new(domdir, model_suffix):
     for agentdir in domdir.glob("*/"):
         if agentdir.name == "astar":
             outfile = domdir / "astar_args_test.txt"
@@ -42,7 +80,9 @@ def prepare_domain(domdir, model_suffix):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python prepare_test.py <dom_dir|doms_dir> [all] <best|last>")
+        print(
+            "Usage: python prepare_test.py <dom_dir|doms_dir> [all] [unfinished] <best|latest>"
+        )
         sys.exit(1)
 
     d = sys.argv[1]
@@ -51,12 +91,23 @@ if __name__ == "__main__":
     else:
         dom_dirs = [Path(d)]
 
-    if sys.argv[3] == "best":
+    if sys.argv[3] == "unfinished":
+        unfinished = True
+        model_arg = sys.argv[4]
+    else:
+        unfinished = False
+        model_arg = sys.argv[3]
+
+    if model_arg == "best":
         model_suffix = "_best_expanded.pt"
-    elif sys.argv[4] == "last":
+    elif model_arg == "latest":
         model_suffix = "_lastest.pt"
     else:
-        raise ValueError("Invalid model suffix")
+        raise ValueError(f"Invalid model suffix: {model_arg}")
 
-    for domdir in dom_dirs:
-        prepare_domain(domdir, model_suffix)
+    if unfinished:
+        for domdir in dom_dirs:
+            prepare_unfinished(domdir, model_suffix)
+    else:
+        for domdir in dom_dirs:
+            prepare_new(domdir, model_suffix)
