@@ -40,12 +40,6 @@ def get_common_test(agent_dir, agent, model_suffix):
     for run in agent_dir.glob("*/"):
         if agent in run.name:
             test_dirs = list(run.glob(f"*test_model_{model_suffix}*"))
-            if len(test_dirs) == 0:
-                print(f"no test data for {run}")
-                continue
-            elif len(test_dirs) > 1:
-                print(f"multiple test dirs for {run}")
-            data = test_dirs[0] / "test.pkl"
 
 
 def get_common_domain(dom_pkl, agents_common_problems):
