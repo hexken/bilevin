@@ -256,7 +256,7 @@ def levin_sum_mse(traj: Trajectory, model: PolicyOrHeuristicModel, weight=1.0):
     return loss, avg_action_nll, acc
 
 
-def traj_nll(traj: Trajectory, model: PolicyOrHeuristicModel):
+def traj_nll_sum(traj: Trajectory, model: PolicyOrHeuristicModel):
     n_actions = len(traj)
     log_probs, hs = model(
         traj.states,
@@ -272,7 +272,7 @@ def traj_nll(traj: Trajectory, model: PolicyOrHeuristicModel):
     return loss, avg_action_nll, acc
 
 
-def avg_traj_nll(traj: Trajectory, model: PolicyOrHeuristicModel):
+def traj_nll_avg(traj: Trajectory, model: PolicyOrHeuristicModel):
     n_actions = len(traj)
     log_probs, hs = model(
         traj.states,
