@@ -20,26 +20,26 @@ def prepare_domain(domain_pth, keys, outfile, test=False, model_suffix=""):
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print(
-            "Usage: python get_runs.py <indir> [all] [<keys ...>|<best|latest>] [train|test] <outfile|outdir>"
+            "Usage: python get_runs.py <indir> [all] [train|test] [best|latest] <outfile|outdir>"
         )
         sys.exit(1)
     indir = Path(sys.argv[1])
 
-    if sys.argv[-2].lower() == "train":
+    if sys.argv[-3].lower() == "train":
         test = False
-    elif sys.argv[-2].lower() == "test":
+    elif sys.argv[-3].lower() == "test":
         test = True
-        if sys.argv[-3] == "best":
+        if sys.argv[-2] == "best":
             model_suffix = "best"
-        elif sys.argv[-3] == "latest":
+        elif sys.argv[-2] == "latest":
             model_suffix = "latest"
         else:
             raise ValueError("Third last argument must be either 'best' or 'last'")
     else:
         raise ValueError("Second last argument must be either 'train' or 'test'")
 
+    keys = ["agent"]
     if sys.argv[2].lower() == "all":
-        keys = sys.argv[3:-2] if len(sys.argv) > 5 else ["agent"]
         domains = list(Path(indir).glob("*/"))
         outdir = Path(sys.argv[-1])
         if test:
@@ -50,5 +50,4 @@ if __name__ == "__main__":
         for indir, k, o in zip(domains, keys, outfiles):
             prepare_domain(indir, k, o, test)
     else:
-        keys = sys.argv[2:-1] if len(sys.argv) > 4 else ["agent"]
         prepare_domain(indir, keys, Path(sys.argv[-1]), test)

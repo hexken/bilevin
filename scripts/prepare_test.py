@@ -20,9 +20,14 @@ def prepare_unfinished(domdir, model_suffix):
 
         runargs = []
         for rundir in natsorted(agentdir.glob("*train*")):
-            dirs = rundir.glob("f*test_model_{model_suffix}*")
-            if len(list(dirs)) == 0:
-                models = list(rundir.glob(f"model{model_suffix}"))
+            dirs = rundir.glob(f"*test_model_{model_suffix}*")
+            finished = False
+            for d in dirs:
+                if (d / "test.pkl").exists():
+                    finished = True
+                    break
+            if not finished:
+                models = list(rundir.glob(f"model_{model_suffix}*.pt"))
                 if not models:
                     print(f"Skipping {rundir.name}, no models")
                     continue
@@ -98,16 +103,12 @@ if __name__ == "__main__":
         unfinished = False
         model_arg = sys.argv[3]
 
-    if model_arg == "best":
-        model_suffix = "_best_expanded.pt"
-    elif model_arg == "latest":
-        model_suffix = "_lastest.pt"
-    else:
+    if model_arg != "best" and model_arg != "latest":
         raise ValueError(f"Invalid model suffix: {model_arg}")
 
     if unfinished:
         for domdir in dom_dirs:
-            prepare_unfinished(domdir, model_suffix)
+            prepare_unfinished(domdir, model_arg)
     else:
         for domdir in dom_dirs:
-            prepare_new(domdir, model_suffix)
+            prepare_new(domdir, model_arg)

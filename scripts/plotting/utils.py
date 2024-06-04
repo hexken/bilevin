@@ -52,13 +52,16 @@ def process_test_run(run_name: str, runs: list[RunSingle], model_suffix):
     test_datas = []
     for r in runs:
         rp = r.path
-        test_dirs = list(rp.glob(f"*test_model_{model_suffix}*"))
-        if len(test_dirs) == 0:
+        finished = False
+        dirs = list(rp.glob(f"*test_model_{model_suffix}*"))
+        for d in dirs:
+            if (d / "test.pkl").exists():
+                finished = True
+                break
+        if not finished:
             print(f"no test data for {rp}")
             continue
-        elif len(test_dirs) > 1:
-            print(f"multiple test dirs for {rp}")
-        data = test_dirs[0] / "test.pkl"
+        data = dirs[0] / "test.pkl"
         df = pkl.load(data.open("rb"))
         test_datas.append(df)
     return test_datas

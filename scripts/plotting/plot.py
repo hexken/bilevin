@@ -12,7 +12,7 @@ from natsort import natsorted
 import numpy as np
 import pandas as pd
 
-from utils import LineStyleMapper, PdfTemplate, get_runs_data
+from utils import LineStyleMapper
 
 cmap = mpl.colormaps["tab20"]
 mpl.rcParams["axes.prop_cycle"] = cycler(color=cmap.colors)
@@ -31,16 +31,16 @@ def plot_search(
 ):
     # plot seeds corresponding to a run
     dfs = run_data["search"]
-    dfs = []
+    aug_dfs = []
     for df in dfs:
         df = df[df["epoch"] <= max_epoch]
         dfg = df[["stage", "epoch", y_data_label]]
         dfg = dfg.groupby(df["batch"] // batch_size)
         dfg = dfg.aggregate({"stage": "max", "epoch": "max", y_data_label: "mean"})
         dfg = dfg.groupby(["stage", "epoch"], as_index=True).mean()
-        dfs.append(dfg)
+        aug_dfs.append(dfg)
 
-    df = pd.concat(dfs, axis=1)
+    df = pd.concat(aug_dfs, axis=1)
     central = df.median(axis=1)
     lower = df.min(axis=1)
     upper = df.max(axis=1)
@@ -72,16 +72,16 @@ def plot_valid(
 ):
     # plot seeds corresponding to a run
     dfs = run_data["valid"]
-    dfs = []
+    aug_dfs = []
     for df in dfs:
         dfg = df.groupby(df["batch"], as_index=False)
         dfg = dfg.aggregate({y_data_label: "mean"})[y_data_label]
         dfg = dfg[:max_epoch]
-        dfs.append(dfg)
+        aug_dfs.append(dfg)
 
-    min_n = min(len(df) for df in dfs)
-    max_n = max(len(df) for df in dfs)
-    df = pd.concat(dfs, axis=1)
+    min_n = min(len(df) for df in aug_dfs)
+    max_n = max(len(df) for df in aug_dfs)
+    df = pd.concat(aug_dfs, axis=1)
     central = df.median(axis=1)
     lower = df.min(axis=1)
     upper = df.max(axis=1)
@@ -221,14 +221,6 @@ def plot_domain(run_data: dict, outdir: str, max_epoch=10):
         ax[1, 0].set_ylabel("Expanded", size=14)
         # ax[2, 0].set_ylabel("Solution length", size=14)
 
-        # # search vs batch
-        # fig2, ax2 = plt.subplots(3, 1, figsize=(12, 10))
-        # fig2.suptitle(f"{fkey}", size=16)
-        # ax2[0].set_title(f"Train")
-        # ax2[0].set_ylabel("Solved", size=14)
-        # ax2[1].set_ylabel("Expanded", size=14)
-        # ax2[2].set_ylabel("Solution length", size=14)
-
         labels = []
         # loop over agents (uni/bi - levin/phs/astar, etc.)
         for agent, runseeds in grouped_data.items():
@@ -296,7 +288,7 @@ def plot_domain(run_data: dict, outdir: str, max_epoch=10):
         handles = [(a, next(it)) for a in it]
         fig.legend(handles, labels[::2])
         fig.tight_layout()
-        fig.savefig(saveroot / f"search_valid.pdf", bbox_inches="tight")
+        # fig.savefig(saveroot / f"{fkey}_search_valid.pdf", bbox_inches="tight")
         plt.close()
 
         # fig2.tight_layout()
@@ -306,8 +298,8 @@ def plot_domain(run_data: dict, outdir: str, max_epoch=10):
 
 def main():
     colors = mpl.colormaps["tab10"].colors
-    # dom_paths = list(Path("/home/ken/Projects/bilevin/pkls/").glob("*.pkl"))
-    dom_paths = [Path("/home/ken/Projects/bilevin/pkls/stp4.pkl")]
+    dom_paths = list(Path("/home/ken/Envs/thes_good_pkls/").glob("*.pkl"))
+    # dom_paths = [Path("/home/ken/Projects/bilevin/pkls/stp4.pkl")]
     print("Found domains:")
     for dom in dom_paths:
         print(dom.stem)
@@ -320,7 +312,7 @@ def main():
             assert agent in dom_data
             new_dom_data[agent] = dom_data[agent]
 
-        plot_domain(new_dom_data, f"figs/thes_good/{dom.stem}")
+        plot_domain(new_dom_data, f"figs/thes_good/")
 
 
 if __name__ == "__main__":
