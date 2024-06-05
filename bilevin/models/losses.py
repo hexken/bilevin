@@ -164,94 +164,11 @@ def mse(traj: Trajectory, model: PolicyOrHeuristicModel):
     return loss, 0.0, 0.0
 
 
-def cross_entropy(traj: Trajectory, model: PolicyOrHeuristicModel):
-    n_actions = len(traj)
-    log_probs, _ = model(
-        traj.states,
-        forward=traj.forward,
-        goal_state_t=traj.goal_state_t,
-        mask=traj.masks,
-    )
-    loss = nll_loss(log_probs, traj.actions, reduction="mean")
-
-    avg_action_nll = loss.item()
-    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
-
-    return loss, avg_action_nll, acc
-
-
-def cross_entropy_mse(traj: Trajectory, model: PolicyOrHeuristicModel, weight=1.0):
-    n_actions = len(traj)
-    log_probs, hs = model(
-        traj.states,
-        forward=traj.forward,
-        goal_state_t=traj.goal_state_t,
-        mask=traj.masks,
-    )
-    ce_loss = nll_loss(log_probs, traj.actions, reduction="mean")
-
-    avg_action_nll = ce_loss.item()
-    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
-
-    m_loss = mse_loss(hs, traj.cost_to_gos.unsqueeze(1))
-    loss = ce_loss + weight * m_loss
-
-    return loss, avg_action_nll, acc
-
-
-def levin_avg_mse_loss(traj: Trajectory, model: PolicyOrHeuristicModel, weight=1.0):
-    n_actions = len(traj)
-    log_probs, hs = model(
-        traj.states,
-        forward=traj.forward,
-        goal_state_t=traj.goal_state_t,
-        mask=traj.masks,
-    )
-    loss = nll_loss(log_probs, traj.actions, reduction="mean")
-
-    avg_action_nll = loss.item()
-    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
-
-    m_loss = mse_loss(hs, traj.cost_to_gos.unsqueeze(1))
-    loss = loss * traj.num_expanded + weight * m_loss
-
-    return loss, avg_action_nll, acc
-
-
-def traj_nll_mse(traj: Trajectory, model: PolicyOrHeuristicModel, weight=1.0):
-    n_actions = len(traj)
-    log_probs, hs = model(
-        traj.states,
-        forward=traj.forward,
-        goal_state_t=traj.goal_state_t,
-        mask=traj.masks,
-    )
-    loss = nll_loss(log_probs, traj.actions, reduction="sum")
-
-    avg_action_nll = loss.item() / n_actions
-    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
-
-    m_loss = mse_loss(hs, traj.cost_to_gos.unsqueeze(1))
-    loss = loss + weight * m_loss
-
-    return loss, avg_action_nll, acc
-
-
-def levin_sum_mse(traj: Trajectory, model: PolicyOrHeuristicModel, weight=1.0):
-    n_actions = len(traj)
-    log_probs, hs = model(
-        traj.states,
-        forward=traj.forward,
-        goal_state_t=traj.goal_state_t,
-        mask=traj.masks,
-    )
-    loss = nll_loss(log_probs, traj.actions, reduction="sum")
-
-    avg_action_nll = loss.item() / n_actions
-    acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
-
-    m_loss = mse_loss(hs, traj.cost_to_gos.unsqueeze(1))
-    loss = loss * traj.num_expanded + weight * m_loss
+def phs(traj: Trajectory, model: PolicyOrHeuristicModel, policy_loss):
+    p_loss, avg_action_nll, acc = policy_loss(traj, model)
+    mse_loss, _, _ = mse(traj, model)
+    loss = p_loss + mse_loss
+    print(policy_loss.__name__)
 
     return loss, avg_action_nll, acc
 
@@ -320,24 +237,5 @@ def levin_avg(traj: Trajectory, model: PolicyOrHeuristicModel):
     acc = (log_probs.detach().argmax(dim=1) == traj.actions).sum().item() / n_actions
 
     loss = loss * traj.num_expanded
-
-    return loss, avg_action_nll, acc
-
-
-def cross_entropy_mid(traj: Trajectory, model: PolicyOrHeuristicModel):
-    mid_idx = ceil(len(traj) / 2)
-    mask = traj.masks[:mid_idx]
-    actions = traj.actions[:mid_idx]
-    states = traj.states[:mid_idx]
-    log_probs, _ = model(
-        states,
-        forward=traj.forward,
-        goal_state_t=traj.goal_state_t,
-        mask=mask,
-    )
-    loss = nll_loss(log_probs, actions, reduction="mean")
-
-    avg_action_nll = loss.item()
-    acc = (log_probs.detach().argmax(dim=1) == actions).sum().item() / mid_idx
 
     return loss, avg_action_nll, acc

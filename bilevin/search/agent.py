@@ -29,10 +29,9 @@ class Agent(ABC):
         self.logdir: Path = logdir
         self.args: Namespace = args
 
-        if "mse" in args.loss_fn:
-            self.loss_fn = partial(
-                getattr(losses, args.loss_fn), weight=args.weight_mse_loss
-            )
+        if "PHS" in args.agent:
+            policy_loss = getattr(losses, args.loss_fn)
+            self.loss_fn = partial(losses.phs, policy_loss=policy_loss)
             self.traj_type = "default"
         elif "metric" in args.loss_fn:
             self.loss_fn = partial(
