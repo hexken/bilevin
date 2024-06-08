@@ -165,7 +165,7 @@ if __name__ == "__main__":
             raise ValueError(
                 "Must specify either model_path or checkpoint_path to test"
             )
-        logdir /= f"test_{model_name}_{args.seed}_{int(abs_start_time)}"
+        logdir /= f"test_{model_name}{exp_name}_{args.seed}_{int(abs_start_time)}"
     else:
         raise ValueError(f"Unknown mode: {args.mode}")
 
