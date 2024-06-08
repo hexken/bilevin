@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-export PYTHONPATH=$SCRIPT_DIR/../src/bilevin
+export PYTHONPATH=$SCRIPT_DIR/../bilevin
 cd $SCRIPT_DIR/../
 
 usage() {
@@ -12,7 +12,7 @@ if [ $# -ne 1 ]; then
 fi
 
 if [ "$1" = "d" ]; then
-    python src/bilevin/domains/puzzle_generator.py \
+    python bilevin/domains/puzzle_generator.py \
     --domain stp \
     --output-path  problems/stp5d/ \
     --seed 658 \
@@ -27,7 +27,7 @@ if [ "$1" = "d" ]; then
     --randomize-test-steps \
     --test-steps  1000
 elif [ "$1" = "4" ]; then
-    python src/bilevin/domains/puzzle_generator.py \
+    python bilevin/domains/puzzle_generator.py \
     --domain stp \
     --output-path  problems/stp4lt/ \
     --seed 4238 \
@@ -42,7 +42,7 @@ elif [ "$1" = "4" ]; then
     --randomize-test-steps \
     --test-steps  500
 elif [ "$1" = "5" ]; then
-    python src/bilevin/domains/puzzle_generator.py \
+    python bilevin/domains/puzzle_generator.py \
     --domain stp \
     --output-path  problems/stp5/ \
     --seed 1274 \
@@ -56,6 +56,22 @@ elif [ "$1" = "5" ]; then
     --n-test 1000 \
     --randomize-test-steps \
     --test-steps  500
+elif [ "$1" = "5v" ]; then
+    python bilevin/domains/puzzle_generator.py \
+    --domain stp \
+    --output-path  problems/lelis/stp5 \
+    --exclude-path  problems/lelis/stp5/50000-train.pkl \
+    --exclude-path  problems/lelis/stp5/1000-test.pkl \
+    --seed 1274 \
+    --width  5 \
+    --n-problems-per-stage  0 \
+    --randomize-curriculum-steps \
+    --stages-multiple  10 \
+    --n-problems-final-stage 0 \
+    --n-stages  1 \
+    --n-valid  1000 \
+    --n-test 0 \
+    --valid-permutation
 else
     usage
 fi
