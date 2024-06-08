@@ -63,7 +63,7 @@ def prepare_new(domdir, model_suffix):
 
         runargs = []
         for rundir in natsorted(agentdir.glob("*train*")):
-            models = list(rundir.glob(f"model{model_suffix}"))
+            models = list(rundir.glob(f"model_{model_suffix}*.pt"))
             if not models:
                 print(f"Skipping {rundir.name}, no models")
                 continue
