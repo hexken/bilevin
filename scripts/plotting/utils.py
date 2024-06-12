@@ -72,7 +72,7 @@ def process_test_run(run_name: str, runs: list[RunSingle], model_suffix):
 def process_train_run(
     run_name: str, runs: list[RunSingle], batch_size=4, min_valids=25
 ):
-    batch_regex = re.compile(".*_b(\d+).pkl")
+    batch_regex = re.compile(r".*_b(\d+).pkl")
     train_dfs = []
     search_dfs = []
     valid_dfs = []
@@ -303,7 +303,7 @@ class PdfTemplate:
         subprocess.run(pandoc)
 
     def _pagebreak(self):
-        self.latex_cmds.append("\pagebreak")
+        self.latex_cmds.append(r"\pagebreak")
 
     def _h1(self, text):
         self.latex_cmds.append(f"# {text}")

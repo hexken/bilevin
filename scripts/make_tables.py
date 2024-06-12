@@ -17,7 +17,7 @@ def reorder_agents(dom_data):
     return new_dom_data
 
 
-def get_common_ids_agent(data: list[pd.DataFrame], mode: str):
+def get_common_ids_agent(data: list[pd.DataFrame], mode: str, common_min: int = 100):
     """
     Get the common problems that a single agents solved in the last epoch of a domain, over all
     seeds
@@ -48,13 +48,12 @@ def get_common_ids_agent(data: list[pd.DataFrame], mode: str):
     return merged_data, ids
 
 
-def get_common_ids_domain(dom_data: dict, mode: str):
+def get_common_ids_domain(dom_data: dict, mode: str, common_min: int = 100):
     """
     Get the common problems that all agents solved in the last epoch of a domain, over all seeds,
-    and the common ids accross all agents
+    and the common ids accross all agents. Skip agents that have less than `common_min` common ids
+    solved
     """
-    ret = OrderedDict()
-    dom_data_l = list(dom_data.items())
     if mode == "test":
         data_func = lambda x: x
     elif mode == "train":
@@ -62,81 +61,78 @@ def get_common_ids_domain(dom_data: dict, mode: str):
     elif mode == "valid":
         data_func = lambda x: x["valid"]
 
-    agent, adata = dom_data_l[0]
-    data, ids = get_common_ids_agent(data_func(adata.data), mode=mode)
-    all_ids = ids.copy()
-    ret[agent] = {}
-    ret[agent]["ids"] = ids
-    ret[agent]["data"] = data
+    ret = OrderedDict()
+    max_ids = set()
+    for agent, adata in dom_data.items():
+        data, ids = get_common_ids_agent(data_func(adata.data), mode=mode)
 
-    for agent, adata in dom_data_l[1:]:
-        ret[agent] = {}
-        ret[agent]["ids"] = ids
-        ret[agent]["data"] = ret
-        all_ids = all_ids.intersection(ids)
+        if len(ids) < common_min:
+            print(f"skipping {agent} due to insufficient common solved problems")
+            continue
 
-    ret["all"] = all_ids
+        if len(ids) > len(max_ids):
+            max_ids = ids
+
+        ret[agent] = {"ids": ids, "data": data}
+
+    common_ids = max_ids.intersection(*[x["ids"] for x in ret.values()])
+    ret["all"] = common_ids
+
     return ret
 
 
 def compute_domain_stats(dom_data, mode: str, common_min: int = 100):
-    dom_data = get_common_ids_domain(dom_data, mode=mode)
+    dom_common_data = get_common_ids_domain(dom_data, mode=mode)
 
-    all_ids = dom_data.pop("all")
-    for agent, adata in dom_data.items():
-        if len(adata["ids"]) < common_min:
-            print(f"Skipping {agent} due to insufficient common solved problems")
-            continue
+    common_ids = dom_common_data.pop("all")
+    if len(common_ids) < common_min:
+        print(f"Skipping domain {dom} due to insufficient common solved problems")
+        return
+
+    print(f"Domain {dom} common solved: {len(common_ids)}")
+    print("Using agents:")
+    print(*dom_common_data.keys())
+    print()
+    for agent, adata in dom_common_data.items():
 
         data = adata["data"]
-        policy = False
-        heuristic = False
-        bidir = False
-        print(data)
-        print_df = {"len": data["len"]}
-        # lens = []
-        # exps = []
         print(f"{agent}")
         print(f"Common solved: {len(adata['ids'])}")
-        ids = adata["ids"]
-        mask = data["id"].isin(ids)
+        mask = data["id"].isin(common_ids)
         id_data = data.loc[mask]
-        # print(f"{dom} {agent} {len(epoch_search_probs)}")
-        group_id_problems = id_data.groupby("id").agg(["mean", "std"])
+        print_df = {"id": id_data["id"], "len": id_data["len"]}
 
         if "bexp" in data:
-            bidir = True
-            data["exp"] = id_data["fexp"] + id_data["bexp"]
             print_df["fb_len"] = id_data["fg"] / (id_data["fg"] + id_data["bg"])
-            # fb_lens = []
-            # fb_exps = []
+            print_df["exp"] = id_data["fexp"] + id_data["bexp"]
+            print_df["fb_exp"] = id_data["fexp"] / (id_data["fexp"] + id_data["bexp"])
         else:
             print_df["exp"] = id_data["fexp"]
 
         if "fap" in data:
-            policy = True
-            fap = []
-            if bidir:
-                bap = []
+            print_df["fap"] = id_data["fap"]
+            if "bap" in data:
                 print_df["fb_ap"] = id_data["fap"] / (id_data["fap"] + id_data["bap"])
-                fb_ap = []
 
         if "fhe" in data:
-            heuristic = True
-            fhe = []
-            if bidir:
-                bhe = []
+            print_df["fhe"] = id_data["fhe"]
+            if "bhe" in data:
                 print_df["fb_he"] = id_data["fhe"] / (id_data["fhe"] + id_data["bhe"])
-                fb_he = []
 
-        tabulate(
-            group_id_problems,
-            tablefmt="psql",
-            floatfmt=".2f",
+        print_df = pd.DataFrame(print_df)
+        print_df = print_df.groupby("id").mean()
+        # stats = print_df.describe().map(lambda x: "{0:.3f}".format(x))
+        # print(stats)
+        stats = print_df.describe()
+        print(
+            tabulate(
+                stats,
+                headers="keys",
+                showindex=True,
+                floatfmt=".3f",
+            )
         )
-        # print(
-        #     f"{dom} {key} {agent} \n\texps {np.mean(exps):.3f} +- {np.std(exps):.3f} \n\tlens {np.mean(lens):.3f} +- {np.std(lens):.3f}"
-        # )
+        print("\n\n")
 
 
 if __name__ == "__main__":
@@ -146,18 +142,12 @@ if __name__ == "__main__":
 
     inq = Path(sys.argv[1])
     doms = ("tri4", "tri5", "col4", "col5", "stp4", "stp5")
-    # agents = {
-    #     "phs": ("_PHS", "_BiPHS"),
-    #     "levin": ("_Levin", "_BiLevin"),
-    #     "astar": ("_AStar", "_BiAStar"),
-    # }
     mode = sys.argv[2]
     if mode not in ("train", "valid", "test"):
         print("Mode must be one of train, valid, test")
         sys.exit(1)
 
     for dom in doms:
-        # compute common problems for this domain
         dom_data = pkl.load((inq / f"{dom}.pkl").open("rb"))
         dom_data = reorder_agents(dom_data)
         compute_domain_stats(dom_data, mode=mode)
