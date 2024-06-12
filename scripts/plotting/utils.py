@@ -54,6 +54,7 @@ def process_test_run(run_name: str, runs: list[RunSingle], model_suffix):
         rp = r.path
         finished = False
         dirs = list(rp.glob(f"*test_model_{model_suffix}*"))
+        dirs = natsorted(dirs)
         for d in dirs:
             if (d / "test.pkl").exists():
                 finished = True
@@ -64,6 +65,7 @@ def process_test_run(run_name: str, runs: list[RunSingle], model_suffix):
         data = dirs[0] / "test.pkl"
         df = pkl.load(data.open("rb"))
         test_datas.append(df)
+    print(f"Loaded {len(test_datas)}/{len(runs)} runs of {run_name}")
     return test_datas
 
 
