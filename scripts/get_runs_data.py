@@ -20,35 +20,34 @@ def prepare_domain(domain_pth, keys, outfile, test=False, model_suffix=""):
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print(
-            "Usage: python get_runs.py <indir> [all] [train|test] [best|latest] <outfile|outdir>"
+            "Usage: python get_runs.py <indir> <train|test> [best|latest] <outfile|outdir>"
         )
         sys.exit(1)
     indir = Path(sys.argv[1])
 
-    if sys.argv[-3].lower() == "train":
+    if sys.argv[2].lower() == "train":
         test = False
-    elif sys.argv[-3].lower() == "test":
+    elif sys.argv[2].lower() == "test":
         test = True
-        pass
         if sys.argv[-2] == "best":
             model_suffix = "best"
         elif sys.argv[-2] == "latest":
             model_suffix = "latest"
         else:
-            raise ValueError("Third last argument must be either 'best' or 'last'")
+            raise ValueError(
+                "Third last argument must be either 'best' or 'last' when processing test data."
+            )
     else:
-        raise ValueError("Second last argument must be either 'train' or 'test'")
+        raise ValueError("Second argument must be either 'train' or 'test'")
 
-    keys = ["agent"]
-    if sys.argv[2].lower() == "all":
-        domains = list(Path(indir).glob("*/"))
-        outdir = Path(sys.argv[-1])
-        if test:
-            outfiles = [outdir / f"{d.name}.pkl" for d in domains]
-        else:
-            outfiles = [outdir / f"{d.name}.pkl" for d in domains]
-        keys = [keys for _ in domains]
-        for indir, k, o in zip(domains, keys, outfiles):
-            prepare_domain(indir, k, o, test)
+    keys = ["agent", "loss_fn", "max_grad_norm"]
+    allowable_domains = {"stp4", "stp5", "tri4", "tri5", "col4", "col5"}
+    domains = [p for p in Path(indir).glob("*/") if p.name in allowable_domains]
+    outdir = Path(sys.argv[-1])
+    if test:
+        outfiles = [outdir / f"{d.name}.pkl" for d in domains]
     else:
-        prepare_domain(indir, keys, Path(sys.argv[-1]), test)
+        outfiles = [outdir / f"{d.name}.pkl" for d in domains]
+    keys = [keys for _ in domains]
+    for indir, k, o in zip(domains, keys, outfiles):
+        prepare_domain(indir, k, o, test)
