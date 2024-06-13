@@ -348,4 +348,5 @@ class LineStyleMapper:
             ls = self.uni_ls
             h = self.uni_hatch
 
-        return c, ls, h
+        return ""
+        # return c, ls, h

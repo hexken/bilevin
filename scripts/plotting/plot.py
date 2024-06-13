@@ -48,15 +48,15 @@ def plot_search(
     xlabels = [f"s{s}e{e}" if s >= maxs else f"s{s}" for s, e in df.index.values]
     xticks = np.arange(1, len(xlabels) + 1)
 
-    color, linestyle, hatch = style
-    ax.plot(xticks, central, color=color, linestyle=linestyle, label=label)
+    # color, linestyle, hatch = style
+    ax.plot(xticks, central, label=label)
     ax.fill_between(
         xticks,
         lower,
         upper,
-        edgecolor=(*color, 0.1),
-        hatch=hatch,
-        facecolor=(*color, 0.1),
+        # edgecolor=(*color, 0.1),
+        # hatch=hatch,
+        # facecolor=(*color, 0.1),
         label=label,
     )
     ax.set_xticks(xticks, xlabels, rotation=70)
@@ -87,15 +87,15 @@ def plot_valid(
     upper = df.max(axis=1)
     n_valids = np.arange(1, max_epoch + 1)
 
-    color, linestyle, hatch = style
-    ax.plot(n_valids, central, color=color, linestyle=linestyle, label=label)
+    # color, linestyle, hatch = style
+    ax.plot(n_valids, central, label=label)
     ax.fill_between(
         n_valids,
         lower,
         upper,
-        edgecolor=(*color, 0.1),
-        hatch=hatch,
-        facecolor=(*color, 0.1),
+        # edgecolor=(*color, 0.1),
+        # hatch=hatch,
+        # facecolor=(*color, 0.1),
         label=label,
     )
 
@@ -195,12 +195,12 @@ def batch_window_mean(data: list[pd.DataFrame], y_data_label, window_size=100):
     return xs, means, mins, maxs
 
 
-def plot_domain(run_data: dict, outdir: str, max_epoch=10):
+def plot_domain(dom_data: dict, outdir: str, max_epoch=7):
     saveroot = Path(outdir)
     saveroot.mkdir(exist_ok=True, parents=True)
     figkey = ["problems_path"]
-    legendkey = ["agent"]
-    data = sorted(run_data.values(), key=lambda x: x.args_key(figkey))
+    legendkey = ["agent", "loss_fn", "max_grad_norm"]
+    data = sorted(dom_data.values(), key=lambda x: x.args_key(figkey))
     ls_mapper = LineStyleMapper()
     # todo they should all have same prob path anyway
     for fkey, group in itertools.groupby(data, key=lambda x: x.args_key(figkey)):
@@ -288,7 +288,7 @@ def plot_domain(run_data: dict, outdir: str, max_epoch=10):
         handles = [(a, next(it)) for a in it]
         fig.legend(handles, labels[::2])
         fig.tight_layout()
-        # fig.savefig(saveroot / f"{fkey}_search_valid.pdf", bbox_inches="tight")
+        fig.savefig(saveroot / f"{fkey}_search_valid.pdf", bbox_inches="tight")
         plt.close()
 
         # fig2.tight_layout()
@@ -298,7 +298,7 @@ def plot_domain(run_data: dict, outdir: str, max_epoch=10):
 
 def main():
     colors = mpl.colormaps["tab10"].colors
-    dom_paths = list(Path("/home/ken/Envs/thes_good_pkls/").glob("*.pkl"))
+    dom_paths = list(Path("/home/ken/Envs/lelis_pkls/").glob("*.pkl"))
     # dom_paths = [Path("/home/ken/Projects/bilevin/pkls/stp4.pkl")]
     print("Found domains:")
     for dom in dom_paths:
@@ -308,11 +308,12 @@ def main():
         dom_data = pkl.load(dom.open("rb"))
         new_dom_data = OrderedDict()
         order = ("PHS", "BiPHS", "Levin", "BiLevin", "AStar", "BiAStar")
-        for agent in order:
-            assert agent in dom_data
-            new_dom_data[agent] = dom_data[agent]
-
-        plot_domain(new_dom_data, f"figs/thes_good/")
+        for order_agent in order:
+            for agent in dom_data:
+                base_agent = agent.split()[0]
+                if base_agent == order_agent:
+                    new_dom_data[agent] = dom_data[agent]
+        plot_domain(new_dom_data, f"figs/lelis/")
 
 
 if __name__ == "__main__":
