@@ -2,12 +2,10 @@ from argparse import Namespace
 import pickle
 import sys
 from timeit import default_timer as timer
-import tracemalloc
 
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
-from test import test
 import torch as to
 import torch.distributed as dist
 from torch.nn.utils import clip_grad_norm_ as clip_
@@ -21,7 +19,7 @@ from search.utils import (
     print_search_summary,
     search_result_header,
 )
-from utils import display_top
+from test import test
 
 
 def train(
@@ -248,9 +246,6 @@ def train(
                 local_search_results[8] = b_traj.partial_g_cost
                 local_search_results[9] = b_traj.avg_action_prob
                 local_search_results[10] = b_traj.avg_h_abs_error
-            if agent.traj_type == "byol":
-                local_search_results[8] = len(f_traj) - f_traj.partial_g_cost
-
         else:
             f_traj = b_traj = None
             solved_flag[0] = 0
@@ -321,48 +316,33 @@ def train(
             model.train()
             for grad_step in range(1, args.grad_steps + 1):
                 optimizer.zero_grad(set_to_none=False)
-                if agent.traj_type == "byol":
-                    if traj:
-                        loss = loss_fn(f_traj, model)
-                        local_opt_results[0] = loss.item()
-                        loss.backward()
-                    else:
-                        local_opt_results[:] = 0
-                elif agent.traj_type == "metric":
-                    if traj:
-                        loss = loss_fn(f_traj,b_traj, model)
-                        local_opt_results[0] = loss.item()
-                        loss.backward()
-                    else:
-                        local_opt_results[:] = 0
-                else:
-                    if f_traj:
+                if f_traj:
+                    (
+                        f_loss,
+                        _,
+                        f_acc,
+                    ) = loss_fn(f_traj, model)
+
+                    local_opt_results[0] = f_loss.item()
+                    local_opt_results[1] = f_acc
+
+                    if b_traj:
                         (
-                            f_loss,
+                            b_loss,
                             _,
-                            f_acc,
-                        ) = loss_fn(f_traj, model)
+                            b_acc,
+                        ) = loss_fn(b_traj, model)
 
-                        local_opt_results[0] = f_loss.item()
-                        local_opt_results[1] = f_acc
+                        local_opt_results[2] = b_loss.item()
+                        local_opt_results[3] = b_acc
 
-                        if b_traj:
-                            (
-                                b_loss,
-                                _,
-                                b_acc,
-                            ) = loss_fn(b_traj, model)
-
-                            local_opt_results[2] = b_loss.item()
-                            local_opt_results[3] = b_acc
-
-                            loss = f_loss + b_loss
-                        else:
-                            loss = f_loss
-
-                        loss.backward()
+                        loss = f_loss + b_loss
                     else:
-                        local_opt_results[:] = 0
+                        loss = f_loss
+
+                    loss.backward()
+                else:
+                    local_opt_results[:] = 0
 
                 # sync grads
                 all_grads_list = [param.grad.view(-1) for param in model.parameters()]
@@ -413,8 +393,6 @@ def train(
                                 baccs.append(batch_bacc)
                                 print(f"bacc: {batch_bacc:.3f}")
 
-            if agent.traj_type == "byol":
-                agent.model.update_target()
 
         del traj, f_traj, b_traj
         stage_batches_seen += 1

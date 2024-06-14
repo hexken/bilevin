@@ -148,47 +148,6 @@ def from_common_node(
         raise ValueError(f"Invalid traj_type: {agent.traj_type}")
 
 
-def from_goal_node_byol(
-    agent: Agent,
-    domain: Domain,
-    goal_node: SearchNode,
-    partial_g_cost: int,
-    forward: bool = True,
-) -> BYOLTrajectory:
-    """
-    Receives a SearchNode representing a solution to the problem.
-    Backtracks the path performed by search, collecting state-action pairs along the way.
-
-    actions[i] is the action taken in state[i] to get to state[i+1]
-    """
-    assert domain.is_goal(goal_node.state)
-    node = goal_node.parent
-
-    states = []
-    children = []
-
-    while node:
-        state = node.state
-        state_t = domain.state_tensor(state)
-        states.append(state_t)
-        children.append(
-            to.stack(
-                [domain.state_tensor(domain.result(state, a)) for a in node.actions]
-            )
-        )
-        node = node.parent
-
-    states = to.stack(states)
-    children = list(children)
-
-    return BYOLTrajectory(
-        states=states,
-        children=children,
-        forward=forward,
-        partial_g_cost=partial_g_cost,
-    )
-
-
 def from_goal_node_metric(
     agent: Agent,
     domain: Domain,
