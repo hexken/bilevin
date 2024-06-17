@@ -95,17 +95,15 @@ class Domain(ABC):
                 b_common_node,
                 num_expanded,
             )
-            b_traj = None
-            if not agent.traj_type == "byol":
-                b_traj = from_common_node(
-                    agent,
-                    b_domain,
-                    b_common_node,
-                    f_common_node,
-                    num_expanded,
-                    b_domain.goal_state_t,
-                    forward=False,
-                )
+            b_traj = from_common_node(
+                agent,
+                b_domain,
+                b_common_node,
+                f_common_node,
+                num_expanded,
+                b_domain.goal_state_t,
+                forward=False,
+            )
 
             return (f_traj, b_traj)
         else:

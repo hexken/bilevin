@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class BiDirAlt(Agent):
     def __init__(self, logdir: Path, args: Namespace, aux_args: dict):
         super().__init__(logdir, args, aux_args)
-        self.n_batch_expansions = args.n_batch_expansions
+        self.n_eval = args.n_eval
 
     @property
     def is_bidirectional(self):
@@ -122,7 +122,7 @@ class BiDirAlt(Agent):
             # try to expand b nodes
             nodes = []
             try:
-                for _ in range(self.n_batch_expansions):
+                for _ in range(self.n_eval):
                     nodes.append(heappop(ds.open))
             except IndexError:
                 pass

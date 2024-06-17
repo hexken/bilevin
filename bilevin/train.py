@@ -67,7 +67,7 @@ def train(
     loss_fn = agent.loss_fn
 
     solved_flag = to.zeros(1, dtype=to.uint8)
-    local_opt_results = to.zeros(4, dtype=to.float64)
+    local_opt_results = to.zeros(2, dtype=to.float64)
 
     world_search_results = [
         to.zeros(len(search_result_header), dtype=to.float64) for _ in range(batch_size)
@@ -241,11 +241,13 @@ def train(
             f_traj, b_traj = traj
             local_search_results[5] = f_traj.partial_g_cost
             local_search_results[6] = f_traj.avg_action_prob
-            local_search_results[7] = f_traj.avg_h_abs_error
+            local_search_results[7] = f_traj.acc
+            local_search_results[8] = f_traj.avg_h_abs_error
             if b_traj:
-                local_search_results[8] = b_traj.partial_g_cost
-                local_search_results[9] = b_traj.avg_action_prob
-                local_search_results[10] = b_traj.avg_h_abs_error
+                local_search_results[9] = b_traj.partial_g_cost
+                local_search_results[10] = b_traj.avg_action_prob
+                local_search_results[11] = b_traj.acc
+                local_search_results[12] = b_traj.avg_h_abs_error
         else:
             f_traj = b_traj = None
             solved_flag[0] = 0
@@ -305,10 +307,12 @@ def train(
             lens.append(batch_results_arr[i, 4])
             fgs.append(batch_results_arr[i, 5])
             faps.append(batch_results_arr[i, 6])
-            fhes.append(batch_results_arr[i, 7])
-            bgs.append(batch_results_arr[i, 8])
-            baps.append(batch_results_arr[i, 9])
-            bhes.append(batch_results_arr[i, 10])
+            faccs.append(batch_results_arr[i, 7])
+            fhes.append(batch_results_arr[i, 8])
+            bgs.append(batch_results_arr[i, 9])
+            baps.append(batch_results_arr[i, 10])
+            faps.append(batch_results_arr[i, 11])
+            baccs.append(batch_results_arr[i, 12])
         del batch_results_arr
 
         if num_procs_found_solution > 0:
@@ -317,24 +321,14 @@ def train(
             for grad_step in range(1, args.grad_steps + 1):
                 optimizer.zero_grad(set_to_none=False)
                 if f_traj:
-                    (
-                        f_loss,
-                        _,
-                        f_acc,
-                    ) = loss_fn(f_traj, model)
+                    f_loss = loss_fn(f_traj, model)
 
                     local_opt_results[0] = f_loss.item()
-                    local_opt_results[1] = f_acc
 
                     if b_traj:
-                        (
-                            b_loss,
-                            _,
-                            b_acc,
-                        ) = loss_fn(b_traj, model)
+                        b_loss = loss_fn(b_traj, model)
 
-                        local_opt_results[2] = b_loss.item()
-                        local_opt_results[3] = b_acc
+                        local_opt_results[1] = b_loss.item()
 
                         loss = f_loss + b_loss
                     else:
@@ -370,29 +364,22 @@ def train(
                         batch_floss = (
                             local_opt_results[0].item() / num_procs_found_solution
                         )
-                        batch_facc = (
-                            local_opt_results[1].item() / num_procs_found_solution
-                        )
                         batch_bloss = (
-                            local_opt_results[2].item() / num_procs_found_solution
-                        )
-                        batch_bacc = (
-                            local_opt_results[3].item() / num_procs_found_solution
+                            local_opt_results[1].item() / num_procs_found_solution
                         )
 
                         batches.append(batches_seen)
                         flosses.append(batch_floss)
                         print(f"floss: {batch_floss:.3f}")
-                        if policy_based:
-                            faccs.append(batch_facc)
-                            print(f"facc: {batch_facc:.3f}")
+                        # if policy_based:
+                        # faccs.append(batch_facc)
+                        # print(f"facc: {batch_facc:.3f}")
                         if bidirectional:
                             blosses.append(batch_bloss)
                             print(f"bloss: {batch_bloss:.3f}")
-                            if policy_based:
-                                baccs.append(batch_bacc)
-                                print(f"bacc: {batch_bacc:.3f}")
-
+                            # if policy_based:
+                            #     baccs.append(batch_bacc)
+                            #     print(f"bacc: {batch_bacc:.3f}")
 
         del traj, f_traj, b_traj
         stage_batches_seen += 1
@@ -483,9 +470,7 @@ def train(
 
                 if policy_based:
                     stage_search_df["fap"] = pd.Series(faps, dtype=pd.Float32Dtype())
-                    stage_model_train_df["facc"] = pd.Series(
-                        faccs, dtype=pd.Float32Dtype(), index=batches
-                    )
+                    stage_search_df["facc"] = pd.Series(faccs, dtype=pd.Float32Dtype())
                 if heuristic_based:
                     stage_search_df["fhe"] = pd.Series(fhes, dtype=pd.Float32Dtype())
 
@@ -497,8 +482,8 @@ def train(
                         blosses, dtype=pd.Float32Dtype(), index=batches
                     )
                     if policy_based:
-                        stage_model_train_df["bacc"] = pd.Series(
-                            baccs, dtype=pd.Float32Dtype(), index=batches
+                        stage_search_df["bacc"] = pd.Series(
+                            baccs, dtype=pd.Float32Dtype()
                         )
                         stage_search_df["bap"] = pd.Series(
                             baps, dtype=pd.Float32Dtype()

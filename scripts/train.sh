@@ -4,9 +4,9 @@ export OMP_NUM_THREADS=1
 
 flr=0.0001
 blr=0.0001
-python src/bilevin/main.py \
-    --agent ApproxFF \
-    --loss-fn metric \
+python bilevin/main.py \
+    --agent PHS \
+    --loss-fn levin_avg \
     --exp-name "" \
     --runsdir-path runs/ \
     --problems-path problems/stp4/100000-train.pkl \
@@ -14,23 +14,12 @@ python src/bilevin/main.py \
     --master-port 34568 \
     --seed 1 \
     --world-size 4 \
-    --n-landmarks 16 \
-    --n-batch-expansions 32 \
+    --n-eval 32 \
     --feature-net-type conv \
     --no-feature-net f \
     --share-feature-net f\
-    --use-children t\
-    --backward-children f\
-    --adj-consistency f \
-    --ends-consistency f\
-    --n-samples 0 \
-    --adj-weight 5 \
-    --ends-weight 1 \
-    --children-weight 1 \
-    --samples-weight 1 \
     --mode train \
     --weight-astar 2.5 \
-    --weight-mse-loss 0.1 \
     --max-grad-norm 1.0 \
     --optimizer Adam \
     --grad-steps 10 \
@@ -51,12 +40,12 @@ python src/bilevin/main.py \
     --backward-heuristic-lr $blr \
     \
     --stage-begin-validate 1 \
-    --validate-every-n-stage 10 \
+    --validate-every-n-batch 1250 \
     --validate-every-epoch f\
     --checkpoint-every-n-batch 100 \
     \
     --time-budget 300 \
-    --train-expansion-budget 2000 \
+    --train-expansion-budget 500 \
     \
     --n-final-stage-epochs 5 \
     \

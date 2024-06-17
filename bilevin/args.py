@@ -23,78 +23,10 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--n-landmarks",
-        type=int,
-        default=8,
-        help="size of coresets for approx ff",
-    )
-    parser.add_argument(
-        "--n-batch-expansions",
+        "--n-eval",
         type=int,
         default=32,
-        help="number of batch expansions for approx ff",
-    )
-    parser.add_argument(
-        "--children-weight",
-        type=float,
-        default=1.0,
-        help="weight to use for penalty for children consistency loss in approx ff",
-    )
-    parser.add_argument(
-        "--n-samples",
-        type=int,
-        default=0,
-        help="number of state pairs to sample for fb non-adjacant consistency loss term in approx ff",
-    )
-    parser.add_argument(
-        "--samples-weight",
-        type=float,
-        default=1.0,
-        help="weight to use for penalty for sampled state pairs consistency loss in approx ff",
-    )
-    parser.add_argument(
-        "--use-children",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=False,
-        help="use children terms in metric and byol losses",
-    )
-    parser.add_argument(
-        "--backward-children",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=False,
-        help="use backward children term in metric loss (useful when not sharing feature net)",
-    )
-    parser.add_argument(
-        "--adj-consistency",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=False,
-        help="use the fb adjacent consistency loss term in approx ff",
-    )
-    parser.add_argument(
-        "--adj-weight",
-        type=float,
-        default=1.0,
-        help="weight to use penalty for adjacent consistency loss term in approx ff",
-    )
-    parser.add_argument(
-        "--ends-consistency",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=False,
-        help="use the fb ends consistency loss term in approx ff",
-    )
-    parser.add_argument(
-        "--ends-weight",
-        type=float,
-        default=1.0,
-        help="weight to use for ends consistency loss term in approx ff",
+        help="number of nodes to evaluate in a single batch",
     )
     parser.add_argument(
         "--weight-mse-loss",
@@ -222,19 +154,11 @@ def parse_args():
         default="default",
         choices=[
             "default",
-            "byol",
-            "traj_nll_mse",
-            "traj_nll_sum",
-            "traj_nll_avg",
-            "levin_sum_mse",
-            "levin_avg_mse",
+            "nll_sum",
+            "nll_avg",
             "levin_sum",
             "levin_avg",
-            "cross_entropy",
-            "cross_entropy_mid",
-            "cross_entropy_mse",
             "mse",
-            "metric",
         ],
         help="loss function",
     )

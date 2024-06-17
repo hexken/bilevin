@@ -14,9 +14,11 @@ search_result_header = [
     "len",
     "fg",
     "fap",
+    "facc",
     "fhe",
     "bg",
     "bap",
+    "bacc",
     "bhe",
 ]
 
@@ -32,15 +34,9 @@ def print_model_train_summary(
         warnings.simplefilter("ignore", category=RuntimeWarning)
         floss = model_train_df["floss"].mean()
         print(f"\nFloss: {floss:.3f}")
-        if policy_based:
-            facc = model_train_df["facc"].mean()
-            print(f"Facc: {facc:.3f}")
         if bidirectioal:
             bloss = model_train_df["bloss"].mean()
             print(f"Bloss: {bloss:.3f}")
-            if policy_based:
-                bacc = model_train_df["bacc"].mean()
-                print(f"Bacc: {bacc:.3f}")
 
 
 def print_search_summary(
@@ -65,12 +61,18 @@ def print_search_summary(
         if "fap" in solved_df.columns:
             fap = solved_df["fap"].mean()
             print(f"Fap: {fap:.3f}")
+        if "facc" in solved_df.columns:
+            facc = solved_df["facc"].mean()
+            print(f"Facc: {facc:.3f}")
         if "fhe" in solved_df.columns:
             fhe = solved_df["fhe"].mean()
             print(f"Fhe: {fhe:.3f}")
         if "bap" in solved_df.columns:
             bap = solved_df["bap"].mean()
             print(f"Bap: {bap:.3f}")
+        if "bacc" in solved_df.columns:
+            bacc = solved_df["bacc"].mean()
+            print(f"Bacc: {bacc:.3f}")
         if "bhe" in solved_df.columns:
             bhe = solved_df["bhe"].mean()
             print(f"Bhe: {bhe:.3f}")
@@ -79,7 +81,13 @@ def print_search_summary(
             fb_exp = fb_exp[fb_exp != np.inf].mean()
             fb_lens = solved_df["fg"] / solved_df["bg"]
             fb_lens = fb_lens[fb_lens != np.inf].mean()
-            print(f"\nFB Exp: {fb_exp:.3f}")
+            if "facc" in solved_df.columns:
+                fb_acc = solved_df["facc"] / solved_df["bacc"]
+                fb_acc = fb_acc[fb_acc != np.inf].mean()
+                print(f"\nFB Acc: {fb_exp:.3f}")
+            else:
+                print()
+            print(f"FB Exp: {fb_exp:.3f}")
             print(f"FB Len: {fb_lens:.3f}")
 
 

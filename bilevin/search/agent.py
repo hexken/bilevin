@@ -9,7 +9,7 @@ import torch as to
 from torch import optim
 
 from enums import SearchDir
-from models import losses
+from models.losses import loss_wrapper, mse, nll
 from models.models import PolicyOrHeuristicModel
 from search.node import SearchNode
 
@@ -29,11 +29,29 @@ class Agent(ABC):
         self.logdir: Path = logdir
         self.args: Namespace = args
 
-        if "PHS" in args.agent:
-            policy_loss = getattr(losses, args.loss_fn)
-            self.loss_fn = partial(losses.phs, policy_loss=policy_loss)
+        if "avg" in args.loss_fn:
+            reduction = "mean"
         else:
-            self.loss_fn = getattr(losses, args.loss_fn)
+            reduction = "sum"
+        if "levin" in args.loss_fn:
+            levin = True
+        else:
+            levin = False
+
+        if "PHS" in args.agent:
+            policy_loss = partial(nll, reduction=reduction, levin=levin)
+            self.loss_fn = partial(
+                loss_wrapper, policy_loss=policy_loss, heuristic_loss=mse
+            )
+        elif "AStar" in args.agent:
+            self.loss_fn = partial(loss_wrapper, policy_loss=None, heuristic_loss=mse)
+        elif "Levin" in args.agent:
+            policy_loss = partial(nll, reduction=reduction, levin=levin)
+            self.loss_fn = partial(
+                loss_wrapper, policy_loss=policy_loss, heuristic_loss=None
+            )
+        else:
+            raise ValueError(f"Unknown agent {args.agent}")
 
         self.model: to.nn.Module = PolicyOrHeuristicModel(args, aux_args)
         self.optimizer = getattr(optim, args.optimizer)(

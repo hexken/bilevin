@@ -85,11 +85,13 @@ def test(
                 local_solved_problems[i] = True
                 local_search_results[i, 5] = f_traj.partial_g_cost
                 local_search_results[i, 6] = f_traj.avg_action_prob
-                local_search_results[i, 7] = f_traj.avg_h_abs_error
+                local_search_results[i, 7] = f_traj.acc
+                local_search_results[i, 8] = f_traj.avg_h_abs_error
                 if b_traj:
-                    local_search_results[i, 8] = b_traj.partial_g_cost
-                    local_search_results[i, 9] = b_traj.avg_action_prob
-                    local_search_results[i, 10] = b_traj.avg_h_abs_error
+                    local_search_results[i, 9] = b_traj.partial_g_cost
+                    local_search_results[i, 10] = b_traj.avg_action_prob
+                    local_search_results[i, 11] = b_traj.acc
+                    local_search_results[i, 12] = b_traj.avg_h_abs_error
                 del traj, f_traj, b_traj
 
         dist.monitored_barrier()
@@ -155,6 +157,7 @@ def test(
         )
         if policy_based:
             stage_search_df["fap"] = world_results_df["fap"].astype(pd.Float32Dtype())
+            stage_search_df["facc"] = world_results_df["fap"].astype(pd.Float32Dtype())
         if heuristic_based:
             stage_search_df["fhe"] = world_results_df["fhe"].astype(pd.Float32Dtype())
         if bidirectional:
@@ -162,6 +165,9 @@ def test(
             stage_search_df["bg"] = world_results_df["bg"].astype(pd.UInt32Dtype())
             if policy_based:
                 stage_search_df["bap"] = world_results_df["bap"].astype(
+                    pd.Float32Dtype()
+                )
+                stage_search_df["bacc"] = world_results_df["bap"].astype(
                     pd.Float32Dtype()
                 )
                 stage_search_df["bhe"] = world_results_df["bhe"].astype(
