@@ -1,3 +1,0 @@
-1 ApproxFF 4
-1 ApproxFF 8
-1 ApproxFF 16
