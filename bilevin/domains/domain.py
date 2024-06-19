@@ -8,7 +8,6 @@ from torch import Tensor, full
 from search.traj import from_common_node
 
 if TYPE_CHECKING:
-    from search.traj import MetricTrajectory
     from search.traj import Trajectory
     from search.node import SearchNode
     from search.agent import Agent
@@ -69,9 +68,7 @@ class Domain(ABC):
         node: SearchNode,
         other_domain: Domain,
         num_expanded: int,
-    ) -> (
-        tuple[Trajectory, Trajectory] | tuple[MetricTrajectory, MetricTrajectory] | None
-    ):
+    ) -> tuple[Trajectory, Trajectory] | None:
         """
         Returns a trajectory if state is a solution to this problem, None otherwise.
         """

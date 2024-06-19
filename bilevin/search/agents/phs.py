@@ -7,19 +7,19 @@ import torch as to
 from domains.domain import State
 from enums import SearchDir
 from search.agent import Agent
-from search.bidir_alt import BiDirAlt
-from search.bidir_bfs import BiDirBFS
+from search.agents.bidir_alt import BiDirAlt
+from search.agents.bidir_bfs import BiDirBFS
+from search.agents.unidir import UniDir
 from search.node import SearchNode
-from search.unidir import UniDir
 
 if TYPE_CHECKING:
     pass
 
 
-class LevinBase(Agent):
+class PHSBase(Agent):
     def __init__(self, logdir, args, model_args):
         if args.loss_fn == "default":
-            args.loss_fn = "traj_nll_sum"
+            args.loss_fn = "nll_sum"
         super().__init__(logdir, args, model_args)
 
     @property
@@ -28,7 +28,7 @@ class LevinBase(Agent):
 
     @property
     def has_heuristic(self):
-        return False
+        return True
 
     def make_start_node(
         self: Agent,
@@ -39,10 +39,13 @@ class LevinBase(Agent):
         forward: bool,
         goal_feats: to.Tensor | None,
     ) -> SearchNode:
-        log_probs, _ = self.model(
+        log_probs, h = self.model(
             state_t, mask=mask, forward=forward, goal_feats=goal_feats
         )
 
+        h = h.item()
+        if h < 0:
+            h = 0
         start_node = SearchNode(
             state,
             parent=None,
@@ -51,7 +54,7 @@ class LevinBase(Agent):
             actions_mask=mask,
             g=0,
             log_prob=0.0,
-            f=0.0,
+            f=log(1 + h),
             log_action_probs=log_probs[0],
         )
         return start_node
@@ -79,7 +82,6 @@ class LevinBase(Agent):
             actions_mask=mask,
             log_prob=log_prob,
             g=g,
-            f=log(g) - log_prob,
         )
         return new_node
 
@@ -94,30 +96,37 @@ class LevinBase(Agent):
     ):
         children_state_t = to.stack(children_state_ts)
         masks_t = to.stack(masks)
-        log_probs, _ = self.model(
+        log_probs, hs = self.model(
             children_state_t,
             forward=direction == SearchDir.FORWARD,
             goal_feats=goal_feats,
             mask=masks_t,
         )
 
-        for child, lap in zip(children, log_probs):
+        for child, lap, h in zip(children, log_probs, hs):
+            h = h.item()
+            if h < 0:
+                h = 0
+            pg = child.g + 1
             child.log_action_probs = lap
+            child.h = h
+            child.f = log(pg + h) - (1 + (h / pg)) * child.log_prob
             heappush(open_list, child)
 
 
-class Levin(UniDir, LevinBase):
+class PHS(UniDir, PHSBase):
     def __init__(self, logdir, args, aux_args):
         super().__init__(logdir, args, aux_args)
 
 
-class BiLevinBFS(BiDirBFS, LevinBase):
+class BiPHSBFS(BiDirBFS, PHSBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
-class BiLevinAlt(BiDirAlt, LevinBase):
+class BiPHSAlt(BiDirAlt, PHSBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-BiLevin = BiLevinBFS
+
+BiPHS = BiPHSBFS

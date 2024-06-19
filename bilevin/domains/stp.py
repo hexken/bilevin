@@ -5,16 +5,16 @@ import torch as to
 from torch import from_numpy
 from torch.nn.functional import one_hot
 
-from domains.domain import Domain, State
+import domains.domain as d
 from enums import ActionDir
 
 
-def get_goal_state(width: int) -> SlidingTilePuzzleState:
+def get_goal_state(width: int) -> SlidingTileState:
     tiles = np.arange(width**2).reshape(width, width)
-    return SlidingTilePuzzleState(tiles, 0, 0)
+    return SlidingTileState(tiles, 0, 0)
 
 
-class SlidingTilePuzzleState(State):
+class SlidingTileState(d.State):
     def __init__(
         self,
         tiles: np.ndarray,
@@ -39,22 +39,22 @@ class SlidingTilePuzzleState(State):
     def __hash__(self) -> int:
         return self._hash
 
-    def __eq__(self, other: SlidingTilePuzzleState) -> bool:
+    def __eq__(self, other: SlidingTileState) -> bool:
         return (self.tiles == other.tiles).all()
 
 
-class SlidingTilePuzzle(Domain):
-    def __init__(self, initial_state: SlidingTilePuzzleState, forward: bool = True):
+class SlidingTile(d.Domain):
+    def __init__(self, initial_state: SlidingTileState, forward: bool = True):
         super().__init__(forward=forward)
 
-        self.initial_state: SlidingTilePuzzleState = initial_state
+        self.initial_state: SlidingTileState = initial_state
         self.width: int
         self.num_tiles: int
 
-        self.goal_state: SlidingTilePuzzleState
+        self.goal_state: SlidingTileState
         self.goal_state_t: to.Tensor
 
-    def init(self) -> State:
+    def init(self) -> d.State:
         self.width = self.initial_state.tiles.shape[0]
         self.num_tiles = self.width**2
 
@@ -81,7 +81,7 @@ class SlidingTilePuzzle(Domain):
 
     def state_tensor(
         self,
-        state: SlidingTilePuzzleState,
+        state: SlidingTileState,
     ) -> to.Tensor:
         return one_hot(from_numpy(state.tiles)).float().permute(2, 0, 1)
 
@@ -95,15 +95,15 @@ class SlidingTilePuzzle(Domain):
         elif action == ActionDir.RIGHT:
             return ActionDir.LEFT
 
-    def backward_domain(self) -> SlidingTilePuzzle:
+    def backward_domain(self) -> SlidingTile:
         assert self.forward
-        domain = SlidingTilePuzzle(get_goal_state(self.width), forward=False)
+        domain = SlidingTile(get_goal_state(self.width), forward=False)
         domain.goal_state = self.initial_state
         domain.goal_state_t = self.state_tensor(self.initial_state)
         return domain
 
     def _actions(
-        self, parent_action: ActionDir, state: SlidingTilePuzzleState
+        self, parent_action: ActionDir, state: SlidingTileState
     ) -> list[ActionDir]:
         actions = []
 
@@ -121,7 +121,7 @@ class SlidingTilePuzzle(Domain):
 
         return actions
 
-    def _actions_unpruned(self, state: SlidingTilePuzzleState):
+    def _actions_unpruned(self, state: SlidingTileState):
         actions = []
 
         if state.blank_col != self.width - 1:
@@ -139,8 +139,8 @@ class SlidingTilePuzzle(Domain):
         return actions
 
     def result(
-        self, state: SlidingTilePuzzleState, action: ActionDir
-    ) -> SlidingTilePuzzleState:
+        self, state: SlidingTileState, action: ActionDir
+    ) -> SlidingTileState:
         tiles = np.array(state.tiles)
         blank_row = state.blank_row
         blank_col = state.blank_col
@@ -173,8 +173,8 @@ class SlidingTilePuzzle(Domain):
             )
             blank_col -= 1
 
-        new_state = SlidingTilePuzzleState(tiles, blank_row, blank_col)
+        new_state = SlidingTileState(tiles, blank_row, blank_col)
         return new_state
 
-    def is_goal(self, state: SlidingTilePuzzleState) -> bool:
+    def is_goal(self, state: SlidingTileState) -> bool:
         return state == self.goal_state

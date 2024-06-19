@@ -9,12 +9,12 @@ from domains.domain import Domain, State
 from enums import ActionDir
 
 
-def get_goal_state(n_pancakes: int) -> PancakePuzzleState:
+def get_goal_state(n_pancakes: int) -> PancakeState:
     pancakes = np.arange(n_pancakes)
-    return PancakePuzzleState(pancakes)
+    return PancakeState(pancakes)
 
 
-class PancakePuzzleState(State):
+class PancakeState(State):
     def __init__(
         self,
         pancakes: np.ndarray,
@@ -31,18 +31,18 @@ class PancakePuzzleState(State):
     def __hash__(self) -> int:
         return self._hash
 
-    def __eq__(self, other: PancakePuzzleState) -> bool:
+    def __eq__(self, other: PancakeState) -> bool:
         return (self.pancakes == other.pancakes).all()
 
 
-class PancakePuzzle(Domain):
-    def __init__(self, initial_state: PancakePuzzleState, forward: bool = True):
+class Pancake(Domain):
+    def __init__(self, initial_state: PancakeState, forward: bool = True):
         super().__init__(forward=forward)
 
-        self.initial_state: PancakePuzzleState = initial_state
+        self.initial_state: PancakeState = initial_state
         self.num_pancakes: int = len(initial_state.pancakes)
 
-        self.goal_state: PancakePuzzleState
+        self.goal_state: PancakeState
         self.goal_state_t: to.Tensor
 
     def init(self) -> State:
@@ -70,7 +70,7 @@ class PancakePuzzle(Domain):
 
     def state_tensor(
         self,
-        state: PancakePuzzleState,
+        state: PancakeState,
     ) -> to.Tensor:
         t = transpose(one_hot(from_numpy(state.pancakes)).float(), 1, 0)
         return t
@@ -78,26 +78,26 @@ class PancakePuzzle(Domain):
     def reverse_action(self, action: int) -> int:
         return action
 
-    def backward_domain(self) -> PancakePuzzle:
+    def backward_domain(self) -> Pancake:
         assert self.forward
-        domain = PancakePuzzle(get_goal_state(self.num_pancakes), forward=False)
+        domain = Pancake(get_goal_state(self.num_pancakes), forward=False)
         domain.goal_state = self.initial_state
         domain.goal_state_t = self.state_tensor(self.initial_state)
         return domain
 
-    def _actions(self, parent_action: int, state: PancakePuzzleState) -> list[int]:
+    def _actions(self, parent_action: int, state: PancakeState) -> list[int]:
         return [i for i in range(self.num_actions) if i != parent_action]
 
-    def _actions_unpruned(self, state: PancakePuzzleState):
+    def _actions_unpruned(self, state: PancakeState):
         return [i for i in range(self.num_actions)]
 
     def result(
-        self, state: PancakePuzzleState, action: ActionDir
-    ) -> PancakePuzzleState:
+        self, state: PancakeState, action: ActionDir
+    ) -> PancakeState:
         pancakes = state.pancakes.copy()
         pancakes[action:] = np.flip(state.pancakes[action:])
-        new_state = PancakePuzzleState(pancakes)
+        new_state = PancakeState(pancakes)
         return new_state
 
-    def is_goal(self, state: PancakePuzzleState) -> bool:
+    def is_goal(self, state: PancakeState) -> bool:
         return state == self.goal_state

@@ -8,11 +8,11 @@ import tqdm
 
 from domains.cube3 import Cube3
 from domains.cube3 import get_goal_state as cube3ggs
-from domains.pancake import PancakePuzzle
+from domains.pancake import Pancake
 from domains.pancake import get_goal_state as pancakeggs
-from domains.stp import SlidingTilePuzzle, SlidingTilePuzzleState
+from domains.stp import SlidingTile, SlidingTileState
 from domains.stp import get_goal_state as stpggs
-from search.problem import Problem
+from search.loaders import Problem
 
 
 def save_problemset(pth, problemset_dict, suffix):
@@ -26,6 +26,7 @@ def save_problemset(pth, problemset_dict, suffix):
 def random_sliding_tile_puzzles(
     rng, width, n_problems, id_counter_start, exclude_problemspecs, pbar
 ):
+
     n = width**2 - 1
 
     def is_solvable(tiles):
@@ -53,13 +54,13 @@ def random_sliding_tile_puzzles(
         r, c = np.where(state == 0)
         r = r.item()
         c = c.item()
-        state = SlidingTilePuzzleState(state, r, c)
+        state = SlidingTileState(state, r, c)
         if exclude_problemspecs is not None:
             if state in exclude_problemspecs:
                 continue
             exclude_problemspecs.add(state)
 
-        new_domain = SlidingTilePuzzle(initial_state=state)
+        new_domain = SlidingTile(initial_state=state)
         problem = Problem(id=id_counter, domain=new_domain)
         problems.append(problem)
         id_counter += 1
@@ -80,6 +81,7 @@ def generate_step_problems(
     randomize: bool,
     pbar,
 ):
+
     problems = []
     id_counter = id_counter_start
     while len(problems) < n_problems:
@@ -113,6 +115,7 @@ def generate_step_problems(
 
 
 def main():
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -140,7 +143,7 @@ def main():
         help="path of problems to exclude for stp",
     )
     parser.add_argument(
-        "--valid-permutation",
+        "--test-permutation",
         action="store_true",
         default=False,
         help="use permutation problems for stp valid",
@@ -245,34 +248,37 @@ def main():
         domain = Cube3(cube3ggs())
         domain_class = Cube3
     elif args.domain == "stp":
-        problemset_dict["domain_name"] = "SlidingTilePuzzle"
-        domain = SlidingTilePuzzle(stpggs(args.width))
-        domain_class = SlidingTilePuzzle
-        for exclude_path in args.exclude_path:
-            with Path(exclude_path).open("rb") as f:
-                print(f"Excluding problems from {exclude_path}")
-                pset = pickle.load(f)
-                problems = pset["problems"][0]
-                for problem in problems:
-                    exclude_problemspecs.add(problem.domain.initial_state)
+        problemset_dict["domain_name"] = "SlidingTile"
+        domain = SlidingTile(stpggs(args.width))
+        domain_class = SlidingTile
+        if args.exclude_path is not None:
+            for exclude_path in args.exclude_path:
+                with Path(exclude_path).open("rb") as f:
+                    print(f"Excluding problems from {exclude_path}")
+                    pset = pickle.load(f)
+                    problems = pset["problems"][0]
+                    for problem in problems:
+                        exclude_problemspecs.add(problem.domain.initial_state)
     elif args.domain == "pancake":
-        problemset_dict["domain_name"] = "PancakePuzzle"
-        domain = PancakePuzzle(pancakeggs(args.width))
-        domain_class = PancakePuzzle
+        problemset_dict["domain_name"] = "Pancake"
+        domain = Pancake(pancakeggs(args.width))
+        domain_class = Pancake
     else:
         raise ValueError(f"Unknown domain {args.domain}")
 
     if args.stages_multiple > 0 and args.n_stages > 0:
         stages = [args.stages_multiple * i for i in range(1, args.n_stages)]
+        n_stages = args.n_stages
     elif len(args.stages) > 0:
-        stages = args.stages
+        stages = [int(s) for s in args.stages]
+        n_stages = len(stages) - 1
     else:
         raise ValueError("Must specify either stages or stages_multiple and n_stages")
 
     print(f"Increasing minstep: {args.increasing_minstep}")
     print(f"Saving problems to {args.output_path}")
     print(
-        f"  {args.n_problems_per_stage} problems for each of {len(stages)} stages: {stages}"
+        f"  {args.n_problems_per_stage} problems for each of {n_stages} stages: {stages}"
     )
 
     curriculum_problems = []
@@ -283,14 +289,22 @@ def main():
     )
     print(f"  {n_problems_final_stage} problems for final stage.")
     total_num_curriculum_problems = (
-        len(stages) * args.n_problems_per_stage + n_problems_final_stage
+        n_stages * args.n_problems_per_stage + n_problems_final_stage
     )
     num_curriculum_problems = 0
     with tqdm.tqdm(total=total_num_curriculum_problems) as pbar:
         pbar.set_description("Curriculum problems")
-        for i in range(len(stages)):
-            minsteps = stages[i - 1] + 1 if (i > 0 and args.increasing_minstep) else 1
-            maxsteps = stages[i]
+
+        for i in range(n_stages):
+            if args.stages:
+                minsteps = stages[i]
+                maxsteps = stages[i + 1]
+            else:
+                minsteps = (
+                    stages[i - 1] + 1 if (i > 0 and args.increasing_minstep) else 1
+                )
+                maxsteps = stages[i]
+
             if args.domain == "cube3" and maxsteps <= 10:
                 check_exclude = False
             elif args.domain == "pancake" and maxsteps < args.width:
@@ -342,12 +356,12 @@ def main():
     if args.n_valid > 0:
         with tqdm.tqdm(total=args.n_valid) as pbar:
             pbar.set_description("Valid problems")
-            if args.valid_permutation:
+            if args.test_permutation:
                 valid_problems = random_sliding_tile_puzzles(
                     rng,
                     args.width,
                     args.n_valid,
-                    num_curriculum_problems,
+                    0,
                     exclude_problemspecs,
                     pbar,
                 )
@@ -377,19 +391,29 @@ def main():
     if args.n_test > 0:
         with tqdm.tqdm(total=args.n_test) as pbar:
             pbar.set_description("Test problems")
-            test_problems = generate_step_problems(
-                domain,
-                domain_class,
-                rng,
-                args.n_test,
-                1,
-                args.test_steps,
-                0,
-                True,
-                exclude_problemspecs,
-                args.randomize_test_steps,
-                pbar,
-            )
+            if args.test_permutation:
+                test_problems = random_sliding_tile_puzzles(
+                    rng,
+                    args.width,
+                    args.n_test,
+                    0,
+                    exclude_problemspecs,
+                    pbar,
+                )
+            else:
+                test_problems = generate_step_problems(
+                    domain,
+                    domain_class,
+                    rng,
+                    args.n_test,
+                    1,
+                    args.test_steps,
+                    0,
+                    True,
+                    exclude_problemspecs,
+                    args.randomize_test_steps,
+                    pbar,
+                )
             problemset_dict["problems"] = [test_problems]
             problemset_dict["randomize_steps"] = args.randomize_test_steps
             problemset_dict["test_steps"] = args.test_steps

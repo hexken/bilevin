@@ -1,6 +1,5 @@
 from copy import deepcopy
 import datetime
-import gc
 import json
 import os
 from pathlib import Path
@@ -8,17 +7,17 @@ import pickle as pkl
 import time
 from timeit import default_timer as timer
 
-from filelock import FileLock, Timeout
+from filelock import FileLock
 import numpy as np
-from test import test
 import torch as to
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
 from args import parse_args
-from loaders import ProblemLoader
-import search
+import search.agents as sa
+from search.loaders import ProblemLoader
 from search.utils import set_seeds
+from test import test
 from train import train
 from utils import find_free_port
 
@@ -189,7 +188,7 @@ if __name__ == "__main__":
         "num_raw_features": num_raw_features,
     }
 
-    agent_class = getattr(search, args.agent)
+    agent_class = getattr(sa, args.agent)
     agent = agent_class(logdir, args, derived_args)
 
     if args.mode == "train" and args.valid_path:

@@ -6,8 +6,8 @@ import pickle as pkl
 import numpy as np
 import tqdm
 
-from domains.stp import SlidingTilePuzzle, SlidingTilePuzzleState
-from search.problem import Problem
+from domains.stp import SlidingTile, SlidingTileState
+from search.loaders import Problem
 
 
 def main():
@@ -52,7 +52,7 @@ def main():
     width = int(sqrt(len(problem_specs_old[0])))
 
     problemset = {
-        "domain_name": "SlidingTilePuzzle",
+        "domain_name": "SlidingTile",
         "problems": [],
     }
 
@@ -61,7 +61,7 @@ def main():
         blank_row, blank_col = np.where(tiles == 0)
         blank_row = blank_row.item()
         blank_col = blank_col.item()
-        stp = SlidingTilePuzzle(SlidingTilePuzzleState(tiles, blank_row, blank_col))
+        stp = SlidingTile(SlidingTileState(tiles, blank_row, blank_col))
         problem = Problem(id=i, domain=stp)
         problemset["problems"].append(problem)
 

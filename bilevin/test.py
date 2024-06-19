@@ -10,9 +10,9 @@ from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
 
-from loaders import ProblemLoader
 from models.models import PolicyOrHeuristicModel
 from search.agent import Agent
+from search.loaders import ProblemLoader
 from search.utils import print_search_summary
 from search.utils import int_columns, search_result_header
 

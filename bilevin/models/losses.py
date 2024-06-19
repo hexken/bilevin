@@ -22,21 +22,21 @@ def loss_wrapper(
     policy_loss=None,
     heuristic_loss=None,
 ) -> to.Tensor:
-    log_probs, h = model(
+    log_probs, hs = model(
         traj.states,
         forward=traj.forward,
         goal_state_t=traj.goal_state_t,
         mask=traj.masks,
     )
-    loss = to.tensor(0.0)
 
-    if policy_loss is not None:
+    if policy_loss is not None and heuristic_loss is not None:
         p_loss = policy_loss(log_probs, traj)
-        loss = loss + p_loss
-
-    if heuristic_loss is not None:
-        h_loss = heuristic_loss(h, traj)
-        loss = loss + h_loss
+        h_loss = heuristic_loss(hs, traj)
+        loss = p_loss + h_loss
+    elif policy_loss is not None:
+        loss = policy_loss(log_probs, traj)
+    elif heuristic_loss is not None:
+        loss = heuristic_loss(hs, traj)
 
     return loss
 

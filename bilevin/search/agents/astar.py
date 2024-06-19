@@ -1,33 +1,38 @@
+from __future__ import annotations
 from heapq import heappush
 from math import log
+from typing import TYPE_CHECKING
 
 import torch as to
 
-from domains.domain import State
 from enums import SearchDir
 from search.agent import Agent
-from search.bidir_bfs import BiDirBFS
-from search.bidir_alt import BiDirAlt
-from search.unidir import UniDir
+from search.agents.bidir_alt import BiDirAlt
+from search.agents.bidir_bfs import BiDirBFS
+from search.agents.unidir import UniDir
 from search.node import SearchNode
 
+if TYPE_CHECKING:
+    from domains.domain import State
 
-class PHSBase(Agent):
+
+class AStarBase(Agent):
     def __init__(self, logdir, args, model_args):
         if args.loss_fn == "default":
-            args.loss_fn = "traj_nll_sum"
+            args.loss_fn = "mse"
         super().__init__(logdir, args, model_args)
+        self.w = args.weight_astar
 
     @property
     def has_policy(self):
-        return True
+        return False
 
     @property
     def has_heuristic(self):
         return True
 
     def make_start_node(
-        self: Agent,
+        self,
         state: State,
         state_t: to.Tensor,
         actions: list[int],
@@ -35,23 +40,20 @@ class PHSBase(Agent):
         forward: bool,
         goal_feats: to.Tensor | None,
     ) -> SearchNode:
-        log_probs, h = self.model(
-            state_t, mask=mask, forward=forward, goal_feats=goal_feats
-        )
+        _, h = self.model(state_t, forward=forward, goal_feats=goal_feats)
 
         h = h.item()
-        if h < 0:
-            h = 0
         start_node = SearchNode(
             state,
             parent=None,
             parent_action=None,
             actions=actions,
             actions_mask=mask,
-            g=0,
             log_prob=0.0,
-            f=log(1 + h),
-            log_action_probs=log_probs[0],
+            log_action_probs=None,
+            g=0,
+            h=h,
+            f=self.w * h,
         )
         return start_node
 
@@ -63,27 +65,20 @@ class PHSBase(Agent):
         mask: to.Tensor,
         new_state: State,
     ) -> SearchNode:
-        assert parent_node.log_action_probs is not None
-        assert parent_node.log_prob is not None
-
-        g = parent_node.g + 1
-        log_prob = (
-            parent_node.log_prob + parent_node.log_action_probs[parent_action].item()
-        )
         new_node = SearchNode(
             new_state,
             parent=parent_node,
             parent_action=parent_action,
             actions=actions,
             actions_mask=mask,
-            log_prob=log_prob,
-            g=g,
+            g=parent_node.g + 1,
+            log_prob=0.0,
         )
         return new_node
 
     def finalize_children_nodes(
-        self: Agent,
-        open_list: list[SearchNode],
+        self,
+        open_list: list[SearchNode],  # pq
         direction: SearchDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],
@@ -91,37 +86,31 @@ class PHSBase(Agent):
         goal_feats: to.Tensor | None,
     ):
         children_state_t = to.stack(children_state_ts)
-        masks_t = to.stack(masks)
-        log_probs, hs = self.model(
+        _, hs = self.model(
             children_state_t,
             forward=direction == SearchDir.FORWARD,
             goal_feats=goal_feats,
-            mask=masks_t,
         )
 
-        for child, lap, h in zip(children, log_probs, hs):
+        for child, h in zip(children, hs):
             h = h.item()
-            if h < 0:
-                h = 0
-            pg = child.g + 1
-            child.log_action_probs = lap
             child.h = h
-            child.f = log(pg + h) - (1 + (h / pg)) * child.log_prob
+            child.f = child.g + self.w * h
             heappush(open_list, child)
 
 
-class PHS(UniDir, PHSBase):
+class AStar(UniDir, AStarBase):
     def __init__(self, logdir, args, aux_args):
         super().__init__(logdir, args, aux_args)
 
 
-class BiPHSBFS(BiDirBFS, PHSBase):
+class BiAStarBFS(BiDirBFS, AStarBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
-class BiPHSAlt(BiDirAlt, PHSBase):
+class BiAStarAlt(BiDirAlt, AStarBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-BiPHS = BiPHSBFS
+BiAStar = BiAStarAlt

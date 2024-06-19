@@ -10,9 +10,9 @@ import torch as to
 import torch.distributed as dist
 from torch.nn.utils import clip_grad_norm_ as clip_
 
-from loaders import ProblemLoader
 from models.models import PolicyOrHeuristicModel
 from search.agent import Agent
+from search.loaders import ProblemLoader
 from search.utils import (
     int_columns,
     print_model_train_summary,
