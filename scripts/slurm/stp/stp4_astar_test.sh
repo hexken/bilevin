@@ -27,7 +27,7 @@ agent=$(echo $args | cut -d' ' -f1)
 model_path=$(echo $args | cut -d' ' -f2)
 
 python src/bilevin/main.py \
-    --n-batch-expansions 16 \
+    --n-eval 16 \
     --world-size 4 \
     --test-expansion-budget 2000 \
     --problems-path problems/stp4/1000-test.pkl \

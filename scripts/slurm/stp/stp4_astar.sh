@@ -30,7 +30,7 @@ chk=$(echo $args | cut -d' ' -f3)
 
 python src/bilevin/main.py \
     --checkpoint-path $chk \
-    --n-batch-expansions 16 \
+    --n-eval 16 \
     --agent $agent \
     --seed $seed \
     --weight-astar 2.5 \

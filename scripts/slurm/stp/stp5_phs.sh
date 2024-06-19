@@ -5,7 +5,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=00:10:00
 #SBATCH --array=1,11
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes2/stp5/phs/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/lelis/stp5/phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -30,16 +30,16 @@ lr=0.0001
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
-    --n-batch-expansions 32 \
+    --n-eval 32 \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/thes2/stp5/phs \
+    --runsdir-path runs/lelis/stp5/phs \
     --exp-name "" \
-    --problems-path problems/stp5/100000-train.pkl \
-    --valid-path problems/stp5/1000-valid.pkl \
+    --problems-path problems/stp5/lelis/50000-train.pkl \
+    --valid-path problems/stp5/lelis/1000-valid.pkl \
     --world-size 4 \
     --mode train \
-    --max-grad-norm 1.0 \
+    --max-grad-norm -1.0 \
     --loss-fn default \
     \
     --share-feature-net t \

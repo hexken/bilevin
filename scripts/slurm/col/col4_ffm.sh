@@ -42,7 +42,7 @@ python src/bilevin/main.py \
     --ends-weight 1 \
     --children-weight 1 \
     --samples-weight 1 \
-    --n-batch-expansions 32 \
+    --n-eval 32 \
     --n-landmarks $n_landmarks \
     --agent $agent \
     --seed $seed \

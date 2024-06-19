@@ -6,18 +6,18 @@ flr=0.0001
 blr=0.0001
 python bilevin/main.py \
     --agent PHS \
-    --loss-fn levin_avg \
+    --loss-fn nll_sum \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/stp4/100000-train.pkl \
-    --valid-path problems/stp4/1000-valid.pkl \
+    --problems-path problems/lelis/stp5/50000-train.pkl \
+    --valid-path problems/lelis/stp5/1000-valid.pkl \
     --master-port 34568 \
     --seed 1 \
     --world-size 4 \
     --n-eval 32 \
     --feature-net-type conv \
     --no-feature-net f \
-    --share-feature-net f\
+    --share-feature-net f \
     --mode train \
     --weight-astar 2.5 \
     --max-grad-norm 1.0 \
@@ -40,7 +40,7 @@ python bilevin/main.py \
     --backward-heuristic-lr $blr \
     \
     --stage-begin-validate 1 \
-    --validate-every-n-batch 1250 \
+    --validate-every-n-batch 10 \
     --validate-every-epoch f\
     --checkpoint-every-n-batch 100 \
     \

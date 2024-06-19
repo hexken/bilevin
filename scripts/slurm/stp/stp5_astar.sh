@@ -30,7 +30,7 @@ lr=0.0001
     # --checkpoint-path $chk \
 
 python src/bilevin/main.py \
-    --n-batch-expansions 16 \
+    --n-eval 16 \
     --agent $agent \
     --seed $seed \
     --weight-astar 2.5 \
