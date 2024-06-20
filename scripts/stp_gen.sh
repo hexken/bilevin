@@ -29,9 +29,10 @@ if [ "$1" = "d" ]; then
 elif [ "$1" = "4" ]; then
     python bilevin/domains/puzzle_generator.py \
     --domain stp \
-    --output-path  problems/levin/stp4/ \
+    --output-path  problems/lelis/stp4/ \
     --seed 4238 \
     --width  4 \
+    --randomize-curriculum-steps \
     --n-problems-per-stage  50000 \
     --stages 50 1000 \
     --stages-multiple 0 \
@@ -67,10 +68,10 @@ elif [ "$1" = "5v" ]; then
     --randomize-curriculum-steps \
     --stages-multiple  10 \
     --n-problems-final-stage 0 \
-    --n-stages  1 \
+    --n-stages  0 \
     --n-valid  1000 \
     --n-test 0 \
-    --valid-permutation
+    --test-permutation
 else
     usage
 fi

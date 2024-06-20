@@ -3,9 +3,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
-#SBATCH --time=80:00:00
-#SBATCH --array=1-10
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/thes/stp4/levin/%j.out
+#SBATCH --time=00:10:00
+#SBATCH --array=1,3,5,7
+#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/lelis2/stp4/levin/%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -24,7 +24,8 @@ argfile=/scratch/tjhia/bilevin/scripts/slurm/stp/levin_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
 agent=$(echo $args | cut -d' ' -f2)
-lr=0.0001
+loss=$(echo $args | cut -d' ' -f3)
+mn=$(echo $args | cut -d' ' -f4)
 # chk=$(echo $args | cut -d' ' -f3)
 
     # --checkpoint-path $chk \
@@ -33,13 +34,13 @@ python src/bilevin/main.py \
     --n-eval 32 \
     --agent $agent \
     --seed $seed \
-    --runsdir-path runs/thes/stp4/levin \
-    --problems-path problems/stp4/100000-train.pkl \
-    --valid-path problems/stp4/1000-valid.pkl \
+    --runsdir-path runs/lelis2/stp4/levin \
+    --problems-path problems/lelis/stp4/50000-train.pkl \
+    --valid-path problems/lelis/stp4/1000-valid.pkl \
     --world-size 4 \
     --mode train \
-    --max-grad-norm 1.0 \
-    --loss-fn default \
+    --max-grad-norm $mn \
+    --loss-fn $loss \
     \
     --share-feature-net t \
     --forward-feature-net-lr $lr \
@@ -59,7 +60,7 @@ python src/bilevin/main.py \
     \
     --train-expansion-budget 2000 \
     \
-    --n-final-stage-epochs 20 \
+    --n-final-stage-epochs 10 \
     \
     --n-batch-tail 100 \
     \
