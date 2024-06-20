@@ -1,13 +1,21 @@
 import argparse
 from math import sqrt
+import os
 from pathlib import Path
 import pickle as pkl
+import sys
 
 import numpy as np
 import tqdm
 
-from domains.stp import SlidingTile, SlidingTileState
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
+
+from domains import SlidingTile, SlidingTileState
 from search.loaders import Problem
+
+
 
 
 def main():

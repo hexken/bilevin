@@ -1,3 +1,3 @@
-from domains.stp import SlidingTile
-from domains.witness import Witness
-from domains.cube3 import Cube3
+from domains.cube3 import Cube3, Cube3State
+from domains.stp import SlidingTile, SlidingTileState
+from domains.witness import Witness, WitnessState

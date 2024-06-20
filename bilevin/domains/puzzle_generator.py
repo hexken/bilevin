@@ -273,7 +273,8 @@ def main():
         stages = [int(s) for s in args.stages]
         n_stages = len(stages) - 1
     else:
-        raise ValueError("Must specify either stages or stages_multiple and n_stages")
+        stages = []
+        n_stages = 0
 
     print(f"Increasing minstep: {args.increasing_minstep}")
     print(f"Saving problems to {args.output_path}")

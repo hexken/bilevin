@@ -5,8 +5,9 @@ import torch as to
 from torch import from_numpy
 from torch.nn.functional import one_hot
 
-import domains.domain as d
+from domains.domain import Domain, State
 from enums import ActionDir
+
 
 
 def get_goal_state(width: int) -> SlidingTileState:
@@ -14,7 +15,7 @@ def get_goal_state(width: int) -> SlidingTileState:
     return SlidingTileState(tiles, 0, 0)
 
 
-class SlidingTileState(d.State):
+class SlidingTileState(State):
     def __init__(
         self,
         tiles: np.ndarray,
@@ -43,7 +44,7 @@ class SlidingTileState(d.State):
         return (self.tiles == other.tiles).all()
 
 
-class SlidingTile(d.Domain):
+class SlidingTile(Domain):
     def __init__(self, initial_state: SlidingTileState, forward: bool = True):
         super().__init__(forward=forward)
 
@@ -54,7 +55,7 @@ class SlidingTile(d.Domain):
         self.goal_state: SlidingTileState
         self.goal_state_t: to.Tensor
 
-    def init(self) -> d.State:
+    def init(self) -> State:
         self.width = self.initial_state.tiles.shape[0]
         self.num_tiles = self.width**2
 
