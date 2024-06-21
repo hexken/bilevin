@@ -364,7 +364,7 @@ def parse_args():
         const=True,
         nargs="?",
         type=strtobool,
-        default=False,
+        default=True,
         help="validate after every epoch",
     )
     parser.add_argument(
