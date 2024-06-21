@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class LevinBase(Agent):
     def __init__(self, logdir, args, model_args):
         if args.loss_fn == "default":
-            args.loss_fn = "nll_sum"
+            args.loss_fn = "levin_avg"
         super().__init__(logdir, args, model_args)
 
     @property

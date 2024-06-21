@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class PHSBase(Agent):
     def __init__(self, logdir, args, model_args):
         if args.loss_fn == "default":
-            args.loss_fn = "nll_sum"
+            args.loss_fn = "levin_avg"
         super().__init__(logdir, args, model_args)
 
     @property
@@ -107,7 +107,8 @@ class PHSBase(Agent):
             h = h.item()
             if h < 0:
                 h = 0
-            pg = child.g + 1
+            # pg = child.g + 1
+            pg = child.g
             child.log_action_probs = lap
             child.h = h
             child.f = log(pg + h) - (1 + (h / pg)) * child.log_prob

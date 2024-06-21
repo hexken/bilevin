@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument(
         "--n-final-stage-epochs",
         type=int,
-        default=1,
+        default=10,
         help="number of epochs to train on final curriculum stage",
     )
     parser.add_argument(
@@ -277,37 +277,37 @@ def parse_args():
     parser.add_argument(
         "--forward-feature-net-lr",
         type=float,
-        default=0.001,
+        default=0.0001,
         help="forward feature net learning rate, if not sharing feature net",
     )
     parser.add_argument(
         "--backward-feature-net-lr",
         type=float,
-        default=0.001,
+        default=0.0001,
         help="backward feature net learning rate, if not sharing feature net",
     )
     parser.add_argument(
         "--forward-policy-lr",
         type=float,
-        default=0.001,
+        default=0.0001,
         help="forward policy learning rate",
     )
     parser.add_argument(
         "--backward-policy-lr",
         type=float,
-        default=0.001,
+        default=0.0001,
         help="backward policu learning rate",
     )
     parser.add_argument(
         "--forward-heuristic-lr",
         type=float,
-        default=0.001,
+        default=0.0001,
         help="forward heuristic learning rate",
     )
     parser.add_argument(
         "--backward-heuristic-lr",
         type=float,
-        default=0.001,
+        default=0.0001,
         help="backward heuristic learning rate",
     )
     parser.add_argument(
@@ -370,7 +370,7 @@ def parse_args():
     parser.add_argument(
         "--checkpoint-every-n-batch",
         type=int,
-        default=100,
+        default=1250,
         help="checkpoint every this many batches",
     )
     parser.add_argument(
@@ -405,7 +405,7 @@ def parse_args():
     parser.add_argument(
         "--world-size",
         type=int,
-        default=1,
+        default=4,
         help="number of processes to spawn",
     )
     # parser.add_argument(
