@@ -1,24 +1,5 @@
-13 PHS levin_avg -1.0
-13 PHS levin_avg 1.0
-13 PHS levin_sum -1.0
-13 PHS levin_sum 1.0
-13 PHS nll_avg -1.0
-13 PHS nll_avg 1.0
-13 PHS nll_sum -1.0
-13 PHS nll_sum 1.0
-17 PHS levin_avg -1.0
-17 PHS levin_avg 1.0
-17 PHS levin_sum -1.0
-17 PHS levin_sum 1.0
-17 PHS nll_avg -1.0
-17 PHS nll_avg 1.0
-17 PHS nll_sum -1.0
-17 PHS nll_sum 1.0
-29 PHS levin_avg -1.0
-29 PHS levin_avg 1.0
-29 PHS levin_sum -1.0
-29 PHS levin_sum 1.0
-29 PHS nll_avg -1.0
-29 PHS nll_avg 1.0
-29 PHS nll_sum -1.0
-29 PHS nll_sum 1.0
+13 PHS
+17 PHS
+29 PHS
+31 PHS
+37 PHS

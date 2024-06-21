@@ -1,8 +1,0 @@
-1 PHS runs/thes2/stp5/phs/stp5-100000-train_PHS_1_30765757-1/checkpoint_b110250.pkl
-2 PHS runs/thes2/stp5/phs/stp5-100000-train_PHS_2_30771108-2/checkpoint_b96750.pkl
-4 PHS runs/thes2/stp5/phs/stp5-100000-train_PHS_4_30775504-4/checkpoint_b105000.pkl
-6 PHS runs/thes2/stp5/phs/stp5-100000-train_PHS_6_30780301-6/checkpoint_b114000.pkl
-7 PHS runs/thes2/stp5/phs/stp5-100000-train_PHS_7_30780302-7/checkpoint_b114000.pkl
-8 PHS runs/thes2/stp5/phs/stp5-100000-train_PHS_8_30780473-8/checkpoint_b123750.pkl
-9 PHS runs/thes2/stp5/phs/stp5-100000-train_PHS_9_30780474-9/checkpoint_b90000.pkl
-10 PHS runs/thes2/stp5/phs/stp5-100000-train_PHS_10_30763742-10/checkpoint_b126750.pkl
