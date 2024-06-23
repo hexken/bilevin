@@ -3,8 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=4G
-#SBATCH --time=00:10:00
-#SBATCH --array=1
+#SBATCH --time=168:00:00
+#SBATCH --array=1-5
 #SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/phs/stp5/phs/%j.out
 
 source $HOME/bilevin-env2/bin/activate
@@ -22,6 +22,7 @@ export OMP_NUM_THREADS=1
 argfile=/scratch/tjhia/bilevin/scripts/slurm/phs_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
+agent=$(echo $args | cut -d' ' -f2)
 # chk=$(echo $args | cut -d' ' -f3)
 
 # --checkpoint-path $chk \
@@ -35,4 +36,4 @@ python bilevin/main.py \
     --valid-path problems/stp5/1000-valid.pkl \
     \
     --share-feature-net True \
-    --train-expansion-budget 8000 \
+    --train-expansion-budget 7000 \

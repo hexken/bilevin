@@ -9,8 +9,8 @@ python bilevin/main.py \
     --loss-fn nll_sum \
     --exp-name "" \
     --runsdir-path runs/ \
-    --problems-path problems/lelis/stp5/50000-train.pkl \
-    --valid-path problems/lelis/stp5/1000-valid.pkl \
+    --problems-path problems/stp5/50000-train.pkl \
+    --valid-path problems/stp5/1000-valid.pkl \
     --master-port 34568 \
     --seed 1 \
     --world-size 4 \
@@ -45,7 +45,7 @@ python bilevin/main.py \
     --checkpoint-every-n-batch 100 \
     \
     --time-budget 300 \
-    --train-expansion-budget 500 \
+    --train-expansion-budget 14000 \
     \
     --n-final-stage-epochs 5 \
     \

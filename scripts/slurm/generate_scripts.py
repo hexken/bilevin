@@ -23,6 +23,7 @@ export OMP_NUM_THREADS=1
 argfile=/scratch/tjhia/bilevin/scripts/slurm/<agent>_args.txt
 args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
 seed=$(echo $args | cut -d' ' -f1)
+agent=$(echo $args | cut -d' ' -f2)
 # chk=$(echo $args | cut -d' ' -f3)
 
 # --checkpoint-path $chk \\
