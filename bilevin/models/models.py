@@ -89,7 +89,7 @@ class PolicyOrHeuristicModel(nn.Module):
                     learnable_params.append(params)
         else:
             # no feature net
-            num_features = derived_args["num_features"]
+            num_features = derived_args["num_raw_features"]
 
         # create policy/herusitic nets
         if self.has_policy:

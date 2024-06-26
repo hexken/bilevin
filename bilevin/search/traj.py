@@ -86,7 +86,7 @@ def from_common_node(
         dir2_parent_action = dir2_parent_node.parent_action
         dir2_parent_node = dir2_parent_node.parent
 
-    return from_goal_node_actions(
+    return from_goal_node(
         agent,
         domain=dir1_domain,
         goal_node=dir1_node,
@@ -97,7 +97,7 @@ def from_common_node(
     )
 
 
-def from_goal_node_actions(
+def from_goal_node(
     agent: Agent,
     domain: Domain,
     goal_node: SearchNode,
@@ -121,7 +121,7 @@ def from_goal_node_actions(
     actions = []
     masks = []
 
-    while node:
+    while node is not None:
         state_t = domain.state_tensor(node.state)
         states.append(state_t)
         actions.append(action)
@@ -132,6 +132,7 @@ def from_goal_node_actions(
     states = to.stack(tuple(reversed(states)))
     actions = to.tensor(tuple(reversed(actions)))
     masks = to.stack(tuple(reversed(masks)))
+    cost_to_gos = to.arange(len(states), 0, -1, dtype=to.float32)
 
     preds = agent.model(states, mask=masks, forward=forward, goal_state_t=goal_state_t)
     if agent.has_policy:
@@ -145,7 +146,6 @@ def from_goal_node_actions(
         action_prob = nan
         acc = nan
 
-    cost_to_gos = to.arange(len(states), 0, -1, dtype=to.float32)
     if agent.has_heuristic:
         h = preds[1]
         h_abs_error = to.abs(h - cost_to_gos).mean().item()
