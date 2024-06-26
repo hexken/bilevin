@@ -1,6 +1,10 @@
 import linecache
+from pathlib import Path
+import pickle as pkl
 import socket
 import tracemalloc
+
+from filelock import FileLock
 
 
 def display_top(snapshot, key_type="lineno", limit=25):
@@ -34,9 +38,36 @@ def display_top(snapshot, key_type="lineno", limit=25):
     print("Total allocated size: %.1f KiB" % (total / 1024))
 
 
-def find_free_port(master_addr):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((master_addr, 0))
-    _, port = sock.getsockname()
-    sock.close()
-    return port
+def find_free_port(lockfile: str, master_addr: str) -> str:
+
+    def _find_free_port():
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind((master_addr, 0))
+        _, port = sock.getsockname()
+        sock.close()
+        return port
+
+    portfile = Path(f"{lockfile}.pkl")
+    lockfile = f"{lockfile}.lock"
+    lock = FileLock(lockfile)
+    with lock:
+        if portfile.is_file():
+            f = portfile.open("r+b")
+            ports = pkl.load(f)
+            while True:
+                port = _find_free_port()
+                if port in ports:
+                    continue
+                else:
+                    break
+            f.seek(0)
+            ports.add(port)
+            pkl.dump(ports, f)
+            f.truncate()
+            f.close()
+        else:
+            port = _find_free_port()
+            ports = {port}
+            with portfile.open("wb") as f:
+                pkl.dump(ports, f)
+    return str(port)

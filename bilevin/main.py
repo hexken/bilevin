@@ -218,30 +218,7 @@ if __name__ == "__main__":
         args.max_expansion_budget = args.train_expansion_budget
 
     if args.master_port == "auto":
-        lockfile = f"{args.lockfile}.lock"
-        portfile = Path(f"{args.lockfile}.pkl")
-        lock = FileLock(lockfile)
-        with lock:
-            if portfile.is_file():
-                f = portfile.open("r+b")
-                ports = pkl.load(f)
-                while True:
-                    port = find_free_port(args.master_addr)
-                    if port in ports:
-                        continue
-                    else:
-                        break
-                f.seek(0)
-                ports.add(port)
-                pkl.dump(ports, f)
-                f.truncate()
-                f.close()
-            else:
-                port = find_free_port(args.master_addr)
-                ports = {port}
-                with portfile.open("wb") as f:
-                    pkl.dump(ports, f)
-        os.environ["MASTER_PORT"] = str(port)
+        os.environ["MASTER_PORT"] = find_free_port(args.lockfile, args.master_addr)
     else:
         os.environ["MASTER_PORT"] = args.master_port
 
