@@ -15,6 +15,7 @@ from search.node import SearchNode
 
 
 if TYPE_CHECKING:
+    from loaders import Problem
     from search.traj import Trajectory
     from domains.domain import State
 
@@ -52,7 +53,7 @@ class Agent(ABC):
         else:
             raise ValueError(f"Unknown agent {args.agent}")
 
-        self.model: to.nn.Module = PolicyOrHeuristicModel(args, aux_args)
+        self.model: PolicyOrHeuristicModel = PolicyOrHeuristicModel(args, aux_args)
         self.optimizer = getattr(optim, args.optimizer)(
             self.model.learnable_params, weight_decay=args.weight_decay
         )
