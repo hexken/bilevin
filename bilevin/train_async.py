@@ -1,4 +1,5 @@
 from argparse import Namespace
+from copy import copy
 import pickle
 import random
 import sys
@@ -15,7 +16,12 @@ from torch.nn.utils import clip_grad_norm_ as clip_
 from models.models import PolicyOrHeuristicModel
 from search.agent import Agent
 from search.loaders import AsyncProblemLoader, Problem
-from search.utils import SearchResult, print_model_train_summary, print_search_summary
+from search.utils import (
+    SearchResult,
+    SearchResults,
+    print_model_train_summary,
+    print_search_summary,
+)
 from test import test
 
 
@@ -28,56 +34,33 @@ def train(
     results_queue: mp.Queue,
 ):
     expansion_budget: int = args.train_expansion_budget
-    max_expansion_budget: int = args.max_expansion_budget
     checkpoint_every_n_batches: int = args.checkpoint_every_n_batches
 
     best_models_log = (args.logdir / "best_models.txt").open("a")
     train_times_log = (args.logdir / "train_times.txt").open("a")
 
-    model: PolicyOrHeuristicModel = agent.model
-    bidirectional: bool = agent.is_bidirectional
-    policy_based: bool = agent.has_policy
-    heuristic_based: bool = agent.has_heuristic
-    optimizer = agent.optimizer
-    max_grad_norm = args.max_grad_norm
-    loss_fn = agent.loss_fn
-
     best_valid_expanded = len(valid_loader) * expansion_budget + 1
 
+    search_results = SearchResults()
+
     if args.checkpoint_path is None:
-
-
-        last_epoch = 1
         epoch = 1
         batch = 1
-
         epoch_start_time = 0
+        done_training = False
+        done_epoch = False
     else:
         with args.checkpoint_path.open("rb") as f:
-            chkpt_dict = to.load(f)
-            optimizer.load_state_dict(chkpt_dict["optimizer_state"])
-            ids = chkpt_dict["ids"]
-            times = chkpt_dict["times"]
-            lens = chkpt_dict["lens"]
-            fexps = chkpt_dict["fexps"]
-            bexps = chkpt_dict["bexps"]
-            fgs = chkpt_dict["fgs"]
-            bgs = chkpt_dict["bgs"]
-            faps = chkpt_dict["faps"]
-            baps = chkpt_dict["baps"]
-            fhes = chkpt_dict["fhes"]
-            bhes = chkpt_dict["bhes"]
+            other_chkpt_data = to.load(f)
+            agent.optimizer.load_state_dict(other_chkpt_data["optimizer_state"])
+            search_results.load(other_chkpt_data["search_results"])
 
-            flosses = chkpt_dict["flosses"]
-            faccs = chkpt_dict["faccs"]
-            blosses = chkpt_dict["blosses"]
-            baccs = chkpt_dict["baccs"]
-
-            expansion_budget = chkpt_dict["current_exp_budget"]
-            best_valid_expanded = chkpt_dict["best_valid_expanded"]
-            epoch_start_time = timer() - chkpt_dict["time_in_stage"]
-            epoch = chkpt_dict["epoch"]
-            batch = chkpt_dict["batch"]
+            best_valid_expanded = other_chkpt_data["best_valid_expanded"]
+            epoch_start_time = timer() - other_chkpt_data["time_in_stage"]
+            epoch = other_chkpt_data["epoch"]
+            batch = other_chkpt_data["batch"]
+            done_training = other_chkpt_data["done_training"]
+            done_epoch = other_chkpt_data["done_epoch"]
             # train_loader.load_state(chkpt_dict["loader_states"][rank])
 
         if rank == 0:
@@ -94,17 +77,6 @@ def train(
     old_checkpoint_path = args.logdir / f"dummy_chkpt"
 
     while epoch <= args.n_epochs:
-        ids = []
-        times = []
-        lens = []
-        fexps = []
-        bexps = []
-        fgs = []
-        bgs = []
-        faps = []
-        baps = []
-        fhes = []
-        bhes = []
 
         if rank == 0:
             print(
@@ -118,7 +90,7 @@ def train(
         while True:
             problem = train_loader.get_problem()
             if problem is not None:
-                model.eval()
+                agent.model.eval()
                 to.set_grad_enabled(False)
 
                 start_time = timer()
@@ -151,8 +123,9 @@ def train(
                     while not results_queue.empty():
                         batch_buffer.append(results_queue.get())
 
-                    batch_print_df = SearchResult.df(batch_buffer, policy_based, heuristic_based,
-                                                     bidirectional)
+                    batch_print_df = SearchResult.list_to_df(batch_buffer, agent.has_policy,
+                                                             agent.has_heuristic,
+                                                     agent.is_bidirectional)
 
                     print(f"\nBatch {batch}")
                     print(tabulate(
@@ -168,16 +141,16 @@ def train(
                     random.shuffle(trajs)
 
                     if len(trajs) > 0:
-                        model.train()
+                        agent.model.train()
                         for traj in trajs:
                             for grad_step in range(1, args.grad_steps + 1):
-                                optimizer.zero_grad(set_to_none=False)
-                                loss = loss_fn(traj[0], model)
-                                if bidirectional:
-                                    b_loss = loss_fn(traj[1], model)
+                                agent.optimizer.zero_grad(set_to_none=False)
+                                loss = agent.loss_fn(traj[0], agent.model)
+                                if agent.is_bidirectional:
+                                    b_loss = agent.loss_fn(traj[1], agent.model)
                                     loss += b_loss
                                 loss.backward()
-                                optimizer.step()
+                                agent.optimizer.step()
 
                     batch_end_time = timer() - batch_start_time
                     batch_start_time = timer()
@@ -186,49 +159,18 @@ def train(
                 batch += 1
 
                 if batch * args.batch_size >= len(train_loader): # end epoch
+                    done_epoch = True
                     # log all search results
                     if rank == 0:
-                        stage_search_df = pd.DataFrame(
-                            {
-                                "id": pd.Series(ids, dtype=pd.UInt32Dtype()),
-                                "time": pd.Series(times, dtype=pd.Float32Dtype()),
-                                "len": pd.Series(lens, dtype=pd.UInt32Dtype()),
-                                "fexp": pd.Series(fexps, dtype=pd.UInt32Dtype()),
-                                "fg": pd.Series(fgs, dtype=pd.UInt32Dtype()),
-                            }
-                        )
-                        stage_model_train_df = pd.DataFrame(
-                            {
-                                "floss": pd.Series(
-                                    flosses, dtype=pd.Float32Dtype(), index=batch
-                                ),
-                            },
-                        )
-
-                        if policy_based:
-                            stage_search_df["fap"] = pd.Series(faps, dtype=pd.Float32Dtype())
-                            stage_search_df["facc"] = pd.Series(faccs, dtype=pd.Float32Dtype())
-                        if heuristic_based:
-                            stage_search_df["fhe"] = pd.Series(fhes, dtype=pd.Float32Dtype())
-
-                        if bidirectional:
-                            stage_search_df["bexp"] = pd.Series(bexps, dtype=pd.UInt32Dtype())
-                            stage_search_df["bg"] = pd.Series(bgs, dtype=pd.UInt32Dtype())
-
-                            stage_model_train_df["bloss"] = pd.Series(
-                                blosses, dtype=pd.Float32Dtype(), index=batch
-                            )
-                            if policy_based:
-                                stage_search_df["bacc"] = pd.Series(
-                                    baccs, dtype=pd.Float32Dtype()
-                                )
-                                stage_search_df["bap"] = pd.Series(
-                                    baps, dtype=pd.Float32Dtype()
-                                )
-                            if heuristic_based:
-                                stage_search_df["bhe"] = pd.Series(
-                                    bhes, dtype=pd.Float32Dtype()
-                                )
+                        stage_search_df = search_results.get_df(agent.has_policy,
+                                                                agent.has_heuristic,agent.is_bidirectional)
+                        # stage_model_train_df = pd.DataFrame(
+                        #     {
+                        #         "floss": pd.Series(
+                        #             flosses, dtype=pd.Float32Dtype(), index=batch
+                        #         ),
+                        #     },
+                        # )
 
                         print(f"\nEND EPOCH {epoch}\n")
                         agent.save_model("latest", log=False)
@@ -236,10 +178,10 @@ def train(
                             "wb"
                         ) as f:
                             pickle.dump(stage_search_df, f)
-                        with (args.logdir / f"model_train_e{epoch}.pkl").open(
-                            "wb"
-                        ) as f:
-                            pickle.dump(stage_model_train_df, f)
+                        # with (args.logdir / f"model_train_e{epoch}.pkl").open(
+                        #     "wb"
+                        # ) as f:
+                        #     pickle.dump(stage_model_train_df, f)
 
                         total_epoch_time = timer() - epoch_start_time
 
@@ -248,14 +190,14 @@ def train(
 
                         print_search_summary(
                             stage_search_df,
-                            bidirectional,
+                            agent.is_bidirectional,
                         )
-                        print_model_train_summary(
-                            stage_model_train_df,
-                            bidirectional,
-                            policy_based,
-                        )
-                        del stage_search_df, stage_model_train_df
+                        # print_model_train_summary(
+                        #     stage_model_train_df,
+                        #     agent.is_bidirectional,
+                        #     agent.has_policy,
+                        # )
+                        del stage_search_df
                         print(f"\nTime: {total_epoch_time:.2f}s")
                         print(
                             "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
@@ -300,24 +242,12 @@ def train(
                                         )
                                         agent.save_model("best_expanded", log=False)
 
-                                    if (
-                                        reduce_lr is not None
-                                        and args.solve_ratio_reduce_lr > 0
-                                        and valid_solved / num_valid_problems >= args.solve_ratio_reduce_lr
-                                    ):
-                                        reduce_lr = True
-                                        print("Reducing learning rate")
-
                                     print(
                                         ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                                     )
                                     sys.stdout.flush()
 
                             dist.monitored_barrier()
-                            if reduce_lr:
-                                for param_group in optimizer.param_groups:
-                                    param_group["lr"] *= args.lr_decay
-                                reduce_lr = None
 
                         # Checkpoint
                         if (batch % checkpoint_every_n_batches == 0) or done_training or validate:
@@ -328,25 +258,11 @@ def train(
                             )
 
                             if rank == 0:
-                                chkpt_dict = {
+                                other_chkpt_data = copy(search_results.results)
+                                other_chkpt_data = {
                                     "stage": old_stage,
                                     "model_state": model.state_dict(),
                                     "optimizer_state": optimizer.state_dict(),
-                                    "ids": ids,
-                                    "times": times,
-                                    "lens": lens,
-                                    "fexps": fexps,
-                                    "bexps": bexps,
-                                    "fgs": fgs,
-                                    "bgs": bgs,
-                                    "faps": faps,
-                                    "baps": baps,
-                                    "fhes": fhes,
-                                    "bhes": bhes,
-                                    "flosses": flosses,
-                                    "faccs": faccs,
-                                    "blosses": blosses,
-                                    "baccs": baccs,
                                     "current_exp_budget": expansion_budget,
                                     "best_valid_expanded": best_valid_expanded,
                                     "time_in_stage": timer() - epoch_start_time,
@@ -358,8 +274,8 @@ def train(
                                 }
                                 new_checkpoint_path = args.logdir / f"checkpoint_b{batch}.pkl"
                                 with new_checkpoint_path.open("wb") as f:
-                                    to.save(chkpt_dict, f)
-                                del loader_states, chkpt_dict
+                                    to.save(other_chkpt_data, f)
+                                del loader_states, other_chkpt_data
                                 if not args.keep_all_checkpoints:
                                     old_checkpoint_path.unlink(missing_ok=True)
                                     old_checkpoint_path = new_checkpoint_path

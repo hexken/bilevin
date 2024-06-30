@@ -24,16 +24,25 @@ search_result_header = (
 )
 
 
-class SearchResultsDict:
+class SearchResults:
     def __init__(self):
-        self.results_dict = {key: [] for key in search_result_header}
+        self.results = {key: [] for key in search_result_header}
 
-    def append(self, result):
-        result.get_df_attrs()
-        result.update_results_dict(self.results_dict)
+    def load(self, checkpoint_dict):
+        for key in search_result_header:
+            self.results[key] = checkpoint_dict[key]
 
-    def get_df(self):
-        return pd.DataFrame(self.results_dict)
+    def append(self, result: SearchResult):
+        for key in search_result_header:
+            self.results[key].append(result.__dict__[key])
+
+    def get_df(self, policy_based, heuristic_based, bidirectional):
+        ret_df = pd.DataFrame(self.results)
+        trim_df(ret_df, policy_based, heuristic_based, bidirectional)
+        return ret_df
+
+    def __getitem__(self, key):
+        return self.results[key]
 
 
 class SearchResult:
@@ -46,29 +55,41 @@ class SearchResult:
         self.f_traj = f_traj
         self.b_traj = b_traj
 
-    @classmethod
-    def df_attrs(cls):
-        return search_result_header
-
-    def get_df_attrs(self):
         if self.f_traj is not None:
             self.fg = self.f_traj.partial_g_cost
             self.fap = self.f_traj.avg_action_prob
             self.facc = self.f_traj.acc
             self.fhe = self.f_traj.avg_h_abs_error
+        else:
+            self.fg = np.nan
+            self.fap = np.nan
+            self.facc = np.nan
+            self.fhe = np.nan
+
         if self.b_traj is not None:
             self.bg = self.b_traj.partial_g_cost
             self.bap = self.b_traj.avg_action_prob
             self.bacc = self.b_traj.acc
             self.bhe = self.b_traj.avg_h_abs_error
+        else:
+            self.bg = np.nan
+            self.bap = np.nan
+            self.bacc = np.nan
+            self.bhe = np.nan
+
+    @classmethod
+    def df_attrs(cls):
+        return search_result_header
 
     def __iter__(self):
         data = tuple(self.__dict__[var] for var in SearchResult.df_attrs())
         return iter(data)
 
     @classmethod
-    def df(cls, items, policy_based, heuristic_based, bidirectional):
-        ret_df = pd.DataFrame([item for item in items])
+    def list_to_df(
+        cls, results: list[SearchResult], policy_based, heuristic_based, bidirectional
+    ):
+        ret_df = pd.DataFrame([item for item in results])
         ret_df.columns = cls.df_attrs()
 
         # for col in int_columns:
@@ -79,38 +100,23 @@ class SearchResult:
             exp = ret_df["fexp"]
         ret_df.insert(2, "exp", exp)
         ret_df = ret_df.sort_values("exp")
+        trim_df(ret_df, policy_based, heuristic_based, bidirectional)
 
-        if not policy_based:
-            ret_df = ret_df.drop(
-                columns=["facc", "fap", "bap", "bacc"], errors="ignore"
-            )
-        if not heuristic_based:
-            ret_df = ret_df.drop(columns=["fhe", "bhe"], errors="ignore")
-        if not bidirectional:
-            ret_df = ret_df.drop(
-                columns=["bexp", "bg", "bacc", "bap", "bhe"], errors="ignore"
-            )
         return ret_df
-
-    def update_results_dict(self, results_dict):
-        results_dict["id"].append(self.id)
-        results_dict["time"].append(self.time)
-        results_dict["fexp"].append(self.fexp)
-        results_dict["bexp"].append(self.bexp)
-        results_dict["len"].append(self.len)
-        if self.f_traj is not None:
-            results_dict["fg"].append(self.f_traj.partial_g_cost)
-            results_dict["fap"].append(self.f_traj.avg_action_prob)
-            results_dict["facc"].append(self.f_traj.acc)
-            results_dict["fhe"].append(self.f_traj.avg_h_abs_error)
-        if self.b_traj is not None:
-            results_dict["bg"].append(self.b_traj.partial_g_cost)
-            results_dict["bap"].append(self.b_traj.avg_action_prob)
-            results_dict["bacc"].append(self.b_traj.acc)
-            results_dict["bhe"].append(self.b_traj.avg_h_abs_error)
 
 
 int_columns = ["id", "len", "fg", "bg", "fexp", "bexp"]
+
+
+def trim_df(ret_df, policy_based, heuristic_based, bidirectional):
+    if not policy_based:
+        ret_df = ret_df.drop(columns=["facc", "fap", "bap", "bacc"], errors="ignore")
+    if not heuristic_based:
+        ret_df = ret_df.drop(columns=["fhe", "bhe"], errors="ignore")
+    if not bidirectional:
+        ret_df = ret_df.drop(
+            columns=["bexp", "bg", "bacc", "bap", "bhe"], errors="ignore"
+        )
 
 
 def print_model_train_summary(

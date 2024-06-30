@@ -20,7 +20,7 @@ def test(
     args,
     rank: int,
     agent: Agent,
-    problems_loader: ProblemLoader,
+    problems_loader: AsyncProblemLoader,
     print_results: bool = True,
     batch: Optional[int] = None,
 ):

@@ -64,10 +64,6 @@ def run(
             print_results=True,
         )
 
-    if rank == 0:
-        total_time = timer() - rel_start_time
-        print(f"Finished!\nTotal time: {total_time:.2f} seconds")
-
 
 if __name__ == "__main__":
     args = parse_args()
