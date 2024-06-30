@@ -16,8 +16,8 @@ from args import parse_args
 import search.agents as sa
 from search.loaders import AsyncProblemLoader, ProblemLoader
 from search.utils import set_seeds
-from test_async import test
-from train_async import train
+from test import test
+from train import train
 from utils import find_free_port, split_by_rank
 
 

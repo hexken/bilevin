@@ -13,14 +13,15 @@ import torch.distributed as dist
 from models.models import PolicyOrHeuristicModel
 from search.agent import Agent
 from search.loaders import ProblemLoader
-from search.utils import print_search_summary, int_columns, search_result_header
+from search.utils import print_search_summary
+from search.utils import int_columns, search_result_header
 
 
 def test(
     args,
     rank: int,
     agent: Agent,
-    problems_loader: AsyncProblemLoader,
+    problems_loader: ProblemLoader,
     print_results: bool = True,
     batch: Optional[int] = None,
 ):
