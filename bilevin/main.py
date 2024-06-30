@@ -14,10 +14,10 @@ import torch.multiprocessing as mp
 
 from args import parse_args
 import search.agents as sa
-from search.loaders import ProblemLoader
+from search.loaders import AsyncProblemLoader, ProblemLoader
 from search.utils import set_seeds
-from test import test
-from train import train
+from test_async import test
+from train_async import train
 from utils import find_free_port, split_by_rank
 
 
@@ -25,10 +25,9 @@ def run(
     rank,
     agent,
     args,
-    local_problems,
-    world_num_problems,
-    local_valid_problems,
-    world_num_valid_problems,
+    problems,
+    valid_problems,
+    results_queue,
 ):
     dist.init_process_group(
         timeout=datetime.timedelta(seconds=86400),
@@ -41,29 +40,16 @@ def run(
     set_seeds(local_seed)
     to.set_num_threads(1)
 
-    problems_loader = ProblemLoader(
-        world_num_problems,
-        local_problems,
-        seed=local_seed,
-    )
-
     if args.mode == "train":
-        valid_loader = ProblemLoader(
-            world_num_valid_problems,
-            local_valid_problems,
-            seed=local_seed,
-            shuffle=False,
-        )
         if rank == 0:
-            print(
-                f"\nTraining on {len(local_problems)} stages, {args.n_final_stage_epochs} epochs for final stage"
-            )
+            print(f"\nTraining on {len(problems)} problems for {args.n_epochs} epochs")
         train(
             args,
             rank,
             agent,
-            problems_loader,
-            valid_loader,
+            problems,
+            valid_problems,
+            results_queue,
         )
         (logdir / "training_completed.txt").open("w").close()
     else:
@@ -73,9 +59,9 @@ def run(
             args,
             rank,
             agent,
-            problems_loader,
+            problems,
+            results_queue,
             print_results=True,
-            batch=None,
         )
 
     if rank == 0:
@@ -93,7 +79,26 @@ if __name__ == "__main__":
 
     with args.problems_path.open("rb") as f:
         pset_dict = pkl.load(f)
-    problems, world_num_problems = split_by_rank(args, pset_dict["problems"])
+    problems = pset_dict["problems"][0]  # todo since no curriclulums
+
+    problems_indexer = mp.Value("I", 0)
+    problems_indices = mp.Array("I", range(len(problems)))
+    problems_loader = AsyncProblemLoader(
+        problems, problems_indices, problems_indexer, args.seed
+    )
+
+    if args.mode == "train" and args.valid_path:
+        with args.valid_path.open("rb") as f:
+            vset_dict = pkl.load(f)
+        valid_problems = vset_dict["problems"][0]  # todo since no curriculums
+        valid_problems_indexer = mp.Value("I", 0)
+        valid_indices = mp.Array("I", range(len(problems)))
+        valid_problems_loader = AsyncProblemLoader(
+            valid_problems, valid_indices, valid_problems_indexer, args.seed
+        )
+    else:
+        valid_problems = None
+    results_queue = mp.Queue()
 
     if args.mode == "train":
         if args.checkpoint_path is None:
@@ -149,16 +154,6 @@ if __name__ == "__main__":
     agent_class = getattr(sa, args.agent)
     agent = agent_class(logdir, args, derived_args)
 
-    if args.mode == "train" and args.valid_path:
-        with args.valid_path.open("rb") as f:
-            vset_dict = pkl.load(f)
-        valid_problems, world_num_valid_problems = split_by_rank(
-            args, vset_dict["problems"]
-        )
-    else:
-        valid_problems = None
-        world_num_valid_problems = 0
-
     arg_dict = {
         k: (v if not isinstance(v, Path) else str(v)) for k, v in vars(args).items()
     }
@@ -191,20 +186,13 @@ if __name__ == "__main__":
                 rank,
                 agent,
                 args,
-                problems[rank],
-                world_num_problems,
-                valid_problems[rank] if valid_problems else None,
-                world_num_valid_problems if valid_problems else 0,
+                problems,
+                valid_problems,
+                results_queue,
             ),
         )
         proc.start()
-        problems[rank] = None
-        if valid_problems:
-            valid_problems[rank] = None
         processes.append(proc)
-
-    del problems
-    del valid_problems
 
     for proc in processes:
         proc.join()

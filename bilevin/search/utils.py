@@ -3,10 +3,11 @@ import random
 import warnings
 
 import numpy as np
+import pandas as pd
 import torch as to
 
 
-search_result_header = [
+search_result_header = (
     "id",
     "time",
     "fexp",
@@ -20,7 +21,94 @@ search_result_header = [
     "bap",
     "bacc",
     "bhe",
-]
+)
+
+
+class SearchResultsDict:
+    def __init__(self):
+        self.results_dict = {key: [] for key in search_result_header}
+
+    def append(self, result):
+        result.get_df_attrs()
+        result.update_results_dict(self.results_dict)
+
+    def get_df(self):
+        return pd.DataFrame(self.results_dict)
+
+
+class SearchResult:
+    def __init__(self, id, time, fexp, bexp, len, f_traj=None, b_traj=None):
+        self.id = id
+        self.time = time
+        self.fexp = fexp
+        self.bexp = bexp
+        self.len = len
+        self.f_traj = f_traj
+        self.b_traj = b_traj
+
+    @classmethod
+    def df_attrs(cls):
+        return search_result_header
+
+    def get_df_attrs(self):
+        if self.f_traj is not None:
+            self.fg = self.f_traj.partial_g_cost
+            self.fap = self.f_traj.avg_action_prob
+            self.facc = self.f_traj.acc
+            self.fhe = self.f_traj.avg_h_abs_error
+        if self.b_traj is not None:
+            self.bg = self.b_traj.partial_g_cost
+            self.bap = self.b_traj.avg_action_prob
+            self.bacc = self.b_traj.acc
+            self.bhe = self.b_traj.avg_h_abs_error
+
+    def __iter__(self):
+        data = tuple(self.__dict__[var] for var in SearchResult.df_attrs())
+        return iter(data)
+
+    @classmethod
+    def df(cls, items, policy_based, heuristic_based, bidirectional):
+        ret_df = pd.DataFrame([item for item in items])
+        ret_df.columns = cls.df_attrs()
+
+        # for col in int_columns:
+        #     ret_df[col] = ret_df[col].astype(pd.UInt32Dtype())
+        if bidirectional:
+            exp = ret_df["fexp"] + ret_df["bexp"]
+        else:
+            exp = ret_df["fexp"]
+        ret_df.insert(2, "exp", exp)
+        ret_df = ret_df.sort_values("exp")
+
+        if not policy_based:
+            ret_df = ret_df.drop(
+                columns=["facc", "fap", "bap", "bacc"], errors="ignore"
+            )
+        if not heuristic_based:
+            ret_df = ret_df.drop(columns=["fhe", "bhe"], errors="ignore")
+        if not bidirectional:
+            ret_df = ret_df.drop(
+                columns=["bexp", "bg", "bacc", "bap", "bhe"], errors="ignore"
+            )
+        return ret_df
+
+    def update_results_dict(self, results_dict):
+        results_dict["id"].append(self.id)
+        results_dict["time"].append(self.time)
+        results_dict["fexp"].append(self.fexp)
+        results_dict["bexp"].append(self.bexp)
+        results_dict["len"].append(self.len)
+        if self.f_traj is not None:
+            results_dict["fg"].append(self.f_traj.partial_g_cost)
+            results_dict["fap"].append(self.f_traj.avg_action_prob)
+            results_dict["facc"].append(self.f_traj.acc)
+            results_dict["fhe"].append(self.f_traj.avg_h_abs_error)
+        if self.b_traj is not None:
+            results_dict["bg"].append(self.b_traj.partial_g_cost)
+            results_dict["bap"].append(self.b_traj.avg_action_prob)
+            results_dict["bacc"].append(self.b_traj.acc)
+            results_dict["bhe"].append(self.b_traj.avg_h_abs_error)
+
 
 int_columns = ["id", "len", "fg", "bg", "fexp", "bexp"]
 

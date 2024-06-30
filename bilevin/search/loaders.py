@@ -1,8 +1,10 @@
 from copy import deepcopy
 
 import numpy as np
+import torch.multiprocessing as mp
 
 from domains.domain import Domain
+
 
 class Problem:
     def __init__(self, id: int, domain: Domain):
@@ -14,6 +16,58 @@ class Problem:
 
     def __eq__(self, other):
         return self.id == other.id
+
+
+class AsyncProblemLoader:
+    def __init__(
+        self,
+        problems: list[list[Problem]],
+        shared_inices,
+        shared_indexer,
+        batch_size=32,
+        seed: int = 1,
+    ):
+        self.problems = problems[0]  # todo since no curriculum
+        self.shared_indices = shared_inices
+        self.shared_indexer = shared_indexer
+        self.batch_size = batch_size
+
+        self.rng = np.random.default_rng(seed)
+        self.loaded_state = False
+        self.n_problems = len(self.problems)
+        self.end_batch = False
+
+    def reset_indexer(self, shuffle: bool = False):
+        if shuffle:
+            new_indices = self.rng.permutation(self.n_problems)
+        else:
+            new_indices = np.arange(self.n_problems)
+
+        with self.shared_indices.get_lock():
+            self.shared_indices[:] = new_indices[:]
+        with self.shared_indexer.get_lock():
+            self.shared_indexer.value = 0
+
+    def advance_batch(self):
+        with self.shared_indexer.get_lock():
+            idx = self.shared_indexer.value
+            problem = self.problems[self.shared_indices[idx]]
+            self.shared_indexer.value += 1
+            return problem
+
+    def get_problem(self):
+        with self.shared_indexer.get_lock():
+            idx = self.shared_indexer.value
+            if idx == self.n_problems or (idx > 1 and idx % self.batch_size == 0):
+                return None
+            else:
+                problem = self.problems[self.shared_indices[idx]]
+                self.shared_indexer.value += 1
+                return problem
+
+    def __len__(self):
+        return self.n_problems
+
 
 class ProblemLoader:
     def __init__(
