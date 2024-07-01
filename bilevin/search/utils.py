@@ -24,28 +24,51 @@ search_result_header = (
 )
 
 
-class SearchResults:
-    def __init__(self):
-        self.results = {key: [] for key in search_result_header}
+class ResultsLog:
+    def __init__(
+        self,
+        results: dict | None,
+        policy_based: bool,
+        heuristic_based: bool,
+        bidirectional: bool,
+    ):
+        if results is not None:
+            self.results = results
+        else:
+            self.results = {key: [] for key in search_result_header}
+        self.policy_based = policy_based
+        self.heuristic_based = heuristic_based
+        self.bidirectional = bidirectional
 
-    def load(self, checkpoint_dict):
-        for key in search_result_header:
-            self.results[key] = checkpoint_dict[key]
+    def append(self, result: Result | list[Result]):
+        if isinstance(result, list):
+            for res in result:
+                self._append(res)
+        else:
+            self._append(result)
 
-    def append(self, result: SearchResult):
+    def _append(self, result: Result):
         for key in search_result_header:
             self.results[key].append(result.__dict__[key])
 
     def get_df(self, policy_based, heuristic_based, bidirectional):
         ret_df = pd.DataFrame(self.results)
-        trim_df(ret_df, policy_based, heuristic_based, bidirectional)
+        mod_df(ret_df, policy_based, heuristic_based, bidirectional)
         return ret_df
 
-    def __getitem__(self, key):
-        return self.results[key]
+    def __getitem__(self, key) -> ResultsLog:
+        return ResultsLog(
+            {k: v[key] for k, v in self.results.items()},
+            self.policy_based,
+            self.heuristic_based,
+            self.bidirectional,
+        )
+
+    def __len__(self):
+        return len(self.results["id"])
 
 
-class SearchResult:
+class Result:
     def __init__(self, id, time, fexp, bexp, len, f_traj=None, b_traj=None):
         self.id = id
         self.time = time
@@ -77,38 +100,38 @@ class SearchResult:
             self.bacc = np.nan
             self.bhe = np.nan
 
-    @classmethod
-    def df_attrs(cls):
-        return search_result_header
+    # @classmethod
+    # def df_attrs(cls):
+    #     return search_result_header
 
-    def __iter__(self):
-        data = tuple(self.__dict__[var] for var in SearchResult.df_attrs())
-        return iter(data)
+    # def __iter__(self):
+    #     data = tuple(self.__dict__[var] for var in SearchResult.df_attrs())
+    #     return iter(data)
 
-    @classmethod
-    def list_to_df(
-        cls, results: list[SearchResult], policy_based, heuristic_based, bidirectional
-    ):
-        ret_df = pd.DataFrame([item for item in results])
-        ret_df.columns = cls.df_attrs()
+    # @classmethod
+    # def list_to_df(
+    #     cls, results: list[SearchResult], policy_based, heuristic_based, bidirectional
+    # ):
+    #     ret_df = pd.DataFrame([item for item in results])
+    #     ret_df.columns = cls.df_attrs()
 
-        # for col in int_columns:
-        #     ret_df[col] = ret_df[col].astype(pd.UInt32Dtype())
-        if bidirectional:
-            exp = ret_df["fexp"] + ret_df["bexp"]
-        else:
-            exp = ret_df["fexp"]
-        ret_df.insert(2, "exp", exp)
-        ret_df = ret_df.sort_values("exp")
-        trim_df(ret_df, policy_based, heuristic_based, bidirectional)
+    #     # for col in int_columns:
+    #     #     ret_df[col] = ret_df[col].astype(pd.UInt32Dtype())
+    #     mod_df(ret_df, policy_based, heuristic_based, bidirectional)
+    #     ret_df = ret_df.sort_values("exp")
 
-        return ret_df
+    #     return ret_df
 
 
 int_columns = ["id", "len", "fg", "bg", "fexp", "bexp"]
 
 
-def trim_df(ret_df, policy_based, heuristic_based, bidirectional):
+def mod_df(ret_df, policy_based, heuristic_based, bidirectional):
+    if bidirectional:
+        exp = ret_df["fexp"] + ret_df["bexp"]
+    else:
+        exp = ret_df["fexp"]
+    ret_df.insert(2, "exp", exp)
     if not policy_based:
         ret_df = ret_df.drop(columns=["facc", "fap", "bap", "bacc"], errors="ignore")
     if not heuristic_based:

@@ -21,7 +21,7 @@ from search.utils import (
     print_model_train_summary,
     print_search_summary,
 )
-from test import test
+from test_async import test
 
 
 def train(
@@ -40,36 +40,24 @@ def train(
 
     best_valid_expanded = len(valid_loader) * expansion_budget + 1
 
+    search_results = ResultsLog()
+
     if args.checkpoint_path is None:
-        results = ResultsLog(
-            None, agent.has_policy, agent.has_heuristic, agent.is_bidirectional
-        )
         epoch = 1
-        batch = 0
+        batch = 1
+        epoch_start_time = 0
         done_epoch = False
-        train_start_time = timer()
-        epoch_start_time = timer()
     else:
         with args.checkpoint_path.open("rb") as f:
-            checkpoint_data = to.load(f)
-            agent.optimizer.load_state_dict(checkpoint_data["optimizer_state"])
-            results = ResultsLog(
-                checkpoint_data["search_results"],
-                agent.has_policy,
-                agent.has_heuristic,
-                agent.is_bidirectional,
-            )
+            other_chkpt_data = to.load(f)
+            agent.optimizer.load_state_dict(other_chkpt_data["optimizer_state"])
+            search_results.load(other_chkpt_data["search_results"])
 
-            best_valid_expanded = checkpoint_data["best_valid_expanded"]
-            epoch_start_time = (
-                timer() - checkpoint_data["time_in_epoch"]
-            )  # todo check these
-            train_start_time = timer() - checkpoint_data["time_in_training"]
-            epoch = checkpoint_data["epoch"]
-            batch = (
-                checkpoint_data["batch"] + 1
-            )  # checkpoint records how many batches completed
-            done_epoch = checkpoint_data["done_epoch"]
+            best_valid_expanded = other_chkpt_data["best_valid_expanded"]
+            epoch_start_time = timer() - other_chkpt_data["time_in_stage"]
+            epoch = other_chkpt_data["epoch"]
+            batch = other_chkpt_data["batch"]
+            done_epoch = other_chkpt_data["done_epoch"]
             # train_loader.load_state(chkpt_dict["loader_states"][rank])
 
         if rank == 0:
@@ -90,23 +78,11 @@ def train(
                 ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
             )
             print(f"START EPOCH {epoch}")
+            batch_start_time = timer()
 
-        new_batch = True
+        # expansion_budget = args.train_expansion_budget
+
         while True:
-            if new_batch:
-                new_batch = False
-                batch += 1
-                if done_epoch:
-                    if rank == 0:
-                        train_loader.reset_indexer(shuffle=args.shuffle)
-                    done_epoch = False
-                    epoch += 1
-                    epoch_start_time = timer()
-                if rank == 0:
-                    batch_start_time = timer()
-                    problem = train_loader.advance_batch()
-                dist.monitored_barrier()
-
             problem = train_loader.get_problem()
             if problem is not None:
                 agent.model.eval()
@@ -143,25 +119,23 @@ def train(
                 results_queue.put(res)
 
             else:  # end batch
-                new_batch = True
                 dist.monitored_barrier()
                 if rank == 0:
-                    batch_buffer: list[Result] = []
+                    batch_buffer = []
                     while not results_queue.empty():
                         batch_buffer.append(results_queue.get())
 
-                    start_idx = len(results)
-                    end_idx = len(batch_buffer)
-                    results.append(batch_buffer)
-                    batch_df = results[start_idx:end_idx].get_df(
+                    batch_print_df = Result.list_to_df(
+                        batch_buffer,
                         agent.has_policy,
                         agent.has_heuristic,
                         agent.is_bidirectional,
                     )
+
                     print(f"\nBatch {batch}")
                     print(
                         tabulate(
-                            batch_df,
+                            batch_print_df,
                             headers="keys",
                             tablefmt="psql",
                             showindex=False,
@@ -190,12 +164,13 @@ def train(
 
                     batch_total_time = timer() - batch_start_time
                     print(f"Batch time: {batch_total_time:.2f}s")
+                dist.monitored_barrier()
 
                 if batch * args.batch_size >= len(train_loader):  # end epoch
                     done_epoch = True
                     # log all search results
                     if rank == 0:
-                        stage_search_df = results.get_df(
+                        stage_search_df = search_results.get_df(
                             agent.has_policy,
                             agent.has_heuristic,
                             agent.is_bidirectional,
@@ -245,7 +220,6 @@ def train(
                         rank,
                         agent,
                         valid_loader,
-                        results_queue,
                         print_results=False,
                         batch=batch,
                     )
@@ -256,6 +230,8 @@ def train(
                             valid_total_expanded,
                             valid_total_time,
                         ) = valid_results
+
+                        epoch_start_time += valid_total_time
 
                         if valid_total_expanded <= best_valid_expanded:
                             best_valid_expanded = valid_total_expanded
@@ -276,36 +252,42 @@ def train(
                         simple_log.flush()
                         epoch += 1
 
+                batch += 1  # todo is batch and epoch incr properly?
                 # Checkpoint at beginning of batch b
                 if (batch % checkpoint_every_n_batches == 0) or done_epoch:
                     ts = timer()
-                    loader_state = None
+                    loader_states = [None] * args.world_size
                     # dist.gather_object(
                     #     train_loader.get_state(), loader_states if rank == 0 else None, dst=0
                     # )
 
                     if rank == 0:
-                        checkpoint_data = {
-                            "search_results": results.results,
+                        other_chkpt_data = copy(search_results.results)
+                        other_chkpt_data = {
                             "model_state": agent.model.state_dict(),
                             "optimizer_state": agent.optimizer.state_dict(),
-                            "expansion_budget": expansion_budget,
+                            "current_exp_budget": expansion_budget,
                             "best_valid_expanded": best_valid_expanded,
-                            "time_in_epoch": timer() - epoch_start_time,
-                            "time_in_training": timer() - train_start_time,
+                            "time_in_stage": timer() - epoch_start_time,
                             "epoch": epoch,
                             "batch": batch,
-                            "loader_state": loader_state,
+                            "loader_states": loader_states,
                         }
                         new_checkpoint_path = args.logdir / f"checkpoint_b{batch}.pkl"
                         with new_checkpoint_path.open("wb") as f:
-                            to.save(checkpoint_data, f)
-                        del loader_state, checkpoint_data
+                            to.save(other_chkpt_data, f)
+                        del loader_states, other_chkpt_data
                         if not args.keep_all_checkpoints:
                             old_checkpoint_path.unlink(missing_ok=True)
                             old_checkpoint_path = new_checkpoint_path
                         print(
                             f"\nCheckpoint saved to {new_checkpoint_path.name}, took {timer() - ts:.2f}s"
                         )
+
+                if done_epoch:
+                    epoch_start_time = timer()
+                    done_epoch = False
+                    epoch += 1
+                batch_start_time = timer()
 
     dist.monitored_barrier()  # done training

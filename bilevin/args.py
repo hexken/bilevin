@@ -226,6 +226,14 @@ def parse_args():
         help="number of convolution kernels",
     )
     parser.add_argument(
+        "--shuffle",
+        const=True,
+        nargs="?",
+        type=strtobool,
+        default=False,
+        help="shuffle training problems each epoch",
+    )
+    parser.add_argument(
         "--no-conditional-backward",
         const=True,
         nargs="?",

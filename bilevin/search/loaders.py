@@ -35,7 +35,6 @@ class AsyncProblemLoader:
         self.rng = np.random.default_rng(seed)
         self.loaded_state = False
         self.n_problems = len(self.problems)
-        self.end_batch = False
 
     def reset_indexer(self, shuffle: bool = False):
         if shuffle:
@@ -48,6 +47,22 @@ class AsyncProblemLoader:
         with self.shared_indexer.get_lock():
             self.shared_indexer.value = 0
 
+    def load_state(self, state: dict):
+        with self.shared_indices.get_lock():
+            self.shared_indices[:] = state["indices"][:]
+        with self.shared_indexer.get_lock():
+            self.shared_indexer.value = state["indexer"]
+        self.batch_size = state["batch_size"]
+        self.rng = state["rng"]
+
+    def state_dict(self) -> dict:
+        return {
+            "indices": self.shared_indices[:],
+            "indexer": self.shared_indexer.value,
+            "batch_size": self.batch_size,
+            "rng": self.rng,
+        }
+
     def advance_batch(self):
         with self.shared_indexer.get_lock():
             idx = self.shared_indexer.value
@@ -58,7 +73,7 @@ class AsyncProblemLoader:
     def get_problem(self):
         with self.shared_indexer.get_lock():
             idx = self.shared_indexer.value
-            if idx == self.n_problems or (idx > 1 and idx % self.batch_size == 0):
+            if idx == self.n_problems or idx % self.batch_size == 0:
                 return None
             else:
                 problem = self.problems[self.shared_indices[idx]]
