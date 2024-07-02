@@ -45,7 +45,6 @@ def train(
             None, agent.has_policy, agent.has_heuristic, agent.is_bidirectional
         )
         epoch = 0
-        batch = 0
         done_epoch = False
         train_start_time = timer()
     else:
@@ -89,17 +88,18 @@ def train(
             if done_batch:
                 batch_start_time = timer()
                 done_batch = False
-                batch += 1
                 if done_epoch or epoch == 0:
                     epoch_start_time = timer()
                     done_epoch = False
                     epoch += 1
+                    batch = 0
                     if rank == 0:
                         train_loader.init_indexer(shuffle=args.shuffle)
                         print(
                             "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                         )
                         print(f"START EPOCH {epoch}")
+                batch += 1
                 if rank == 0:
                     problem = train_loader.advance_batch()
                 dist.monitored_barrier()
@@ -109,7 +109,7 @@ def train(
                 problem = train_loader.get_problem()
 
             if problem is not None:
-                print(f"rank {rank} problem {problem.id}")
+                # print(f"rank {rank} problem {problem.id}")
                 agent.model.eval()
                 to.set_grad_enabled(False)
 
@@ -169,10 +169,9 @@ def train(
                         for res in batch_buffer
                         if res.f_traj is not None
                     ]
-                    batch_solved = len(trajs)
                     random.shuffle(trajs)
 
-                    if batch_solved > 0:
+                    if len(trajs) > 0:
                         to.set_grad_enabled(True)
                         agent.model.train()
                         for traj in trajs:
@@ -187,32 +186,32 @@ def train(
 
                     batch_total_time = timer() - batch_start_time
                     print(
-                        f"Batch time: {batch_total_time:.2f}s, solved {batch_solved}/{len(batch_buffer)}"
+                        f"Batch time: {batch_total_time:.2f}s, solved {len(trajs)}/{len(batch_buffer)}"
                     )
 
                 # sync models
-                if rank == 0:
-                    ts = timer()
-                all_params_list = [
-                    param.data.view(-1) for param in agent.model.parameters()
-                ]
-                all_params = to.cat(all_params_list)
-                dist.broadcast(all_params, src=0)
-                offset = 0
-                for param in agent.model.parameters():
-                    numel = param.numel()
-                    param.data.copy_(
-                        all_params[offset : offset + numel].view_as(param.data)
-                    )
-                    offset += numel
                 # if rank == 0:
                 #     ts = timer()
+                # all_params_list = [
+                #     param.data.view(-1) for param in agent.model.parameters()
+                # ]
+                # all_params = to.cat(all_params_list)
+                # dist.broadcast(all_params, src=0)
+                # offset = 0
                 # for param in agent.model.parameters():
-                #     dist.broadcast(param.data, src=0)
+                #     numel = param.numel()
+                #     param.data.copy_(
+                #         all_params[offset : offset + numel].view_as(param.data)
+                #     )
+                #     offset += numel
+                if rank == 0:
+                    ts = timer()
+                for param in agent.model.parameters():
+                    dist.broadcast(param.data, src=0)
                 if rank == 0:
                     print(f"Model sync took {timer() - ts:.5f}s")
 
-                if batch * args.n_batch >= len(train_loader):  # end epoch
+                if batch * args.n_batch >= len(train_loader):
                     done_epoch = True
                     # log all search results
                     if rank == 0:
@@ -250,7 +249,7 @@ def train(
                 # Validation checks
                 if done_epoch:
                     if rank == 0:
-                        print("Validating...")
+                        print("\nValidating...\n")
                         valid_start_time = timer()
                         sys.stdout.flush()
 
@@ -270,7 +269,6 @@ def train(
                         valid_df = valid_results.get_df()
                         valid_total_expanded = valid_df["exp"].sum()
                         valid_solved = len(valid_df[valid_df["len"] > 0])
-                        valid_total_time = timer() - valid_start_time
 
                         if valid_total_expanded <= best_valid_expanded:
                             best_valid_expanded = valid_total_expanded
@@ -280,25 +278,19 @@ def train(
                             )
                             agent.save_model("best_expanded", log=False)
 
-                        epoch_total_time = timer() - epoch_start_time
-                        print(f"\nValidation time: {valid_total_time:.2f}s")
-                        print(f"Epoch Time: {epoch_total_time:.2f}s")
+                        print(f"\nValidation time: {timer() - valid_start_time:.2f}s")
+                        print(f"Epoch Time: {timer() -epoch_start_time:.2f}s")
                         print(f"\nEND EPOCH {epoch}")
                         print(
                             ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                         )
                         sys.stdout.flush()
-                        simple_log.write(f"{epoch} {epoch_total_time:.2f}\n")
+                        # simple_log.write(f"{epoch} {epoch_total_time:.2f}\n")
                         simple_log.flush()
 
                 # Checkpoint at beginning of batch b
                 if (batch % checkpoint_every_n_batch == 0) or done_epoch:
                     ts = timer()
-                    loader_state = None
-                    # dist.gather_object(
-                    #     train_loader.get_state(), loader_states if rank == 0 else None, dst=0
-                    # )
-
                     if rank == 0:
                         checkpoint_data = {
                             "search_results": results.results,
@@ -311,12 +303,12 @@ def train(
                             "epoch": epoch,
                             "batch": batch,
                             "done_epoch": done_epoch,
-                            "loader_state": loader_state,
+                            "loader_state": train_loader.state_dict(),
                         }
                         new_checkpoint_path = args.logdir / f"checkpoint_b{batch}.pkl"
                         with new_checkpoint_path.open("wb") as f:
                             to.save(checkpoint_data, f)
-                        del loader_state, checkpoint_data
+                        del checkpoint_data
                         if not args.keep_all_checkpoints:
                             old_checkpoint_path.unlink(missing_ok=True)
                             old_checkpoint_path = new_checkpoint_path
