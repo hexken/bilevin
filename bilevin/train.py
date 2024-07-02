@@ -82,6 +82,7 @@ def train(
 
     old_checkpoint_path = args.logdir / f"dummy_chkpt"
 
+    dist.monitored_barrier()
     while epoch <= args.n_epochs:
         done_batch = True
         while True:
@@ -96,7 +97,7 @@ def train(
                     if rank == 0:
                         train_loader.init_indexer(shuffle=args.shuffle)
                         print(
-                            ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+                            "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                         )
                         print(f"START EPOCH {epoch}")
                 if rank == 0:
@@ -108,6 +109,7 @@ def train(
                 problem = train_loader.get_problem()
 
             if problem is not None:
+                print(f"rank {rank} problem {problem.id}")
                 agent.model.eval()
                 to.set_grad_enabled(False)
 
@@ -149,10 +151,8 @@ def train(
                     while not results_queue.empty():
                         batch_buffer.append(results_queue.get())
 
-                    start_idx = len(results)
-                    end_idx = len(batch_buffer)
                     results.append(batch_buffer)
-                    batch_df = results[start_idx:end_idx].get_df()
+                    batch_df = results[-len(batch_buffer) :].get_df()
                     print(f"\nBatch {batch}")
                     print(
                         tabulate(
@@ -169,9 +169,10 @@ def train(
                         for res in batch_buffer
                         if res.f_traj is not None
                     ]
+                    batch_solved = len(trajs)
                     random.shuffle(trajs)
 
-                    if len(trajs) > 0:
+                    if batch_solved > 0:
                         to.set_grad_enabled(True)
                         agent.model.train()
                         for traj in trajs:
@@ -185,7 +186,9 @@ def train(
                                 agent.optimizer.step()
 
                     batch_total_time = timer() - batch_start_time
-                    print(f"Batch time: {batch_total_time:.2f}s")
+                    print(
+                        f"Batch time: {batch_total_time:.2f}s, solved {batch_solved}/{len(batch_buffer)}"
+                    )
 
                 # sync models
                 if rank == 0:
@@ -207,7 +210,7 @@ def train(
                 # for param in agent.model.parameters():
                 #     dist.broadcast(param.data, src=0)
                 if rank == 0:
-                    print(f"Model sync took {timer() - ts:.2f}s")
+                    print(f"Model sync took {timer() - ts:.5f}s")
 
                 if batch * args.n_batch >= len(train_loader):  # end epoch
                     done_epoch = True
@@ -232,6 +235,7 @@ def train(
                         # ) as f:
                         #     pickle.dump(stage_model_train_df, f)
 
+                        print()
                         print_search_summary(
                             stage_search_df,
                             agent.is_bidirectional,
@@ -246,10 +250,7 @@ def train(
                 # Validation checks
                 if done_epoch:
                     if rank == 0:
-                        print(
-                            ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-                        )
-                        print("VALIDATION")
+                        print("Validating...")
                         valid_start_time = timer()
                         sys.stdout.flush()
 
@@ -289,7 +290,6 @@ def train(
                         sys.stdout.flush()
                         simple_log.write(f"{epoch} {epoch_total_time:.2f}\n")
                         simple_log.flush()
-                        epoch += 1
 
                 # Checkpoint at beginning of batch b
                 if (batch % checkpoint_every_n_batch == 0) or done_epoch:

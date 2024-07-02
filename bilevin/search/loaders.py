@@ -35,7 +35,6 @@ class AsyncProblemLoader:
         self.problems = problems
         self.shared_indices = shared_inices
         self.shared_indexer = shared_indexer
-        self.batch_size = batch_size
 
         self.rng = np.random.default_rng(seed)
         self.loaded_state = False

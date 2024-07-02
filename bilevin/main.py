@@ -26,7 +26,7 @@ def run(
     agent,
     args,
     problems_loader,
-    valid_problems,
+    valid_loader,
     results_queue,
 ):
     dist.init_process_group(
@@ -50,7 +50,7 @@ def run(
             rank,
             agent,
             problems_loader,
-            valid_problems,
+            valid_loader,
             results_queue,
         )
         (logdir / "training_completed.txt").open("w").close()
@@ -97,7 +97,6 @@ if __name__ == "__main__":
         valid_indexer = mp.Value("I", 0)
         valid_indices = mp.Array("I", len(valid_problems))
         valid_loader = AsyncProblemLoader(valid_problems, valid_indices, valid_indexer)
-        print(f"rank 0: {len(valid_problems)} valid problems")
     else:
         valid_problems = None
     results_queue = mp.Queue()

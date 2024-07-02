@@ -25,7 +25,6 @@ def test(
     increase_budget: bool = False,
     train_epoch: int = 0,
 ):
-    print(f"rank {rank} batch size {loader.batch_size} problems {len(loader.problems)}")
     assert loader.batch_size == len(loader.problems)
     current_exp_budget: int = args.test_expansion_budget
     current_time_budget: float = args.time_budget
