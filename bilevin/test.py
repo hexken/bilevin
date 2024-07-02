@@ -34,9 +34,7 @@ def test(
 
     solved_set = set()
 
-    results = ResultsLog(
-        None, agent.has_policy, agent.has_heuristic, agent.is_bidirectional
-    )
+    results = ResultsLog(None, agent)
 
     epoch = 0
     done_epoch = True

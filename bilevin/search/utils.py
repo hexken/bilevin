@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import torch as to
 
+from search.agent import Agent
+
 
 search_result_header = (
     "id",
@@ -28,17 +30,24 @@ class ResultsLog:
     def __init__(
         self,
         results: dict | None,
-        policy_based: bool,
-        heuristic_based: bool,
-        bidirectional: bool,
+        agent: Agent | None = None,
+        policy_based: bool | None = None,
+        heuristic_based: bool | None = None,
+        bidirectional: bool | None = None,
     ):
         if results is not None:
             self.results = results
         else:
             self.results = {key: [] for key in search_result_header}
-        self.policy_based = policy_based
-        self.heuristic_based = heuristic_based
-        self.bidirectional = bidirectional
+
+        if agent is not None:
+            self.policy_based = agent.has_policy
+            self.heuristic_based = agent.has_heuristic
+            self.bidirectional = agent.is_bidirectional
+        else:
+            self.policy_based = policy_based
+            self.heuristic_based = heuristic_based
+            self.bidirectional = bidirectional
 
     def append(self, result: Result | list[Result]):
         if isinstance(result, list):
@@ -61,6 +70,7 @@ class ResultsLog:
     def __getitem__(self, key) -> ResultsLog:
         return ResultsLog(
             {k: v[key] for k, v in self.results.items()},
+            None,
             self.policy_based,
             self.heuristic_based,
             self.bidirectional,

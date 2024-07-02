@@ -41,9 +41,7 @@ def train(
     best_valid_expanded = len(valid_loader) * expansion_budget + 1
 
     if args.checkpoint_path is None:
-        results = ResultsLog(
-            None, agent.has_policy, agent.has_heuristic, agent.is_bidirectional
-        )
+        results = ResultsLog(None, agent)
         epoch = 0
         done_epoch = False
         train_start_time = timer()
@@ -51,24 +49,14 @@ def train(
         with args.checkpoint_path.open("rb") as f:
             checkpoint_data = to.load(f)
             agent.optimizer.load_state_dict(checkpoint_data["optimizer_state"])
-            results = ResultsLog(
-                checkpoint_data["search_results"],
-                agent.has_policy,
-                agent.has_heuristic,
-                agent.is_bidirectional,
-            )
-
+            results = ResultsLog(checkpoint_data["search_results"], agent)
             best_valid_expanded = checkpoint_data["best_valid_expanded"]
-            epoch_start_time = (
-                timer() - checkpoint_data["time_in_epoch"]
-            )  # todo check these
+            epoch_start_time = timer() - checkpoint_data["time_in_epoch"]
             train_start_time = timer() - checkpoint_data["time_in_training"]
             epoch = checkpoint_data["epoch"]
-            batch = checkpoint_data[
-                "batch"
-            ]  # checkpoint records how many batches completed
+            batch = checkpoint_data["batch"]
             done_epoch = checkpoint_data["done_epoch"]
-            # train_loader.load_state(chkpt_dict["loader_states"][rank])
+            train_loader.load_state_dict(checkpoint_data["loader_state"])
 
         if rank == 0:
             print(
@@ -91,6 +79,7 @@ def train(
                 if done_epoch or epoch == 0:
                     epoch_start_time = timer()
                     done_epoch = False
+                    results = ResultsLog(None, agent)
                     epoch += 1
                     batch = 0
                     if rank == 0:
@@ -190,32 +179,24 @@ def train(
                     )
 
                 # sync models
-                # if rank == 0:
-                #     ts = timer()
-                # all_params_list = [
-                #     param.data.view(-1) for param in agent.model.parameters()
-                # ]
-                # all_params = to.cat(all_params_list)
-                # dist.broadcast(all_params, src=0)
-                # offset = 0
-                # for param in agent.model.parameters():
-                #     numel = param.numel()
-                #     param.data.copy_(
-                #         all_params[offset : offset + numel].view_as(param.data)
-                #     )
-                #     offset += numel
-                if rank == 0:
-                    ts = timer()
+                all_params_list = [
+                    param.data.view(-1) for param in agent.model.parameters()
+                ]
+                all_params = to.cat(all_params_list)
+                dist.broadcast(all_params, src=0)
+                offset = 0
                 for param in agent.model.parameters():
-                    dist.broadcast(param.data, src=0)
-                if rank == 0:
-                    print(f"Model sync took {timer() - ts:.5f}s")
+                    numel = param.numel()
+                    param.data.copy_(
+                        all_params[offset : offset + numel].view_as(param.data)
+                    )
+                    offset += numel
 
                 if batch * args.n_batch >= len(train_loader):
                     done_epoch = True
                     # log all search results
                     if rank == 0:
-                        stage_search_df = results.get_df()
+                        results_df = results.get_df()
                         # stage_model_train_df = pd.DataFrame(
                         #     {
                         #         "floss": pd.Series(
@@ -228,7 +209,7 @@ def train(
                         with (args.logdir / f"search_train_e{epoch}.pkl").open(
                             "wb"
                         ) as f:
-                            pickle.dump(stage_search_df, f)
+                            pickle.dump(results_df, f)
                         # with (args.logdir / f"model_train_e{epoch}.pkl").open(
                         #     "wb"
                         # ) as f:
@@ -236,7 +217,7 @@ def train(
 
                         print()
                         print_search_summary(
-                            stage_search_df,
+                            results_df,
                             agent.is_bidirectional,
                         )
                         # print_model_train_summary(
@@ -244,7 +225,7 @@ def train(
                         #     agent.is_bidirectional,
                         #     agent.has_policy,
                         # )
-                        del stage_search_df
+                        del results_df
 
                 # Validation checks
                 if done_epoch:
@@ -285,7 +266,7 @@ def train(
                             ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                         )
                         sys.stdout.flush()
-                        # simple_log.write(f"{epoch} {epoch_total_time:.2f}\n")
+                        simple_log.write(f"{epoch}  {timer() - train_start_time:.2f}\n")
                         simple_log.flush()
 
                 # Checkpoint at beginning of batch b

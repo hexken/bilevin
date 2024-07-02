@@ -68,7 +68,7 @@ class AsyncProblemLoader:
                 self.shared_indexer.value += 1
                 return problem
 
-    def load_state(self, state: dict):
+    def load_state_dict(self, state: dict):
         with self.shared_indices.get_lock():
             self.shared_indices[:] = state["indices"][:]
         with self.shared_indexer.get_lock():
