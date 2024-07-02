@@ -33,7 +33,7 @@ def train(
     results_queue: mp.Queue,
 ):
     expansion_budget: int = args.train_expansion_budget
-    checkpoint_every_n_batches: int = args.checkpoint_every_n_batches
+    checkpoint_every_n_batch: int = args.checkpoint_every_n_batch
 
     best_models_log = (args.logdir / "best_models.txt").open("a")
     simple_log = (args.logdir / "simple_log.txt").open("a")
@@ -83,13 +83,6 @@ def train(
     old_checkpoint_path = args.logdir / f"dummy_chkpt"
 
     while epoch <= args.n_epochs:
-
-        if rank == 0:
-            print(
-                ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-            )
-            print(f"START EPOCH {epoch}")
-
         done_batch = True
         while True:
             if done_batch:
@@ -102,6 +95,10 @@ def train(
                     epoch += 1
                     if rank == 0:
                         train_loader.init_indexer(shuffle=args.shuffle)
+                        print(
+                            ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+                        )
+                        print(f"START EPOCH {epoch}")
                 if rank == 0:
                     problem = train_loader.advance_batch()
                 dist.monitored_barrier()
@@ -155,11 +152,7 @@ def train(
                     start_idx = len(results)
                     end_idx = len(batch_buffer)
                     results.append(batch_buffer)
-                    batch_df = results[start_idx:end_idx].get_df(
-                        agent.has_policy,
-                        agent.has_heuristic,
-                        agent.is_bidirectional,
-                    )
+                    batch_df = results[start_idx:end_idx].get_df()
                     print(f"\nBatch {batch}")
                     print(
                         tabulate(
@@ -216,15 +209,11 @@ def train(
                 if rank == 0:
                     print(f"Model sync took {timer() - ts:.2f}s")
 
-                if batch * args.batch_size >= len(train_loader):  # end epoch
+                if batch * args.n_batch >= len(train_loader):  # end epoch
                     done_epoch = True
                     # log all search results
                     if rank == 0:
-                        stage_search_df = results.get_df(
-                            agent.has_policy,
-                            agent.has_heuristic,
-                            agent.is_bidirectional,
-                        )
+                        stage_search_df = results.get_df()
                         # stage_model_train_df = pd.DataFrame(
                         #     {
                         #         "floss": pd.Series(
@@ -261,6 +250,7 @@ def train(
                             ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                         )
                         print("VALIDATION")
+                        valid_start_time = timer()
                         sys.stdout.flush()
 
                     dist.monitored_barrier()
@@ -272,15 +262,14 @@ def train(
                         valid_loader,
                         results_queue,
                         print_results=False,
-                        batch=batch,
+                        train_epoch=epoch,
                     )
 
                     if rank == 0:
-                        (
-                            valid_solved,
-                            valid_total_expanded,
-                            valid_total_time,
-                        ) = valid_results
+                        valid_df = valid_results.get_df()
+                        valid_total_expanded = valid_df["exp"].sum()
+                        valid_solved = len(valid_df[valid_df["len"] > 0])
+                        valid_total_time = timer() - valid_start_time
 
                         if valid_total_expanded <= best_valid_expanded:
                             best_valid_expanded = valid_total_expanded
@@ -290,19 +279,20 @@ def train(
                             )
                             agent.save_model("best_expanded", log=False)
 
-                        print(f"\nTime: {epoch_total_time:.2f}s")
+                        epoch_total_time = timer() - epoch_start_time
+                        print(f"\nValidation time: {valid_total_time:.2f}s")
+                        print(f"Epoch Time: {epoch_total_time:.2f}s")
                         print(f"\nEND EPOCH {epoch}")
                         print(
                             ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                         )
                         sys.stdout.flush()
-                        epoch_total_time = timer() - epoch_start_time
                         simple_log.write(f"{epoch} {epoch_total_time:.2f}\n")
                         simple_log.flush()
                         epoch += 1
 
                 # Checkpoint at beginning of batch b
-                if (batch % checkpoint_every_n_batches == 0) or done_epoch:
+                if (batch % checkpoint_every_n_batch == 0) or done_epoch:
                     ts = timer()
                     loader_state = None
                     # dist.gather_object(

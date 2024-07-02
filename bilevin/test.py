@@ -25,8 +25,8 @@ def test(
     increase_budget: bool = False,
     train_epoch: int = 0,
 ):
+    print(f"rank {rank} batch size {loader.batch_size} problems {len(loader.problems)}")
     assert loader.batch_size == len(loader.problems)
-    test_start_time = timer()
     current_exp_budget: int = args.test_expansion_budget
     current_time_budget: float = args.time_budget
 
@@ -96,11 +96,7 @@ def test(
                 start_idx = len(results)
                 end_idx = len(epoch_buffer)
                 results.append(epoch_buffer)
-                epoch_df = results[start_idx:end_idx].get_df(
-                    agent.has_policy,
-                    agent.has_heuristic,
-                    agent.is_bidirectional,
-                )
+                epoch_df = results[start_idx:end_idx].get_df()
                 if print_results:
                     print(f"\nEpoch {epoch}")
                     print(
@@ -130,7 +126,6 @@ def test(
             epoch_df,
             agent.is_bidirectional,
         )
-        print(f"\nTime: {timer() - test_start_time:.2f}s")
         if train_epoch:
             pth = args.logdir / f"search_valid_e{train_epoch}.pkl"
         else:
@@ -139,4 +134,5 @@ def test(
         with pth.open("wb") as f:
             pickle.dump(epoch_df, f)
 
+    dist.monitored_barrier()
     return results

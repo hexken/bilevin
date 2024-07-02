@@ -1,4 +1,5 @@
 from copy import deepcopy
+from typing import Optional
 
 import numpy as np
 import torch.multiprocessing as mp
@@ -21,13 +22,17 @@ class Problem:
 class AsyncProblemLoader:
     def __init__(
         self,
-        problems: list[list[Problem]],
+        problems: list[Problem],
         shared_inices,
         shared_indexer,
-        batch_size=32,
+        batch_size: int | None = None,
         seed: int = 1,
     ):
-        self.problems = problems[0]  # todo since no curriculum
+        if batch_size is None:
+            self.batch_size = len(problems)
+        else:
+            self.batch_size = batch_size
+        self.problems = problems
         self.shared_indices = shared_inices
         self.shared_indexer = shared_indexer
         self.batch_size = batch_size

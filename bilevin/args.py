@@ -29,6 +29,12 @@ def parse_args():
         help="number of nodes to evaluate in a single batch",
     )
     parser.add_argument(
+        "--n-batch",
+        type=int,
+        default=32,
+        help="number of problems in attempted before a model update",
+    )
+    parser.add_argument(
         "--weight-mse-loss",
         type=float,
         default=1.0,
@@ -41,10 +47,10 @@ def parse_args():
         help="weight to use for weighted A*",
     )
     parser.add_argument(
-        "--n-final-stage-epochs",
+        "--n-epochs",
         type=int,
         default=10,
-        help="number of epochs to train on final curriculum stage",
+        help="number of epochs to train for"
     )
     parser.add_argument(
         "--min-solve-ratio-stage",

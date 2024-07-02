@@ -14,18 +14,18 @@ import torch.multiprocessing as mp
 
 from args import parse_args
 import search.agents as sa
-from search.loaders import AsyncProblemLoader, ProblemLoader
+from search.loaders import AsyncProblemLoader
 from search.utils import set_seeds
 from test import test
 from train import train
-from utils import find_free_port, split_by_rank
+from utils import find_free_port
 
 
 def run(
     rank,
     agent,
     args,
-    problems,
+    problems_loader,
     valid_problems,
     results_queue,
 ):
@@ -42,12 +42,14 @@ def run(
 
     if args.mode == "train":
         if rank == 0:
-            print(f"\nTraining on {len(problems)} problems for {args.n_epochs} epochs")
+            print(
+                f"\nTraining on {len(problems_loader)} problems for {args.n_epochs} epochs"
+            )
         train(
             args,
             rank,
             agent,
-            problems,
+            problems_loader,
             valid_problems,
             results_queue,
         )
@@ -59,13 +61,14 @@ def run(
             args,
             rank,
             agent,
-            problems,
+            problems_loader,
             results_queue,
             print_results=True,
         )
 
 
 if __name__ == "__main__":
+    # mp.set_start_method("fork")
     args = parse_args()
     abs_start_time = time.time()
     rel_start_time = timer()
@@ -75,23 +78,26 @@ if __name__ == "__main__":
 
     with args.problems_path.open("rb") as f:
         pset_dict = pkl.load(f)
-    problems = pset_dict["problems"][0]  # todo since no curriclulums
+    problems = pset_dict["problems"][0]
 
     problems_indexer = mp.Value("I", 0)
-    problems_indices = mp.Array("I", range(len(problems)))
+    problems_indices = mp.Array("I", len(problems))
     problems_loader = AsyncProblemLoader(
-        problems, problems_indices, problems_indexer, args.seed
+        problems,
+        problems_indices,
+        problems_indexer,
+        batch_size=args.n_batch,
+        seed=args.seed,
     )
 
     if args.mode == "train" and args.valid_path:
         with args.valid_path.open("rb") as f:
             vset_dict = pkl.load(f)
-        valid_problems = vset_dict["problems"][0]  # todo since no curriculums
-        valid_problems_indexer = mp.Value("I", 0)
-        valid_indices = mp.Array("I", range(len(problems)))
-        valid_problems_loader = AsyncProblemLoader(
-            valid_problems, valid_indices, valid_problems_indexer, args.seed
-        )
+        valid_problems = vset_dict["problems"][0]
+        valid_indexer = mp.Value("I", 0)
+        valid_indices = mp.Array("I", len(valid_problems))
+        valid_loader = AsyncProblemLoader(valid_problems, valid_indices, valid_indexer)
+        print(f"rank 0: {len(valid_problems)} valid problems")
     else:
         valid_problems = None
     results_queue = mp.Queue()
@@ -182,8 +188,8 @@ if __name__ == "__main__":
                 rank,
                 agent,
                 args,
-                problems,
-                valid_problems,
+                problems_loader,
+                valid_loader,
                 results_queue,
             ),
         )

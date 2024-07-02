@@ -51,9 +51,11 @@ class ResultsLog:
         for key in search_result_header:
             self.results[key].append(result.__dict__[key])
 
-    def get_df(self, policy_based, heuristic_based, bidirectional):
+    def get_df(self):
         ret_df = pd.DataFrame(self.results)
-        mod_df(ret_df, policy_based, heuristic_based, bidirectional)
+        ret_df = mod_df(
+            ret_df, self.policy_based, self.heuristic_based, self.bidirectional
+        )
         return ret_df
 
     def __getitem__(self, key) -> ResultsLog:
@@ -115,11 +117,6 @@ class Result:
     #     ret_df = pd.DataFrame([item for item in results])
     #     ret_df.columns = cls.df_attrs()
 
-    #     # for col in int_columns:
-    #     #     ret_df[col] = ret_df[col].astype(pd.UInt32Dtype())
-    #     mod_df(ret_df, policy_based, heuristic_based, bidirectional)
-    #     ret_df = ret_df.sort_values("exp")
-
     #     return ret_df
 
 
@@ -131,6 +128,8 @@ def mod_df(ret_df, policy_based, heuristic_based, bidirectional):
         exp = ret_df["fexp"] + ret_df["bexp"]
     else:
         exp = ret_df["fexp"]
+    for col in int_columns:
+        ret_df[col] = ret_df[col].astype(pd.UInt32Dtype())
     ret_df.insert(2, "exp", exp)
     if not policy_based:
         ret_df = ret_df.drop(columns=["facc", "fap", "bap", "bacc"], errors="ignore")
@@ -140,6 +139,8 @@ def mod_df(ret_df, policy_based, heuristic_based, bidirectional):
         ret_df = ret_df.drop(
             columns=["bexp", "bg", "bacc", "bap", "bhe"], errors="ignore"
         )
+    ret_df = ret_df.sort_values("exp")
+    return ret_df
 
 
 def print_model_train_summary(
