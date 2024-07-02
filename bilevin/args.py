@@ -23,6 +23,22 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
+        "--increase-budget",
+        const=True,
+        nargs="?",
+        type=strtobool,
+        default=False,
+        help="double budget each test iteration for failed problems",
+    )
+    parser.add_argument(
+        "--shuffle",
+        const=True,
+        nargs="?",
+        type=strtobool,
+        default=False,
+        help="shuffle training problems each epoch",
+    )
+    parser.add_argument(
         "--n-eval",
         type=int,
         default=32,
@@ -47,58 +63,7 @@ def parse_args():
         help="weight to use for weighted A*",
     )
     parser.add_argument(
-        "--n-epochs",
-        type=int,
-        default=10,
-        help="number of epochs to train for"
-    )
-    parser.add_argument(
-        "--min-solve-ratio-stage",
-        type=float,
-        default=0,
-        help="advance curriculum if the last n-tail-batch batches has at least this solve ratio and at least min-batches-per-stage batches have been attempted",
-    )
-    parser.add_argument(
-        "--min-solve-ratio-final-stage",
-        type=float,
-        default=0,
-        help="terminate final stage 'epoch' if the last n-tail-batch batches has at least this solve ratio and at least min-batches-per-stage batches have been attempted",
-    )
-    parser.add_argument(
-        "--min-solve-ratio-exp",
-        type=float,
-        default=0,
-        help="increase budget during training if the last n-tail-batch stage batches has below this solve ratio and at least min-batches-per-stage batches have been attempted. Budget resets with each curriculum stage.",
-    )
-    parser.add_argument(
-        "--n-batch-tail",
-        type=int,
-        default=-1,
-        help="compute solve ratios based on last n batches. 0 to use all stage batches seen so far, -1 to use number of batches in stage",
-    )
-    parser.add_argument(
-        "--min-batches-per-stage",
-        type=int,
-        default=-1,
-        help="minimum number of batches to attempt for each curriculum stage. Set to 0 for no minimum. Set to -1 to use the number of batches in the stage.",
-    )
-    parser.add_argument(
-        "--max-batches-per-stage",
-        type=int,
-        default=-1,
-        help="maximum number of batches to attempt for each curriculum stage. Set to 0 for no max. Set to -1 to use the number of batches in the stage.",
-    )
-    parser.add_argument(
-        "--min-batches-final-stage",
-        type=int,
-        default=-1,
-        help="minimum number of batches to attempt for final stage. Set to 0 for no minimum. Set to -1 to use the number of batches in the stage.",
-    )
-    parser.add_argument(
-        "--max-batches-final-stage",
-        type=int,
-        default=-1,
-        help="maximum number of batches to attempt for final stage. Set to 0 for no max. Set to -1 to use the number of batches in the stage.",
+        "--n-epochs", type=int, default=10, help="number of epochs to train for"
     )
     parser.add_argument(
         "--checkpoint-path",
@@ -230,14 +195,6 @@ def parse_args():
         default=32,
         type=int,
         help="number of convolution kernels",
-    )
-    parser.add_argument(
-        "--shuffle",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=False,
-        help="shuffle training problems each epoch",
     )
     parser.add_argument(
         "--no-conditional-backward",

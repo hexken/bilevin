@@ -54,6 +54,7 @@ class Agent(ABC):
             raise ValueError(f"Unknown agent {args.agent}")
 
         self.model: PolicyOrHeuristicModel = PolicyOrHeuristicModel(args, aux_args)
+        self.load_model(args)
         self.optimizer = getattr(optim, args.optimizer)(
             self.model.learnable_params, weight_decay=args.weight_decay
         )
@@ -68,6 +69,16 @@ class Agent(ABC):
         to.save(self.model.state_dict(), path)
         if log:
             print(f"Saved model\n  to {str(path)}")
+
+    def load_model(self, args: Namespace):
+        if args.model_path is not None:
+            self.model.load_state_dict(to.load(args.model_path))
+            print(f"Loaded model\n  {str(args.model_path)}")
+        elif args.checkpoint_path is not None:
+            with args.checkpoint_path.open("rb") as f:
+                chkpt_dict = to.load(f)
+                self.model.load_state_dict(chkpt_dict["model_state"])
+            print(f"Loaded model\n  {str(args.checkpoint_path)}")
 
     @property
     @abstractmethod

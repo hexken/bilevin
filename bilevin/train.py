@@ -1,26 +1,18 @@
 from argparse import Namespace
-from copy import copy
 import pickle
 import random
 import sys
 from timeit import default_timer as timer
 
 import numpy as np
-import pandas as pd
 from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
 import torch.multiprocessing as mp
-from torch.nn.utils import clip_grad_norm_ as clip_
 
 from search.agent import Agent
 from search.loaders import AsyncProblemLoader
-from search.utils import (
-    Result,
-    ResultsLog,
-    print_model_train_summary,
-    print_search_summary,
-)
+from search.utils import Result, ResultsLog, print_search_summary
 from test import test
 
 
@@ -35,8 +27,12 @@ def train(
     expansion_budget: int = args.train_expansion_budget
     checkpoint_every_n_batch: int = args.checkpoint_every_n_batch
 
-    best_models_log = (args.logdir / "best_models.txt").open("a")
-    simple_log = (args.logdir / "simple_log.txt").open("a")
+    if rank == 0:
+        simple_log = (args.logdir / "simple_log.txt").open("a")
+        if args.checkpoint_path is None:
+            simple_log.write(
+                "epoch\tepoch_solved\tepoch_exp\tvalid_solved\tvalid_exp\ttime\n"
+            )
 
     best_valid_expanded = len(valid_loader) * expansion_budget + 1
 
@@ -70,231 +66,222 @@ def train(
     old_checkpoint_path = args.logdir / f"dummy_chkpt"
 
     dist.monitored_barrier()
-    while epoch <= args.n_epochs:
-        done_batch = True
-        while True:
-            if done_batch:
-                batch_start_time = timer()
-                done_batch = False
-                if done_epoch or epoch == 0:
-                    epoch_start_time = timer()
-                    done_epoch = False
-                    results = ResultsLog(None, agent)
-                    epoch += 1
-                    batch = 0
-                    if rank == 0:
-                        train_loader.init_indexer(shuffle=args.shuffle)
-                        print(
-                            "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-                        )
-                        print(f"START EPOCH {epoch}")
-                batch += 1
+    done_batch = True
+    while True:
+        if done_batch:
+            batch_start_time = timer()
+            done_batch = False
+            if done_epoch or epoch == 0:
+                if epoch == args.n_epochs:
+                    break
+                epoch_start_time = timer()
+                done_epoch = False
+                results = ResultsLog(None, agent)
+                epoch += 1
+                batch = 0
                 if rank == 0:
-                    problem = train_loader.advance_batch()
-                dist.monitored_barrier()
-                if rank != 0:
-                    problem = train_loader.get_problem()
-            else:
+                    train_loader.init_indexer(shuffle=args.shuffle)
+                    print(
+                        "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+                    )
+                    print(f"START EPOCH {epoch}")
+            batch += 1
+            if rank == 0:
+                problem = train_loader.advance_batch()
+            dist.monitored_barrier()
+            if rank != 0:
                 problem = train_loader.get_problem()
+        else:
+            problem = train_loader.get_problem()
 
-            if problem is not None:
-                # print(f"rank {rank} problem {problem.id}")
-                agent.model.eval()
-                to.set_grad_enabled(False)
+        if problem is not None:
+            # print(f"rank {rank} problem {problem.id}")
+            agent.model.eval()
+            to.set_grad_enabled(False)
 
-                start_time = timer()
-                (
-                    n_forw_expanded,
-                    n_backw_expanded,
-                    traj,
-                ) = agent.search(
-                    problem,
-                    expansion_budget,
-                    time_budget=args.time_budget,
-                )
-                end_time = timer()
+            start_time = timer()
+            (
+                n_forw_expanded,
+                n_backw_expanded,
+                traj,
+            ) = agent.search(
+                problem,
+                expansion_budget,
+                time_budget=args.time_budget,
+            )
+            end_time = timer()
 
-                if traj is not None:
-                    f_traj, b_traj = traj
-                    sol_len = len(f_traj)
-                else:
-                    f_traj = b_traj = None
-                    sol_len = np.nan
+            if traj is not None:
+                f_traj, b_traj = traj
+                sol_len = len(f_traj)
+            else:
+                f_traj = b_traj = None
+                sol_len = np.nan
 
-                res = Result(
-                    id=problem.id,
-                    time=end_time - start_time,
-                    fexp=n_forw_expanded,
-                    bexp=n_backw_expanded,
-                    len=sol_len,
-                    f_traj=f_traj,
-                    b_traj=b_traj,
-                )
-                results_queue.put(res)
+            res = Result(
+                id=problem.id,
+                time=end_time - start_time,
+                fexp=n_forw_expanded,
+                bexp=n_backw_expanded,
+                len=sol_len,
+                f_traj=f_traj,
+                b_traj=b_traj,
+            )
+            results_queue.put(res)
 
-            else:  # end batch
-                done_batch = True
-                dist.monitored_barrier()
-                if rank == 0:
-                    batch_buffer: list[Result] = []
-                    while not results_queue.empty():
-                        batch_buffer.append(results_queue.get())
+        else:  # end batch
+            done_batch = True
+            dist.monitored_barrier()
+            if rank == 0:
+                batch_buffer: list[Result] = []
+                while not results_queue.empty():
+                    batch_buffer.append(results_queue.get())
 
-                    results.append(batch_buffer)
-                    batch_df = results[-len(batch_buffer) :].get_df()
-                    print(f"\nBatch {batch}")
-                    print(
-                        tabulate(
-                            batch_df,
-                            headers="keys",
-                            tablefmt="psql",
-                            showindex=False,
-                            floatfmt=".2f",
-                        )
+                results.append(batch_buffer)
+                batch_df = results[-len(batch_buffer) :].get_df()
+                print(f"\nBatch {batch}")
+                print(
+                    tabulate(
+                        batch_df,
+                        headers="keys",
+                        tablefmt="psql",
+                        showindex=False,
+                        floatfmt=".2f",
                     )
-                    # update rank 0 model
-                    trajs = [
-                        (res.f_traj, res.b_traj)
-                        for res in batch_buffer
-                        if res.f_traj is not None
-                    ]
-                    random.shuffle(trajs)
-
-                    if len(trajs) > 0:
-                        to.set_grad_enabled(True)
-                        agent.model.train()
-                        for traj in trajs:
-                            for grad_step in range(1, args.grad_steps + 1):
-                                agent.optimizer.zero_grad(set_to_none=False)
-                                loss = agent.loss_fn(traj[0], agent.model)
-                                if agent.is_bidirectional:
-                                    b_loss = agent.loss_fn(traj[1], agent.model)
-                                    loss += b_loss
-                                loss.backward()
-                                agent.optimizer.step()
-
-                    batch_total_time = timer() - batch_start_time
-                    print(
-                        f"Batch time: {batch_total_time:.2f}s, solved {len(trajs)}/{len(batch_buffer)}"
-                    )
-
-                # sync models
-                all_params_list = [
-                    param.data.view(-1) for param in agent.model.parameters()
+                )
+                # update rank 0 model
+                trajs = [
+                    (res.f_traj, res.b_traj)
+                    for res in batch_buffer
+                    if res.f_traj is not None
                 ]
-                all_params = to.cat(all_params_list)
-                dist.broadcast(all_params, src=0)
-                offset = 0
-                for param in agent.model.parameters():
-                    numel = param.numel()
-                    param.data.copy_(
-                        all_params[offset : offset + numel].view_as(param.data)
-                    )
-                    offset += numel
+                random.shuffle(trajs)
 
-                if batch * args.n_batch >= len(train_loader):
-                    done_epoch = True
-                    # log all search results
-                    if rank == 0:
-                        results_df = results.get_df()
-                        # stage_model_train_df = pd.DataFrame(
-                        #     {
-                        #         "floss": pd.Series(
-                        #             flosses, dtype=pd.Float32Dtype(), index=batch
-                        #         ),
-                        #     },
-                        # )
+                if len(trajs) > 0:
+                    to.set_grad_enabled(True)
+                    agent.model.train()
+                    for grad_step in range(1, args.grad_steps + 1):
+                        f_losses = []
+                        b_losses = []
+                        for f_traj, b_traj in trajs:
+                            agent.optimizer.zero_grad(set_to_none=False)
+                            loss = agent.loss_fn(f_traj, agent.model)
+                            f_losses.append(loss.item())
+                            if agent.is_bidirectional:
+                                b_loss = agent.loss_fn(b_traj, agent.model)
+                                b_losses.append(b_loss.item())
+                                loss += b_loss
+                            loss.backward()
+                            agent.optimizer.step()
+                        if agent.is_bidirectional:
+                            print(f"{np.mean(f_losses):.2f}\t{np.mean(b_losses):.2f}")
+                        else:
+                            print(f"{np.mean(f_losses):.2f}")
 
-                        agent.save_model("latest", log=False)
-                        with (args.logdir / f"search_train_e{epoch}.pkl").open(
-                            "wb"
-                        ) as f:
-                            pickle.dump(results_df, f)
-                        # with (args.logdir / f"model_train_e{epoch}.pkl").open(
-                        #     "wb"
-                        # ) as f:
-                        #     pickle.dump(stage_model_train_df, f)
+                batch_total_time = timer() - batch_start_time
+                print(
+                    f"Batch time: {batch_total_time:.2f}s, solved {len(trajs)}/{len(batch_buffer)}"
+                )
 
-                        print()
-                        print_search_summary(
-                            results_df,
-                            agent.is_bidirectional,
-                        )
-                        # print_model_train_summary(
-                        #     stage_model_train_df,
-                        #     agent.is_bidirectional,
-                        #     agent.has_policy,
-                        # )
-                        del results_df
+            # sync models
+            all_params_list = [
+                param.data.view(-1) for param in agent.model.parameters()
+            ]
+            all_params = to.cat(all_params_list)
+            dist.broadcast(all_params, src=0)
+            offset = 0
+            for param in agent.model.parameters():
+                numel = param.numel()
+                param.data.copy_(
+                    all_params[offset : offset + numel].view_as(param.data)
+                )
+                offset += numel
 
-                # Validation checks
-                if done_epoch:
-                    if rank == 0:
-                        print("\nValidating...\n")
-                        valid_start_time = timer()
-                        sys.stdout.flush()
+            if batch * args.n_batch >= len(train_loader):
+                done_epoch = True
+                # log all search results
+                if rank == 0:
+                    results_df = results.get_df()
 
-                    dist.monitored_barrier()
+                    agent.save_model("latest", log=False)
+                    with (args.logdir / f"train_e{epoch}.pkl").open("wb") as f:
+                        pickle.dump(results_df, f)
 
-                    valid_results = test(
-                        args,
-                        rank,
-                        agent,
-                        valid_loader,
-                        results_queue,
-                        print_results=False,
-                        train_epoch=epoch,
+                    print()
+                    epoch_solved, epoch_exp = print_search_summary(
+                        results_df,
+                        agent.is_bidirectional,
                     )
 
-                    if rank == 0:
-                        valid_df = valid_results.get_df()
-                        valid_total_expanded = valid_df["exp"].sum()
-                        valid_solved = len(valid_df[valid_df["len"] > 0])
+            # Validation checks
+            if done_epoch:
+                if rank == 0:
+                    print("\nValidating...\n")
+                    valid_start_time = timer()
+                    sys.stdout.flush()
 
-                        if valid_total_expanded <= best_valid_expanded:
-                            best_valid_expanded = valid_total_expanded
-                            print("Saving best model")
-                            best_models_log.write(
-                                f"solved {valid_solved} exp {valid_total_expanded}\n"
-                            )
-                            agent.save_model("best_expanded", log=False)
+                dist.monitored_barrier()
 
-                        print(f"\nValidation time: {timer() - valid_start_time:.2f}s")
-                        print(f"Epoch Time: {timer() -epoch_start_time:.2f}s")
-                        print(f"\nEND EPOCH {epoch}")
-                        print(
-                            ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-                        )
-                        sys.stdout.flush()
-                        simple_log.write(f"{epoch}  {timer() - train_start_time:.2f}\n")
-                        simple_log.flush()
+                valid_df = test(
+                    args,
+                    rank,
+                    agent,
+                    valid_loader,
+                    results_queue,
+                    print_results=False,
+                )
 
-                # Checkpoint at beginning of batch b
-                if (batch % checkpoint_every_n_batch == 0) or done_epoch:
-                    ts = timer()
-                    if rank == 0:
-                        checkpoint_data = {
-                            "search_results": results.results,
-                            "model_state": agent.model.state_dict(),
-                            "optimizer_state": agent.optimizer.state_dict(),
-                            "expansion_budget": expansion_budget,
-                            "best_valid_expanded": best_valid_expanded,
-                            "time_in_epoch": timer() - epoch_start_time,
-                            "time_in_training": timer() - train_start_time,
-                            "epoch": epoch,
-                            "batch": batch,
-                            "done_epoch": done_epoch,
-                            "loader_state": train_loader.state_dict(),
-                        }
-                        new_checkpoint_path = args.logdir / f"checkpoint_b{batch}.pkl"
-                        with new_checkpoint_path.open("wb") as f:
-                            to.save(checkpoint_data, f)
-                        del checkpoint_data
-                        if not args.keep_all_checkpoints:
-                            old_checkpoint_path.unlink(missing_ok=True)
-                            old_checkpoint_path = new_checkpoint_path
-                        print(
-                            f"\nCheckpoint saved to {new_checkpoint_path.name}, took {timer() - ts:.2f}s"
-                        )
+                if rank == 0:
+                    valid_exp = valid_df["exp"].sum()
+                    valid_solved = len(valid_df[valid_df["len"] > 0])
+                    with (args.logdir / f"valid_e{epoch}.pkl").open("wb") as f:
+                        pickle.dump(valid_df, f)
+                    print_search_summary(valid_df, agent.is_bidirectional)
+
+                    if valid_exp <= best_valid_expanded:
+                        best_valid_expanded = valid_exp
+                        print("Saving best model")
+                        agent.save_model("best_expanded", log=False)
+
+                    print(f"\nValidation time: {timer() - valid_start_time:.2f}s")
+                    print(f"Epoch Time: {timer() -epoch_start_time:.2f}s")
+                    print(f"\nEND EPOCH {epoch}")
+                    print(
+                        ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+                    )
+                    sys.stdout.flush()
+                    simple_log.write(
+                        f"{epoch}\t{epoch_solved}\t{epoch_exp}\t{valid_solved}\t{valid_exp}\t{timer() - train_start_time:.2f}\n"
+                    )
+                    simple_log.flush()
+                    del results_df, valid_df
+
+            # Checkpoint at beginning of batch b
+            if (batch % checkpoint_every_n_batch == 0) or done_epoch:
+                ts = timer()
+                if rank == 0:
+                    checkpoint_data = {
+                        "search_results": results.results,
+                        "model_state": agent.model.state_dict(),
+                        "optimizer_state": agent.optimizer.state_dict(),
+                        "expansion_budget": expansion_budget,
+                        "best_valid_expanded": best_valid_expanded,
+                        "time_in_epoch": timer() - epoch_start_time,
+                        "time_in_training": timer() - train_start_time,
+                        "epoch": epoch,
+                        "batch": batch,
+                        "done_epoch": done_epoch,
+                        "loader_state": train_loader.state_dict(),
+                    }
+                    new_checkpoint_path = args.logdir / f"checkpoint_b{batch}.pkl"
+                    with new_checkpoint_path.open("wb") as f:
+                        to.save(checkpoint_data, f)
+                    del checkpoint_data
+                    if not args.keep_all_checkpoints:
+                        old_checkpoint_path.unlink(missing_ok=True)
+                        old_checkpoint_path = new_checkpoint_path
+                    print(
+                        f"\nCheckpoint saved to {new_checkpoint_path.name}, took {timer() - ts:.2f}s"
+                    )
 
     dist.monitored_barrier()  # done training

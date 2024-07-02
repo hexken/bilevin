@@ -1,9 +1,6 @@
-from pathlib import Path
-import pickle
 from timeit import default_timer as timer
 
 import numpy as np
-import pandas as pd
 from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
@@ -12,7 +9,6 @@ import torch.multiprocessing as mp
 from search.agent import Agent
 from search.loaders import AsyncProblemLoader
 from search.utils import Result, ResultsLog
-from search.utils import int_columns, print_search_summary, search_result_header
 
 
 def test(
@@ -22,8 +18,6 @@ def test(
     loader: AsyncProblemLoader,
     results_queue: mp.Queue,
     print_results: bool = True,
-    increase_budget: bool = False,
-    train_epoch: int = 0,
 ):
     assert loader.batch_size == len(loader.problems)
     current_exp_budget: int = args.test_expansion_budget
@@ -90,12 +84,10 @@ def test(
                 while not results_queue.empty():
                     epoch_buffer.append(results_queue.get())
 
-                start_idx = len(results)
-                end_idx = len(epoch_buffer)
                 results.append(epoch_buffer)
-                epoch_df = results[start_idx:end_idx].get_df()
+                epoch_df = results[-len(epoch_buffer) :].get_df()
                 if print_results:
-                    print(f"\nEpoch {epoch}")
+                    print(f"\nBudget {current_exp_budget}")
                     print(
                         tabulate(
                             epoch_df,
@@ -106,7 +98,7 @@ def test(
                         )
                     )
 
-            if increase_budget:
+            if args.increase_budget:
                 if rank == 0:
                     for id in (p.id for p in epoch_buffer if p.len > 0):
                         solved_set.add(id)
@@ -118,18 +110,5 @@ def test(
             else:
                 break
 
-    if rank == 0:
-        print_search_summary(
-            epoch_df,
-            agent.is_bidirectional,
-        )
-        if train_epoch:
-            pth = args.logdir / f"search_valid_e{train_epoch}.pkl"
-        else:
-            pth = args.logdir / f"test.pkl"
-
-        with pth.open("wb") as f:
-            pickle.dump(epoch_df, f)
-
     dist.monitored_barrier()
-    return results
+    return results.get_df()

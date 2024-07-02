@@ -17,10 +17,9 @@ class PolicyOrHeuristicModel(nn.Module):
     ):
         super().__init__()
 
-        self.is_bidirectional: bool = derived_args["bidirectional"]
-
         self.has_policy: bool = derived_args["has_policy"]
         self.has_heuristic: bool = derived_args["has_heuristic"]
+        self.is_bidirectional: bool = derived_args["bidirectional"]
 
         self.has_feature_net: bool = not args.no_feature_net
         self.share_feature_net: bool = args.share_feature_net
@@ -149,7 +148,6 @@ class PolicyOrHeuristicModel(nn.Module):
                 learnable_params.append(params)
 
         self.learnable_params = learnable_params
-        load_model(args, self)
 
     def forward(
         self,
@@ -273,17 +271,6 @@ class CNN(nn.Module):
         x = x.flatten(1)
 
         return x
-
-
-def load_model(args: Namespace, model: nn.Module):
-    if args.model_path is not None:
-        model.load_state_dict(to.load(args.model_path))
-        print(f"Loaded model\n  {str(args.model_path)}")
-    elif args.checkpoint_path is not None:
-        with args.checkpoint_path.open("rb") as f:
-            chkpt_dict = to.load(f)
-            model.load_state_dict(chkpt_dict["model_state"])
-        print(f"Loaded model\n  {str(args.checkpoint_path)}")
 
 
 def get_num_features_after_cnn(

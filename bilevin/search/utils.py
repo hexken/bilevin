@@ -9,6 +9,8 @@ import torch as to
 from search.agent import Agent
 
 
+int_columns = ["id", "len", "fg", "bg", "fexp", "bexp"]
+
 search_result_header = (
     "id",
     "time",
@@ -112,26 +114,6 @@ class Result:
             self.bacc = np.nan
             self.bhe = np.nan
 
-    # @classmethod
-    # def df_attrs(cls):
-    #     return search_result_header
-
-    # def __iter__(self):
-    #     data = tuple(self.__dict__[var] for var in SearchResult.df_attrs())
-    #     return iter(data)
-
-    # @classmethod
-    # def list_to_df(
-    #     cls, results: list[SearchResult], policy_based, heuristic_based, bidirectional
-    # ):
-    #     ret_df = pd.DataFrame([item for item in results])
-    #     ret_df.columns = cls.df_attrs()
-
-    #     return ret_df
-
-
-int_columns = ["id", "len", "fg", "bg", "fexp", "bexp"]
-
 
 def mod_df(ret_df, policy_based, heuristic_based, bidirectional):
     if bidirectional:
@@ -217,6 +199,7 @@ def print_search_summary(
                 print()
             print(f"FB Exp: {fb_exp:.3f}")
             print(f"FB Len: {fb_lens:.3f}")
+    return len(solved_df), search_df["exp"].sum()
 
 
 def set_seeds(seed):

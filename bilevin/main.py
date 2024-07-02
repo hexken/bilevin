@@ -15,7 +15,7 @@ import torch.multiprocessing as mp
 from args import parse_args
 import search.agents as sa
 from search.loaders import AsyncProblemLoader
-from search.utils import set_seeds
+from search.utils import set_seeds, print_search_summary
 from test import test
 from train import train
 from utils import find_free_port
@@ -53,11 +53,11 @@ def run(
             valid_loader,
             results_queue,
         )
-        (logdir / "training_completed.txt").open("w").close()
+        (args.logdir / "training_completed.txt").open("w").close()
     else:
         if rank == 0:
             print("\nTesting...")
-        test(
+        results_df = test(
             args,
             rank,
             agent,
@@ -65,6 +65,10 @@ def run(
             results_queue,
             print_results=True,
         )
+        if rank == 0:
+            with open(args.logdir / f"test.pkl", "wb") as f:
+                pkl.dump(results_df, f)
+            print_search_summary(results_df, bidirectional=agent.is_bidirectional)
 
 
 if __name__ == "__main__":
