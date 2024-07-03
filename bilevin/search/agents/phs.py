@@ -130,4 +130,4 @@ class BiPHSAlt(BiDirAlt, PHSBase):
         super().__init__(*args, **kwargs)
 
 
-BiPHS = BiPHSBFS
+BiPHS = BiPHSAlt
