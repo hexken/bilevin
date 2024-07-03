@@ -244,14 +244,6 @@ def parse_args():
         help="use the same feature netword for forward and backward policies/heuristics. In this case forward-feature-net-lr is used",
     )
     parser.add_argument(
-        "--keep-all-checkpoints",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=False,
-        help="save all checkpoints instead of just the most recent",
-    )
-    parser.add_argument(
         "--forward-feature-net-lr",
         type=float,
         default=0.0001,

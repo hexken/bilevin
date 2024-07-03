@@ -89,7 +89,6 @@ def train(
             problem = train_loader.get_problem()
 
         if problem is not None:
-            # print(f"rank {rank} problem {problem.id}")
             agent.model.eval()
             to.set_grad_enabled(False)
 
@@ -150,6 +149,7 @@ def train(
                 train_loader.rng.shuffle(trajs)
 
                 if len(trajs) > 0:
+                    print("Updating model...")
                     to.set_grad_enabled(True)
                     agent.model.train()
                     for grad_step in range(1, args.grad_steps + 1):
@@ -193,7 +193,7 @@ def train(
                 )
                 offset += numel
 
-            if batch * train_loader.batch_size >= len(train_loader):
+            if batch * train_loader.batch_size >= len(train_loader): # end epoch
                 done_epoch = True
                 # log all search results
                 if rank == 0:
@@ -209,7 +209,7 @@ def train(
                         agent.is_bidirectional,
                     )
 
-            # Validation checks
+            # validate
             if done_epoch:
                 if rank == 0:
                     print("\nValidating...\n")
@@ -252,7 +252,6 @@ def train(
                     simple_log.flush()
                     del results_df, valid_df
 
-            # Checkpoint at beginning of batch b
             if (batch % args.checkpoint_every_n_batch == 0) or done_epoch:
                 ts = timer()
                 if rank == 0:
@@ -275,9 +274,8 @@ def train(
                     with new_checkpoint_path.open("wb") as f:
                         to.save(checkpoint_data, f)
                     del checkpoint_data
-                    if not args.keep_all_checkpoints:
-                        old_checkpoint_path.unlink(missing_ok=True)
-                        old_checkpoint_path = new_checkpoint_path
+                    old_checkpoint_path.unlink(missing_ok=True)
+                    old_checkpoint_path = new_checkpoint_path
                     print(
                         f"\nCheckpoint saved to {new_checkpoint_path.name}, took {timer() - ts:.2f}s"
                     )
