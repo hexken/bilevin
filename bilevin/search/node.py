@@ -13,21 +13,29 @@ if TYPE_CHECKING:
 class DirStructures:
     def __init__(
         self,
-        direction: SearchDir,
+        dir: SearchDir,
         open: list[SearchNode],
         closed: dict[SearchNode, SearchNode],
         domain: Domain,
         other_domain: Domain,
         goal_feats: Optional[Tensor] = None,
-        expanded: int = 0,
     ):
-        self.direction = direction
+        self.dir = dir
         self.open = open
         self.closed = closed
         self.domain = domain
         self.other_domain = other_domain
         self.goal_feats = goal_feats
-        self.expanded = expanded
+
+        self.expanded = 0
+        self.masks = []
+        self.children_to_be_evaluated = []
+        self.state_t_of_children_to_be_evaluated = []
+        if dir == SearchDir.FORWARD:
+            self.next_dir = SearchDir.BACKWARD
+        else:
+            self.next_dir = SearchDir.FORWARD
+        self.next_ds: DirStructures
 
 
 class SearchNode:
@@ -55,7 +63,7 @@ class SearchNode:
         self.log_action_probs = log_action_probs
         self.h = h
         self.f = f
-        self.dir_structures = ds
+        self.ds = ds = ds
 
     def __eq__(self, other):
         """

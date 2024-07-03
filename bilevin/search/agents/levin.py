@@ -7,8 +7,7 @@ import torch as to
 from domains.domain import State
 from enums import SearchDir
 from search.agent import Agent
-from search.agents.bidir_alt import BiDirAlt
-from search.agents.bidir_bfs import BiDirBFS
+from search.agents.bidir import BiDir
 from search.agents.unidir import UniDir
 from search.node import SearchNode
 
@@ -111,13 +110,14 @@ class Levin(UniDir, LevinBase):
         super().__init__(logdir, args, aux_args)
 
 
-class BiLevinBFS(BiDirBFS, LevinBase):
+class BiLevinBFS(BiDir, LevinBase):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs, alternating=False)
 
 
-class BiLevinAlt(BiDirAlt, LevinBase):
+class BiLevinAlt(BiDir, LevinBase):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs, alternating=True)
 
-BiLevin = BiLevinBFS
+
+BiLevin = BiLevinAlt

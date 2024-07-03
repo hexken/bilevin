@@ -7,8 +7,7 @@ import torch as to
 
 from enums import SearchDir
 from search.agent import Agent
-from search.agents.bidir_alt import BiDirAlt
-from search.agents.bidir_bfs import BiDirBFS
+from search.agents.bidir import BiDir
 from search.agents.unidir import UniDir
 from search.node import SearchNode
 
@@ -104,13 +103,14 @@ class AStar(UniDir, AStarBase):
         super().__init__(logdir, args, aux_args)
 
 
-class BiAStarBFS(BiDirBFS, AStarBase):
+class BiAStarBFS(BiDir, AStarBase):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs, alternating=False)
 
 
-class BiAStarAlt(BiDirAlt, AStarBase):
+class BiAStarAlt(BiDir, AStarBase):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs, alternating=True)
+
 
 BiAStar = BiAStarAlt

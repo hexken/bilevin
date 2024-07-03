@@ -22,7 +22,6 @@ def test(
 ):
     assert loader.batch_size == len(loader.problems)
     current_exp_budget: int = args.test_expansion_budget
-    current_time_budget: float = args.time_budget
 
     to.set_grad_enabled(False)
     agent.model.eval()
@@ -59,7 +58,7 @@ def test(
             ) = agent.search(
                 problem,
                 current_exp_budget,
-                time_budget=current_time_budget,
+                time_budget=args.time_budget,
             )
             end_time = timer()
 

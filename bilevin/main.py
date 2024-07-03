@@ -53,7 +53,6 @@ def run(
             agent,
             train_loader,
             valid_loader,
-            test_loader,
             results_queue,
         )
         (args.logdir / "training_completed.txt").open("w").close()

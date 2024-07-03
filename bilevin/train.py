@@ -22,16 +22,13 @@ def train(
     agent: Agent,
     train_loader: AsyncProblemLoader,
     valid_loader: AsyncProblemLoader,
-    test_loader: AsyncProblemLoader | None,
     results_queue: mp.Queue,
 ):
-    expansion_budget: int = args.train_expansion_budget
-    checkpoint_every_n_batch: int = args.checkpoint_every_n_batch
 
     if rank == 0:
         simple_log = (args.logdir / "simple_log.txt").open("a")
 
-    best_valid_expanded = len(valid_loader) * expansion_budget + 1
+    best_valid_expanded = len(valid_loader) * args.train_expansion_budget + 1
 
     if args.checkpoint_path is None:
         results = ResultsLog(None, agent)
@@ -103,7 +100,7 @@ def train(
                 (f_traj, b_traj),
             ) = agent.search(
                 problem,
-                expansion_budget,
+                args.train_expansion_budget,
                 time_budget=args.time_budget,
             )
             end_time = timer()
@@ -253,14 +250,14 @@ def train(
                     del results_df, valid_df
 
             # Checkpoint at beginning of batch b
-            if (batch % checkpoint_every_n_batch == 0) or done_epoch:
+            if (batch % args.checkpoint_every_n_batch == 0) or done_epoch:
                 ts = timer()
                 if rank == 0:
                     checkpoint_data = {
                         "search_results": results.results,
                         "model_state": agent.model.state_dict(),
                         "optimizer_state": agent.optimizer.state_dict(),
-                        "expansion_budget": expansion_budget,
+                        "expansion_budget": args.train_expansion_budget,
                         "best_valid_expanded": best_valid_expanded,
                         "time_in_epoch": timer() - epoch_start_time,
                         "time_in_training": timer() - train_start_time,
