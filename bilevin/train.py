@@ -246,8 +246,7 @@ def train(
                     )
                     sys.stdout.flush()
                     simple_log.write(
-                        f"{epoch} {epoch_solved} {epoch_exp} {valid_solved} {valid_exp} {timer() -
-                                                                                         train_start_time:.2f}\n"
+                        f"{epoch} {epoch_solved} {epoch_exp} {valid_solved} {valid_exp} {timer() - train_start_time:.2f}\n"
                     )
                     simple_log.flush()
                     del results_df, valid_df
