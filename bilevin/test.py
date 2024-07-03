@@ -54,7 +54,7 @@ def test(
             (
                 n_forw_expanded,
                 n_backw_expanded,
-                traj,
+                (f_traj, b_traj),
             ) = agent.search(
                 problem,
                 current_exp_budget,
@@ -62,8 +62,8 @@ def test(
             )
             end_time = timer()
 
-            if traj is not None:
-                sol_len = len(traj[0])
+            if f_traj is not None:
+                sol_len = len(f_traj)
             else:
                 sol_len = np.nan
 
@@ -73,6 +73,8 @@ def test(
                 fexp=n_forw_expanded,
                 bexp=n_backw_expanded,
                 len=sol_len,
+                f_traj=f_traj,
+                b_traj=b_traj,
             )
             results_queue.put(res)
 

@@ -29,10 +29,6 @@ def train(
 
     if rank == 0:
         simple_log = (args.logdir / "simple_log.txt").open("a")
-        if args.checkpoint_path is None:
-            simple_log.write(
-                "epoch\tepoch_solved\tepoch_exp\tvalid_solved\tvalid_exp\ttime\n"
-            )
 
     best_valid_expanded = len(valid_loader) * expansion_budget + 1
 
@@ -103,7 +99,7 @@ def train(
             (
                 n_forw_expanded,
                 n_backw_expanded,
-                traj,
+                (f_traj, b_traj),
             ) = agent.search(
                 problem,
                 expansion_budget,
@@ -111,11 +107,9 @@ def train(
             )
             end_time = timer()
 
-            if traj is not None:
-                f_traj, b_traj = traj
+            if f_traj is not None:
                 sol_len = len(f_traj)
             else:
-                f_traj = b_traj = None
                 sol_len = np.nan
 
             res = Result(
@@ -251,7 +245,8 @@ def train(
                     )
                     sys.stdout.flush()
                     simple_log.write(
-                        f"{epoch}\t{epoch_solved}\t{epoch_exp}\t{valid_solved}\t{valid_exp}\t{timer() - train_start_time:.2f}\n"
+                        f"{epoch} {epoch_solved} {epoch_exp} {valid_solved} {valid_exp} {timer() -
+                                                                                         train_start_time:.2f}\n"
                     )
                     simple_log.flush()
                     del results_df, valid_df
@@ -273,7 +268,9 @@ def train(
                         "done_epoch": done_epoch,
                         "loader_state": train_loader.state_dict(),
                     }
-                    new_checkpoint_path = args.logdir / f"checkpoint_b{batch}.pkl"
+                    new_checkpoint_path = (
+                        args.logdir / f"checkpoint_e{epoch}b{batch}.pkl"
+                    )
                     with new_checkpoint_path.open("wb") as f:
                         to.save(checkpoint_data, f)
                     del checkpoint_data

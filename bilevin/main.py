@@ -102,7 +102,7 @@ if __name__ == "__main__":
         valid_indices = mp.Array("I", len(valid_problems))
         valid_loader = AsyncProblemLoader(valid_problems, valid_indices, valid_indexer)
     else:
-        valid_problems = None
+        valid_loader = None
     results_queue = mp.Queue()
 
     if args.mode == "train":

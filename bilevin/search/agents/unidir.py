@@ -59,7 +59,7 @@ class UniDir(Agent):
                 or time_budget > 0
                 and timer() - start_time >= time_budget
             ):
-                return num_expanded, 0, None
+                return num_expanded, 0, (None, None)
 
             node = heappop(open_list)
             num_expanded += 1
@@ -109,4 +109,4 @@ class UniDir(Agent):
                 state_t_of_children_to_be_evaluated.clear()
 
         print(f"Emptied open list for problem {problem_id}")
-        return num_expanded, 0, None
+        return num_expanded, 0, (None, None)

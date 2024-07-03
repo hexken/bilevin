@@ -56,7 +56,7 @@ class Agent(ABC):
         self.model: PolicyOrHeuristicModel = PolicyOrHeuristicModel(args, aux_args)
         self.load_model(args)
         self.optimizer = getattr(optim, args.optimizer)(
-            self.model.learnable_params, weight_decay=args.weight_decay
+            self.model.learnable_params, weight_decay=args.weight_decay, eps=1e-7
         )
 
     def save_model(
@@ -133,5 +133,5 @@ class Agent(ABC):
     @abstractmethod
     def search(
         self, problem: Problem, exp_budget: int, time_budget: float
-    ) -> tuple[int, int, Optional[tuple[Trajectory, Optional[Trajectory]]]]:
+    ) -> tuple[int, int, tuple[Trajectory | None, Trajectory | None]]:
         pass

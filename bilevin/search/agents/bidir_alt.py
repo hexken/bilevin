@@ -107,7 +107,7 @@ class BiDirAlt(Agent):
                 return (
                     f_dir_struct.expanded,
                     b_dir_struct.expanded,
-                    None,
+                    (None, None),
                 )
 
             direction = next_direction
@@ -146,18 +146,18 @@ class BiDirAlt(Agent):
                     )
 
                     if new_node not in ds.closed:
-                        trajs = ds.domain.try_make_solution(
+                        (f_traj, b_traj) = ds.domain.try_make_solution(
                             self,
                             new_node,
                             ds.other_domain,
                             num_expanded,
                         )
 
-                        if trajs is not None:  # solution found
+                        if f_traj is not None:  # solution found
                             return (
                                 f_dir_struct.expanded,
                                 b_dir_struct.expanded,
-                                trajs,
+                                (f_traj, b_traj),
                             )
 
                         ds.closed[new_node] = new_node
@@ -183,5 +183,5 @@ class BiDirAlt(Agent):
         return (
             f_dir_struct.expanded,
             b_dir_struct.expanded,
-            None,
+            (None, None),
         )

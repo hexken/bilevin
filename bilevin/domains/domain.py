@@ -68,7 +68,7 @@ class Domain(ABC):
         node: SearchNode,
         other_domain: Domain,
         num_expanded: int,
-    ) -> tuple[Trajectory, Trajectory] | None:
+    ) -> tuple[Trajectory | None, Trajectory | None]:
         """
         Returns a trajectory if state is a solution to this problem, None otherwise.
         """
@@ -104,7 +104,7 @@ class Domain(ABC):
 
             return (f_traj, b_traj)
         else:
-            return None
+            return (None, None)
 
     @property
     @abstractmethod

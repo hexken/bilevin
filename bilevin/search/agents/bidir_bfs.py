@@ -15,6 +15,7 @@ from search.node import DirStructures
 if TYPE_CHECKING:
     pass
 
+
 class BiDirBFS(Agent):
     def __init__(self, logdir: Path, args: Namespace, aux_args: dict):
         super().__init__(logdir, args, aux_args)
@@ -97,7 +98,7 @@ class BiDirBFS(Agent):
                 return (
                     f_dir_struct.expanded,
                     b_dir_struct.expanded,
-                    None,
+                    (None, None),
                 )
 
             nodes = []
@@ -141,18 +142,18 @@ class BiDirBFS(Agent):
                     new_node.dir_structures = ds
 
                     if new_node not in ds.closed:
-                        trajs = ds.domain.try_make_solution(
+                        f_traj, b_traj = ds.domain.try_make_solution(
                             self,
                             new_node,
                             ds.other_domain,
                             num_expanded,
                         )
 
-                        if trajs:  # solution found
+                        if f_traj is not None:  # solution found
                             return (
                                 f_dir_struct.expanded,
                                 b_dir_struct.expanded,
-                                trajs,
+                                (f_traj, b_traj),
                             )
 
                         ds.closed[new_node] = new_node
@@ -192,5 +193,5 @@ class BiDirBFS(Agent):
         return (
             f_dir_struct.expanded,
             b_dir_struct.expanded,
-            None,
+            (None, None),
         )
