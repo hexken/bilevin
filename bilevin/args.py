@@ -295,56 +295,6 @@ def parse_args():
         help="number of gradient steps to be performed in each opt pass",
     )
     parser.add_argument(
-        "--lr-decay",
-        type=float,
-        default=0.1,
-        help="factor to decay learning rate by",
-    )
-    parser.add_argument(
-        "--solve-ratio-reduce-lr",
-        type=float,
-        default=-1,
-        help="reduce learning rate by a factor of lr-decay once we solve this many validation problems, -1 to disable",
-    )
-    # parser.add_argument(
-    #     "--validate-reduce-grad-steps",
-    #     type=float,
-    #     default=0.99,
-    #     help="reduce number of grad steps by a factor of 2 once we solve this many validation problems",
-    # )
-    parser.add_argument(
-        "--batch-begin-validate",
-        type=int,
-        default=1,
-        help="only begin validating from this batch onwards",
-    )
-    parser.add_argument(
-        "--stage-begin-validate",
-        type=int,
-        default=1,
-        help="only begin validating from this stage onwards",
-    )
-    parser.add_argument(
-        "--validate-every-n-batch",
-        type=int,
-        default=-1,
-        help="validate every this many batches, -1 to not use",
-    )
-    parser.add_argument(
-        "--validate-every-n-stage",
-        type=int,
-        default=-1,
-        help="validate every this many stages, -1 to not use",
-    )
-    parser.add_argument(
-        "--validate-every-epoch",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=True,
-        help="validate after every epoch",
-    )
-    parser.add_argument(
         "--checkpoint-every-n-batch",
         type=int,
         default=1250,
@@ -370,28 +320,12 @@ def parse_args():
         ],
         help="name of the search agent to use",
     )
-    # parser.add_argument(
-    #     "--cost-fn",
-    #     type=str,
-    #     default="levin_cost",
-    #     choices=[
-    #         "levin_cost",
-    #     ],
-    #     help="cost function for best-first search",
-    # )
     parser.add_argument(
         "--world-size",
         type=int,
         default=4,
         help="number of processes to spawn",
     )
-    # parser.add_argument(
-    #     "--backend",
-    #     type=str,
-    #     default="gloo",
-    #     choices=["gloo", "mpi"],
-    #     help="backend for multiprocessing communication",
-    # )
     parser.add_argument(
         "--master-addr",
         type=str,
