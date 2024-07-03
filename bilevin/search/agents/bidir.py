@@ -182,6 +182,9 @@ class BiDir(Agent):
                             _ds.masks,
                             _ds.goal_feats,
                         )
+                        _ds.children_to_be_evaluated.clear()
+                        _ds.state_t_of_children_to_be_evaluated.clear()
+                        _ds.masks.clear()
 
         print(f"Emptied opens for problem {problem.id}")
         return (
