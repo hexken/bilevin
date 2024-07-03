@@ -45,7 +45,7 @@ def parse_args():
         help="number of nodes to evaluate in a single batch",
     )
     parser.add_argument(
-        "--n-batch",
+        "--batch-size",
         type=int,
         default=32,
         help="number of problems in attempted before a model update",
@@ -78,14 +78,19 @@ def parse_args():
         help="path of directory to save run results to",
     )
     parser.add_argument(
-        "--problems-path",
+        "--train-path",
         type=lambda p: Path(p).absolute(),
-        help="path of file with training or test problem instances",
+        help="path of file with training problem instances",
     )
     parser.add_argument(
         "--valid-path",
         type=lambda p: Path(p).absolute(),
         help="path of file with valid problem instances",
+    )
+    parser.add_argument(
+        "--test-path",
+        type=lambda p: Path(p).absolute(),
+        help="path of file with test problem instances",
     )
     parser.add_argument(
         "-m",
@@ -95,10 +100,11 @@ def parse_args():
         help="path of directory to load previously saved model(s) from",
     )
     parser.add_argument(
-        "--model-suffix",
+        "--test-suffix",
         type=str,
-        default="best",
-        help="suffix of model to load, i.e. model_[suffix].pt",
+        default="best_expanded",
+        choices=["best_expanded", "final"],
+        help="type of model to use for test",
     )
     parser.add_argument(
         "--optimizer",

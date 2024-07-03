@@ -1,3 +1,4 @@
+from argparse import Namespace
 from copy import deepcopy
 import datetime
 import json
@@ -7,26 +8,27 @@ import pickle as pkl
 import time
 from timeit import default_timer as timer
 
-import numpy as np
 import torch as to
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
 from args import parse_args
+from search.agent import Agent
 import search.agents as sa
 from search.loaders import AsyncProblemLoader
-from search.utils import set_seeds, print_search_summary
+from search.utils import print_search_summary, set_seeds
 from test import test
 from train import train
-from utils import find_free_port
+from utils import find_free_port, get_loader
 
 
 def run(
-    rank,
-    agent,
-    args,
-    problems_loader,
-    valid_loader,
+    rank: int,
+    agent: Agent,
+    args: Namespace,
+    train_loader: AsyncProblemLoader,
+    valid_loader: AsyncProblemLoader,
+    test_loader: AsyncProblemLoader | None,
     results_queue,
 ):
     dist.init_process_group(
@@ -43,25 +45,27 @@ def run(
     if args.mode == "train":
         if rank == 0:
             print(
-                f"\nTraining on {len(problems_loader)} problems for {args.n_epochs} epochs"
+                f"\nTraining on {len(train_loader)} problems for {args.n_epochs} epochs"
             )
         train(
             args,
             rank,
             agent,
-            problems_loader,
+            train_loader,
             valid_loader,
+            test_loader,
             results_queue,
         )
         (args.logdir / "training_completed.txt").open("w").close()
-    else:
+
+    if test_loader is not None:
         if rank == 0:
             print("\nTesting...")
         results_df = test(
             args,
             rank,
             agent,
-            problems_loader,
+            test_loader,
             results_queue,
             print_results=True,
         )
@@ -80,32 +84,18 @@ if __name__ == "__main__":
     set_seeds(args.seed)
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
 
-    with args.problems_path.open("rb") as f:
-        pset_dict = pkl.load(f)
-    problems = pset_dict["problems"][0]
-
-    problems_indexer = mp.Value("I", 0)
-    problems_indices = mp.Array("I", len(problems))
-    problems_loader = AsyncProblemLoader(
-        problems,
-        problems_indices,
-        problems_indexer,
-        batch_size=args.n_batch,
-        seed=args.seed,
-    )
-
-    if args.mode == "train" and args.valid_path:
-        with args.valid_path.open("rb") as f:
-            vset_dict = pkl.load(f)
-        valid_problems = vset_dict["problems"][0]
-        valid_indexer = mp.Value("I", 0)
-        valid_indices = mp.Array("I", len(valid_problems))
-        valid_loader = AsyncProblemLoader(valid_problems, valid_indices, valid_indexer)
-    else:
-        valid_loader = None
     results_queue = mp.Queue()
 
+    if args.test_path is not None:
+        test_loader, pset_dict = get_loader(args, args.test_path)
+    else:
+        test_loader = None
+
     if args.mode == "train":
+        train_loader, pset_dict = get_loader(
+            args, args.train_path, batch_size=args.batch_size
+        )
+        valid_loader, _ = get_loader(args, args.valid_path)
         if args.checkpoint_path is None:
             if "SLURM_JOB_ID" in os.environ:
                 runid = (
@@ -113,14 +103,15 @@ if __name__ == "__main__":
                 )
             else:
                 runid = f"{int(abs_start_time)}"
-            run_name = f"{args.problems_path.parent.stem}-{args.problems_path.stem}_{args.agent}{exp_name}_{args.seed}_{runid}"
+            run_name = f"{args.train_path.parent.stem}-{args.train_path.stem}_{args.agent}{exp_name}_{args.seed}_{runid}"
             logdir = args.runsdir_path / run_name
         else:
             run_name = str(args.checkpoint_path.parent)
             logdir = args.checkpoint_path.parent
             print(f"Loaded checkpoint {str(args.checkpoint_path)}")
 
-    elif args.mode == "test":
+    else:  # test
+        train_loader = valid_loader = None
         if args.model_path is not None:
             logdir = args.model_path.parent
             model_name = args.model_path.stem
@@ -133,8 +124,6 @@ if __name__ == "__main__":
                 "Must specify either model_path or checkpoint_path to test"
             )
         logdir /= f"test_{model_name}{exp_name}_{args.seed}_{int(abs_start_time)}"
-    else:
-        raise ValueError(f"Unknown mode: {args.mode}")
 
     logdir.mkdir(parents=True, exist_ok=True)
     print(f"Logging to {str(logdir)}")
@@ -191,8 +180,9 @@ if __name__ == "__main__":
                 rank,
                 agent,
                 args,
-                problems_loader,
+                train_loader,
                 valid_loader,
+                test_loader,
                 results_queue,
             ),
         )

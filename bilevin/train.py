@@ -22,6 +22,7 @@ def train(
     agent: Agent,
     train_loader: AsyncProblemLoader,
     valid_loader: AsyncProblemLoader,
+    test_loader: AsyncProblemLoader | None,
     results_queue: mp.Queue,
 ):
     expansion_budget: int = args.train_expansion_budget
@@ -149,7 +150,7 @@ def train(
                     for res in batch_buffer
                     if res.f_traj is not None
                 ]
-                random.shuffle(trajs)
+                train_loader.rng.shuffle(trajs)
 
                 if len(trajs) > 0:
                     to.set_grad_enabled(True)
@@ -191,13 +192,13 @@ def train(
                 )
                 offset += numel
 
-            if batch * args.n_batch >= len(train_loader):
+            if batch * train_loader.batch_size >= len(train_loader):
                 done_epoch = True
                 # log all search results
                 if rank == 0:
                     results_df = results.get_df()
 
-                    agent.save_model("latest", log=False)
+                    agent.save_model("final", log=False)
                     with (args.logdir / f"train_e{epoch}.pkl").open("wb") as f:
                         pickle.dump(results_df, f)
 
@@ -280,5 +281,4 @@ def train(
                     print(
                         f"\nCheckpoint saved to {new_checkpoint_path.name}, took {timer() - ts:.2f}s"
                     )
-
     dist.monitored_barrier()  # done training
