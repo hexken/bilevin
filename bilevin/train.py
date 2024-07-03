@@ -177,6 +177,7 @@ def train(
                 print(
                     f"Batch time: {batch_total_time:.2f}s, solved {len(trajs)}/{len(batch_buffer)}"
                 )
+                sys.stdout.flush()
 
             # sync models
             all_params_list = [

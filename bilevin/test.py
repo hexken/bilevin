@@ -1,3 +1,4 @@
+import sys
 from timeit import default_timer as timer
 
 import numpy as np
@@ -99,6 +100,7 @@ def test(
                             floatfmt=".2f",
                         )
                     )
+                    sys.stdout.flush()
 
             if args.increase_budget:
                 if rank == 0:
