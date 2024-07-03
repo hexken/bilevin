@@ -50,6 +50,7 @@ class ResultsLog:
             self.policy_based = policy_based
             self.heuristic_based = heuristic_based
             self.bidirectional = bidirectional
+        self.solved = 0
 
     def append(self, result: Result | list[Result]):
         if isinstance(result, list):
@@ -61,6 +62,8 @@ class ResultsLog:
     def _append(self, result: Result):
         for key in search_result_header:
             self.results[key].append(result.__dict__[key])
+        if result.len > 0:
+            self.solved += 1
 
     def get_df(self):
         ret_df = pd.DataFrame(self.results)
@@ -159,15 +162,15 @@ def print_search_summary(
         solved = len(solved_df) / len(search_df)
         time = solved_df["time"].mean()
         if bidirectional:
-            exp = (solved_df["fexp"] + solved_df["bexp"]).mean()
+            s_exp = (solved_df["fexp"] + solved_df["bexp"]).mean()
         else:
-            exp = (solved_df["fexp"]).mean()
+            s_exp = (solved_df["fexp"]).mean()
         lens = solved_df["len"].mean()
-        print(f"Problems: {len(search_df)}")
-        print(f"Solved: {solved:.3f}")
-        print(f"Time: {time:.3f}")
-        print(f"Exp: {exp:.3f}")
-        print(f"Len: {lens:.3f}")
+        print(f"Solved: {len(solved_df)} ({solved * 100:.2f}%)")
+        print(f"Time: {time:.2f} ({search_df['time'].mean():.2f})")
+        total_exp = search_df["exp"].sum()
+        print(f"Exp: {s_exp:.2f} ({total_exp/len(search_df):.2f})")
+        print(f"Len: {lens:.2f}")
         if "fap" in solved_df.columns:
             fap = solved_df["fap"].mean()
             print(f"Fap: {fap:.3f}")
@@ -187,19 +190,24 @@ def print_search_summary(
             bhe = solved_df["bhe"].mean()
             print(f"Bhe: {bhe:.3f}")
         if bidirectional:
-            fb_exp = solved_df["fexp"] / solved_df["bexp"]
-            fb_exp = fb_exp[fb_exp != np.inf].mean()
-            fb_lens = solved_df["fg"] / solved_df["bg"]
+            s_fb_exp = solved_df["fexp"] / solved_df["bexp"]
+            s_fb_exp = s_fb_exp[s_fb_exp != np.inf].mean()
+
+            a_fb_exp = search_df["fexp"] / search_df["bexp"]
+            a_fb_exp = a_fb_exp[a_fb_exp != np.inf].mean()
+
+            fb_lens = solved_df["fg"] / (solved_df["bg"] + solved_df["fg"])
             fb_lens = fb_lens[fb_lens != np.inf].mean()
+
             if "facc" in solved_df.columns:
                 fb_acc = solved_df["facc"] / solved_df["bacc"]
                 fb_acc = fb_acc[fb_acc != np.inf].mean()
-                print(f"\nFB Acc: {fb_exp:.3f}")
+                print(f"\nFB Acc: {s_fb_exp:.3f}")
             else:
                 print()
-            print(f"FB Exp: {fb_exp:.3f}")
+            print(f"FB Exp: {s_fb_exp:.3f} ({a_fb_exp:.3f})")
             print(f"FB Len: {fb_lens:.3f}")
-    return len(solved_df), search_df["exp"].sum()
+    return len(solved_df), total_exp
 
 
 def set_seeds(seed):

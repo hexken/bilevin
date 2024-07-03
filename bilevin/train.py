@@ -174,6 +174,9 @@ def train(
                 print(
                     f"Batch time: {batch_total_time:.2f}s, solved {len(trajs)}/{len(batch_buffer)}"
                 )
+                print(
+                    f"Epoch time: {timer() - epoch_start_time:.2f}s, solved {results.solved}/{len(train_loader)}"
+                )
                 sys.stdout.flush()
 
             # sync models
@@ -237,7 +240,7 @@ def train(
                         agent.save_model("best_expanded", log=False)
 
                     print(f"\nValidation time: {timer() - valid_start_time:.2f}s")
-                    print(f"Epoch Time: {timer() -epoch_start_time:.2f}s")
+                    print(f"Epoch time: {timer() -epoch_start_time:.2f}s")
                     print(f"\nEND EPOCH {epoch}")
                     print(
                         ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
