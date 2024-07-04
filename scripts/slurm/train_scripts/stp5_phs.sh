@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH --account=rrg-lelis
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
+#SBATCH --ntasks-per-node=6
 #SBATCH --mem=4G
-#SBATCH --time=168:00:00
+#SBATCH --time=00:10:00
 #SBATCH --array=1-5
-#SBATCH --output=/scratch/tjhia/bilevin/slurm_outputs/phs/stp5/phs/%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/outputs/<subdir>/stp5/stp5-50000-train_PHS_%a_%j-%a.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -19,21 +19,17 @@ pip install --no-index -r requirements.txt
 cd /scratch/tjhia/bilevin
 export OMP_NUM_THREADS=1
 
-argfile=/scratch/tjhia/bilevin/scripts/slurm/phs_args.txt
-args=$(sed "${SLURM_ARRAY_TASK_ID}q;d" $argfile)
-seed=$(echo $args | cut -d' ' -f1)
-agent=$(echo $args | cut -d' ' -f2)
-# chk=$(echo $args | cut -d' ' -f3)
-
-# --checkpoint-path $chk \
-
 python bilevin/main.py \
+    --world-size 6 \
+    --batch-size 32 \
     --n-eval 32 \
     --agent $agent \
-    --seed $seed \
-    --runsdir-path runs/phs/stp5/phs \
-    --problems-path problems/stp5/50000-train.pkl \
+    --seed $SLURM_ARRAY_TASK_ID \
+    --runsdir-path runs/stp5/PHS \
+    --train-path problems/stp5/50000-train.pkl \
     --valid-path problems/stp5/1000-valid.pkl \
+    --test-path problems/stp5/1000-test.pkl \
+    -shuffle \
     \
     --share-feature-net True \
     --train-expansion-budget 7000 \

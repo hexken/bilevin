@@ -5,15 +5,19 @@ export OMP_NUM_THREADS=1
 flr=0.0001
 blr=0.0001
 python bilevin/main.py \
+    --n-epochs 2 \
     --agent PHS \
-    --loss-fn nll_sum \
+    --loss-fn default \
     --exp-name "" \
-    --runsdir-path runs/ \
-    --problems-path problems/stp5/50000-train.pkl \
+    --train-path problems/stp5/50000-train.pkl \
     --valid-path problems/stp5/1000-valid.pkl \
+    --test-path problems/stp5/1000-test.pkl \
+    --runsdir-path runs/ \
+    --shuffle \
     --master-port 34568 \
     --seed 1 \
-    --world-size 4 \
+    --world-size 2 \
+    --batch-size 8 \
     --n-eval 32 \
     --feature-net-type conv \
     --no-feature-net f \
@@ -36,27 +40,14 @@ python bilevin/main.py \
     --backward-feature-net-lr $blr \
     --backward-policy-layers 256 198 128 \
     --backward-policy-lr $blr \
-    --backward-heuristic-layers 256 298 128 \
+    --backward-heuristic-layers 256 198 128 \
     --backward-heuristic-lr $blr \
     \
-    --stage-begin-validate 1 \
-    --validate-every-n-batch 10 \
-    --validate-every-epoch f\
-    --checkpoint-every-n-batch 100 \
+    --checkpoint-every-n-batch 5 \
     \
     --time-budget 300 \
-    --train-expansion-budget 14000 \
+    --train-expansion-budget 7000 \
     \
-    --n-final-stage-epochs 5 \
-    \
-    --n-batch-tail 10 \
-    \
-    # --batch-begin-validate 1 \
-    # --validate-every-n-batch 50 \
-    # --min-batches-per-stage -1 \
-    # --max-batches-per-stage -1 \
-    # --min-batches-final-stage -1 \
-    # --max-batches-final-stage -1 \
-    # --min-solve-ratio-stage 0 \
-    # --min-solve-ratio-exp 0 \
-    # \
+    # --train-path problems/stp4/100-train.pkl \
+    # --valid-path problems/stp4/50-valid.pkl \
+    # --test-path problems/stp4/50-test.pkl \
