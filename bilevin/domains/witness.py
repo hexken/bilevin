@@ -161,7 +161,7 @@ class Witness(Domain):
 
         # defining the 3-dimnesional array that will be filled with the puzzle's information
         arr = np.zeros(
-            (self.in_channels, self.state_t_width, self.state_t_width), dtype=np.float32
+            (self.in_channels, self.state_t_width, self.state_t_width), dtype=np.float64
         )
 
         for i in range(self.width):

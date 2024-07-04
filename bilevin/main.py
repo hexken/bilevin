@@ -16,10 +16,10 @@ from args import parse_args
 from search.agent import Agent
 import search.agents as sa
 from search.loaders import AsyncProblemLoader
-from search.utils import print_search_summary, set_seeds
+from search.utils import print_search_summary
 from test import test
 from train import train
-from utils import find_free_port, get_loader
+from utils import find_free_port, get_loader, set_seeds
 
 
 def run(
@@ -38,10 +38,8 @@ def run(
         world_size=args.world_size,
     )
 
-    local_seed = args.seed + rank
-    set_seeds(local_seed)
-    to.set_num_threads(1)
-
+    # local_seed = args.seed + rank
+    # set_seeds(local_seed)
     if args.mode == "train":
         if rank == 0:
             print(
@@ -76,11 +74,15 @@ def run(
 
 if __name__ == "__main__":
     # mp.set_start_method("fork")
-    args = parse_args()
     abs_start_time = time.time()
-    rel_start_time = timer()
     print(time.ctime(abs_start_time))
+
+    args = parse_args()
+
+    to.set_num_threads(1)
+    to.set_default_dtype(to.float64)
     set_seeds(args.seed)
+
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
 
     results_queue = mp.Queue()
@@ -146,6 +148,8 @@ if __name__ == "__main__":
 
     agent_class = getattr(sa, args.agent)
     agent = agent_class(logdir, args, derived_args)
+
+    all_params_list = [param.data.view(-1) for param in agent.model.parameters()]
 
     arg_dict = {
         k: (v if not isinstance(v, Path) else str(v)) for k, v in vars(args).items()

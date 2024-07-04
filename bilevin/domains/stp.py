@@ -9,7 +9,6 @@ from domains.domain import Domain, State
 from enums import ActionDir
 
 
-
 def get_goal_state(width: int) -> SlidingTileState:
     tiles = np.arange(width**2).reshape(width, width)
     return SlidingTileState(tiles, 0, 0)
@@ -84,7 +83,7 @@ class SlidingTile(Domain):
         self,
         state: SlidingTileState,
     ) -> to.Tensor:
-        return one_hot(from_numpy(state.tiles)).float().permute(2, 0, 1)
+        return one_hot(from_numpy(state.tiles)).double().permute(2, 0, 1)
 
     def reverse_action(self, action: ActionDir) -> ActionDir:
         if action == ActionDir.UP:
@@ -139,9 +138,7 @@ class SlidingTile(Domain):
 
         return actions
 
-    def result(
-        self, state: SlidingTileState, action: ActionDir
-    ) -> SlidingTileState:
+    def result(self, state: SlidingTileState, action: ActionDir) -> SlidingTileState:
         tiles = np.array(state.tiles)
         blank_row = state.blank_row
         blank_col = state.blank_col

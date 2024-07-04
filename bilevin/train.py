@@ -193,7 +193,7 @@ def train(
                 )
                 offset += numel
 
-            if batch * train_loader.batch_size >= len(train_loader): # end epoch
+            if batch * train_loader.batch_size >= len(train_loader):  # end epoch
                 done_epoch = True
                 # log all search results
                 if rank == 0:

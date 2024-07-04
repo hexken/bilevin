@@ -1,11 +1,14 @@
 import linecache
 from pathlib import Path
 import pickle as pkl
+import random
 import socket
 import tracemalloc
 
 from filelock import FileLock
 import numpy as np
+import numpy as np
+import torch as to
 import torch.multiprocessing as mp
 
 from search.loaders import AsyncProblemLoader
@@ -93,42 +96,7 @@ def find_free_port(lockfile: str, master_addr: str) -> str:
     return str(port)
 
 
-def split_by_rank(args, problems):
-    "split a list of lists of problems into a list of lists of problems per rank"
-    rng = np.random.default_rng(args.seed)
-
-    def split_by_rank(problems):
-        ranks_x_problems = [[] for _ in range(args.world_size)]
-        rank = 0
-        for problem in problems:
-            ranks_x_problems[rank].append(problem)
-            rank = (rank + 1) % args.world_size
-
-        # ensure all ranks have same number of problems per stage
-        n_largest_pset = len(ranks_x_problems[0])
-        for pset in ranks_x_problems:
-            if len(pset) < n_largest_pset:
-                pset.append(rng.choice(problems))
-            assert len(pset) == n_largest_pset
-
-        return ranks_x_problems
-
-    stages_x_problems = problems
-    num_stages = len(stages_x_problems)
-
-    # turn stages x problems into stages x ranks x problems
-    stages_x_ranks_x_problems = []
-    for stage_problems in stages_x_problems:
-        stages_x_ranks_x_problems.append(split_by_rank(stage_problems))
-
-    world_num_problems = 0
-    ranks_x_stages_x_problems = []
-    for rank in range(args.world_size):
-        curr_stages_x_problems = []
-        for stage in range(num_stages):
-            probs = stages_x_ranks_x_problems[stage][rank]
-            curr_stages_x_problems.append(probs)
-            world_num_problems += len(probs)
-        ranks_x_stages_x_problems.append(curr_stages_x_problems)
-
-    return ranks_x_stages_x_problems, world_num_problems
+def set_seeds(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    to.manual_seed(seed)

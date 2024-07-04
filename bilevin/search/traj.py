@@ -132,7 +132,7 @@ def from_goal_node(
     states = to.stack(tuple(reversed(states)))
     actions = to.tensor(tuple(reversed(actions)))
     masks = to.stack(tuple(reversed(masks)))
-    cost_to_gos = to.arange(len(states), 0, -1, dtype=to.float32)
+    cost_to_gos = to.arange(len(states), 0, -1, dtype=to.float64)
 
     preds = agent.model(states, mask=masks, forward=forward, goal_state_t=goal_state_t)
     if agent.has_policy:
@@ -140,7 +140,7 @@ def from_goal_node(
         nlls = nll_loss(log_probs, actions, reduction="none")
         action_prob = to.exp(-nlls).mean().item()
         acc = (
-            (log_probs.detach().argmax(dim=1) == actions).mean(dtype=to.float32).item()
+            (log_probs.detach().argmax(dim=1) == actions).mean(dtype=to.float64).item()
         )
     else:
         action_prob = nan
