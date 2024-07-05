@@ -87,6 +87,7 @@ class PHSBase(Agent):
     def finalize_children_nodes(
         self: Agent,
         open_list: list[SearchNode],
+        closed_list: dict[SearchNode, SearchNode],
         direction: SearchDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],
@@ -111,7 +112,10 @@ class PHSBase(Agent):
             child.log_action_probs = lap
             child.h = h
             child.f = log(pg + h) - (1 + (h / pg)) * child.log_prob
-            heappush(open_list, child)
+
+            if child not in closed_list:
+                closed_list[child] = child
+                heappush(open_list, child)
 
 
 class PHS(UniDir, PHSBase):

@@ -203,9 +203,9 @@ class PolicyOrHeuristicModel(nn.Module):
                     h = self.backward_heuristic(feats)
 
         if logits is not None:
-            if mask is not None:
-                # mask[i] should be True if the action i is invalid, False otherwise
-                logits = logits.masked_fill(mask, -1e9)
+            # if mask is not None:
+            #     # mask[i] should be True if the action i is invalid, False otherwise
+            #     logits = logits.masked_fill(mask, -1e9)
             log_probs = log_softmax(logits, dim=-1)
 
         if log_probs is not None or h is not None:

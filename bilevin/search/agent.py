@@ -56,7 +56,7 @@ class Agent(ABC):
         self.model: PolicyOrHeuristicModel = PolicyOrHeuristicModel(args, aux_args)
         self.load_model(args)
         self.optimizer = getattr(optim, args.optimizer)(
-            self.model.learnable_params, weight_decay=args.weight_decay, eps=1e-7
+            self.model.learnable_params, eps=1e-7
         )
 
     def save_model(

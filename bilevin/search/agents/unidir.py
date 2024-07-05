@@ -76,28 +76,27 @@ class UniDir(Agent):
                     new_state,
                 )
 
-                if new_node not in closed:
-                    if domain.is_goal(new_state):
-                        traj = from_goal_node(
-                            self,
-                            domain=domain,
-                            goal_node=new_node,
-                            num_expanded=num_expanded,
-                            partial_g_cost=new_node.g,
-                        )
-                        traj = (traj, None)
-                        return num_expanded, 0, traj
+                if domain.is_goal(new_state):
+                    traj = from_goal_node(
+                        self,
+                        domain=domain,
+                        goal_node=new_node,
+                        num_expanded=num_expanded,
+                        partial_g_cost=new_node.g,
+                    )
+                    traj = (traj, None)
+                    return num_expanded, 0, traj
 
-                    closed[new_node] = new_node
-                    if new_state_actions:
-                        children_to_be_evaluated.append(new_node)
-                        state_t = domain.state_tensor(new_state)
-                        state_t_of_children_to_be_evaluated.append(state_t)
-                        masks.append(mask)
+                    # if new_state_actions:
+                children_to_be_evaluated.append(new_node)
+                state_t = domain.state_tensor(new_state)
+                state_t_of_children_to_be_evaluated.append(state_t)
+                masks.append(mask)
 
             if len(children_to_be_evaluated) >= self.n_eval or len(open_list) == 0:
                 self.finalize_children_nodes(
                     open_list,
+                    closed,
                     SearchDir.FORWARD,
                     children_to_be_evaluated,
                     state_t_of_children_to_be_evaluated,

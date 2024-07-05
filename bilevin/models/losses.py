@@ -21,6 +21,7 @@ def loss_wrapper(
     model: PolicyOrHeuristicModel,
     policy_loss=None,
     heuristic_loss=None,
+    weight_decay: float = 0.001,
 ) -> to.Tensor:
     log_probs, hs = model(
         traj.states,
@@ -37,6 +38,11 @@ def loss_wrapper(
         loss = policy_loss(log_probs, traj)
     elif heuristic_loss is not None:
         loss = heuristic_loss(hs, traj)
+
+    l2_penalty = to.tensor(0.0)
+    for param in model.parameters():
+        l2_penalty += to.norm(param, p=2)
+    loss += weight_decay * l2_penalty
 
     return loss
 
