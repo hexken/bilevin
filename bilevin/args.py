@@ -289,7 +289,7 @@ def parse_args():
     parser.add_argument(
         "--checkpoint-every-n-batch",
         type=int,
-        default=1250,
+        default=100,
         help="checkpoint every this many batches",
     )
     parser.add_argument(

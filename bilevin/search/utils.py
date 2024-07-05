@@ -1,10 +1,8 @@
 from __future__ import annotations
-import random
 import warnings
 
 import numpy as np
 import pandas as pd
-import torch as to
 
 from search.agent import Agent
 
@@ -208,9 +206,3 @@ def print_search_summary(
             print(f"FB Exp: {s_fb_exp:.3f} ({a_fb_exp:.3f})")
             print(f"FB Len: {fb_lens:.3f}")
     return len(solved_df), total_exp
-
-
-def set_seeds(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    to.manual_seed(seed)

@@ -29,7 +29,7 @@ def run(
     train_loader: AsyncProblemLoader,
     valid_loader: AsyncProblemLoader,
     test_loader: AsyncProblemLoader | None,
-    results_queue,
+    results_queue: mp.Queue,
 ):
     dist.init_process_group(
         timeout=datetime.timedelta(seconds=86400),
@@ -53,7 +53,8 @@ def run(
             valid_loader,
             results_queue,
         )
-        (args.logdir / "training_completed.txt").open("w").close()
+        if rank == 0:
+            (args.logdir / "training_completed.txt").open("w").close()
 
     if test_loader is not None:
         if rank == 0:
