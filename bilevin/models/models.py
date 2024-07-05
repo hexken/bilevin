@@ -149,6 +149,13 @@ class PolicyOrHeuristicModel(nn.Module):
 
         self.learnable_params = learnable_params
 
+        # init weights
+        for p in self.parameters():
+            if p.dim() > 1:
+                to.nn.init.xavier_uniform_(p)
+            else:
+                to.nn.init.constant_(p, 0)
+
     def forward(
         self,
         state_t: to.Tensor,
