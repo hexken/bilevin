@@ -116,23 +116,27 @@ class BiDir(Agent):
             # else:
 
             if self.alternating:
-                if len(ds.open) == 0:
-                    ds = ds.next_ds
+                # if len(ds.open) == 0:
+                #     ds = ds.next_ds
                 node = heappop(ds.open)
-                ds = ds.next_ds
             else:
-                if b_open[0] < f_open[0]:
+                flen = len(f_open)
+                blen = len(b_open)
+                if flen == 0:
+                    node = heappop(b_open)
+                elif blen == 0:
+                    node = heappop(f_open)
+                elif b_open[0] < f_open[0]:
                     node = heappop(b_open)
                 else:
                     node = heappop(f_open)
 
             num_expanded += 1
             ds.expanded += 1
-            assert node.ds is not None
 
             for a in node.actions:
-                new_state = node.ds.domain.result(node.state, a)
-                new_state_actions, mask = node.ds.domain.actions(a, new_state)
+                new_state = ds.domain.result(node.state, a)
+                new_state_actions, mask = ds.domain.actions(a, new_state)
                 new_node = self.make_partial_child_node(
                     node,
                     a,
@@ -140,13 +144,13 @@ class BiDir(Agent):
                     mask,
                     new_state,
                 )
-                new_node.ds = node.ds
+                new_node.ds = ds
 
-                if new_node not in node.ds.closed:
-                    f_traj, b_traj = node.ds.domain.try_make_solution(
+                if new_node not in ds.closed:
+                    f_traj, b_traj = ds.domain.try_make_solution(
                         self,
                         new_node,
-                        node.ds.other_domain,
+                        ds.other_domain,
                         num_expanded,
                     )
 
@@ -157,20 +161,19 @@ class BiDir(Agent):
                             (f_traj, b_traj),
                         )
 
-                    node.ds.closed[new_node] = new_node
-                    node.ds.domain.update(new_node)
+                    ds.closed[new_node] = new_node
+                    ds.domain.update(new_node)
 
                     if new_state_actions:
                         state_t = ds.domain.state_tensor(new_state)
-                        node.ds.children_to_be_evaluated.append(new_node)
-                        node.ds.state_t_of_children_to_be_evaluated.append(state_t)
-                        node.ds.masks.append(mask)
+                        ds.children_to_be_evaluated.append(new_node)
+                        ds.state_t_of_children_to_be_evaluated.append(state_t)
+                        ds.masks.append(mask)
 
             if (
                 len(f_ds.children_to_be_evaluated) + len(b_ds.children_to_be_evaluated)
                 >= self.n_eval
-                or len(f_open) == 0
-                or len(b_open) == 0
+                or len(ds.next_ds.open) == 0
             ):
                 for _ds in (f_ds, b_ds):
                     if len(_ds.children_to_be_evaluated) > 0:
@@ -185,7 +188,9 @@ class BiDir(Agent):
                         _ds.children_to_be_evaluated.clear()
                         _ds.state_t_of_children_to_be_evaluated.clear()
                         _ds.masks.clear()
+                ds = ds.next_ds
 
+        assert False
         print(f"Emptied opens for problem {problem.id}")
         return (
             f_ds.expanded,

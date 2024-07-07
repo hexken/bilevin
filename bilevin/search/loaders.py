@@ -41,15 +41,15 @@ class AsyncProblemLoader:
         self.n_problems = len(self.problems)
 
     def init_indexer(self, shuffle: bool = False):
-        if shuffle:
-            new_indices = self.rng.permutation(self.n_problems)
-        else:
-            new_indices = np.arange(self.n_problems)
-
-        with self.shared_indices.get_lock():
-            self.shared_indices[:] = new_indices[:]
         with self.shared_indexer.get_lock():
-            self.shared_indexer.value = 0
+            if shuffle:
+                new_indices = self.rng.permutation(self.n_problems)
+            else:
+                new_indices = np.arange(self.n_problems)
+
+            with self.shared_indices.get_lock():
+                self.shared_indices[:] = new_indices[:]
+                self.shared_indexer.value = 0
 
     def advance_batch(self):
         with self.shared_indexer.get_lock():

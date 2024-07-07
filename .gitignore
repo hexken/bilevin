@@ -1,5 +1,6 @@
 env
 notebooks/
+scripts/slurm/train_scripts/
 thes2/
 old_problems/
 figs/
