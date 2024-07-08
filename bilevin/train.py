@@ -70,7 +70,7 @@ def train(
                     break
                 epoch_start_time = timer()
                 done_epoch = False
-                results = ResultsLog(None, agent)
+                results.clear()
                 epoch += 1
                 batch = 0
                 if rank == 0:
@@ -83,12 +83,14 @@ def train(
             if rank == 0:
                 problem = train_loader.advance_batch()
             dist.monitored_barrier()
+            print(f"rank {rank} batch {batch} waiting")
             if rank != 0:
                 problem = train_loader.get_problem()
         else:
             problem = train_loader.get_problem()
 
         if problem is not None:
+            print(f"rank {rank} batch {batch} problem {problem.id}")
             agent.model.eval()
             to.set_grad_enabled(False)
 
@@ -118,10 +120,13 @@ def train(
                 f_traj=f_traj,
                 b_traj=b_traj,
             )
+            print(f"rank {rank} batch {batch} problem {problem.id} done")
             results_queue.put(res)
+            print(f"rank {rank} batch {batch} problem {problem.id} put on queue")
 
         else:  # end batch
             done_batch = True
+            print(f"rank {rank} batch {batch} done")
             dist.monitored_barrier()
             if rank == 0:
                 batch_buffer: list[Result] = []
@@ -192,8 +197,10 @@ def train(
                     all_params[offset : offset + numel].view_as(param.data)
                 )
                 offset += numel
+            print(f"rank {rank} batch {batch} model synced")
 
             if batch * train_loader.batch_size >= len(train_loader):  # end epoch
+                print(f"rank {rank} batch {batch} end epoch")
                 done_epoch = True
                 # log all search results
                 if rank == 0:
@@ -208,6 +215,7 @@ def train(
                         results_df,
                         agent.is_bidirectional,
                     )
+                    del results_df
 
             # validate
             if done_epoch:
@@ -226,6 +234,7 @@ def train(
                     results_queue,
                     print_results=False,
                 )
+                print(f"rank {rank} valid done")
 
                 if rank == 0:
                     valid_exp = valid_df["exp"].sum()
@@ -250,11 +259,11 @@ def train(
                         f"{epoch} {epoch_solved} {epoch_exp} {valid_solved} {valid_exp} {timer() - train_start_time:.2f}\n"
                     )
                     simple_log.flush()
-                    del results_df, valid_df
+                    del valid_df
 
             if (batch % args.checkpoint_every_n_batch == 0) or done_epoch:
-                ts = timer()
                 if rank == 0:
+                    ts = timer()
                     checkpoint_data = {
                         "search_results": results.results,
                         "model_state": agent.model.state_dict(),

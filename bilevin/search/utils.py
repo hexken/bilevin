@@ -50,6 +50,11 @@ class ResultsLog:
             self.bidirectional = bidirectional
         self.solved = 0
 
+    def clear(self):
+        for key in search_result_header:
+            self.results[key].clear()
+        self.solved = 0
+
     def append(self, result: Result | list[Result]):
         if isinstance(result, list):
             for res in result:
