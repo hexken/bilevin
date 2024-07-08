@@ -14,7 +14,7 @@ import torch.multiprocessing as mp
 from search.loaders import AsyncProblemLoader
 
 
-def get_loader(args, problems_path: Path, batch_size: int | None = None):
+def get_async_loader(args, problems_path: Path, batch_size: int | None = None):
     with problems_path.open("rb") as f:
         pset_dict = pkl.load(f)
     problems = pset_dict["problems"][0]
@@ -27,7 +27,13 @@ def get_loader(args, problems_path: Path, batch_size: int | None = None):
         batch_size=batch_size,
         seed=args.seed,
     )
-    return loader, pset_dict
+
+
+def get_problems(args, problems_path: Path, batch_size: int | None = None):
+    with problems_path.open("rb") as f:
+        pset_dict = pkl.load(f)
+    problems = pset_dict["problems"][0]
+    return problems, pset_dict
 
 
 def display_top(snapshot, key_type="lineno", limit=25):

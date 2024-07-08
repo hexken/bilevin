@@ -11,7 +11,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 
 from search.agent import Agent
-from search.loaders import AsyncProblemLoader
+from search.loaders import AsyncProblemLoader, Problem
 from search.utils import Result, ResultsLog, print_search_summary
 from test import test
 
@@ -20,15 +20,17 @@ def train(
     args: Namespace,
     rank: int,
     agent: Agent,
-    train_loader: AsyncProblemLoader,
-    valid_loader: AsyncProblemLoader,
+    train_problems: list[Problem],
+    valid_problems: list[Problem],
+    problems_queue: mp.Queue,
+    index_queue: mp.Queue,
     results_queue: mp.Queue,
 ):
 
     if rank == 0:
         simple_log = (args.logdir / "simple_log.txt").open("a")
 
-    best_valid_expanded = len(valid_loader) * args.train_expansion_budget + 1
+    best_valid_expanded = len(valid_problems) * args.train_expansion_budget + 1
 
     if args.checkpoint_path is None:
         results = ResultsLog(None, agent)
@@ -46,7 +48,7 @@ def train(
             epoch = checkpoint_data["epoch"]
             batch = checkpoint_data["batch"]
             done_epoch = checkpoint_data["done_epoch"]
-            train_loader.load_state_dict(checkpoint_data["loader_state"])
+            train_problems.load_state_dict(checkpoint_data["loader_state"])
 
         if rank == 0:
             print(
@@ -74,19 +76,19 @@ def train(
                 epoch += 1
                 batch = 0
                 if rank == 0:
-                    train_loader.init_indexer(shuffle=args.shuffle)
+                    train_problems.init_indexer(shuffle=args.shuffle)
                     print(
                         "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                     )
                     print(f"START EPOCH {epoch}")
             batch += 1
             if rank == 0:
-                problem = train_loader.advance_batch()
+                problem = train_problems.advance_batch()
             dist.monitored_barrier()
             if rank != 0:
-                problem = train_loader.get_problem()
+                problem = train_problems.get_problem()
         else:
-            problem = train_loader.get_problem()
+            problem = train_problems.get_problem()
 
         if problem is not None:
             agent.model.eval()
@@ -146,7 +148,7 @@ def train(
                     for res in batch_buffer
                     if res.f_traj is not None
                 ]
-                train_loader.rng.shuffle(trajs)
+                train_problems.rng.shuffle(trajs)
 
                 if len(trajs) > 0:
                     print("Updating model...")
@@ -175,7 +177,7 @@ def train(
                     f"Batch time: {batch_total_time:.2f}s, solved {len(trajs)}/{len(batch_buffer)}"
                 )
                 print(
-                    f"Epoch time: {timer() - epoch_start_time:.2f}s, solved {results.solved}/{len(train_loader)}"
+                    f"Epoch time: {timer() - epoch_start_time:.2f}s, solved {results.solved}/{len(train_problems)}"
                 )
                 sys.stdout.flush()
 
@@ -193,7 +195,7 @@ def train(
                 )
                 offset += numel
 
-            if batch * train_loader.batch_size >= len(train_loader):  # end epoch
+            if batch * train_problems.batch_size >= len(train_problems):  # end epoch
                 done_epoch = True
                 # log all search results
                 if rank == 0:
@@ -222,7 +224,7 @@ def train(
                     args,
                     rank,
                     agent,
-                    valid_loader,
+                    valid_problems,
                     results_queue,
                     print_results=False,
                 )
@@ -266,7 +268,7 @@ def train(
                         "epoch": epoch,
                         "batch": batch,
                         "done_epoch": done_epoch,
-                        "loader_state": train_loader.state_dict(),
+                        "loader_state": train_problems.state_dict(),
                     }
                     new_checkpoint_path = (
                         args.logdir / f"checkpoint_e{epoch}b{batch}.pkl"

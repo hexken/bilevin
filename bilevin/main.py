@@ -15,20 +15,21 @@ import torch.multiprocessing as mp
 from args import parse_args
 from search.agent import Agent
 import search.agents as sa
-from search.loaders import AsyncProblemLoader
+from search.loaders import AsyncProblemLoader, Problem
 from search.utils import print_search_summary
 from test import test
 from train import train
-from utils import find_free_port, get_loader, set_seeds
+from utils import find_free_port, get_problems, set_seeds
 
 
 def run(
     rank: int,
     agent: Agent,
     args: Namespace,
-    train_loader: AsyncProblemLoader,
-    valid_loader: AsyncProblemLoader,
-    test_loader: AsyncProblemLoader | None,
+    train_problems: list[Problem],
+    valid_problems: list[Problem],
+    test_problems: list[Problem] | None,
+    index_queue: mp.Queue,
     results_queue: mp.Queue,
 ):
     dist.init_process_group(
@@ -43,27 +44,29 @@ def run(
     if args.mode == "train":
         if rank == 0:
             print(
-                f"\nTraining on {len(train_loader)} problems for {args.n_epochs} epochs"
+                f"\nTraining on {len(train_problems)} problems for {args.n_epochs} epochs"
             )
         train(
             args,
             rank,
             agent,
-            train_loader,
-            valid_loader,
+            train_problems,
+            valid_problems,
+            index_queue,
             results_queue,
         )
         if rank == 0:
             (args.logdir / "training_completed.txt").open("w").close()
 
-    if test_loader is not None:
+    if test_problems is not None:
         if rank == 0:
             print("\nTesting...")
         results_df = test(
             args,
             rank,
             agent,
-            test_loader,
+            test_problems,
+            index_queue,
             results_queue,
             print_results=True,
         )
@@ -86,18 +89,19 @@ if __name__ == "__main__":
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
 
+    index_queue = mp.Queue()
     results_queue = mp.Queue()
 
     if args.test_path is not None:
-        test_loader, pset_dict = get_loader(args, args.test_path)
+        test_loader, pset_dict = get_problems(args, args.test_path)
     else:
         test_loader = None
 
     if args.mode == "train":
-        train_loader, pset_dict = get_loader(
+        train_loader, pset_dict = get_problems(
             args, args.train_path, batch_size=args.batch_size
         )
-        valid_loader, _ = get_loader(args, args.valid_path)
+        valid_loader, _ = get_problems(args, args.valid_path)
         if args.checkpoint_path is None:
             if "SLURM_JOB_ID" in os.environ:
                 runid = (
@@ -187,6 +191,7 @@ if __name__ == "__main__":
                 train_loader,
                 valid_loader,
                 test_loader,
+                index_queue,
                 results_queue,
             ),
         )
