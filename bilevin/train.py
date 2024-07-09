@@ -1,4 +1,5 @@
 from argparse import Namespace
+import gc
 import pickle
 import random
 import sys
@@ -81,6 +82,7 @@ def train(
             batch += 1
             if rank == 0:
                 problem = train_loader.advance_batch()
+            gc.collect()
             dist.monitored_barrier()
             if rank != 0:
                 problem = train_loader.get_problem()
@@ -123,6 +125,7 @@ def train(
                 b_traj=b_traj,
             )
             results_queue.put(res)
+            del res, f_traj, b_traj
 
         else:  # end batch
             done_batch = True
@@ -196,6 +199,7 @@ def train(
                     all_params[offset : offset + numel].view_as(param.data)
                 )
                 offset += numel
+            del all_params, all_params_list
 
             if batch * train_loader.batch_size >= len(train_loader):  # end epoch
                 done_epoch = True

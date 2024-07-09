@@ -113,6 +113,7 @@ def test(
                 dist.broadcast_object_list(tmp, 0)
                 current_exp_budget *= 2
                 epoch_buffer.clear()
+                del tmp
             else:
                 epoch_buffer.clear()
                 break
