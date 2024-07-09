@@ -129,7 +129,6 @@ def train(
             dist.monitored_barrier()
             if rank == 0:
                 print(f"\nBatch {batch}")
-                print(f"{results_queue.qsize()} results in queue")
                 while not results_queue.empty():
                     batch_buffer.append(results_queue.get())
 

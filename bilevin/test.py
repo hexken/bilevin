@@ -32,6 +32,8 @@ def test(
     epoch_buffer: list[Result] = []
     epoch = 0
     done_epoch = True
+    assert results_queue.empty()
+    dist.monitored_barrier()
     while True:
         if done_epoch:
             epoch += 1
@@ -45,7 +47,9 @@ def test(
         else:
             problem = loader.get_problem()
 
-        if problem is not None and problem.id not in solved_set:
+        if problem is not None:
+            if problem.id in solved_set:
+                continue
             agent.model.eval()
             to.set_grad_enabled(False)
 
@@ -108,9 +112,10 @@ def test(
                     tmp = [None]
                 dist.broadcast_object_list(tmp, 0)
                 current_exp_budget *= 2
+                epoch_buffer.clear()
             else:
+                epoch_buffer.clear()
                 break
-            epoch_buffer.clear()
 
     dist.monitored_barrier()
     return results.get_df()
