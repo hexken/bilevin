@@ -29,16 +29,16 @@ search_result_header = (
 class ResultsLog:
     def __init__(
         self,
-        results: dict | None,
         agent: Agent | None = None,
+        data: dict | None = None,
         policy_based: bool | None = None,
         heuristic_based: bool | None = None,
         bidirectional: bool | None = None,
     ):
-        if results is not None:
-            self.results = results
+        if data is not None:
+            self.data = data
         else:
-            self.results = {key: [] for key in search_result_header}
+            self.data = {key: [] for key in search_result_header}
 
         if agent is not None:
             self.policy_based = agent.has_policy
@@ -50,6 +50,11 @@ class ResultsLog:
             self.bidirectional = bidirectional
         self.solved = 0
 
+    def clear(self):
+        for k in self.data.keys():
+            self.data[k].clear()
+        self.solved = 0
+
     def append(self, result: Result | list[Result]):
         if isinstance(result, list):
             for res in result:
@@ -59,12 +64,12 @@ class ResultsLog:
 
     def _append(self, result: Result):
         for key in search_result_header:
-            self.results[key].append(result.__dict__[key])
+            self.data[key].append(result.__dict__[key])
         if result.len > 0:
             self.solved += 1
 
     def get_df(self):
-        ret_df = pd.DataFrame(self.results)
+        ret_df = pd.DataFrame(self.data)
         ret_df = mod_df(
             ret_df, self.policy_based, self.heuristic_based, self.bidirectional
         )
@@ -72,15 +77,15 @@ class ResultsLog:
 
     def __getitem__(self, key) -> ResultsLog:
         return ResultsLog(
-            {k: v[key] for k, v in self.results.items()},
             None,
+            {k: v[key] for k, v in self.data.items()},
             self.policy_based,
             self.heuristic_based,
             self.bidirectional,
         )
 
     def __len__(self):
-        return len(self.results["id"])
+        return len(self.data["id"])
 
 
 class Result:

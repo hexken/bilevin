@@ -28,8 +28,8 @@ def test(
 
     solved_set = set()
 
-    results = ResultsLog(None, agent)
-
+    results = ResultsLog(agent)
+    epoch_buffer: list[Result] = []
     epoch = 0
     done_epoch = True
     while True:
@@ -38,7 +38,6 @@ def test(
             done_epoch = False
             if rank == 0:
                 loader.init_indexer(shuffle=False)
-            if rank == 0:
                 problem = loader.advance_batch()
             dist.monitored_barrier()
             if rank != 0:
@@ -82,7 +81,6 @@ def test(
             done_epoch = True
             dist.monitored_barrier()
             if rank == 0:
-                epoch_buffer: list[Result] = []
                 while not results_queue.empty():
                     epoch_buffer.append(results_queue.get())
 
@@ -112,6 +110,7 @@ def test(
                 current_exp_budget *= 2
             else:
                 break
+            epoch_buffer.clear()
 
     dist.monitored_barrier()
     return results.get_df()

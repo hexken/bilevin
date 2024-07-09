@@ -27,11 +27,12 @@ def train(
 
     if rank == 0:
         simple_log = (args.logdir / "simple_log.txt").open("a")
-
-    best_valid_expanded = len(valid_loader) * args.train_expansion_budget + 1
+        old_checkpoint_path = args.logdir / f"dummy_chkpt"
+        best_valid_expanded = len(valid_loader) * args.train_expansion_budget + 1
+        batch_buffer: list[Result] = []
 
     if args.checkpoint_path is None:
-        results = ResultsLog(None, agent)
+        results = ResultsLog(agent)
         epoch = 0
         done_epoch = False
         train_start_time = timer()
@@ -39,7 +40,7 @@ def train(
         with args.checkpoint_path.open("rb") as f:
             checkpoint_data = to.load(f)
             agent.optimizer.load_state_dict(checkpoint_data["optimizer_state"])
-            results = ResultsLog(checkpoint_data["search_results"], agent)
+            results = ResultsLog(agent, checkpoint_data["search_results"])
             best_valid_expanded = checkpoint_data["best_valid_expanded"]
             epoch_start_time = timer() - checkpoint_data["time_in_epoch"]
             train_start_time = timer() - checkpoint_data["time_in_training"]
@@ -57,10 +58,8 @@ def train(
                 "----------------------------------------------------------------------------"
             )
 
-    old_checkpoint_path = args.logdir / f"dummy_chkpt"
-
-    dist.monitored_barrier()
     done_batch = True
+    dist.monitored_barrier()
     while True:
         if done_batch:
             batch_start_time = timer()
@@ -70,7 +69,7 @@ def train(
                     break
                 epoch_start_time = timer()
                 done_epoch = False
-                results = ResultsLog(None, agent)
+                results.clear()
                 epoch += 1
                 batch = 0
                 if rank == 0:
@@ -129,13 +128,13 @@ def train(
             done_batch = True
             dist.monitored_barrier()
             if rank == 0:
-                batch_buffer: list[Result] = []
+                print(f"\nBatch {batch}")
+                print(f"{results_queue.qsize()} results in queue")
                 while not results_queue.empty():
                     batch_buffer.append(results_queue.get())
 
                 results.append(batch_buffer)
                 batch_df = results[-len(batch_buffer) :].get_df()
-                print(f"\nBatch {batch}")
                 print(
                     tabulate(
                         batch_df,
@@ -157,7 +156,7 @@ def train(
                     print("Updating model...")
                     to.set_grad_enabled(True)
                     agent.model.train()
-                    for grad_step in range(1, args.grad_steps + 1):
+                    for _ in range(args.grad_steps):
                         f_losses = []
                         b_losses = []
                         for f_traj, b_traj in trajs:
@@ -183,6 +182,7 @@ def train(
                     f"Epoch time: {timer() - epoch_start_time:.2f}s, solved {results.solved}/{len(train_loader)}"
                 )
                 sys.stdout.flush()
+                batch_buffer.clear()
 
             # sync models
             all_params_list = [
@@ -261,7 +261,7 @@ def train(
                 if rank == 0:
                     ts = timer()
                     checkpoint_data = {
-                        "search_results": results.results,
+                        "search_results": results.data,
                         "model_state": agent.model.state_dict(),
                         "optimizer_state": agent.optimizer.state_dict(),
                         "expansion_budget": args.train_expansion_budget,

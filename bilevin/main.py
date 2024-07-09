@@ -86,23 +86,25 @@ if __name__ == "__main__":
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
 
-    results_queue = mp.Queue()
-
     if args.test_path is not None:
         test_loader, pset_dict = get_loader(args, args.test_path)
+        max_qsize = len(test_loader)
     else:
         test_loader = None
+        max_qsize = 0
 
     if args.mode == "train":
         train_loader, pset_dict = get_loader(
             args, args.train_path, batch_size=args.batch_size
         )
         valid_loader, _ = get_loader(args, args.valid_path)
+        max_qsize = max(max_qsize, args.batch_size, len(valid_loader))
+        # SLURM_ARRAY_JOB_ID
         if args.checkpoint_path is None:
-            if "SLURM_JOB_ID" in os.environ:
-                runid = (
-                    f"{os.environ['SLURM_JOB_ID']}-{os.environ['SLURM_ARRAY_TASK_ID']}"
-                )
+            if "SLURM_ARRAY_JOB_ID" in os.environ:
+                runid = f"{os.environ['SLURM_ARRAY_JOB_ID']}-{os.environ['SLURM_ARRAY_TASK_ID']}-{os.environ['SLURM_JOB_ID']}"
+            elif "SLURM_JOB_ID" in os.environ:
+                runid = f"{os.environ['SLURM_JOB_ID']}"
             else:
                 runid = f"{int(abs_start_time)}"
             run_name = f"{args.train_path.parent.stem}-{args.train_path.stem}_{args.agent}{exp_name}_{args.seed}_{runid}"
@@ -176,6 +178,7 @@ if __name__ == "__main__":
     print(f"Using port {os.environ['MASTER_PORT']}")
     os.environ["MASTER_ADDR"] = args.master_addr
 
+    results_queue = mp.Queue(maxsize=max_qsize)
     processes = []
     for rank in range(args.world_size):
         proc = mp.Process(

@@ -90,11 +90,11 @@ def generate_step_problems(
         else:
             steps = max_steps
         state = init_domain.init()
-        avail_actions, _ = init_domain.actions_unpruned(state)
+        avail_actions = init_domain.actions(None, state)
         action = rng.choice(avail_actions)
         state = init_domain.result(state, action)
         for _ in range(steps - 1):
-            avail_actions, _ = init_domain.actions(action, state)
+            avail_actions = init_domain.actions(action, state)
             action = rng.choice(avail_actions)
             state = init_domain.result(state, action)
 
@@ -138,8 +138,8 @@ def main():
     )
     parser.add_argument(
         "--exclude-path",
-        type=str,
-        nargs="*",
+        default=[],
+        action="append",
         help="path of problems to exclude for stp",
     )
     parser.add_argument(
@@ -251,14 +251,13 @@ def main():
         problemset_dict["domain_name"] = "SlidingTile"
         domain = SlidingTile(stpggs(args.width))
         domain_class = SlidingTile
-        if args.exclude_path is not None:
-            for exclude_path in args.exclude_path:
-                with Path(exclude_path).open("rb") as f:
-                    print(f"Excluding problems from {exclude_path}")
-                    pset = pickle.load(f)
-                    problems = pset["problems"][0]
-                    for problem in problems:
-                        exclude_problemspecs.add(problem.domain.initial_state)
+        for exclude_path in args.exclude_path:
+            with Path(exclude_path).open("rb") as f:
+                print(f"Excluding problems from {exclude_path}")
+                pset = pickle.load(f)
+                problems = pset["problems"][0]
+                for problem in problems:
+                    exclude_problemspecs.add(problem.domain.initial_state)
     elif args.domain == "pancake":
         problemset_dict["domain_name"] = "Pancake"
         domain = Pancake(pancakeggs(args.width))
@@ -293,66 +292,67 @@ def main():
         n_stages * args.n_problems_per_stage + n_problems_final_stage
     )
     num_curriculum_problems = 0
-    with tqdm.tqdm(total=total_num_curriculum_problems) as pbar:
-        pbar.set_description("Curriculum problems")
+    if total_num_curriculum_problems > 0:
+        with tqdm.tqdm(total=total_num_curriculum_problems) as pbar:
+            pbar.set_description("Curriculum problems")
 
-        for i in range(n_stages):
-            if args.stages:
-                minsteps = stages[i]
-                maxsteps = stages[i + 1]
-            else:
-                minsteps = (
-                    stages[i - 1] + 1 if (i > 0 and args.increasing_minstep) else 1
+            for i in range(n_stages):
+                if args.stages:
+                    minsteps = stages[i]
+                    maxsteps = stages[i + 1]
+                else:
+                    minsteps = (
+                        stages[i - 1] + 1 if (i > 0 and args.increasing_minstep) else 1
+                    )
+                    maxsteps = stages[i]
+
+                if args.domain == "cube3" and maxsteps <= 10:
+                    check_exclude = False
+                elif args.domain == "pancake" and maxsteps < args.width:
+                    check_exclude = False
+                elif args.domain == "stp" and maxsteps <= 10:
+                    check_exclude = False
+                else:
+                    check_exclude = True
+                stage_problems = generate_step_problems(
+                    domain,
+                    domain_class,
+                    rng,
+                    args.n_problems_per_stage,
+                    minsteps,
+                    maxsteps,
+                    num_curriculum_problems,
+                    check_exclude,
+                    exclude_problemspecs,
+                    args.randomize_curriculum_steps,
+                    pbar,
                 )
-                maxsteps = stages[i]
+                curriculum_problems.append(stage_problems)
+                num_curriculum_problems += len(stage_problems)
+            if n_problems_final_stage > 0:
+                stage_problems = generate_step_problems(
+                    domain,
+                    domain_class,
+                    rng,
+                    n_problems_final_stage,
+                    1,
+                    args.test_steps,
+                    num_curriculum_problems,
+                    True,
+                    exclude_problemspecs,
+                    args.randomize_test_steps,
+                    pbar,
+                )
+                curriculum_problems.append(stage_problems)
+                num_curriculum_problems += len(stage_problems)
 
-            if args.domain == "cube3" and maxsteps <= 10:
-                check_exclude = False
-            elif args.domain == "pancake" and maxsteps < args.width:
-                check_exclude = False
-            elif args.domain == "stp" and maxsteps <= 10:
-                check_exclude = False
-            else:
-                check_exclude = True
-            stage_problems = generate_step_problems(
-                domain,
-                domain_class,
-                rng,
-                args.n_problems_per_stage,
-                minsteps,
-                maxsteps,
-                num_curriculum_problems,
-                check_exclude,
-                exclude_problemspecs,
-                args.randomize_curriculum_steps,
-                pbar,
-            )
-            curriculum_problems.append(stage_problems)
-            num_curriculum_problems += len(stage_problems)
-        if n_problems_final_stage > 0:
-            stage_problems = generate_step_problems(
-                domain,
-                domain_class,
-                rng,
-                n_problems_final_stage,
-                1,
-                args.test_steps,
-                num_curriculum_problems,
-                True,
-                exclude_problemspecs,
-                args.randomize_test_steps,
-                pbar,
-            )
-            curriculum_problems.append(stage_problems)
-            num_curriculum_problems += len(stage_problems)
-
-    trainset_dict = copy(problemset_dict)
-    trainset_dict["randomize_steps"] = args.randomize_curriculum_steps
-    trainset_dict["stages"] = stages
-    trainset_dict["problems_per_stage"] = args.n_problems_per_stage
-    trainset_dict["n_problems_final_stage"] = n_problems_final_stage
-    trainset_dict["problems"] = curriculum_problems
-    save_problemset(args.output_path, trainset_dict, "train")
+        trainset_dict = copy(problemset_dict)
+        trainset_dict["randomize_steps"] = args.randomize_curriculum_steps
+        trainset_dict["stages"] = stages
+        trainset_dict["problems_per_stage"] = args.n_problems_per_stage
+        trainset_dict["n_problems_final_stage"] = n_problems_final_stage
+        trainset_dict["problems"] = curriculum_problems
+        save_problemset(args.output_path, trainset_dict, "train")
 
     if args.n_valid > 0:
         with tqdm.tqdm(total=args.n_valid) as pbar:
