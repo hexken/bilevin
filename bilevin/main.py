@@ -16,20 +16,20 @@ import torch.multiprocessing as mp
 from args import parse_args
 from search.agent import Agent
 import search.agents as sa
-from search.loaders import AsyncProblemLoader
+from search.loaders import ArrayLoader, QueueLoader
 from search.utils import print_search_summary
 from test import test
 from train import train
-from utils import find_free_port, get_loader, set_seeds
+from utils import find_free_port, set_seeds
 
 
 def run(
     rank: int,
     agent: Agent,
     args: Namespace,
-    train_loader: AsyncProblemLoader,
-    valid_loader: AsyncProblemLoader,
-    test_loader: AsyncProblemLoader | None,
+    train_loader: ArrayLoader,
+    valid_loader: ArrayLoader,
+    test_loader: ArrayLoader | None,
     results_queue: mp.Queue,
 ):
     dist.init_process_group(
@@ -88,17 +88,15 @@ if __name__ == "__main__":
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
 
     if args.test_path is not None:
-        test_loader, pset_dict = get_loader(args, args.test_path)
+        test_loader, pset_dict = ArrayLoader.from_path(args, args.test_path)
         max_qsize = len(test_loader)
     else:
         test_loader = None
         max_qsize = 0
 
     if args.mode == "train":
-        train_loader, pset_dict = get_loader(
-            args, args.train_path, batch_size=args.batch_size
-        )
-        valid_loader, _ = get_loader(args, args.valid_path)
+        train_loader, pset_dict = ArrayLoader.from_path(args, args.train_path)
+        valid_loader, _ = ArrayLoader.from_path(args, args.valid_path)
         max_qsize = max(max_qsize, args.batch_size, len(valid_loader))
         # SLURM_ARRAY_JOB_ID
         if args.checkpoint_path is None:

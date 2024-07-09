@@ -11,23 +11,9 @@ import numpy as np
 import torch as to
 import torch.multiprocessing as mp
 
-from search.loaders import AsyncProblemLoader
+from search.loaders import ArrayLoader
 
 
-def get_loader(args, problems_path: Path, batch_size: int | None = None):
-    with problems_path.open("rb") as f:
-        pset_dict = pkl.load(f)
-    problems = pset_dict["problems"][0]
-    indexer = mp.Value("I", 0)
-    indices = mp.Array("I", len(problems))
-    loader = AsyncProblemLoader(
-        problems,
-        indices,
-        indexer,
-        batch_size=batch_size,
-        seed=args.seed,
-    )
-    return loader, pset_dict
 
 
 def display_top(snapshot, key_type="lineno", limit=25):

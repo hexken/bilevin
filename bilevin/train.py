@@ -12,7 +12,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 
 from search.agent import Agent
-from search.loaders import AsyncProblemLoader
+from search.loaders import ArrayLoader
 from search.utils import Result, ResultsLog, print_search_summary
 from test import test
 
@@ -21,8 +21,8 @@ def train(
     args: Namespace,
     rank: int,
     agent: Agent,
-    train_loader: AsyncProblemLoader,
-    valid_loader: AsyncProblemLoader,
+    train_loader: ArrayLoader,
+    valid_loader: ArrayLoader,
     results_queue: mp.Queue,
 ):
 
@@ -85,9 +85,9 @@ def train(
             gc.collect()
             dist.monitored_barrier()
             if rank != 0:
-                problem = train_loader.get_problem()
+                problem = train_loader.get()
         else:
-            problem = train_loader.get_problem()
+            problem = train_loader.get()
 
         if problem is not None:
             agent.model.eval()

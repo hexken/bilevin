@@ -8,7 +8,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 
 from search.agent import Agent
-from search.loaders import AsyncProblemLoader
+from search.loaders import ArrayLoader
 from search.utils import Result, ResultsLog
 
 
@@ -16,7 +16,7 @@ def test(
     args,
     rank: int,
     agent: Agent,
-    loader: AsyncProblemLoader,
+    loader: ArrayLoader,
     results_queue: mp.Queue,
     print_results: bool = True,
 ):
@@ -43,9 +43,9 @@ def test(
                 problem = loader.advance_batch()
             dist.monitored_barrier()
             if rank != 0:
-                problem = loader.get_problem()
+                problem = loader.get()
         else:
-            problem = loader.get_problem()
+            problem = loader.get()
 
         if problem is not None:
             if problem.id in solved_set:

@@ -5,10 +5,9 @@ from typing import Optional, TYPE_CHECKING
 import torch as to
 from torch import Tensor, full
 
-from search.traj import from_common_node
+from search.traj import Trajectory
 
 if TYPE_CHECKING:
-    from search.traj import Trajectory
     from search.node import SearchNode
     from search.agent import Agent
 
@@ -73,7 +72,7 @@ class Domain(ABC):
                 f_domain = other_domain
                 b_domain = self
 
-            f_traj = from_common_node(
+            f_traj = Trajectory.from_common_node(
                 agent,
                 f_domain,
                 f_common_node,
@@ -81,7 +80,7 @@ class Domain(ABC):
                 num_expanded,
                 set_masks=agent.mask_invalid_actions,
             )
-            b_traj = from_common_node(
+            b_traj = Trajectory.from_common_node(
                 agent,
                 b_domain,
                 b_common_node,
