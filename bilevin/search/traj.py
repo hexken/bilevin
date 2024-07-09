@@ -20,7 +20,7 @@ class Trajectory:
         self,
         states: Tensor,
         actions: Tensor,
-        masks: Tensor,
+        masks: Tensor | None,
         num_expanded: int,
         partial_g_cost: int,  # g_cost of node that generated sol.
         avg_action_prob: float,  # avg action prob
@@ -72,7 +72,11 @@ def from_common_node(
         new_state = dir1_domain.get_merge_state(
             dir1_node.state, dir2_parent_node.state, action
         )
-        actions, mask = dir1_domain.actions_unpruned(new_state)
+        actions = dir1_domain.actions(action, new_state)
+        if set_masks:
+            mask = agent.get_actions_mask(actions)
+        else:
+            mask = None
         new_dir1_node = SearchNode(
             state=new_state,
             g=dir1_node.g + 1,
@@ -94,6 +98,7 @@ def from_common_node(
         partial_g_cost=dir1_common.g,
         goal_state_t=goal_state_t,
         forward=forward,
+        set_masks=set_masks,
     )
 
 
@@ -105,6 +110,7 @@ def from_goal_node(
     partial_g_cost: int,
     goal_state_t: Optional[Tensor] = None,
     forward: bool = True,
+    set_masks: bool = False,
 ) -> Trajectory:
     """
     Receives a SearchNode representing a solution to the problem.
@@ -131,7 +137,10 @@ def from_goal_node(
 
     states = to.stack(tuple(reversed(states)))
     actions = to.tensor(tuple(reversed(actions)))
-    masks = to.stack(tuple(reversed(masks)))
+    if set_masks:
+        masks = to.stack(tuple(reversed(masks)))
+    else:
+        masks = None
     cost_to_gos = to.arange(len(states), 0, -1, dtype=to.float64)
 
     preds = agent.model(states, mask=masks, forward=forward, goal_state_t=goal_state_t)

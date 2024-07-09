@@ -103,6 +103,11 @@ def train(
                 time_budget=args.time_budget,
             )
             end_time = timer()
+            if end_time - start_time > 6:
+                print(
+                    f"Rank {rank} problem {problem.id} SLOW {end_time - start_time:.2f}s"
+                )
+                sys.stdout.flush()
 
             if f_traj is not None:
                 sol_len = len(f_traj)
@@ -253,8 +258,8 @@ def train(
                     del results_df, valid_df
 
             if (batch % args.checkpoint_every_n_batch == 0) or done_epoch:
-                ts = timer()
                 if rank == 0:
+                    ts = timer()
                     checkpoint_data = {
                         "search_results": results.results,
                         "model_state": agent.model.state_dict(),

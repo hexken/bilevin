@@ -203,6 +203,14 @@ def parse_args():
         help="number of convolution kernels",
     )
     parser.add_argument(
+        "--mask-invalid-actions",
+        const=True,
+        nargs="?",
+        type=strtobool,
+        default=False,
+        help="mask invalid actions in policy output (assign logits -1e9)",
+    )
+    parser.add_argument(
         "--no-conditional-backward",
         const=True,
         nargs="?",
@@ -242,6 +250,12 @@ def parse_args():
         type=strtobool,
         default=False,
         help="use the same feature netword for forward and backward policies/heuristics. In this case forward-feature-net-lr is used",
+    )
+    parser.add_argument(
+        "--slow-problem",
+        type=float,
+        default=35,
+        help="log if a problem takes longer than this many seconds to solve during training",
     )
     parser.add_argument(
         "--forward-feature-net-lr",

@@ -102,8 +102,8 @@ class SlidingTile(Domain):
         domain.goal_state_t = self.state_tensor(self.initial_state)
         return domain
 
-    def _actions(
-        self, parent_action: ActionDir, state: SlidingTileState
+    def actions(
+        self, parent_action: ActionDir | None, state: SlidingTileState
     ) -> list[ActionDir]:
         actions = []
 
@@ -121,7 +121,7 @@ class SlidingTile(Domain):
 
         return actions
 
-    def _actions_unpruned(self, state: SlidingTileState):
+    def actions_unpruned(self, state: SlidingTileState):
         actions = []
 
         if state.blank_col != self.width - 1:

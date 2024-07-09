@@ -34,7 +34,7 @@ class LevinBase(Agent):
         state: State,
         state_t: to.Tensor,
         actions: list[int],
-        mask: to.Tensor,
+        mask: to.Tensor | None,
         forward: bool,
         goal_feats: to.Tensor | None,
     ) -> SearchNode:
@@ -60,7 +60,7 @@ class LevinBase(Agent):
         parent_node: SearchNode,
         parent_action: int,
         actions: list[int],
-        mask: to.Tensor,
+        mask: to.Tensor | None,
         new_state: State,
     ) -> SearchNode:
         assert parent_node.log_action_probs is not None
@@ -92,7 +92,10 @@ class LevinBase(Agent):
         goal_feats: to.Tensor | None,
     ):
         children_state_t = to.stack(children_state_ts)
-        masks_t = to.stack(masks)
+        if masks is None:
+            masks_t = None
+        else:
+            masks_t = to.stack(masks)
         log_probs, _ = self.model(
             children_state_t,
             forward=direction == SearchDir.FORWARD,

@@ -168,9 +168,9 @@ class Witness(Domain):
             for j in range(self.width):
                 color = self.cells[i, j]
                 if color != 0:
-                    arr[
-                        color - 1, i, j
-                    ] = 1  # -1 because we don't encode the neutral color
+                    arr[color - 1, i, j] = (
+                        1  # -1 because we don't encode the neutral color
+                    )
 
         channel_number = self.max_num_colors
         # channels for the current path
@@ -211,8 +211,8 @@ class Witness(Domain):
         elif action == ActionDir.RIGHT:
             return ActionDir.LEFT
 
-    def _actions(
-        self, parent_action: ActionDir, state: WitnessState
+    def actions(
+        self, parent_action: ActionDir | None, state: WitnessState
     ) -> list[ActionDir]:
         """
         Successor function used by planners trying to solve the puzzle. The method returns
@@ -262,7 +262,7 @@ class Witness(Domain):
 
         return actions
 
-    def _actions_unpruned(self, state: WitnessState) -> list[ActionDir]:
+    def actions_unpruned(self, state: WitnessState) -> list[ActionDir]:
         actions = []
         # should return the same actions as pruned
         # moving up

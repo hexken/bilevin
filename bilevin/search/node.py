@@ -43,7 +43,7 @@ class SearchNode:
         self,
         state: State,
         parent: Optional[SearchNode],
-        parent_action: Optional[int],
+        parent_action: Optional[int], # action taken from parent to reach this node
         actions: list[int],
         actions_mask: Tensor | None,
         g: int,

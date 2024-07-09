@@ -40,7 +40,13 @@ class UniDir(Agent):
 
         state = domain.init()
         state_t = domain.state_tensor(state).unsqueeze(0)
-        actions, mask = domain.actions_unpruned(state)
+        actions = domain.actions(None, state)
+        if self.mask_invalid_actions:
+            masks = []
+            mask = self.get_actions_mask(actions)
+        else:
+            masks = None
+            mask = None
         node = self.make_start_node(
             state, state_t, actions, forward=True, mask=mask, goal_feats=None
         )
@@ -48,7 +54,6 @@ class UniDir(Agent):
         closed = {node: node}
         open_list = [node]
 
-        masks = []
         children_to_be_evaluated = []
         state_t_of_children_to_be_evaluated = []
 
@@ -66,7 +71,9 @@ class UniDir(Agent):
 
             for a in node.actions:
                 new_state = domain.result(node.state, a)
-                new_state_actions, mask = domain.actions(a, new_state)
+                new_state_actions = domain.actions(a, new_state)
+                if self.mask_invalid_actions:
+                    mask = self.get_actions_mask(new_state_actions)
 
                 new_node = self.make_partial_child_node(
                     node,
@@ -84,6 +91,7 @@ class UniDir(Agent):
                             goal_node=new_node,
                             num_expanded=num_expanded,
                             partial_g_cost=new_node.g,
+                            set_masks=self.mask_invalid_actions,
                         )
                         traj = (traj, None)
                         return num_expanded, 0, traj
@@ -93,7 +101,8 @@ class UniDir(Agent):
                         children_to_be_evaluated.append(new_node)
                         state_t = domain.state_tensor(new_state)
                         state_t_of_children_to_be_evaluated.append(state_t)
-                        masks.append(mask)
+                        if masks is not None:
+                            masks.append(self.get_actions_mask(new_state_actions))
 
             if len(children_to_be_evaluated) >= self.n_eval or len(open_list) == 0:
                 self.finalize_children_nodes(
@@ -104,7 +113,8 @@ class UniDir(Agent):
                     masks,
                     None,
                 )
-                masks.clear()
+                if masks is not None:
+                    masks.clear()
                 children_to_be_evaluated.clear()
                 state_t_of_children_to_be_evaluated.clear()
 

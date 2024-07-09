@@ -42,18 +42,6 @@ class Domain(ABC):
     def update(self, node: SearchNode):
         self.aux_closed[node.state.__hash__()] = node
 
-    def actions(self, parent_action, state: State) -> tuple[list, Tensor]:
-        actions = self._actions(parent_action, state)
-        mask = full((self.num_actions,), True, dtype=to.bool)
-        mask[actions] = False
-        return actions, mask
-
-    def actions_unpruned(self, state: State) -> tuple[list, Tensor]:
-        actions = self._actions_unpruned(state)
-        mask = full((self.num_actions,), True, dtype=to.bool)
-        mask[actions] = False
-        return actions, mask
-
     def is_merge_goal(self, state, other_domain) -> Optional[SearchNode]:
         hsh = state.__hash__()
         if hsh in other_domain.aux_closed:  # solution found
@@ -91,6 +79,7 @@ class Domain(ABC):
                 f_common_node,
                 b_common_node,
                 num_expanded,
+                set_masks=agent.mask_invalid_actions,
             )
             b_traj = from_common_node(
                 agent,
@@ -100,6 +89,7 @@ class Domain(ABC):
                 num_expanded,
                 b_domain.goal_state_t,
                 forward=False,
+                set_masks=agent.mask_invalid_actions,
             )
 
             return (f_traj, b_traj)
@@ -143,11 +133,11 @@ class Domain(ABC):
         pass
 
     @abstractmethod
-    def _actions(self, parent_action, state: State) -> list:
+    def actions(self, parent_action, state: State) -> list:
         pass
 
     @abstractmethod
-    def _actions_unpruned(self, state: State) -> list:
+    def actions_unpruned(self, state: State) -> list:
         pass
 
     @abstractmethod
@@ -155,4 +145,8 @@ class Domain(ABC):
         pass
 
     def get_merge_state(self, dir1_state, dir2_parent_state, action) -> State:
+        """
+        Returns the state that results from applying action to dir1_state, assuming dir1 and dir2
+        nodes are currently the same state.
+        """
         return dir2_parent_state

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
 import torch as to
-from torch import optim
+from torch import optim, full
 
 from enums import SearchDir
 from models.losses import loss_wrapper, mse, nll
@@ -26,6 +26,8 @@ class Agent(ABC):
         aux_args["has_policy"] = self.has_policy
         aux_args["has_heuristic"] = self.has_heuristic
 
+        self.mask_invalid_actions = args.mask_invalid_actions
+        self.num_actions = aux_args["num_actions"]
         self.logdir: Path = logdir
         self.args: Namespace = args
 
@@ -56,7 +58,7 @@ class Agent(ABC):
         self.model: PolicyOrHeuristicModel = PolicyOrHeuristicModel(args, aux_args)
         self.load_model(args)
         self.optimizer = getattr(optim, args.optimizer)(
-            self.model.parameters(), lr=0.001, weight_decay=args.weight_decay, eps=1e-7
+            self.model.learnable_params, weight_decay=args.weight_decay, eps=1e-7
         )
 
     def save_model(
@@ -69,6 +71,11 @@ class Agent(ABC):
         to.save(self.model.state_dict(), path)
         if log:
             print(f"Saved model\n  to {str(path)}")
+
+    def get_actions_mask(self, actions: list[int]) -> to.Tensor:
+        mask = full((self.num_actions,), True, dtype=to.bool)
+        mask[actions] = False
+        return mask
 
     def load_model(self, args: Namespace):
         if args.model_path is not None:
@@ -101,7 +108,7 @@ class Agent(ABC):
         state: State,
         state_t: to.Tensor,
         actions: list[int],
-        mask: to.Tensor,
+        mask: to.Tensor | None,
         forward: bool,
         goal_feats: to.Tensor | None,
     ) -> SearchNode:
@@ -113,7 +120,7 @@ class Agent(ABC):
         parent_node: SearchNode,
         parent_action: int,
         actions: list[int],
-        mask: to.Tensor,
+        mask: to.Tensor | None,
         new_state: State,
     ) -> SearchNode:
         pass
@@ -125,7 +132,7 @@ class Agent(ABC):
         direction: SearchDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],
-        masks: list[to.Tensor],
+        masks: list[to.Tensor] | None,
         goal_feats: to.Tensor | None,
     ):
         pass

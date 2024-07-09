@@ -35,7 +35,7 @@ class AStarBase(Agent):
         state: State,
         state_t: to.Tensor,
         actions: list[int],
-        mask: to.Tensor,
+        mask: to.Tensor | None,
         forward: bool,
         goal_feats: to.Tensor | None,
     ) -> SearchNode:
@@ -61,7 +61,7 @@ class AStarBase(Agent):
         parent_node: SearchNode,
         parent_action: int,
         actions: list[int],
-        mask: to.Tensor,
+        mask: to.Tensor | None,
         new_state: State,
     ) -> SearchNode:
         new_node = SearchNode(
@@ -81,7 +81,7 @@ class AStarBase(Agent):
         direction: SearchDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],
-        masks: list[to.Tensor],
+        masks: list[to.Tensor] | None,
         goal_feats: to.Tensor | None,
     ):
         children_state_t = to.stack(children_state_ts)

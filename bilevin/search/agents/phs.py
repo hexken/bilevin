@@ -34,7 +34,7 @@ class PHSBase(Agent):
         state: State,
         state_t: to.Tensor,
         actions: list[int],
-        mask: to.Tensor,
+        mask: to.Tensor | None,
         forward: bool,
         goal_feats: to.Tensor | None,
     ) -> SearchNode:
@@ -63,7 +63,7 @@ class PHSBase(Agent):
         parent_node: SearchNode,
         parent_action: int,
         actions: list[int],
-        mask: to.Tensor,
+        actions_mask: to.Tensor | None,
         new_state: State,
     ) -> SearchNode:
         assert parent_node.log_action_probs is not None
@@ -78,7 +78,7 @@ class PHSBase(Agent):
             parent=parent_node,
             parent_action=parent_action,
             actions=actions,
-            actions_mask=mask,
+            actions_mask=actions_mask,
             log_prob=log_prob,
             g=g,
         )
@@ -90,11 +90,14 @@ class PHSBase(Agent):
         direction: SearchDir,
         children: list[SearchNode],
         children_state_ts: list[to.Tensor],
-        masks: list[to.Tensor],
+        masks: list[to.Tensor] | None,
         goal_feats: to.Tensor | None,
     ):
         children_state_t = to.stack(children_state_ts)
-        masks_t = to.stack(masks)
+        if masks is None:
+            masks_t = None
+        else:
+            masks_t = to.stack(masks)
         log_probs, hs = self.model(
             children_state_t,
             forward=direction == SearchDir.FORWARD,

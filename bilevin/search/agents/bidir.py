@@ -16,6 +16,9 @@ if TYPE_CHECKING:
     pass
 
 
+# todo fix optional masking
+# merge bfs and alt?
+# choose how to fill gen batch
 class BiDir(Agent):
     def __init__(
         self, logdir: Path, args: Namespace, aux_args: dict, alternating: bool = True
@@ -40,7 +43,7 @@ class BiDir(Agent):
         f_domain = problem.domain
         f_state = f_domain.init()
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
-        f_actions, f_mask = f_domain.actions_unpruned(f_state)
+        f_actions, f_mask = f_domain.actions(None, f_state)
         f_start_node = self.make_start_node(
             f_state, f_state_t, f_actions, mask=f_mask, forward=True, goal_feats=None
         )
@@ -60,7 +63,7 @@ class BiDir(Agent):
         b_domain = f_domain.backward_domain()
         b_state = b_domain.init()
         b_state_t = b_domain.state_tensor(b_state).unsqueeze(0)
-        b_actions, b_mask = b_domain.actions_unpruned(b_state)
+        b_actions, b_mask = b_domain.actions(None, b_state)
 
         b_start_node = self.make_start_node(
             b_state,

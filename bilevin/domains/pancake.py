@@ -85,15 +85,13 @@ class Pancake(Domain):
         domain.goal_state_t = self.state_tensor(self.initial_state)
         return domain
 
-    def _actions(self, parent_action: int, state: PancakeState) -> list[int]:
+    def _actions(self, parent_action: int | None, state: PancakeState) -> list[int]:
         return [i for i in range(self.num_actions) if i != parent_action]
 
     def _actions_unpruned(self, state: PancakeState):
         return [i for i in range(self.num_actions)]
 
-    def result(
-        self, state: PancakeState, action: ActionDir
-    ) -> PancakeState:
+    def result(self, state: PancakeState, action: ActionDir) -> PancakeState:
         pancakes = state.pancakes.copy()
         pancakes[action:] = np.flip(state.pancakes[action:])
         new_state = PancakeState(pancakes)

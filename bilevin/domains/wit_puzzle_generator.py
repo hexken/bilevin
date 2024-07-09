@@ -122,7 +122,7 @@ def generate_problems(
         )
         # generate a path from start to goal
         state: WitnessState = domain.init()
-        actions, _ = domain.actions_unpruned(state)
+        actions = domain.actions(None, state)
         action = rng.choice(actions)
         state = domain.result(state, action)
         while True:
