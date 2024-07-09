@@ -9,9 +9,9 @@ python bilevin/main.py \
     --agent PHS \
     --loss-fn default \
     --exp-name "lr0.001" \
-    --train-path problems/stp4/100-train.pkl \
-    --valid-path problems/stp4/10-valid.pkl \
-    --test-path problems/stp4/10-test.pkl \
+    --train-path problems/stp4/50000-train.pkl \
+    --valid-path problems/stp4/1000-valid.pkl \
+    --test-path problems/stp4/1000-test.pkl \
     --runsdir-path runs/ \
     --shuffle \
     --master-port 34568 \
