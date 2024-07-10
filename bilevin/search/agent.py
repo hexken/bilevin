@@ -64,10 +64,9 @@ class Agent(ABC):
     def save_model(
         self,
         suffix: str = "",
-        subpath: str = "",
         log: bool = True,
     ):
-        path = self.logdir / subpath / f"model_{suffix}.pt"
+        path = self.logdir / f"model_{suffix}.pt"
         to.save(self.model.state_dict(), path)
         if log:
             print(f"Saved model\n  to {str(path)}")
@@ -77,15 +76,10 @@ class Agent(ABC):
         mask[actions] = False
         return mask
 
-    def load_model(self, args: Namespace):
-        if args.model_path is not None:
-            self.model.load_state_dict(to.load(args.model_path))
-            print(f"Loaded model\n  {str(args.model_path)}")
-        elif args.checkpoint_path is not None:
-            with args.checkpoint_path.open("rb") as f:
-                chkpt_dict = to.load(f)
-                self.model.load_state_dict(chkpt_dict["model_state"])
-            print(f"Loaded model\n  {str(args.checkpoint_path)}")
+    def load_model(self, model_path: Path):
+        if isinstance(model_path, Path):
+            with model_path.open("rb") as f:
+                self.model.load_state_dict(to.load(f))
 
     @property
     @abstractmethod

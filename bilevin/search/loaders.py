@@ -116,7 +116,6 @@ class ArrayLoader(Loader):
             self.s_indices[:] = state["indices"][:]
         with self.s_indices.get_lock():
             self.s_idx.value = state["indexer"]
-        self.batch_size = state["batch_size"]
         self.rng.bit_generator.state = state["rng_state"]
 
     def state_dict(self) -> dict:

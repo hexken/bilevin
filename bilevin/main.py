@@ -59,7 +59,13 @@ def run(
     ts = time.time()
     if test_loader is not None:
         if rank == 0:
-            print("\nTesting...")
+            if args.mode == "train":
+                model_path = agent.logdir / "model_best_expanded.pt"
+                agent.load_model(model_path)
+                print(f"Testing using model {model_path.name}")
+            else:
+                print("\nTesting...")
+
         results_df = test(
             args,
             rank,
@@ -95,6 +101,7 @@ if __name__ == "__main__":
         test_loader = None
         max_qsize = 0
 
+    model = None
     if args.mode == "train":
         train_loader, pset_dict = ArrayLoader.from_path(args, args.train_path)
         valid_loader, _ = ArrayLoader.from_path(args, args.valid_path)
@@ -119,14 +126,8 @@ if __name__ == "__main__":
         if args.model_path is not None:
             logdir = args.model_path.parent
             model_name = args.model_path.stem
-        elif args.checkpoint_path is not None:
-            logdir = args.checkpoint_path.parent
-            model_name = args.checkpoint_path.stem
-            print(f"Loaded checkpoint {str(args.checkpoint_path)}")
         else:
-            raise ValueError(
-                "Must specify either model_path or checkpoint_path to test"
-            )
+            raise ValueError("Must specify model_path to test")
         logdir /= f"test_{model_name}{exp_name}_{args.seed}_{int(abs_start_time)}"
 
     logdir.mkdir(parents=True, exist_ok=True)
@@ -151,6 +152,8 @@ if __name__ == "__main__":
 
     agent_class = getattr(sa, args.agent)
     agent = agent_class(logdir, args, derived_args)
+    if args.mode == "test":
+        agent.load_model(args.model_path)
 
     arg_dict = {
         k: (v if not isinstance(v, Path) else str(v)) for k, v in vars(args).items()
