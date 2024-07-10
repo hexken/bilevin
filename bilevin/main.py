@@ -90,6 +90,7 @@ if __name__ == "__main__":
 
     to.set_num_threads(1)
     to.set_default_dtype(to.float64)
+    to.use_deterministic_algorithms(True)
     set_seeds(args.seed)
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""

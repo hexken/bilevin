@@ -145,10 +145,13 @@ def train(
                 )
                 # update rank 0 model
                 trajs = [
-                    (res.f_traj, res.b_traj)
+                    (res.id, res.f_traj, res.b_traj)
                     for res in batch_buffer
                     if res.f_traj is not None
                 ]
+
+                # to make the shuffle deterministic
+                trajs = sorted(trajs, key=lambda x: x[0])
                 train_loader.rng.shuffle(trajs)
 
                 if len(trajs) > 0:
@@ -158,7 +161,7 @@ def train(
                     for _ in range(args.grad_steps):
                         f_losses = []
                         b_losses = []
-                        for f_traj, b_traj in trajs:
+                        for _, f_traj, b_traj in trajs:
                             agent.optimizer.zero_grad(set_to_none=False)
                             loss = agent.loss_fn(f_traj, agent.model)
                             f_losses.append(loss.item())

@@ -56,7 +56,6 @@ class Agent(ABC):
             raise ValueError(f"Unknown agent {args.agent}")
 
         self.model: PolicyOrHeuristicModel = PolicyOrHeuristicModel(args, aux_args)
-        self.load_model(args)
         self.optimizer = getattr(optim, args.optimizer)(
             self.model.learnable_params, weight_decay=args.weight_decay, eps=1e-7
         )
