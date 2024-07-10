@@ -9,7 +9,7 @@ import tqdm
 
 from domains.puzzle_generator import save_problemset
 from domains.witness import Witness, WitnessState
-from search.problem import Problem
+from search.loaders import Problem
 
 
 def get_n_adj(state, row, col):
@@ -122,11 +122,9 @@ def generate_problems(
         )
         # generate a path from start to goal
         state: WitnessState = domain.init()
-        actions = domain.actions(None, state)
-        action = rng.choice(actions)
-        state = domain.result(state, action)
+        action = None
         while True:
-            actions, _ = domain.actions(action, state)
+            actions = domain.actions(action, state)
             if not actions:
                 break
             action = rng.choice(actions)
