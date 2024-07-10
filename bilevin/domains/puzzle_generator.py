@@ -84,17 +84,15 @@ def generate_step_problems(
 
     problems = []
     id_counter = id_counter_start
+    print(f"  Generating {n_problems} problems with {min_steps}-{max_steps} steps")
     while len(problems) < n_problems:
         if randomize:
             steps = rng.integers(min_steps, max_steps + 1)
         else:
             steps = max_steps
         state = init_domain.init()
-        avail_actions = init_domain.actions(None, state)
-        action = rng.choice(avail_actions)
-        state = init_domain.result(state, action)
-        for _ in range(steps - 1):
-            avail_actions = init_domain.actions(action, state)
+        for _ in range(steps):
+            avail_actions = init_domain.actions_unpruned(state)
             action = rng.choice(avail_actions)
             state = init_domain.result(state, action)
 
@@ -246,11 +244,9 @@ def main():
     if args.domain == "cube3":
         problemset_dict["domain_name"] = "Cube3"
         domain = Cube3(cube3ggs())
-        domain_class = Cube3
     elif args.domain == "stp":
         problemset_dict["domain_name"] = "SlidingTile"
         domain = SlidingTile(stpggs(args.width))
-        domain_class = SlidingTile
         for exclude_path in args.exclude_path:
             with Path(exclude_path).open("rb") as f:
                 print(f"Excluding problems from {exclude_path}")
@@ -261,9 +257,10 @@ def main():
     elif args.domain == "pancake":
         problemset_dict["domain_name"] = "Pancake"
         domain = Pancake(pancakeggs(args.width))
-        domain_class = Pancake
     else:
         raise ValueError(f"Unknown domain {args.domain}")
+    assert domain.is_goal(domain.init())
+    domain_class = domain.__class__
 
     if args.stages_multiple > 0 and args.n_stages > 0:
         stages = [args.stages_multiple * i for i in range(1, args.n_stages)]
