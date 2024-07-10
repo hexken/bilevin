@@ -20,7 +20,6 @@ def test(
     results_queue: mp.Queue,
     print_results: bool = True,
 ):
-    assert loader.batch_size == len(loader.problems)
     current_exp_budget: int = args.test_expansion_budget
 
     to.set_grad_enabled(False)
@@ -33,20 +32,16 @@ def test(
     epoch = 0
     done_epoch = True
     assert results_queue.empty()
-    dist.monitored_barrier()
     while True:
         if done_epoch:
             epoch += 1
             done_epoch = False
             if rank == 0:
-                loader.init_indexer(shuffle=False)
-                problem = loader.advance_batch()
+                loader.reset_indices(shuffle=False)
+                problem = loader.next_batch()
             dist.monitored_barrier()
-            if rank != 0:
-                problem = loader.get()
-        else:
-            problem = loader.get()
 
+        problem = loader.get()
         if problem is not None:
             if problem.id in solved_set:
                 continue
@@ -80,6 +75,7 @@ def test(
                 b_traj=b_traj,
             )
             results_queue.put(res)
+            del res
 
         else:  # end epoch
             done_epoch = True
@@ -118,5 +114,8 @@ def test(
                 epoch_buffer.clear()
                 break
 
+    results_df = results.get_df()
+    results.clear()
+    del results, epoch_buffer
     dist.monitored_barrier()
-    return results.get_df()
+    return results_df

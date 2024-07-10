@@ -16,7 +16,7 @@ import torch.multiprocessing as mp
 from args import parse_args
 from search.agent import Agent
 import search.agents as sa
-from search.loaders import ArrayLoader, QueueLoader
+from search.loaders import ArrayLoader
 from search.utils import print_search_summary
 from test import test
 from train import train
@@ -39,8 +39,7 @@ def run(
         world_size=args.world_size,
     )
 
-    # local_seed = args.seed + rank
-    # set_seeds(local_seed)
+    gc.collect()
     if args.mode == "train":
         if rank == 0:
             print(
@@ -57,6 +56,7 @@ def run(
         if rank == 0:
             (args.logdir / "training_completed.txt").open("w").close()
 
+    ts = time.time()
     if test_loader is not None:
         if rank == 0:
             print("\nTesting...")
@@ -71,6 +71,7 @@ def run(
         if rank == 0:
             with open(args.logdir / f"test.pkl", "wb") as f:
                 pkl.dump(results_df, f)
+            print(f"Testing took {time.time() - ts:.2f} seconds")
             print_search_summary(results_df, bidirectional=agent.is_bidirectional)
 
 

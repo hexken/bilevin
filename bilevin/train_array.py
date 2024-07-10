@@ -1,6 +1,7 @@
 from argparse import Namespace
 import gc
 import pickle
+import random
 import sys
 from timeit import default_timer as timer
 
@@ -13,7 +14,7 @@ import torch.multiprocessing as mp
 from search.agent import Agent
 from search.loaders import ArrayLoader
 from search.utils import Result, ResultsLog, print_search_summary
-from test import test
+from test_array import test
 
 
 def train(
@@ -48,7 +49,6 @@ def train(
             batch = checkpoint_data["batch"]
             done_epoch = checkpoint_data["done_epoch"]
             train_loader.load_state_dict(checkpoint_data["loader_state"])
-            del checkpoint_data
 
         if rank == 0:
             print(
@@ -60,6 +60,7 @@ def train(
             )
 
     done_batch = True
+    dist.monitored_barrier()
     while True:
         if done_batch:
             batch_start_time = timer()
@@ -74,18 +75,20 @@ def train(
                 batch = 0
                 if rank == 0:
                     train_loader.reset_indices(shuffle=args.shuffle)
-
                     print(
                         "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
                     )
                     print(f"START EPOCH {epoch}")
             batch += 1
             if rank == 0:
-                train_loader.next_batch()
+                problem = train_loader.next_batch()
             gc.collect()
             dist.monitored_barrier()
+            if rank != 0:
+                problem = train_loader.get()
+        else:
+            problem = train_loader.get()
 
-        problem = train_loader.get()
         if problem is not None:
             agent.model.eval()
             to.set_grad_enabled(False)
@@ -180,7 +183,6 @@ def train(
                 print(
                     f"Epoch time: {timer() - epoch_start_time:.2f}s, solved {results.solved}/{len(train_loader)}"
                 )
-                del trajs
                 sys.stdout.flush()
                 batch_buffer.clear()
 
@@ -221,6 +223,8 @@ def train(
                     print("\nValidating...\n")
                     valid_start_time = timer()
                     sys.stdout.flush()
+
+                dist.monitored_barrier()
 
                 valid_df = test(
                     args,
@@ -283,6 +287,4 @@ def train(
                     print(
                         f"\nCheckpoint saved to {new_checkpoint_path.name}, took {timer() - ts:.2f}s"
                     )
-    dist.monitored_barrier()
-    if rank == 0:
-        print(f"\nTraining completed in {timer() - train_start_time:.2f}s")
+    dist.monitored_barrier()  # done training

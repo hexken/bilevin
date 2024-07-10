@@ -1,4 +1,6 @@
+from abc import abstractmethod
 from copy import deepcopy
+from math import ceil
 from pathlib import Path
 import pickle as pkl
 from queue import Empty
@@ -23,7 +25,63 @@ class Problem:
         return self.id == other.id
 
 
-class QueueLoader:
+class Loader:
+    def __init__(
+        self,
+        problems: list[Problem],
+        batch_size: int | None = None,
+        seed: int = 1,
+    ):
+        if batch_size is None:
+            self.batch_size = len(problems)
+        else:
+            self.batch_size = batch_size
+        self.problems = problems
+        self.rng = np.random.default_rng(seed)
+        self.n_problems = len(self.problems)
+
+    @abstractmethod
+    def reset_indices(self, shuffle: bool = False):
+        pass
+
+    @abstractmethod
+    def next_batch(self):
+        pass
+
+    @abstractmethod
+    def get(self):
+        pass
+
+    @abstractmethod
+    def load_state_dict(self, state: dict):
+        pass
+
+    @abstractmethod
+    def state_dict(self) -> dict:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def from_path(cls, args, path: Path):
+        with path.open("rb") as f:
+            pset_dict = pkl.load(f)
+        problems = pset_dict["problems"][0]
+        indexer = mp.Value("I", 0)
+        indices = mp.Array("I", len(problems))
+        loader = ArrayLoader(
+            problems,
+            indices,
+            indexer,
+            batch_size=args.batch_size,
+            seed=args.seed,
+        )
+        return loader, pset_dict
+
+    def __len__(self):
+        return self.n_problems
+
+
+class QueueLoader(Loader):
     def __init__(
         self,
         problems: list[Problem],
@@ -31,22 +89,15 @@ class QueueLoader:
         batch_size: int | None = None,
         seed: int = 1,
     ):
-        self.problems = problems
+        super().__init__(problems, batch_size, seed)
         self.queue = queue
-        self.n_problems = len(problems)
-        # self.indices: np.ndarray | None = None
-        if batch_size is None:
-            self.batch_size = len(problems)
-        else:
-            self.batch_size = batch_size
-        self.rng = np.random.default_rng(seed)
 
     @classmethod
     def from_path(cls, args, path: Path):
         with path.open("rb") as f:
             pset_dict = pkl.load(f)
         problems = pset_dict["problems"][0]
-        queue = Queue(1000)
+        queue = Queue(args.batch_size)
         loader = QueueLoader(
             problems,
             queue,
@@ -57,7 +108,7 @@ class QueueLoader:
 
     def get(self):
         try:
-            return self.problems[self.queue.get_nowait()]
+            return deepcopy(self.problems[self.queue.get_nowait()])
         except Empty:
             return None
 
@@ -69,24 +120,23 @@ class QueueLoader:
 
     def next_batch(self, batch: int):
         for i in self.indices[self.batch_size * (batch - 1) : self.batch_size * batch]:
-            self.queue.put(i)
+            self.queue.put_nowait(i)
 
-    # def load_state_dict(self, state: dict):
-    #     self.batch_size = state["batch_size"]
-    #     self.rng = state["rng"]
+    def load_state_dict(self, state: dict):
+        self.indices = state["indices"]
+        self.rng.bit_generator.state = state["rng_state"]
 
-    # def state_dict(self) -> dict:
-    #     with self.shared_indexer.get_lock():
-    #         with self.shared_indices.get_lock():
-    #             return {
-    #                 "indices": self.shared_indices[:],
-    #                 "indexer": self.shared_indexer.value,
-    #                 "batch_size": self.batch_size,
-    #                 "rng": self.rng,
-    #             }
+    def state_dict(self) -> dict:
+        return {
+            "indices": self.indices,
+            "rng_state": self.rng.bit_generator.state,
+        }
+
+    def __len__(self):
+        return self.n_problems
 
 
-class ArrayLoader:
+class ArrayLoader(Loader):
     def __init__(
         self,
         problems: list[Problem],
@@ -95,63 +145,59 @@ class ArrayLoader:
         batch_size: int | None = None,
         seed: int = 1,
     ):
-        if batch_size is None:
-            self.batch_size = len(problems)
+        super().__init__(problems, batch_size, seed)
+        self.s_indices = shared_inices
+        self.s_idx = shared_indexer
+
+    def reset_indices(self, shuffle: bool = False):
+        if shuffle:
+            indices = self.rng.permutation(self.n_problems)
         else:
-            self.batch_size = batch_size
-        self.problems = problems
-        self.shared_indices = shared_inices
-        self.shared_indexer = shared_indexer
+            indices = np.arange(self.n_problems, dtype=int)
 
-        self.rng = np.random.default_rng(seed)
-        self.loaded_state = False
-        self.n_problems = len(self.problems)
+        sentinel_indices = np.arange(
+            self.batch_size, self.n_problems + 1, self.batch_size, dtype=int
+        )
+        if self.n_problems % self.batch_size != 0:
+            sentinel_indices = np.append(sentinel_indices, -1)
 
-    def init_indexer(self, shuffle: bool = False):
-        with self.shared_indices.get_lock():
-            with self.shared_indexer.get_lock():
-                if shuffle:
-                    new_indices = self.rng.permutation(self.n_problems)
-                else:
-                    new_indices = np.arange(self.n_problems)
-                self.shared_indices[:] = new_indices[:]
-                self.shared_indexer.value = 0
+        mod_indices = np.insert(indices, sentinel_indices, -1)
+        del indices, sentinel_indices
+        with self.s_indices.get_lock():
+            self.s_indices[:] = mod_indices[:]
+        del mod_indices
 
-    def advance_batch(self):
-        with self.shared_indices.get_lock():
-            with self.shared_indexer.get_lock():
-                idx = self.shared_indexer.value
-                problem = self.problems[self.shared_indices[idx]]
-                self.shared_indexer.value += 1
-                return problem
+        with self.s_idx.get_lock():
+            self.s_idx.value = -1
+
+    def next_batch(self):
+        with self.s_idx.get_lock():
+            self.s_idx.value += 1
 
     def get(self):
-        with self.shared_indices.get_lock():
-            with self.shared_indexer.get_lock():
-                idx = self.shared_indexer.value
-                if idx == self.n_problems or idx % self.batch_size == 0:
-                    return None
-                else:
-                    problem = self.problems[self.shared_indices[idx]]
-                    self.shared_indexer.value += 1
-                    return problem
+        with self.s_idx.get_lock():
+            i = self.s_indices[self.s_idx.value]
+            if i == -1:
+                return None
+            else:
+                self.s_idx.value += 1
+        return deepcopy(self.problems[i])
 
     def load_state_dict(self, state: dict):
-        with self.shared_indexer.get_lock():
-            with self.shared_indices.get_lock():
-                self.shared_indices[:] = state["indices"][:]
-                self.shared_indexer.value = state["indexer"]
+        with self.s_idx.get_lock():
+            self.s_indices[:] = state["indices"][:]
+        with self.s_indices.get_lock():
+            self.s_idx.value = state["indexer"]
         self.batch_size = state["batch_size"]
-        self.rng = state["rng"]
+        self.rng.bit_generator.state = state["rng_state"]
 
     def state_dict(self) -> dict:
-        with self.shared_indexer.get_lock():
-            with self.shared_indices.get_lock():
+        with self.s_idx.get_lock():
+            with self.s_indices.get_lock():
                 return {
-                    "indices": self.shared_indices[:],
-                    "indexer": self.shared_indexer.value,
-                    "batch_size": self.batch_size,
-                    "rng": self.rng,
+                    "indices": self.s_indices[:],
+                    "indexer": self.s_idx.value,
+                    "rng_state": self.rng.bit_generator.state,
                 }
 
     @classmethod
@@ -159,8 +205,11 @@ class ArrayLoader:
         with path.open("rb") as f:
             pset_dict = pkl.load(f)
         problems = pset_dict["problems"][0]
-        indexer = mp.Value("I", 0)
-        indices = mp.Array("I", len(problems))
+        indexer = mp.Value("i", 0)
+        n_sentinels = len(problems) // args.batch_size
+        if len(problems) % args.batch_size != 0:
+            n_sentinels += 1
+        indices = mp.Array("i", len(problems) + n_sentinels)
         loader = ArrayLoader(
             problems,
             indices,
