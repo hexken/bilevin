@@ -158,10 +158,8 @@ class ArrayLoader(Loader):
         sentinel_indices = np.arange(
             self.batch_size, self.n_problems + 1, self.batch_size, dtype=int
         )
-        if self.n_problems % self.batch_size != 0:
-            sentinel_indices = np.append(sentinel_indices, -1)
-
         mod_indices = np.insert(indices, sentinel_indices, -1)
+        mod_indices = np.append(mod_indices, -1)
         del indices, sentinel_indices
         with self.s_indices.get_lock():
             self.s_indices[:] = mod_indices[:]
@@ -206,9 +204,7 @@ class ArrayLoader(Loader):
             pset_dict = pkl.load(f)
         problems = pset_dict["problems"][0]
         indexer = mp.Value("i", 0)
-        n_sentinels = len(problems) // args.batch_size
-        if len(problems) % args.batch_size != 0:
-            n_sentinels += 1
+        n_sentinels = len(problems) // args.batch_size + 1
         indices = mp.Array("i", len(problems) + n_sentinels)
         loader = ArrayLoader(
             problems,

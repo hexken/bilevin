@@ -178,7 +178,7 @@ def train(
                     f"Batch time: {batch_total_time:.2f}s, solved {len(trajs)}/{len(batch_buffer)}"
                 )
                 print(
-                    f"Epoch time: {timer() - epoch_start_time:.2f}s, solved {results.solved}/{len(train_loader)}"
+                    f"Epoch time: {timer() - epoch_start_time:.2f}s, solved {results.solved}/{len(results.data["id"])}"
                 )
                 del trajs
                 sys.stdout.flush()
