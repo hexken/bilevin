@@ -9,14 +9,11 @@ python bilevin/main.py \
     --agent PHS \
     --loss-fn default \
     --exp-name "lr0.001" \
-    --train-path problems/stp4/50000-train.pkl \
-    --valid-path problems/stp4/1000-valid.pkl \
-    --test-path problems/stp4/1000-test.pkl \
     --runsdir-path runs/ \
     --shuffle \
     --master-port 34568 \
     --seed 1 \
-    --world-size 2 \
+    --world-size 4 \
     --batch-size 8 \
     --n-eval 32 \
     --feature-net-type conv \
@@ -43,12 +40,14 @@ python bilevin/main.py \
     --backward-heuristic-layers 256 198 128 \
     --backward-heuristic-lr $blr \
     \
-    --checkpoint-every-n-batch 5 \
     \
     --time-budget 300 \
-    --train-expansion-budget 7000 \
+    --train-expansion-budget 10000 \
     \
-    # --mask-invalid-actions \
-    # --train-path problems/stp4/100-train.pkl \
-    # --valid-path problems/stp4/50-valid.pkl \
-    # --test-path problems/stp4/50-test.pkl \
+    --train-path problems/stp4/100-train.pkl \
+    --valid-path problems/stp4/10-valid.pkl \
+    --test-path problems/stp4/10-test.pkl \
+    # --train-path problems/stp4/50000-train.pkl \
+    # --valid-path problems/stp4/1000-valid.pkl \
+    # --test-path problems/stp4/1000-test.pkl \
+    # --checkpoint-every-n-batch 5 \
