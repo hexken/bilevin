@@ -47,7 +47,7 @@ class AStarBase(Agent):
             parent=None,
             parent_action=None,
             actions=actions,
-            actions_mask=mask,
+            mask=mask,
             log_prob=0.0,
             log_action_probs=None,
             g=0,
@@ -69,7 +69,7 @@ class AStarBase(Agent):
             parent=parent_node,
             parent_action=parent_action,
             actions=actions,
-            actions_mask=mask,
+            mask=mask,
             g=parent_node.g + 1,
             log_prob=0.0,
         )

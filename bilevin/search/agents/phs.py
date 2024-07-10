@@ -50,7 +50,7 @@ class PHSBase(Agent):
             parent=None,
             parent_action=None,
             actions=actions,
-            actions_mask=mask,
+            mask=mask,
             g=0,
             log_prob=0.0,
             f=log(1 + h),
@@ -63,7 +63,7 @@ class PHSBase(Agent):
         parent_node: SearchNode,
         parent_action: int,
         actions: list[int],
-        actions_mask: to.Tensor | None,
+        mask: to.Tensor | None,
         new_state: State,
     ) -> SearchNode:
         assert parent_node.log_action_probs is not None
@@ -78,7 +78,7 @@ class PHSBase(Agent):
             parent=parent_node,
             parent_action=parent_action,
             actions=actions,
-            actions_mask=actions_mask,
+            mask=mask,
             log_prob=log_prob,
             g=g,
         )

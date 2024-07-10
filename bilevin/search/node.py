@@ -45,7 +45,7 @@ class SearchNode:
         parent: Optional[SearchNode],
         parent_action: Optional[int], # action taken from parent to reach this node
         actions: list[int],
-        actions_mask: Tensor | None,
+        mask: Tensor | None,
         g: int,
         log_prob: float,
         log_action_probs: Optional[Tensor] = None,
@@ -59,7 +59,7 @@ class SearchNode:
         self.g = g
         self.log_prob = log_prob
         self.actions = actions
-        self.actions_mask = actions_mask
+        self.mask = mask
         self.log_action_probs = log_action_probs
         self.h = h
         self.f = f

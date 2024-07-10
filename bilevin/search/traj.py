@@ -75,7 +75,7 @@ class Trajectory:
             )
             actions = dir1_domain.actions(action, new_state)
             if set_masks:
-                mask = agent.get_actions_mask(actions)
+                mask = agent.get_mask(actions)
             else:
                 mask = None
             new_dir1_node = SearchNode(
@@ -84,7 +84,7 @@ class Trajectory:
                 parent=dir1_node,
                 parent_action=action,
                 actions=actions,
-                actions_mask=mask,
+                mask=mask,
                 log_prob=0.0,
             )
             dir1_node = new_dir1_node
@@ -133,7 +133,7 @@ class Trajectory:
             state_t = domain.state_tensor(node.state)
             states.append(state_t)
             actions.append(action)
-            masks.append(node.actions_mask)
+            masks.append(node.mask)
             action = node.parent_action
             node = node.parent
 

@@ -72,7 +72,7 @@ class Agent(ABC):
         if log:
             print(f"Saved model\n  to {str(path)}")
 
-    def get_actions_mask(self, actions: list[int]) -> to.Tensor:
+    def get_mask(self, actions: list[int]) -> to.Tensor:
         mask = full((self.num_actions,), True, dtype=to.bool)
         mask[actions] = False
         return mask
