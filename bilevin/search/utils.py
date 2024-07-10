@@ -169,7 +169,7 @@ def print_search_summary(
         else:
             s_exp = (solved_df["fexp"]).mean()
         lens = solved_df["len"].mean()
-        print(f"Solved: {len(solved_df)} ({solved * 100:.2f}%)")
+        print(f"Solved: {len(solved_df)}/{len(search_df)} ({solved * 100:.2f}%)")
         print(f"Time: {time:.2f} ({search_df['time'].mean():.2f})")
         total_exp = search_df["exp"].sum()
         print(f"Exp: {s_exp:.2f} ({total_exp/len(search_df):.2f})")
