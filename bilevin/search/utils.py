@@ -30,15 +30,12 @@ class ResultsLog:
     def __init__(
         self,
         agent: Agent | None = None,
-        data: dict | None = None,
         policy_based: bool | None = None,
         heuristic_based: bool | None = None,
         bidirectional: bool | None = None,
     ):
-        if data is not None:
-            self.data = data
-        else:
-            self.data = {key: [] for key in search_result_header}
+        self.data = {key: [] for key in search_result_header}
+        self.solved = 0
 
         if agent is not None:
             self.policy_based = agent.has_policy
@@ -49,6 +46,13 @@ class ResultsLog:
             self.heuristic_based = heuristic_based
             self.bidirectional = bidirectional
         self.solved = 0
+
+    def state_dict(self):
+        return {"data": self.data, "solved": self.solved}
+
+    def load_state_dict(self, state: dict):
+        self.data = state["data"]
+        self.solved = state["solved"]
 
     def clear(self):
         for k in self.data.keys():
@@ -76,13 +80,15 @@ class ResultsLog:
         return ret_df
 
     def __getitem__(self, key) -> ResultsLog:
-        return ResultsLog(
-            None,
-            {k: v[key] for k, v in self.data.items()},
-            self.policy_based,
-            self.heuristic_based,
-            self.bidirectional,
+        ret = ResultsLog(
+            policy_based=self.policy_based,
+            heuristic_based=self.heuristic_based,
+            bidirectional=self.bidirectional,
         )
+        data = {k: v[key] for k, v in self.data.items()}
+        solved = len(data["len"]) - sum(l for l in data["len"] if l > 0)
+        ret.load_state_dict({"data": data, "solved": solved})
+        return ret
 
     def __len__(self):
         return len(self.data["id"])

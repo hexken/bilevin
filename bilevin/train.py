@@ -31,16 +31,17 @@ def train(
         best_valid_expanded = len(valid_loader) * args.train_expansion_budget + 1
         batch_buffer: list[Result] = []
 
+    results = ResultsLog(agent)
     if args.checkpoint_path is None:
-        results = ResultsLog(agent)
         epoch = 0
         done_epoch = False
         train_start_time = timer()
     else:
         with args.checkpoint_path.open("rb") as f:
             checkpoint_data = to.load(f)
+            results.load_state_dict(checkpoint_data["results_state"])
+            agent.model.load_state_dict(checkpoint_data["model_state"])
             agent.optimizer.load_state_dict(checkpoint_data["optimizer_state"])
-            results = ResultsLog(agent, checkpoint_data["search_results"])
             best_valid_expanded = checkpoint_data["best_valid_expanded"]
             epoch_start_time = timer() - checkpoint_data["time_in_epoch"]
             train_start_time = timer() - checkpoint_data["time_in_training"]
@@ -60,6 +61,7 @@ def train(
             )
 
     done_batch = True
+    dist.monitored_barrier()
     while True:
         if done_batch:
             batch_start_time = timer()
@@ -82,10 +84,21 @@ def train(
             batch += 1
             if rank == 0:
                 train_loader.next_batch()
+                # with train_loader.s_idx.get_lock():
+                #     print(f"Rank {rank} ii {train_loader.s_idx.value}")
             gc.collect()
             dist.monitored_barrier()
+            # with train_loader.s_idx.get_lock():
+            #     with train_loader.s_indices.get_lock():
+            #         print(
+            #             f"Rank {rank} {train_loader.s_idx.value} {train_loader.s_indices[train_loader.s_idx.value]}"
+            #         )
 
+        # dist.monitored_barrier()
         problem = train_loader.get()
+        # print(f"Rank {rank} problem {problem if problem is None else problem.id}")
+        # dist.monitored_barrier()
+        # exit(0)
         if problem is not None:
             agent.model.eval()
             to.set_grad_enabled(False)
@@ -132,6 +145,7 @@ def train(
                 while not results_queue.empty():
                     batch_buffer.append(results_queue.get())
 
+                print("Batch buffer length", len(batch_buffer))
                 results.append(batch_buffer)
                 batch_df = results[-len(batch_buffer) :].get_df()
                 print(
@@ -143,6 +157,7 @@ def train(
                         floatfmt=".2f",
                     )
                 )
+                del batch_df
                 # update rank 0 model
                 trajs = [
                     (res.id, res.f_traj, res.b_traj)
@@ -181,7 +196,7 @@ def train(
                     f"Batch time: {batch_total_time:.2f}s, solved {len(trajs)}/{len(batch_buffer)}"
                 )
                 print(
-                    f"Epoch time: {timer() - epoch_start_time:.2f}s, solved {results.solved}/{len(results.data['id'])}"
+                    f"Epoch time: {timer() - epoch_start_time:.2f}s, solved {results.solved}/{len(results)}"
                 )
                 del trajs
                 sys.stdout.flush()
@@ -263,10 +278,9 @@ def train(
                 if rank == 0:
                     ts = timer()
                     checkpoint_data = {
-                        "search_results": results.data,
+                        "results_state": results.state_dict(),
                         "model_state": agent.model.state_dict(),
                         "optimizer_state": agent.optimizer.state_dict(),
-                        "expansion_budget": args.train_expansion_budget,
                         "best_valid_expanded": best_valid_expanded,
                         "time_in_epoch": timer() - epoch_start_time,
                         "time_in_training": timer() - train_start_time,

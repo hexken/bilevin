@@ -90,23 +90,22 @@ if __name__ == "__main__":
 
     to.set_num_threads(1)
     to.set_default_dtype(to.float64)
-    to.use_deterministic_algorithms(True)
     set_seeds(args.seed)
 
     exp_name = f"_{args.exp_name}" if args.exp_name else ""
 
     if args.test_path is not None:
         test_loader, pset_dict = ArrayLoader.from_path(args, args.test_path)
-        max_qsize = len(test_loader)
+        test_loader_len = len(test_loader)
     else:
         test_loader = None
-        max_qsize = 0
+        test_loader_len = 0
 
     model = None
     if args.mode == "train":
         train_loader, pset_dict = ArrayLoader.from_path(args, args.train_path)
         valid_loader, _ = ArrayLoader.from_path(args, args.valid_path)
-        max_qsize = max(max_qsize, args.batch_size, len(valid_loader))
+        test_loader_len = max(test_loader_len, args.batch_size, len(valid_loader))
         # SLURM_ARRAY_JOB_ID
         if args.checkpoint_path is None:
             if "SLURM_ARRAY_JOB_ID" in os.environ:
@@ -181,7 +180,7 @@ if __name__ == "__main__":
     print(f"Using port {os.environ['MASTER_PORT']}")
     os.environ["MASTER_ADDR"] = args.master_addr
 
-    results_queue = mp.Queue(maxsize=max_qsize)
+    results_queue = mp.Queue(maxsize=test_loader_len)
     processes = []
     for rank in range(args.world_size):
         proc = mp.Process(
