@@ -4,7 +4,7 @@ template = """#!/bin/bash
 #SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
-#SBATCH --mem<mem>
+#SBATCH --mem=<mem>
 #SBATCH --time=<time>
 #SBATCH --array=<array>
 #SBATCH --output=/scratch/tjhia/bilevin/outputs/<dom>-50000-train_<agent>_%A-%a-%j.out

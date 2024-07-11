@@ -37,8 +37,8 @@ elif [ "$1" = "4" ]; then
     --marker-prob-limits  0.1 0.5 \
     --min-path-ratio-limits 0.0 2.0 \
     --n-problems-final-stage 50000 \
-    --test-marker-prob 0.6 \
-    --test-min-path-ratio 1.5 \
+    --test-marker-prob 0.75 \
+    --test-min-path-ratio 2.0 \
     --n-valid  1000 \
     --n-test  1000
 elif [ "$1" = "5" ]; then
@@ -52,8 +52,8 @@ elif [ "$1" = "5" ]; then
     --marker-prob-limits  0.1 0.5 \
     --min-path-ratio-limits 0.0 2.0 \
     --n-problems-final-stage 50000 \
-    --test-marker-prob 0.6 \
-    --test-min-path-ratio 1.5 \
+    --test-marker-prob 0.75 \
+    --test-min-path-ratio 2.0 \
     --n-valid  1000 \
     --n-test  1000
 else

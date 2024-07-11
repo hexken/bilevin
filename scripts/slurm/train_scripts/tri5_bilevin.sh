@@ -2,10 +2,10 @@
 #SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
-#SBATCH --mem=5G
-#SBATCH --time=30:00:00
+#SBATCH --mem=6G
+#SBATCH --time=56:00:00
 #SBATCH --array=7,17,31,53,97
-#SBATCH --output=/scratch/tjhia/bilevin/outputs/stp4-50000-train_BiLevin_%A-%a-%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/outputs/tri5-50000-train_BiLevin_%A-%a-%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -25,10 +25,10 @@ python bilevin/main.py \
     --n-eval 32 \
     --agent BiLevin \
     --seed $SLURM_ARRAY_TASK_ID \
-    --runsdir-path runs/stp4/BiLevin \
-    --train-path problems/stp4/50000-train.pkl \
-    --valid-path problems/stp4/1000-valid.pkl \
-    --test-path problems/stp4/1000-test.pkl \
+    --runsdir-path runs/tri5/BiLevin \
+    --train-path problems/tri5/50000-train.pkl \
+    --valid-path problems/tri5/1000-valid.pkl \
+    --test-path problems/tri5/1000-test.pkl \
     --slow-problem 30 \
     --shuffle \
     \
