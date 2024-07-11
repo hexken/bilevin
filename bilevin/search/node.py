@@ -19,6 +19,7 @@ class DirStructures:
         domain: Domain,
         other_domain: Domain,
         goal_feats: Optional[Tensor] = None,
+        mask_invalid_actions: bool = False,
     ):
         self.dir = dir
         self.open = open
@@ -28,7 +29,10 @@ class DirStructures:
         self.goal_feats = goal_feats
 
         self.expanded = 0
-        self.masks = []
+        if mask_invalid_actions:
+            self.masks = []
+        else:
+            self.masks = None
         self.children_to_be_evaluated = []
         self.state_t_of_children_to_be_evaluated = []
         if dir == SearchDir.FORWARD:
@@ -43,7 +47,7 @@ class SearchNode:
         self,
         state: State,
         parent: Optional[SearchNode],
-        parent_action: Optional[int], # action taken from parent to reach this node
+        parent_action: Optional[int],  # action taken from parent to reach this node
         actions: list[int],
         mask: Tensor | None,
         g: int,

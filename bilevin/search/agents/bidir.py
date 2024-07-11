@@ -43,14 +43,17 @@ class BiDir(Agent):
         f_domain = problem.domain
         f_state = f_domain.init()
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
-        f_actions, f_mask = f_domain.actions(None, f_state)
+        f_actions = f_domain.actions(None, f_state)
+        if self.mask_invalid_actions:
+            mask = self.get_mask(f_actions)
+        else:
+            mask = None
         f_start_node = self.make_start_node(
-            f_state, f_state_t, f_actions, mask=f_mask, forward=True, goal_feats=None
+            f_state, f_state_t, f_actions, mask=mask, forward=True, goal_feats=None
         )
         f_open = [f_start_node]
         f_closed = {f_start_node: f_start_node}
         f_domain.update(f_start_node)
-        # print(f"alternating: {self.alternating}")
 
         if self.model.conditional_backward:
             if self.model.has_feature_net:
@@ -63,13 +66,15 @@ class BiDir(Agent):
         b_domain = f_domain.backward_domain()
         b_state = b_domain.init()
         b_state_t = b_domain.state_tensor(b_state).unsqueeze(0)
-        b_actions, b_mask = b_domain.actions(None, b_state)
+        b_actions = b_domain.actions(None, b_state)
+        if self.mask_invalid_actions:
+            mask = self.get_mask(b_actions)
 
         b_start_node = self.make_start_node(
             b_state,
             b_state_t,
             b_actions,
-            mask=b_mask,
+            mask=mask,
             forward=False,
             goal_feats=b_goal_feats,
         )
@@ -80,7 +85,7 @@ class BiDir(Agent):
         num_expanded = 0
 
         f_ds = DirStructures(SearchDir.FORWARD, f_open, f_closed, f_domain, b_domain)
-        f_start_node.ds = ds = f_ds
+        f_start_node.ds = f_ds
 
         b_ds = DirStructures(
             SearchDir.BACKWARD,
@@ -90,13 +95,17 @@ class BiDir(Agent):
             f_domain,
             goal_feats=b_goal_feats,
         )
-        b_start_node.ds = ds = b_ds
+        b_start_node.ds = b_ds
 
         f_ds.next_ds = b_ds
         b_ds.next_ds = f_ds
         ds = f_ds
 
-        while len(f_open) > 0 and len(b_open) > 0:
+        """
+        need or because of batch eval, but could be problematic if problems aren't solvable
+
+        """
+        while len(f_open) > 0 or len(b_open) > 0:
             if (
                 (exp_budget > 0 and num_expanded >= exp_budget)
                 or time_budget > 0
@@ -108,19 +117,7 @@ class BiDir(Agent):
                     (None, None),
                 )
 
-            # flen = len(f_open)
-            # blen = len(b_open)
-            # if flen == 0 and blen > 0:
-            #     node = heappop(b_open)
-            # elif blen == 0 and flen > 0:
-            #     node = heappop(f_open)
-            # elif flen == 0 and blen == 0:
-            #     break
-            # else:
-
             if self.alternating:
-                # if len(ds.open) == 0:
-                #     ds = ds.next_ds
                 node = heappop(ds.open)
             else:
                 flen = len(f_open)
@@ -133,13 +130,18 @@ class BiDir(Agent):
                     node = heappop(b_open)
                 else:
                     node = heappop(f_open)
+                ds = node.ds
+                assert ds is not None
 
             num_expanded += 1
             ds.expanded += 1
 
             for a in node.actions:
                 new_state = ds.domain.result(node.state, a)
-                new_state_actions, mask = ds.domain.actions(a, new_state)
+                new_state_actions = ds.domain.actions(a, new_state)
+                if self.mask_invalid_actions:
+                    mask = self.get_mask(new_state_actions)
+
                 new_node = self.make_partial_child_node(
                     node,
                     a,
@@ -171,7 +173,8 @@ class BiDir(Agent):
                         state_t = ds.domain.state_tensor(new_state)
                         ds.children_to_be_evaluated.append(new_node)
                         ds.state_t_of_children_to_be_evaluated.append(state_t)
-                        ds.masks.append(mask)
+                        if ds.masks is not None:
+                            ds.masks.append(mask)
 
             if (
                 len(f_ds.children_to_be_evaluated) + len(b_ds.children_to_be_evaluated)
@@ -190,10 +193,12 @@ class BiDir(Agent):
                         )
                         _ds.children_to_be_evaluated.clear()
                         _ds.state_t_of_children_to_be_evaluated.clear()
-                        _ds.masks.clear()
+                        if _ds.masks is not None:
+                            _ds.masks.clear()
+
+            if self.alternating:
                 ds = ds.next_ds
 
-        assert False
         print(f"Emptied opens for problem {problem.id}")
         return (
             f_ds.expanded,

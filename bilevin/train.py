@@ -135,7 +135,7 @@ def train(
                 b_traj=b_traj,
             )
             results_queue.put(res)
-            del res, f_traj, b_traj
+            del res, f_traj, b_traj, problem
 
         else:  # end batch
             done_batch = True
