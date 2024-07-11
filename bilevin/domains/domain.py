@@ -78,6 +78,7 @@ class Domain(ABC):
                 f_common_node,
                 b_common_node,
                 num_expanded,
+                forward=True,
                 set_masks=agent.mask_invalid_actions,
             )
             b_traj = Trajectory.from_common_node(
