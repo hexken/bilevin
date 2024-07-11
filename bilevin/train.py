@@ -1,6 +1,7 @@
 from argparse import Namespace
 import gc
 import pickle
+from queue import Empty
 import sys
 from timeit import default_timer as timer
 
@@ -64,6 +65,7 @@ def train(
     dist.barrier()
     while True:
         if done_batch:
+            dist.barrier()
             batch_start_time = timer()
             done_batch = False
             if done_epoch or epoch == 0:
@@ -84,21 +86,10 @@ def train(
             batch += 1
             if rank == 0:
                 train_loader.next_batch()
-                # with train_loader.s_idx.get_lock():
-                #     print(f"Rank {rank} ii {train_loader.s_idx.value}")
             gc.collect()
             dist.barrier()
-            # with train_loader.s_idx.get_lock():
-            #     with train_loader.s_indices.get_lock():
-            #         print(
-            #             f"Rank {rank} {train_loader.s_idx.value} {train_loader.s_indices[train_loader.s_idx.value]}"
-            #         )
 
-        # dist.barrier()
         problem = train_loader.get()
-        # print(f"Rank {rank} problem {problem if problem is None else problem.id}")
-        # dist.barrier()
-        # exit(0)
         if problem is not None:
             agent.model.eval()
             to.set_grad_enabled(False)
@@ -142,10 +133,11 @@ def train(
             dist.barrier()
             if rank == 0:
                 print(f"\nBatch {batch}")
-                while not results_queue.empty():
-                    batch_buffer.append(results_queue.get())
+                for _ in range(train_loader.current_batch_size(batch)):
+                    res = results_queue.get()
+                    batch_buffer.append(res)
+                    del res
 
-                print("Batch buffer length", len(batch_buffer))
                 results.append(batch_buffer)
                 batch_df = results[-len(batch_buffer) :].get_df()
                 print(

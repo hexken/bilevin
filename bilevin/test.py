@@ -81,8 +81,10 @@ def test(
             done_epoch = True
             dist.barrier()
             if rank == 0:
-                while not results_queue.empty():
-                    epoch_buffer.append(results_queue.get())
+                for _ in range(len(loader)):
+                    res = results_queue.get()
+                    epoch_buffer.append(res)
+                    del res
 
                 results.append(epoch_buffer)
                 epoch_df = results[-len(epoch_buffer) :].get_df()

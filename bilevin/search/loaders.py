@@ -25,59 +25,24 @@ class Problem:
         return self.id == other.id
 
 
-class Loader:
-    def __init__(
-        self,
-        problems: list[Problem],
-        batch_size: int,
-        seed: int,
-    ):
-        self.batch_size = batch_size
-        self.problems = problems
-        self.rng = np.random.default_rng(seed)
-        self.n_problems = len(self.problems)
-
-    @abstractmethod
-    def reset_indices(self, shuffle: bool = False):
-        pass
-
-    @abstractmethod
-    def next_batch(self):
-        pass
-
-    @abstractmethod
-    def get(self):
-        pass
-
-    @abstractmethod
-    def load_state_dict(self, state: dict):
-        pass
-
-    @abstractmethod
-    def state_dict(self) -> dict:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def from_path(cls, args, path: Path):
-        pass
-
-    def __len__(self):
-        return self.n_problems
-
-
-class ArrayLoader(Loader):
+class ArrayLoader:
     def __init__(
         self,
         problems: list[Problem],
         shared_inices,
         shared_indexer,
         batch_size: int,
+        full_batches: int,
         seed: int,
     ):
-        super().__init__(problems, batch_size, seed)
+        self.batch_size = batch_size
+        self.problems = problems
+        self.rng = np.random.default_rng(seed)
+        self.n_problems = len(self.problems)
         self.s_indices = shared_inices
         self.s_idx = shared_indexer
+        self.full_batches = full_batches
+        self.remainder_batch_size = self.n_problems % self.batch_size
 
     def reset_indices(self, shuffle: bool = False):
         if shuffle:
@@ -89,14 +54,21 @@ class ArrayLoader(Loader):
             self.batch_size, self.n_problems + 1, self.batch_size, dtype=int
         )
         mod_indices = np.insert(indices, sentinel_indices, -1)
-        mod_indices = np.append(mod_indices, -1)
-        del indices, sentinel_indices
+        if self.n_problems % self.batch_size != 0:
+            mod_indices = np.append(mod_indices, -1)
+
         with self.s_indices.get_lock():
             self.s_indices[:] = mod_indices[:]
-        del mod_indices
-
         with self.s_idx.get_lock():
             self.s_idx.value = -1
+
+        del mod_indices, indices, sentinel_indices
+
+    def current_batch_size(self, batch: int):
+        if batch <= self.full_batches:
+            return self.batch_size
+        else:
+            return self.remainder_batch_size
 
     def next_batch(self):
         with self.s_idx.get_lock():
@@ -132,77 +104,31 @@ class ArrayLoader(Loader):
         with path.open("rb") as f:
             pset_dict = pkl.load(f)
         problems = pset_dict["problems"][0]
-        indexer = mp.Value("i", 0)
-        n_sentinels = len(problems) // args.batch_size + 1
-        indices = mp.Array("i", len(problems) + n_sentinels)
+
         if "test" in str(path) or "valid" in str(path):
             batch_size = len(problems)
         else:
             batch_size = args.batch_size
+
+        indexer = mp.Value("i", 0)
+
+        full_batches = len(problems) // batch_size
+        if len(problems) % batch_size != 0:
+            total_batches = full_batches + 1
+        else:
+            total_batches = full_batches
+        # for sentinels to signal end of batch
+        indices = mp.Array("i", len(problems) + total_batches)
+
         loader = ArrayLoader(
             problems,
             indices,
             indexer,
             batch_size=batch_size,
+            full_batches=full_batches,
             seed=args.seed,
         )
         return loader, pset_dict
-
-    def __len__(self):
-        return self.n_problems
-
-
-class QueueLoader(Loader):
-    def __init__(
-        self,
-        problems: list[Problem],
-        queue: Queue,
-        batch_size: int,
-        seed: int,
-    ):
-        super().__init__(problems, batch_size, seed)
-        self.queue = queue
-
-    # todo batch size calc may be wrong for test/valid
-    @classmethod
-    def from_path(cls, args, path: Path):
-        with path.open("rb") as f:
-            pset_dict = pkl.load(f)
-        problems = pset_dict["problems"][0]
-        queue = Queue(args.batch_size)
-        loader = QueueLoader(
-            problems,
-            queue,
-            batch_size=args.batch_size,
-            seed=args.seed,
-        )
-        return loader, pset_dict
-
-    def get(self):
-        try:
-            return deepcopy(self.problems[self.queue.get_nowait()])
-        except Empty:
-            return None
-
-    def reset_indices(self, shuffle: bool = False):
-        if shuffle:
-            self.indices = self.rng.permutation(self.n_problems)
-        else:
-            self.indices = np.arange(self.n_problems)
-
-    def next_batch(self, batch: int):
-        for i in self.indices[self.batch_size * (batch - 1) : self.batch_size * batch]:
-            self.queue.put_nowait(i)
-
-    def load_state_dict(self, state: dict):
-        self.indices = state["indices"]
-        self.rng.bit_generator.state = state["rng_state"]
-
-    def state_dict(self) -> dict:
-        return {
-            "indices": self.indices,
-            "rng_state": self.rng.bit_generator.state,
-        }
 
     def __len__(self):
         return self.n_problems
