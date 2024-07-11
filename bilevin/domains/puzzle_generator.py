@@ -23,37 +23,35 @@ def save_problemset(pth, problemset_dict, suffix):
     print(f"  Saved {n_problems} problems to {path}")
 
 
+def is_solvable(tiles):
+    n = tiles.shape[0]
+    flat_tiles = tiles.flatten()
+    flat_tiles = flat_tiles[flat_tiles != 0]
+    inversions = 0
+    for i in range(len(flat_tiles)):
+        for j in range(i + 1, len(flat_tiles)):
+            if flat_tiles[i] > flat_tiles[j]:
+                inversions += 1
+    if n % 2 == 1:
+        return inversions % 2 == 0
+    else:
+        blank_row_from_top = np.where(tiles == 0)[0][0] + 1
+        return (blank_row_from_top % 2 == 0) != (inversions % 2 == 0)
+
+
 def random_sliding_tile_puzzles(
     rng, width, n_problems, id_counter_start, exclude_problemspecs, pbar
 ):
-
-    def is_solvable(tiles):
-        flat_tiles = tiles.flatten()
-        flat_tiles = flat_tiles[flat_tiles != 0]
-        inversions = 0
-        for i in range(len(flat_tiles)):
-            for j in range(i + 1, len(flat_tiles)):
-                if flat_tiles[i] > flat_tiles[j]:
-                    inversions += 1
-        if width % 2 == 1:
-            return inversions % 2 == 0
-        else:
-            blank_row_from_bottom = width - np.where(tiles == 0)[0][0]
-            if blank_row_from_bottom % 2 == 0:
-                return inversions % 2 == 1
-            else:
-                return inversions % 2 == 0
-
     problems = []
     id_counter = id_counter_start
     while len(problems) < n_problems:
-        state = rng.permutation(width**2).reshape(width, width)
-        if not is_solvable(state):
+        tiles = rng.permutation(width**2).reshape(width, width)
+        if not is_solvable(tiles):
             continue
-        r, c = np.where(state == 0)
+        r, c = np.where(tiles == 0)
         r = r.item()
         c = c.item()
-        state = SlidingTileState(state, r, c)
+        state = SlidingTileState(tiles, r, c)
         if exclude_problemspecs is not None:
             if state in exclude_problemspecs:
                 continue
