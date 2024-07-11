@@ -139,7 +139,7 @@ def train(
                     del res
 
                 results.append(batch_buffer)
-                batch_df = results[-len(batch_buffer) :].get_df()
+                batch_df = results[-len(batch_buffer) :].get_df(sort=True)
                 print(
                     tabulate(
                         batch_df,

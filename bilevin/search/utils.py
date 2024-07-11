@@ -72,10 +72,10 @@ class ResultsLog:
         if result.len > 0:
             self.solved += 1
 
-    def get_df(self):
+    def get_df(self, sort=False):
         ret_df = pd.DataFrame(self.data)
         ret_df = mod_df(
-            ret_df, self.policy_based, self.heuristic_based, self.bidirectional
+            ret_df, self.policy_based, self.heuristic_based, self.bidirectional, sort
         )
         return ret_df
 
@@ -127,7 +127,7 @@ class Result:
             self.bhe = np.nan
 
 
-def mod_df(ret_df, policy_based, heuristic_based, bidirectional):
+def mod_df(ret_df, policy_based, heuristic_based, bidirectional, sort=False):
     if bidirectional:
         exp = ret_df["fexp"] + ret_df["bexp"]
     else:
@@ -143,7 +143,8 @@ def mod_df(ret_df, policy_based, heuristic_based, bidirectional):
         ret_df = ret_df.drop(
             columns=["bexp", "bg", "bacc", "bap", "bhe"], errors="ignore"
         )
-    ret_df = ret_df.sort_values("exp")
+    if sort:
+        ret_df = ret_df.sort_values("exp")
     return ret_df
 
 
