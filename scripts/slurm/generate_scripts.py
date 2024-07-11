@@ -1,10 +1,10 @@
 from pathlib import Path
 
 template = """#!/bin/bash
-#SBATCH --account=rrg-lelis
+#SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
-#SBATCH --mem=6G
+#SBATCH --mem<mem>
 #SBATCH --time=<time>
 #SBATCH --array=<array>
 #SBATCH --output=/scratch/tjhia/bilevin/outputs/<dom>-50000-train_<agent>_%A-%a-%j.out
@@ -31,7 +31,7 @@ python bilevin/main.py \\
     --train-path problems/<dom>/50000-train.pkl \\
     --valid-path problems/<dom>/1000-valid.pkl \\
     --test-path problems/<dom>/1000-test.pkl \\
-    --slow-problem 10 \\
+    --slow-problem 30 \\
     --shuffle \\
     \\
     --share-feature-net <sfn> \\
@@ -49,10 +49,10 @@ def generate_script(config_line):
     for key, value in params.items():
         script_content = script_content.replace(f"<{key}>", value)
 
-    filename = params["filename"]
-    with open(f"train_scripts/{filename}", "w") as f:
+    fname = params["fname"]
+    with open(f"train_scripts/{fname}", "w") as f:
         f.write(script_content)
-    print(f"Script {filename} generated.")
+    print(f"Script {fname} generated.")
 
 
 def main():
