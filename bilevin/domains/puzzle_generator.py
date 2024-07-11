@@ -27,16 +27,15 @@ def random_sliding_tile_puzzles(
     rng, width, n_problems, id_counter_start, exclude_problemspecs, pbar
 ):
 
-    n = width**2 - 1
-
     def is_solvable(tiles):
         flat_tiles = tiles.flatten()
+        flat_tiles = flat_tiles[flat_tiles != 0]
         inversions = 0
-        for i in range(n):
-            for j in range(i + 1, n):
+        for i in range(len(flat_tiles)):
+            for j in range(i + 1, len(flat_tiles)):
                 if flat_tiles[i] > flat_tiles[j]:
                     inversions += 1
-        if n % 2 == 1:
+        if width % 2 == 1:
             return inversions % 2 == 0
         else:
             blank_row_from_bottom = width - np.where(tiles == 0)[0][0]
@@ -48,7 +47,7 @@ def random_sliding_tile_puzzles(
     problems = []
     id_counter = id_counter_start
     while len(problems) < n_problems:
-        state = rng.permutation(n + 1).reshape(width, width)
+        state = rng.permutation(width**2).reshape(width, width)
         if not is_solvable(state):
             continue
         r, c = np.where(state == 0)
