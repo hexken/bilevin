@@ -60,7 +60,7 @@ def train(
             )
 
     done_batch = True
-    dist.monitored_barrier()
+    dist.barrier()
     while True:
         if done_batch:
             batch_start_time = timer()
@@ -83,7 +83,7 @@ def train(
             if rank == 0:
                 problem = train_loader.next_batch()
             gc.collect()
-            dist.monitored_barrier()
+            dist.barrier()
             if rank != 0:
                 problem = train_loader.get()
         else:
@@ -129,7 +129,7 @@ def train(
 
         else:  # end batch
             done_batch = True
-            dist.monitored_barrier()
+            dist.barrier()
             if rank == 0:
                 print(f"\nBatch {batch}")
                 while not results_queue.empty():
@@ -224,7 +224,7 @@ def train(
                     valid_start_time = timer()
                     sys.stdout.flush()
 
-                dist.monitored_barrier()
+                dist.barrier()
 
                 valid_df = test(
                     args,
@@ -287,4 +287,4 @@ def train(
                     print(
                         f"\nCheckpoint saved to {new_checkpoint_path.name}, took {timer() - ts:.2f}s"
                     )
-    dist.monitored_barrier()  # done training
+    dist.barrier()  # done training

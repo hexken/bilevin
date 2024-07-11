@@ -61,7 +61,7 @@ def train(
             )
 
     done_batch = True
-    dist.monitored_barrier()
+    dist.barrier()
     while True:
         if done_batch:
             batch_start_time = timer()
@@ -87,17 +87,17 @@ def train(
                 # with train_loader.s_idx.get_lock():
                 #     print(f"Rank {rank} ii {train_loader.s_idx.value}")
             gc.collect()
-            dist.monitored_barrier()
+            dist.barrier()
             # with train_loader.s_idx.get_lock():
             #     with train_loader.s_indices.get_lock():
             #         print(
             #             f"Rank {rank} {train_loader.s_idx.value} {train_loader.s_indices[train_loader.s_idx.value]}"
             #         )
 
-        # dist.monitored_barrier()
+        # dist.barrier()
         problem = train_loader.get()
         # print(f"Rank {rank} problem {problem if problem is None else problem.id}")
-        # dist.monitored_barrier()
+        # dist.barrier()
         # exit(0)
         if problem is not None:
             agent.model.eval()
@@ -139,7 +139,7 @@ def train(
 
         else:  # end batch
             done_batch = True
-            dist.monitored_barrier()
+            dist.barrier()
             if rank == 0:
                 print(f"\nBatch {batch}")
                 while not results_queue.empty():
@@ -300,6 +300,6 @@ def train(
                     print(
                         f"\nCheckpoint saved to {new_checkpoint_path.name}, took {timer() - ts:.2f}s"
                     )
-    dist.monitored_barrier()
+    dist.barrier()
     if rank == 0:
         print(f"\nTraining completed in {timer() - train_start_time:.2f}s")

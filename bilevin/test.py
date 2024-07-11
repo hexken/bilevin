@@ -39,7 +39,7 @@ def test(
             if rank == 0:
                 loader.reset_indices(shuffle=False)
                 problem = loader.next_batch()
-            dist.monitored_barrier()
+            dist.barrier()
 
         problem = loader.get()
         if problem is not None:
@@ -79,7 +79,7 @@ def test(
 
         else:  # end epoch
             done_epoch = True
-            dist.monitored_barrier()
+            dist.barrier()
             if rank == 0:
                 while not results_queue.empty():
                     epoch_buffer.append(results_queue.get())
@@ -117,5 +117,5 @@ def test(
     results_df = results.get_df()
     results.clear()
     del results, epoch_buffer
-    dist.monitored_barrier()
+    dist.barrier()
     return results_df

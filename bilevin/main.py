@@ -79,6 +79,7 @@ def run(
                 pkl.dump(results_df, f)
             print(f"Testing took {time.time() - ts:.2f} seconds")
             print_search_summary(results_df, bidirectional=agent.is_bidirectional)
+    dist.barrier()
 
 
 if __name__ == "__main__":
