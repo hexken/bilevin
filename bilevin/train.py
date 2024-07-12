@@ -15,8 +15,6 @@ from search.agent import Agent
 from search.loaders import ArrayLoader
 from search.utils import Result, ResultsLog, print_search_summary
 from test import test
-# import objgraph
-from pympler import muppy, summary, tracker
 
 
 def train(
@@ -89,12 +87,6 @@ def train(
             if rank == 0:
                 train_loader.next_batch()
             gc.collect()
-            dist.barrier()
-            if rank == 0:
-                all_objects = muppy.get_objects()
-                sum1 = summary.summarize(all_objects)
-                summary.print_(sum1)
-                sys.stdout.flush()
             dist.barrier()
 
         problem = train_loader.get()

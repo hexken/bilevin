@@ -6,7 +6,7 @@ template = """#!/bin/bash
 #SBATCH --ntasks-per-node=8
 #SBATCH --mem=<mem>
 #SBATCH --time=<time>
-#SBATCH --array=<array>
+#SBATCH --array=7,17,31,53,97
 #SBATCH --output=/scratch/tjhia/bilevin/outputs/<dom>-50000-train_<agent>_%A-%a-%j.out
 
 source $HOME/bilevin-env2/bin/activate
@@ -25,6 +25,7 @@ python bilevin/main.py \\
     --world-size 8 \\
     --batch-size 32 \\
     --n-eval 32 \\
+    --weight-astar 2.5 \\
     --agent <agent> \\
     --seed $SLURM_ARRAY_TASK_ID \\
     --runsdir-path runs/<dom>/<agent> \\

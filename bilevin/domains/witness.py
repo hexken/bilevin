@@ -400,9 +400,13 @@ class Witness(Domain):
                         self.cells[neighbor] != 0
                         and self.cells[neighbor] != current_color
                     ):
+                        del frontier, reached, neighbors
                         return False
                     frontier.append(neighbor)
                     reached.add(neighbor)
+                del neighbors
+            del frontier
+        del reached
         return True
 
     def backward_domain(self) -> Witness:
@@ -583,7 +587,9 @@ class Witness(Domain):
             merged_state.v_segs = state.v_segs + other_state.v_segs
             merged_state.h_segs = state.h_segs + other_state.h_segs
             if self.is_goal(merged_state):
+                del merged_state
                 return other_node
+        del merged_state
         return None
 
     def get_merge_state(self, dir1_state, dir2_parent_state, action) -> State:

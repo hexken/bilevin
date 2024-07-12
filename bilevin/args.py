@@ -59,7 +59,7 @@ def parse_args():
     parser.add_argument(
         "--weight-astar",
         type=float,
-        default=1,
+        default=1.0,
         help="weight to use for weighted A*",
     )
     parser.add_argument(
