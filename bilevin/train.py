@@ -49,7 +49,8 @@ def train(
             epoch = checkpoint_data["epoch"]
             batch = checkpoint_data["batch"]
             done_epoch = checkpoint_data["done_epoch"]
-            train_loader.load_state_dict(checkpoint_data["loader_state"])
+            if rank == 0:
+                train_loader.load_state_dict(checkpoint_data["loader_state"])
             del checkpoint_data
 
         if rank == 0:
@@ -60,6 +61,7 @@ def train(
             print(
                 "----------------------------------------------------------------------------"
             )
+            sys.stdout.flush()
 
     done_batch = True
     dist.barrier()
