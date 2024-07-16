@@ -12,308 +12,282 @@ from natsort import natsorted
 import numpy as np
 import pandas as pd
 
-from utils import LineStyleMapper
-
 cmap = mpl.colormaps["tab20"]
-mpl.rcParams["axes.prop_cycle"] = cycler(color=cmap.colors)
 mpl.rcParams["axes.linewidth"] = 1
-mpl.rc("lines", linewidth=1, linestyle="-")
+mpl.rc("lines", linewidth=1, markersize=3)
 
 
-def plot_search(
-    run_data,
-    y_data_label: str,
-    ax,
+agent_order = ("PHS", "BiPHS", "Levin", "BiLevin", "AStar", "BiAStar")
+allowable_domains = {"stp4", "tri4", "tri5", "col4", "col5"}
+
+main_agents = (
+    "AStar_w2.5",
+    "BiAStar_w2.5",
+    "Levin_nm",
+    "BiLevin_nm",
+    "PHS_nm",
+    "BiPHS_nm",
+)
+mask_agents = (
+    "Levin_m",
+    "BiLevin_m",
+    "PHS_m",
+    "BiPHS_m",
+)
+weight_agents = (
+    "AStar_w2.5",
+    "BiAStar_w.5",
+    "AStar_w1",
+    "BiAStar_w1",
+)
+
+
+def plot_vs_epoch(
+    runs_list,
+    axs,
     style,
     label=None,
-    batch_size=4,
-    max_epoch=10,
+    batch_size=32,
 ):
     # plot seeds corresponding to a run
-    dfs = run_data["search"]
-    aug_dfs = []
-    for df in dfs:
-        df = df[df["epoch"] <= max_epoch]
-        dfg = df[["stage", "epoch", y_data_label]]
-        dfg = dfg.groupby(df["batch"] // batch_size)
-        dfg = dfg.aggregate({"stage": "max", "epoch": "max", y_data_label: "mean"})
-        dfg = dfg.groupby(["stage", "epoch"], as_index=True).mean()
-        aug_dfs.append(dfg)
+    train_dfs = [r["train"] for r in runs_list]
+    train_epochs_df = []
+    for df in train_dfs:
+        df["solved"] = np.where(df["len"].notna(), True, False)
+        dfg = df[["epoch", "solved", "exp"]]
+        dfg = dfg.groupby(df.index // batch_size)
+        dfg = dfg.aggregate({"epoch": "max", "exp": "mean", "solved": "mean"})
+        dfg = dfg.groupby(["epoch"], as_index=True).mean()
+        train_epochs_df.append(dfg)
 
-    df = pd.concat(aug_dfs, axis=1)
-    central = df.median(axis=1)
-    lower = df.min(axis=1)
-    upper = df.max(axis=1)
-    maxs = max(s for s, _ in df.index.values)
-    xlabels = [f"s{s}e{e}" if s >= maxs else f"s{s}" for s, e in df.index.values]
-    xticks = np.arange(1, len(xlabels) + 1)
+    train_epochs_df = pd.concat(train_epochs_df, axis=1)
 
-    # color, linestyle, hatch = style
-    ax.plot(xticks, central, label=label)
-    ax.fill_between(
-        xticks,
-        lower,
-        upper,
-        # edgecolor=(*color, 0.1),
-        # hatch=hatch,
-        # facecolor=(*color, 0.1),
-        label=label,
-    )
-    ax.set_xticks(xticks, xlabels, rotation=70)
+    valid_dfs = [r["valid"] for r in runs_list]
+    valid_epochs_df = []
+    for df in valid_dfs:
+        df["solved"] = np.where(df["len"].notna(), True, False)
+        dfg = df[["epoch", "solved", "exp"]]
+        dfg = dfg.groupby(df.index // batch_size)
+        dfg = dfg.aggregate({"epoch": "max", "exp": "mean", "solved": "mean"})
+        dfg = dfg.groupby(["epoch"], as_index=True).mean()
+        valid_epochs_df.append(dfg)
 
+    valid_epochs_df = pd.concat(valid_epochs_df, axis=1)
+    c, ls, hatch, m = style
+    if c == "b":
+        print(valid_epochs_df)
 
-def plot_valid(
-    run_data,
-    y_data_label: str,
-    ax,
+    for col, axt in (
+        ("solved", 0),
+        ("exp", 1),
+    ):
+        ax = axs[axt, 0]
+        df = train_epochs_df[col]
+        central = df.median(axis=1)
+        lower = df.min(axis=1)
+        upper = df.max(axis=1)
+        xlabels = df.index.values
+        xticks = np.arange(1, len(xlabels) + 1)
+
+        ax.plot(xticks, central, color=c, linestyle=ls, marker=m)
+        ax.fill_between(
+            xticks,
+            lower,
+            upper,
+            edgecolor=(c, 0.1),
+            hatch=hatch,
+            facecolor=(c, 0.1),
+            label=label,
+        )
+        ax.set_xticks(xticks, xlabels, rotation=70)
+
+        ax = axs[axt, 1]
+        df = valid_epochs_df[col]
+        central = df.median(axis=1)
+        lower = df.min(axis=1)
+        upper = df.max(axis=1)
+        xlabels = df.index.values
+        xticks = np.arange(1, len(xlabels) + 1)
+
+        c, ls, hatch, m = style
+        ax.plot(xticks, central, color=c, linestyle=ls, marker=m)
+        ax.fill_between(
+            xticks,
+            lower,
+            upper,
+            edgecolor=(c, 0.1),
+            hatch=hatch,
+            facecolor=(c, 0.1),
+            label=label,
+        )
+        ax.set_xticks(xticks, xlabels, rotation=70)
+
+def plot_vs_batch(
+    runs_list,
+    axs,
     style,
     label=None,
-    max_epoch=10,
-):
-    # plot seeds corresponding to a run
-    dfs = run_data["valid"]
-    aug_dfs = []
-    for df in dfs:
-        dfg = df.groupby(df["batch"], as_index=False)
-        dfg = dfg.aggregate({y_data_label: "mean"})[y_data_label]
-        dfg = dfg[:max_epoch]
-        aug_dfs.append(dfg)
-
-    min_n = min(len(df) for df in aug_dfs)
-    max_n = max(len(df) for df in aug_dfs)
-    df = pd.concat(aug_dfs, axis=1)
-    central = df.median(axis=1)
-    lower = df.min(axis=1)
-    upper = df.max(axis=1)
-    n_valids = np.arange(1, max_epoch + 1)
-
-    # color, linestyle, hatch = style
-    ax.plot(n_valids, central, label=label)
-    ax.fill_between(
-        n_valids,
-        lower,
-        upper,
-        # edgecolor=(*color, 0.1),
-        # hatch=hatch,
-        # facecolor=(*color, 0.1),
-        label=label,
-    )
-
-
-def plot_search_vs_batch(
-    run_data,
-    y_data_label: str,
-    ax,
-    style,
-    label=None,
-    batch_size=4,
-    n_final_stage_epochs=25,
+    batch_size=32,
     window_size=100,
 ):
     # plot seeds corresponding to a run
-    dfs = run_data["search"]
-    notna_dfs = []
-    for df in dfs:
-        dfg = df[y_data_label]
-        dfg = dfg.groupby(df["batch"] // batch_size, as_index=True).mean()
-        dfg = dfg.rolling(window_size, min_periods=1).mean()
-        # dfg = dfg.groupby(["stage", "epoch"], as_index=True).mean()
-        notna_dfs.append(dfg)
-
-    df = pd.concat(notna_dfs, axis=1)
-    central = df.median(axis=1)
-    lower = df.min(axis=1)
-    upper = df.max(axis=1)
-    xs = df.index.values
-
-    color, linestyle, hatch = style
-    ax.plot(xs, central, color=color, linestyle=linestyle, label=label)
-    ax.fill_between(
-        xs,
-        lower,
-        upper,
-        edgecolor=(*color, 0.1),
-        hatch=hatch,
-        facecolor=(*color, 0.1),
-        label=label,
-    )
-
-
-def plot_search_vs_time(
-    run_data,
-    y_data_label: str,
-    ax,
-    color=None,
-    linestyle=None,
-    label=None,
-    batch_size=4,
-    window_size=200,
-):
-    # plot seeds corresponding to a run
-    dfs = run_data["search"]
-    notna_dfs = []
-    for df in dfs:
-        dfg = df[["time", y_data_label]].copy()
+    train_dfs = [r["train"] for r in runs_list]
+    train_epochs_df = []
+    for df in train_dfs:
+        df["solved"] = np.where(df["len"].notna(), True, False)
+        dfg = df[["epoch", "solved", "exp"]]
         dfg = dfg.groupby(df.index // batch_size)
-        dfg = dfg.aggregate({"time": "max", y_data_label: "mean"})
-        dfg["time"] = dfg["time"].cumsum()
-        dfg = dfg.groupby(dfg["time"] // window_size)[y_data_label].mean()
-        dfg.index = dfg.index.map(lambda x: (x + 1) * window_size)
-        notna_dfs.append(dfg)
+        dfg = dfg.aggregate({"epoch": "max", "exp": "mean", "solved": "mean"})
+        dfg = dfg.groupby(["epoch"], as_index=True).mean()
+        train_epochs_df.append(dfg)
 
-    df = pd.concat(notna_dfs, axis=1)
-    means = df.median(axis=1)
-    mins = df.min(axis=1)
-    maxs = df.max(axis=1)
+    train_epochs_df = pd.concat(train_epochs_df, axis=1)
 
-    ax.plot(df.index.values, means, color=color, linestyle=linestyle, label=label)
-    ax.fill_between(
-        np.array(df.index.values, dtype=np.float32),
-        mins,
-        maxs,
-        alpha=0.1,
-        color=color,
-        label=label,
-    )
+    valid_dfs = [r["valid"] for r in runs_list]
+    valid_epochs_df = []
+    for df in valid_dfs:
+        df["solved"] = np.where(df["len"].notna(), True, False)
+        dfg = df[["epoch", "solved", "exp"]]
+        dfg = dfg.groupby(df.index // batch_size)
+        dfg = dfg.aggregate({"epoch": "max", "exp": "mean", "solved": "mean"})
+        dfg = dfg.groupby(["epoch"], as_index=True).mean()
+        valid_epochs_df.append(dfg)
 
+    valid_epochs_df = pd.concat(valid_epochs_df, axis=1)
+    c, ls, hatch, m = style
+    if c == "b":
+        print(valid_epochs_df)
 
-def batch_window_mean(data: list[pd.DataFrame], y_data_label, window_size=100):
-    aggr_dfs = []
-    max_batch = max(df.index.values[-1] for df in data)
-    for df in data:
-        df = df[y_data_label]
-        df = df.reindex(range(1, max_batch + 1), fill_value=np.nan)
-        df = df.rolling(window_size, min_periods=1).mean()
-        aggr_dfs.append(df)
+    for col, axt in (
+        ("solved", 0),
+        ("exp", 1),
+    ):
+        ax = axs[axt, 0]
+        df = train_epochs_df[col]
+        central = df.median(axis=1)
+        lower = df.min(axis=1)
+        upper = df.max(axis=1)
+        xlabels = df.index.values
+        xticks = np.arange(1, len(xlabels) + 1)
 
-    xs = df.index.values
-    df = pd.concat(aggr_dfs, axis=1)
-    means = df.median(axis=1)
-    mins = df.min(axis=1)
-    maxs = df.max(axis=1)
+        ax.plot(xticks, central, color=c, linestyle=ls, marker=m)
+        ax.fill_between(
+            xticks,
+            lower,
+            upper,
+            edgecolor=(c, 0.1),
+            hatch=hatch,
+            facecolor=(c, 0.1),
+            label=label,
+        )
+        ax.set_xticks(xticks, xlabels, rotation=70)
 
-    return xs, means, mins, maxs
+        ax = axs[axt, 1]
+        df = valid_epochs_df[col]
+        central = df.median(axis=1)
+        lower = df.min(axis=1)
+        upper = df.max(axis=1)
+        xlabels = df.index.values
+        xticks = np.arange(1, len(xlabels) + 1)
 
+        c, ls, hatch, m = style
+        ax.plot(xticks, central, color=c, linestyle=ls, marker=m)
+        ax.fill_between(
+            xticks,
+            lower,
+            upper,
+            edgecolor=(c, 0.1),
+            hatch=hatch,
+            facecolor=(c, 0.1),
+            label=label,
+        )
+        ax.set_xticks(xticks, xlabels, rotation=70)
 
-def plot_domain(dom_data: dict, outdir: str, max_epoch=7):
+def plot_domain(domain: str, agents, dom_data: dict, outdir: str):
     saveroot = Path(outdir)
     saveroot.mkdir(exist_ok=True, parents=True)
-    figkey = ["problems_path"]
-    legendkey = ["agent", "loss_fn", "max_grad_norm"]
-    data = sorted(dom_data.values(), key=lambda x: x.args_key(figkey))
     ls_mapper = LineStyleMapper()
-    # todo they should all have same prob path anyway
-    for fkey, group in itertools.groupby(data, key=lambda x: x.args_key(figkey)):
-        fkey = Path(fkey).parent.name
-        group = list(group)
-        # group = sorted(group, key=lambda x: x.args_key(legendkey))
-        grouped_data = {}
-        for runseeds in group:
-            agent = runseeds.args_key(legendkey)
-            grouped_data[agent] = runseeds
+    fig, ax = plt.subplots(2, 2, figsize=(12, 10))
+    # ax[0, 0].set_title(f"Train")
+    # ax[0, 1].set_title(f"Valid")
+    # ax[0, 0].set_ylabel("Solved", size=14)
+    # ax[1, 0].set_ylabel("Expanded", size=14)
+    # ax[2, 0].set_ylabel("Solution length", size=14)
 
-        # search and val
-        fig, ax = plt.subplots(2, 2, figsize=(12, 10))
-        fig.suptitle(f"{fkey}", size=16)
-        ax[0, 0].set_title(f"Train")
-        ax[0, 1].set_title(f"Valid")
-        ax[0, 0].set_ylabel("Solved", size=14)
-        ax[1, 0].set_ylabel("Expanded", size=14)
-        # ax[2, 0].set_ylabel("Solution length", size=14)
+    # loop over agents (uni/bi - levin/phs/astar, etc.)
+    for agent, runs in dom_data.items():
+        if agent not in agents:
+            # print(f"Skipping {domain} {agent}")
+            continue
+        style = ls_mapper.get_ls(agent)
+        # fill search and val plots
+        plot_vs_epoch(
+            runs,
+            axs=ax,
+            style=style,
+            label=agent,
+        )
 
-        labels = []
-        # loop over agents (uni/bi - levin/phs/astar, etc.)
-        for agent, runseeds in grouped_data.items():
-            style = ls_mapper.get_ls(agent)
-            # fill search and val plots
-            rsdata = runseeds.data
-            labels.append(agent)
-            plot_search(
-                rsdata,
-                "solved",
-                ax=ax[0, 0],
-                style=style,
-                label=agent,
-                max_epoch=max_epoch,
-            )
-            plot_search(
-                rsdata,
-                "exp",
-                ax=ax[1, 0],
-                style=style,
-                label=agent,
-                max_epoch=max_epoch,
-            )
-            # plot_search(
-            #     rsdata,
-            #     "len",
-            #     ax=ax[2, 0],
-            #     style=style,
-            #     label=agent,
-            #     max_epoch=max_epoch,
-            # )
-
-            plot_valid(
-                rsdata,
-                "solved",
-                ax=ax[0, 1],
-                style=style,
-                label=agent,
-                max_epoch=max_epoch,
-            )
-            plot_valid(
-                rsdata,
-                "exp",
-                ax=ax[1, 1],
-                style=style,
-                label=agent,
-                max_epoch=max_epoch,
-            )
-            # plot_valid(
-            #     rsdata,
-            #     "len",
-            #     ax=ax[2, 1],
-            #     style=style,
-            #     label=agent,
-            #     max_epoch=max_epoch,
-            # )
-            # ax[2, 1].set_xlabel("Valid #", size=14)
-            ax[1, 1].set_xlabel("Valid #", size=14)
-
-            plt.close()
-            print(f"Plotted {fkey} {agent}")
-
-        handles, labels = ax[1, 1].get_legend_handles_labels()
-        it = iter(handles)
-        handles = [(a, next(it)) for a in it]
-        fig.legend(handles, labels[::2])
-        fig.tight_layout()
-        fig.savefig(saveroot / f"{fkey}_search_valid.pdf", bbox_inches="tight")
-        plt.close()
-
-        # fig2.tight_layout()
-        # fig2.savefig(saveroot / f"search_train.pdf", bbox_inches="tight")
-        plt.close()
+        print(f"Plotted {domain} {agent}")
+    fig.tight_layout()
+    fig.savefig(saveroot / f"{domain}_train.pdf", bbox_inches="tight")
+    plt.close()
 
 
 def main():
-    colors = mpl.colormaps["tab10"].colors
-    dom_paths = list(Path("/home/ken/Envs/lelis_pkls/").glob("*.pkl"))
-    # dom_paths = [Path("/home/ken/Projects/bilevin/pkls/stp4.pkl")]
-    print("Found domains:")
+    dom_paths = list(Path("/home/ken/Envs/thes_good/").glob("*.pkl"))
     for dom in dom_paths:
-        print(dom.stem)
-
-    for dom in dom_paths:
+        if dom.stem not in allowable_domains:
+            continue
+        print(f"Plotting {dom.stem}")
         dom_data = pkl.load(dom.open("rb"))
-        new_dom_data = OrderedDict()
-        order = ("PHS", "BiPHS", "Levin", "BiLevin", "AStar", "BiAStar")
-        for order_agent in order:
-            for agent in dom_data:
-                base_agent = agent.split()[0]
-                if base_agent == order_agent:
-                    new_dom_data[agent] = dom_data[agent]
-        plot_domain(new_dom_data, f"figs/lelis/")
+        # new_dom_data = OrderedDict()
+        # for order_agent in order:
+        #     for agent in dom_data:
+        #         base_agent = agent.split()[0]
+        #         if base_agent == order_agent:
+        #             new_dom_data[agent] = dom_data[agent]
+        plot_domain(dom.stem, main_agents, dom_data, f"figs/july/")
+
+
+class LineStyleMapper:
+    def __init__(self):
+        self.uni_marker = "o"
+        self.bi_marker = "x"
+        self.uni_ls = "-"
+        self.bi_lds = "--"
+        self.bibfs_ls = "--"
+        self.bialt_ls = ":"
+        self.bi_hatch = "||"
+        self.uni_hatch = None
+
+    def get_ls(self, s: str):
+        if "AStar" in s:
+            c = "r"
+        elif "Levin" in s:
+            c = "g"
+        elif "PHS" in s:
+            c = "b"
+        else:
+            raise ValueError(f"Unknown algorithm: {s}")
+
+        # if "Alt" in s:
+        #     ls = self.bialt_ls
+        # elif "BFS" in s:
+        #     ls = self.bibfs_ls
+        # else:
+        #     ls = self.uni_ls
+
+        if "Bi" in s:
+            ls = self.bibfs_ls
+            h = self.bi_hatch
+            m = self.bi_marker
+        else:
+            ls = self.uni_ls
+            h = self.uni_hatch
+            m = self.uni_marker
+
+        return c, ls, h, m
 
 
 if __name__ == "__main__":
