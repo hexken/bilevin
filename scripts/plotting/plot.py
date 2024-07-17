@@ -3,6 +3,7 @@ import itertools
 from pathlib import Path
 import pickle as pkl
 from typing import Optional
+from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 
 from cycler import cycler
 import matplotlib as mpl
@@ -14,11 +15,13 @@ import pandas as pd
 
 cmap = mpl.colormaps["tab20"]
 mpl.rcParams["axes.linewidth"] = 1
-mpl.rc("lines", linewidth=1, markersize=3)
+mpl.rc("lines", linewidth=1, markersize=7)
 
 
 agent_order = ("PHS", "BiPHS", "Levin", "BiLevin", "AStar", "BiAStar")
+# allowable_domains = {"stp4",  "stp5", "tri4", "tri5", "col4", "col5"}
 allowable_domains = {"stp4", "tri4", "tri5", "col4", "col5"}
+# allowable_domains = {"stp5"}
 
 main_agents = (
     "AStar_w2.5",
@@ -43,10 +46,10 @@ weight_agents = (
 
 
 def plot_vs_epoch(
+    domain: str,
     runs_list,
     axs,
     style,
-    label=None,
     batch_size=32,
 ):
     # plot seeds corresponding to a run
@@ -55,8 +58,8 @@ def plot_vs_epoch(
     for df in train_dfs:
         df["solved"] = np.where(df["len"].notna(), True, False)
         dfg = df[["epoch", "solved", "exp"]]
-        dfg = dfg.groupby(df.index // batch_size)
-        dfg = dfg.aggregate({"epoch": "max", "exp": "mean", "solved": "mean"})
+        # dfg = dfg.groupby(df.index // batch_size)
+        # dfg = dfg.aggregate({"epoch": "max", "exp": "mean", "solved": "mean"})
         dfg = dfg.groupby(["epoch"], as_index=True).mean()
         train_epochs_df.append(dfg)
 
@@ -73,180 +76,163 @@ def plot_vs_epoch(
         valid_epochs_df.append(dfg)
 
     valid_epochs_df = pd.concat(valid_epochs_df, axis=1)
-    c, ls, hatch, m = style
-    if c == "b":
-        print(valid_epochs_df)
 
-    for col, axt in (
+    c, ls, hatch, m = style
+
+    for col, axr in (
         ("solved", 0),
         ("exp", 1),
     ):
-        ax = axs[axt, 0]
-        df = train_epochs_df[col]
-        central = df.median(axis=1)
-        lower = df.min(axis=1)
-        upper = df.max(axis=1)
-        xlabels = df.index.values
-        xticks = np.arange(1, len(xlabels) + 1)
+        for dat, axc in ((train_epochs_df, 0), (valid_epochs_df, 1)):
+            ax = axs[axr, axc]
+            df = dat[col]
+            central = df.median(axis=1)
+            lower = df.min(axis=1)
+            upper = df.max(axis=1)
+            xlabels = df.index.values
+            xticks = np.arange(1, len(xlabels) + 1)
 
-        ax.plot(xticks, central, color=c, linestyle=ls, marker=m)
-        ax.fill_between(
-            xticks,
-            lower,
-            upper,
-            edgecolor=(c, 0.1),
-            hatch=hatch,
-            facecolor=(c, 0.1),
-            label=label,
-        )
-        ax.set_xticks(xticks, xlabels, rotation=70)
+            ax.plot(
+                xticks, central, color=c, linestyle=ls, marker=m, markerfacecolor="none"
+            )
+            ax.fill_between(
+                xticks,
+                lower,
+                upper,
+                edgecolor=(c, 0.1),
+                hatch=hatch,
+                facecolor=(c, 0.1),
+            )
+            ax.xaxis.set_major_locator(MultipleLocator(2))
+            ax.xaxis.set_major_formatter("{x:.0f}")
+            ax.xaxis.set_minor_locator(MultipleLocator(1))
+            if axr == 0:
+                ax.yaxis.set_major_locator(MultipleLocator(0.2))
+                ax.yaxis.set_major_formatter("{x:.1f}")
+                ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+            elif axr == 1:
+                ax.yaxis.set_major_locator(MultipleLocator(500))
+                ax.yaxis.set_major_formatter("{x:.0f}")
+                ax.yaxis.set_minor_locator(MultipleLocator(250))
 
-        ax = axs[axt, 1]
-        df = valid_epochs_df[col]
-        central = df.median(axis=1)
-        lower = df.min(axis=1)
-        upper = df.max(axis=1)
-        xlabels = df.index.values
-        xticks = np.arange(1, len(xlabels) + 1)
 
-        c, ls, hatch, m = style
-        ax.plot(xticks, central, color=c, linestyle=ls, marker=m)
-        ax.fill_between(
-            xticks,
-            lower,
-            upper,
-            edgecolor=(c, 0.1),
-            hatch=hatch,
-            facecolor=(c, 0.1),
-            label=label,
-        )
-        ax.set_xticks(xticks, xlabels, rotation=70)
+y_lims = {
+    "tri4": (0, 2200),
+    "tri5": (0, 4250),
+    "stp4": (0, 4250),
+    "stp5": (0, 7250),
+    "col4": (0, 2200),
+    "col5": (0, 4250),
+}
+
 
 def plot_vs_batch(
+    domain: str,
     runs_list,
     axs,
     style,
     label=None,
     batch_size=32,
-    window_size=100,
+    window_size=175,
 ):
-    # plot seeds corresponding to a run
     train_dfs = [r["train"] for r in runs_list]
     train_epochs_df = []
     for df in train_dfs:
         df["solved"] = np.where(df["len"].notna(), True, False)
-        dfg = df[["epoch", "solved", "exp"]]
+        dfg = df[["solved", "exp"]]
         dfg = dfg.groupby(df.index // batch_size)
-        dfg = dfg.aggregate({"epoch": "max", "exp": "mean", "solved": "mean"})
-        dfg = dfg.groupby(["epoch"], as_index=True).mean()
+        dfg = dfg.aggregate({"exp": "mean", "solved": "mean"})
         train_epochs_df.append(dfg)
 
     train_epochs_df = pd.concat(train_epochs_df, axis=1)
 
-    valid_dfs = [r["valid"] for r in runs_list]
-    valid_epochs_df = []
-    for df in valid_dfs:
-        df["solved"] = np.where(df["len"].notna(), True, False)
-        dfg = df[["epoch", "solved", "exp"]]
-        dfg = dfg.groupby(df.index // batch_size)
-        dfg = dfg.aggregate({"epoch": "max", "exp": "mean", "solved": "mean"})
-        dfg = dfg.groupby(["epoch"], as_index=True).mean()
-        valid_epochs_df.append(dfg)
-
-    valid_epochs_df = pd.concat(valid_epochs_df, axis=1)
     c, ls, hatch, m = style
-    if c == "b":
-        print(valid_epochs_df)
 
     for col, axt in (
         ("solved", 0),
         ("exp", 1),
     ):
-        ax = axs[axt, 0]
+        ax = axs[axt]
         df = train_epochs_df[col]
-        central = df.median(axis=1)
-        lower = df.min(axis=1)
-        upper = df.max(axis=1)
-        xlabels = df.index.values
-        xticks = np.arange(1, len(xlabels) + 1)
+        central = df.mean(axis=1)
+        central = central.rolling(window_size, min_periods=1).mean()
+        # lower = df.min(axis=1)
+        # upper = df.max(axis=1)
+        # xlabels = df.index.values + 1
+        epochs = np.arange(1, len(df) + 1)
+        ax.plot(epochs, central, color=c, linestyle=ls)
+        ax.xaxis.set_major_locator(MultipleLocator(5000))
+        ax.xaxis.set_major_formatter("{x:.0f}")
+        ax.xaxis.set_minor_locator(MultipleLocator(1000))
 
-        ax.plot(xticks, central, color=c, linestyle=ls, marker=m)
-        ax.fill_between(
-            xticks,
-            lower,
-            upper,
-            edgecolor=(c, 0.1),
-            hatch=hatch,
-            facecolor=(c, 0.1),
-            label=label,
-        )
-        ax.set_xticks(xticks, xlabels, rotation=70)
+        if axt == 0:
+            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+            ax.yaxis.set_major_formatter("{x:0.1f}")
+            ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+        elif axt == 1:
+            ax.yaxis.set_major_locator(MultipleLocator(500))
+            ax.yaxis.set_major_formatter("{x:.0f}")
+            ax.yaxis.set_minor_locator(MultipleLocator(250))
+        # For the minor ticks, use no labels; default NullFormatter.
 
-        ax = axs[axt, 1]
-        df = valid_epochs_df[col]
-        central = df.median(axis=1)
-        lower = df.min(axis=1)
-        upper = df.max(axis=1)
-        xlabels = df.index.values
-        xticks = np.arange(1, len(xlabels) + 1)
-
-        c, ls, hatch, m = style
-        ax.plot(xticks, central, color=c, linestyle=ls, marker=m)
-        ax.fill_between(
-            xticks,
-            lower,
-            upper,
-            edgecolor=(c, 0.1),
-            hatch=hatch,
-            facecolor=(c, 0.1),
-            label=label,
-        )
-        ax.set_xticks(xticks, xlabels, rotation=70)
 
 def plot_domain(domain: str, agents, dom_data: dict, outdir: str):
     saveroot = Path(outdir)
     saveroot.mkdir(exist_ok=True, parents=True)
     ls_mapper = LineStyleMapper()
-    fig, ax = plt.subplots(2, 2, figsize=(12, 10))
+    fig, ax = plt.subplots(2, 2, sharex=True, sharey=False, figsize=(12, 10), dpi=300)
+    fig2, ax2 = plt.subplots(2, 1, figsize=(12, 10), dpi=300)
+    ax[1, 0].set_ylim(y_lims[domain])
+    ax[1, 1].set_ylim(y_lims[domain])
+    ax2[1].set_ylim(y_lims[domain])
+    for i, j in itertools.product(range(2), range(2)):
+        ax[i,j].tick_params(axis='both', which='both', labelsize=16, width=1.5, length=4,
+                            direction='inout')
+        ax[i,j].tick_params(axis='both', which='major', length=7)
+    for i in range(2):
+        ax2[i].tick_params(axis='both', which='both', labelsize=16, width=1.5, length=4,
+                           direction='inout')
+        ax2[i].tick_params(axis='both', which='major', length=7)
     # ax[0, 0].set_title(f"Train")
     # ax[0, 1].set_title(f"Valid")
     # ax[0, 0].set_ylabel("Solved", size=14)
     # ax[1, 0].set_ylabel("Expanded", size=14)
     # ax[2, 0].set_ylabel("Solution length", size=14)
 
-    # loop over agents (uni/bi - levin/phs/astar, etc.)
     for agent, runs in dom_data.items():
         if agent not in agents:
             # print(f"Skipping {domain} {agent}")
             continue
         style = ls_mapper.get_ls(agent)
-        # fill search and val plots
         plot_vs_epoch(
+            domain,
             runs,
             axs=ax,
             style=style,
-            label=agent,
+        )
+        plot_vs_batch(
+            domain,
+            runs,
+            axs=ax2,
+            style=style,
         )
 
         print(f"Plotted {domain} {agent}")
+
     fig.tight_layout()
-    fig.savefig(saveroot / f"{domain}_train.pdf", bbox_inches="tight")
+    fig.savefig(saveroot / f"{domain}_epoch.png", bbox_inches="tight")
+    fig2.tight_layout()
+    fig2.savefig(saveroot / f"{domain}_batch.png", bbox_inches="tight")
     plt.close()
 
 
 def main():
-    dom_paths = list(Path("/home/ken/Envs/thes_good/").glob("*.pkl"))
+    dom_paths = list(Path("/home/ken/Envs/thestest2/").glob("*.pkl"))
     for dom in dom_paths:
         if dom.stem not in allowable_domains:
             continue
         print(f"Plotting {dom.stem}")
         dom_data = pkl.load(dom.open("rb"))
-        # new_dom_data = OrderedDict()
-        # for order_agent in order:
-        #     for agent in dom_data:
-        #         base_agent = agent.split()[0]
-        #         if base_agent == order_agent:
-        #             new_dom_data[agent] = dom_data[agent]
         plot_domain(dom.stem, main_agents, dom_data, f"figs/july/")
 
 
@@ -258,7 +244,7 @@ class LineStyleMapper:
         self.bi_lds = "--"
         self.bibfs_ls = "--"
         self.bialt_ls = ":"
-        self.bi_hatch = "||"
+        self.bi_hatch = "|||"
         self.uni_hatch = None
 
     def get_ls(self, s: str):
