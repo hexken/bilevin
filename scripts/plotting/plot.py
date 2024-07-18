@@ -155,7 +155,7 @@ def plot_vs_batch(
         ax = axs[axt]
         df = train_epochs_df[col]
         central = df.mean(axis=1)
-        central = central.rolling(window_size, min_periods=1).mean()
+        central = central.rolling(window_size, min_periods=window_size).mean()
         # lower = df.min(axis=1)
         # upper = df.max(axis=1)
         # xlabels = df.index.values + 1
@@ -233,7 +233,7 @@ def main():
             continue
         print(f"Plotting {dom.stem}")
         dom_data = pkl.load(dom.open("rb"))
-        plot_domain(dom.stem, main_agents, dom_data, f"figs/july/")
+        plot_domain(dom.stem, main_agents, dom_data, f"figs/july2/")
 
 
 class LineStyleMapper:
@@ -242,7 +242,7 @@ class LineStyleMapper:
         self.bi_marker = "x"
         self.uni_ls = "-"
         self.bi_lds = "--"
-        self.bibfs_ls = "--"
+        self.bibfs_ls = (0, (5, 6))
         self.bialt_ls = ":"
         self.bi_hatch = "|||"
         self.uni_hatch = None
