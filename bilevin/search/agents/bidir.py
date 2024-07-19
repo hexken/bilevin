@@ -179,7 +179,8 @@ class BiDir(Agent):
             if (
                 len(f_ds.children_to_be_evaluated) + len(b_ds.children_to_be_evaluated)
                 >= self.n_eval
-                or len(ds.next_ds.open) == 0
+                or (self.alternating and len(ds.next_ds.open) == 0)
+                or (not self.alternating and len(f_open) == 0 and len(b_open) == 0)
             ):
                 for _ds in (f_ds, b_ds):
                     if len(_ds.children_to_be_evaluated) > 0:
