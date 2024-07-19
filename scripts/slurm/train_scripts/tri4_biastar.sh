@@ -2,10 +2,10 @@
 #SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
-#SBATCH --mem=5G
-#SBATCH --time=26:00:00
+#SBATCH --mem=7G
+#SBATCH --time=16:00:00
 #SBATCH --array=7,17,31,53,97
-#SBATCH --output=/scratch/tjhia/bilevin/outputs/tri4-50000-train_BiAStar_%A-%a-%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/outputs_bfs/tri4-50000-train_BiAStarBFS_%A-%a-%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -23,14 +23,14 @@ python bilevin/main.py \
     --world-size 8 \
     --batch-size 32 \
     --n-eval 32 \
-    --agent BiAStar \
+    --weight-astar 2.5 \
+    --agent BiAStarBFS \
     --seed $SLURM_ARRAY_TASK_ID \
-    --runsdir-path runs/tri4/BiAStar \
+    --runsdir-path runs_bfs/tri4/BiAStarBFS \
     --train-path problems/tri4/50000-train.pkl \
     --valid-path problems/tri4/1000-valid.pkl \
     --test-path problems/tri4/1000-test.pkl \
     --slow-problem 30 \
     --shuffle \
     \
-    --share-feature-net False \
     --train-expansion-budget 2000 \

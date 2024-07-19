@@ -7,7 +7,7 @@ template = """#!/bin/bash
 #SBATCH --mem=<mem>
 #SBATCH --time=<time>
 #SBATCH --array=7,17,31,53,97
-#SBATCH --output=/scratch/tjhia/bilevin/outputs/<dom>-50000-train_<agent>_%A-%a-%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/outputs_bfs/<dom>-50000-train_<agent>_%A-%a-%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -28,14 +28,13 @@ python bilevin/main.py \\
     --weight-astar 2.5 \\
     --agent <agent> \\
     --seed $SLURM_ARRAY_TASK_ID \\
-    --runsdir-path runs/<dom>/<agent> \\
+    --runsdir-path runs_bfs/<dom>/<agent> \\
     --train-path problems/<dom>/50000-train.pkl \\
     --valid-path problems/<dom>/1000-valid.pkl \\
     --test-path problems/<dom>/1000-test.pkl \\
     --slow-problem 30 \\
     --shuffle \\
     \\
-    --share-feature-net <sfn> \\
     --train-expansion-budget <budget> \\
 """
 
@@ -57,12 +56,24 @@ def generate_script(config_line):
 
 
 def main():
-    with open("configs.sh", "r") as config_file:
+    with open("configs_tight.sh", "r") as config_file:
         for line in config_file:
             line = line.strip()
             if line and not line.startswith("#"):
                 generate_script(line)
 
+
+# if [[ $SLURM_ARRAY_TASK_ID -eq 7 ]]; then
+#     chk=
+# elif [[ $SLURM_ARRAY_TASK_ID -eq 17  ]]; then
+#     chk=
+# elif [[ $SLURM_ARRAY_TASK_ID -eq 31  ]]; then
+#     chk=
+# elif [[ $SLURM_ARRAY_TASK_ID -eq 53  ]]; then
+#     chk=
+# elif [[ $SLURM_ARRAY_TASK_ID -eq 97  ]]; then
+#     chk=
+# fi
 
 if __name__ == "__main__":
     main()

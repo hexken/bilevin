@@ -2,10 +2,10 @@
 #SBATCH --account=def-lelis
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
-#SBATCH --mem=6G
-#SBATCH --time=38:00:00
+#SBATCH --mem=8G
+#SBATCH --time=17:00:00
 #SBATCH --array=7,17,31,53,97
-#SBATCH --output=/scratch/tjhia/bilevin/outputs/tri5-50000-train_PHS_%A-%a-%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/outputs_bfs/tri5-50000-train_PHS_%A-%a-%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -23,14 +23,14 @@ python bilevin/main.py \
     --world-size 8 \
     --batch-size 32 \
     --n-eval 32 \
+    --weight-astar 2.5 \
     --agent PHS \
     --seed $SLURM_ARRAY_TASK_ID \
-    --runsdir-path runs/tri5/PHS \
+    --runsdir-path runs_bfs/tri5/PHS \
     --train-path problems/tri5/50000-train.pkl \
     --valid-path problems/tri5/1000-valid.pkl \
     --test-path problems/tri5/1000-test.pkl \
     --slow-problem 30 \
     --shuffle \
     \
-    --share-feature-net False \
     --train-expansion-budget 4000 \

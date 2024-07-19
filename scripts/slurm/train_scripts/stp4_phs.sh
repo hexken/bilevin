@@ -3,9 +3,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
 #SBATCH --mem=5G
-#SBATCH --time=26:00:00
+#SBATCH --time=18:00:00
 #SBATCH --array=7,17,31,53,97
-#SBATCH --output=/scratch/tjhia/bilevin/outputs/stp4-50000-train_PHS_%A-%a-%j.out
+#SBATCH --output=/scratch/tjhia/bilevin/outputs_bfs/stp4-50000-train_PHS_%A-%a-%j.out
 
 source $HOME/bilevin-env2/bin/activate
 cd $SLURM_TMPDIR
@@ -23,14 +23,14 @@ python bilevin/main.py \
     --world-size 8 \
     --batch-size 32 \
     --n-eval 32 \
+    --weight-astar 2.5 \
     --agent PHS \
     --seed $SLURM_ARRAY_TASK_ID \
-    --runsdir-path runs/stp4/PHS \
+    --runsdir-path runs_bfs/stp4/PHS \
     --train-path problems/stp4/50000-train.pkl \
     --valid-path problems/stp4/1000-valid.pkl \
     --test-path problems/stp4/1000-test.pkl \
     --slow-problem 30 \
     --shuffle \
     \
-    --share-feature-net False \
     --train-expansion-budget 4000 \
