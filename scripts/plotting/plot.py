@@ -19,8 +19,8 @@ mpl.rc("lines", linewidth=1, markersize=7)
 
 
 agent_order = ("PHS", "BiPHS", "Levin", "BiLevin", "AStar", "BiAStar")
-# allowable_domains = {"stp4",  "stp5", "tri4", "tri5", "col4", "col5"}
-allowable_domains = {"stp4", "tri4", "tri5", "col4", "col5"}
+allowable_domains = {"stp4", "stp5", "tri4", "tri5", "col4", "col5"}
+# allowable_domains = {"stp4", "tri4", "tri5", "col4", "col5"}
 # allowable_domains = {"stp5"}
 
 main_agents = (
@@ -117,12 +117,12 @@ def plot_vs_epoch(
 
 
 y_lims = {
-    "tri4": (0, 2200),
-    "tri5": (0, 4250),
-    "stp4": (0, 4250),
-    "stp5": (0, 7250),
-    "col4": (0, 2200),
-    "col5": (0, 4250),
+    "tri4": (0, 1900),
+    "tri5": (0, 4000),
+    "stp4": (500, 4100),
+    "stp5": (1000, 7250),
+    "col4": (0, 1800),
+    "col5": (0, 4100),
 }
 
 
@@ -155,7 +155,7 @@ def plot_vs_batch(
         ax = axs[axt]
         df = train_epochs_df[col]
         central = df.mean(axis=1)
-        central = central.rolling(window_size, min_periods=window_size).mean()
+        central = central.ewm(alpha=0.25).mean()
         # lower = df.min(axis=1)
         # upper = df.max(axis=1)
         # xlabels = df.index.values + 1
@@ -179,37 +179,51 @@ def plot_vs_batch(
 def plot_domain(domain: str, agents, dom_data: dict, outdir: str):
     saveroot = Path(outdir)
     saveroot.mkdir(exist_ok=True, parents=True)
-    ls_mapper = LineStyleMapper()
     fig, ax = plt.subplots(2, 2, sharex=True, sharey=False, figsize=(12, 10), dpi=300)
     fig2, ax2 = plt.subplots(2, 1, figsize=(12, 10), dpi=300)
     ax[1, 0].set_ylim(y_lims[domain])
     ax[1, 1].set_ylim(y_lims[domain])
     ax2[1].set_ylim(y_lims[domain])
     for i, j in itertools.product(range(2), range(2)):
-        ax[i,j].tick_params(axis='both', which='both', labelsize=16, width=1.5, length=4,
-                            direction='inout')
-        ax[i,j].tick_params(axis='both', which='major', length=7)
+        ax[i, j].tick_params(
+            axis="both",
+            which="both",
+            labelsize=16,
+            width=1.5,
+            length=4,
+            direction="inout",
+        )
+        ax[i, j].tick_params(axis="both", which="major", length=7)
     for i in range(2):
-        ax2[i].tick_params(axis='both', which='both', labelsize=16, width=1.5, length=4,
-                           direction='inout')
-        ax2[i].tick_params(axis='both', which='major', length=7)
+        ax2[i].tick_params(
+            axis="both",
+            which="both",
+            labelsize=16,
+            width=1.5,
+            length=4,
+            direction="inout",
+        )
+        ax2[i].tick_params(axis="both", which="major", length=7)
     # ax[0, 0].set_title(f"Train")
     # ax[0, 1].set_title(f"Valid")
     # ax[0, 0].set_ylabel("Solved", size=14)
     # ax[1, 0].set_ylabel("Expanded", size=14)
     # ax[2, 0].set_ylabel("Solution length", size=14)
 
+    ls_mapper = LineStyleMapper()
+
     for agent, runs in dom_data.items():
         if agent not in agents:
             # print(f"Skipping {domain} {agent}")
             continue
-        style = ls_mapper.get_ls(agent)
+        style = ls_mapper.get_ls(agent, True)
         plot_vs_epoch(
             domain,
             runs,
             axs=ax,
             style=style,
         )
+        style = ls_mapper.get_ls(agent, False)
         plot_vs_batch(
             domain,
             runs,
@@ -246,16 +260,25 @@ class LineStyleMapper:
         self.bialt_ls = ":"
         self.bi_hatch = "|||"
         self.uni_hatch = None
+        self.colors = ["#FF0000", "#900000", "#00FF00", "#009000", "#0AA0F5", "#000070"]
+        # lighter colors earlier in the list
 
-    def get_ls(self, s: str):
-        if "AStar" in s:
-            c = "r"
-        elif "Levin" in s:
-            c = "g"
-        elif "PHS" in s:
-            c = "b"
+    def get_ls(self, agent: str, same_color: bool):
+        s = agent.split("_")[0]
+        if s == "AStar":
+            ci = 1
+        elif s == "BiAStar":
+            ci = 0
+        elif s == "Levin":
+            ci = 3
+        elif s == "BiLevin":
+            ci = 2
+        elif s == "PHS":
+            ci = 5
+        elif s == "BiPHS":
+            ci = 4
         else:
-            raise ValueError(f"Unknown algorithm: {s}")
+            raise ValueError(f"Invalid agent {s}")
 
         # if "Alt" in s:
         #     ls = self.bialt_ls
@@ -265,15 +288,20 @@ class LineStyleMapper:
         #     ls = self.uni_ls
 
         if "Bi" in s:
-            ls = self.bibfs_ls
             h = self.bi_hatch
             m = self.bi_marker
         else:
-            ls = self.uni_ls
             h = self.uni_hatch
             m = self.uni_marker
 
-        return c, ls, h, m
+        ls = self.uni_ls
+
+        if same_color:
+            if "Bi" in s:
+                ls = self.bibfs_ls
+                ci += 1
+
+        return self.colors[ci], ls, h, m
 
 
 if __name__ == "__main__":

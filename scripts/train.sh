@@ -5,8 +5,8 @@ export OMP_NUM_THREADS=1
 flr=0.0001
 blr=0.0001
 python bilevin/main.py \
-    --n-epochs 2 \
-    --agent AStar \
+    --n-epochs 10 \
+    --agent BiAStarBFS \
     --loss-fn default \
     --runsdir-path runs/ \
     --shuffle \
@@ -19,8 +19,7 @@ python bilevin/main.py \
     --no-feature-net f \
     --share-feature-net f \
     --mode train \
-    --weight-astar 2.5 \
-    --max-grad-norm 1.0 \
+    --weight-astar 1.0 \
     --optimizer Adam \
     --grad-steps 10 \
     \
@@ -41,15 +40,15 @@ python bilevin/main.py \
     \
     \
     --time-budget 300 \
-    --train-expansion-budget 7000 \
+    --train-expansion-budget 4000 \
     \
-    --checkpoint-every-n-batch 5 \
-    --train-path problems/col5/50000-train.pkl \
-    --valid-path problems/col5/1000-valid.pkl \
-    --test-path problems/col5/1000-test.pkl \
+    --train-path problems/stp4/50000-train.pkl \
+    --valid-path problems/stp4/1000-valid.pkl \
+    --test-path problems/stp4/1000-test.pkl \
+    # --checkpoint-path ~/Envs/re/checkpoint_e8b800.pkl \
     # --mask-invalid-actions \
-    # --checkpoint-path runs/stp4-100-train_AStar_1_1720656906/checkpoint_e2b5.pkl\
+    # --train-path problems/stp4/50000-train.pkl \
+    # --valid-path problems/stp4/1000-valid.pkl \
+    # --test-path problems/stp4/1000-test.pkl \
+    # --checkpoint-every-n-batch 5 \
     #
-    # --train-path problems/stp4/100-train.pkl \
-    # --valid-path problems/stp4/10-valid.pkl \
-    # --test-path problems/stp4/10-test.pkl \

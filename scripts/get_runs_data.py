@@ -17,6 +17,7 @@ def process_train_run(agent: str, run_paths: list[Path]):
     runs = []
     for path in run_paths:
         try:
+            assert (path / "training_completed.txt").exists()
             run_train_dfs = []
             for p in natsorted(path.glob("train_e*.pkl")):
                 df = pkl.load(p.open("rb"))
