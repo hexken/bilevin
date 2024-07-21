@@ -101,10 +101,6 @@ def compute_common_domain_stats(dom, dom_data, mode: str, common_min: int = 100)
         s += f"Skipping due to insufficient common solved problems"
         return s
 
-    # Update to use common ids for all agents
-    for agent in dom_common_data:
-        dom_common_data[agent]["ids"] = common_ids
-
     all_agents = set(dom_data.keys())
     exluded = set(all_agents) - set(dom_common_data.keys())
     s += f"Excluding agents: {*exluded,}\n\n"
@@ -115,6 +111,9 @@ def compute_common_domain_stats(dom, dom_data, mode: str, common_min: int = 100)
 def compute_solved_domain_stats(dom, dom_data, mode: str, common_min: int = 100):
     s = f"Domain {dom}\n"
     dom_common_data, common_ids, all_ids = get_common_ids_domain(dom_data, mode=mode)
+    # Update to use common ids for all agents
+    for agent in dom_common_data:
+        dom_common_data[agent]["ids"] = common_ids
     s += compute_domain_stats(dom_common_data, mode=mode, common_min=common_min)
     return s
 

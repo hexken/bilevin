@@ -3,22 +3,16 @@ import itertools
 from pathlib import Path
 import pickle as pkl
 from typing import Optional
-from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 
 from cycler import cycler
 import matplotlib as mpl
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 from natsort import natsorted
 import numpy as np
 import pandas as pd
 
-cmap = mpl.colormaps["tab20"]
-mpl.rcParams["axes.linewidth"] = 1
-mpl.rc("lines", linewidth=1, markersize=7)
 
-
-agent_order = ("PHS", "BiPHS", "Levin", "BiLevin", "AStar", "BiAStar")
 allowable_domains = {"stp4", "stp5", "tri4", "tri5", "col4", "col5"}
 # allowable_domains = {"stp4", "tri4", "tri5", "col4", "col5"}
 # allowable_domains = {"stp5"}
@@ -31,17 +25,39 @@ main_agents = (
     "PHS_nm",
     "BiPHS_nm",
 )
-mask_agents = (
-    "Levin_m",
+
+bilevin_agents = (
     "BiLevin_m",
-    "PHS_m",
-    "BiPHS_m",
+    "BiLevin_nm",
+    "BiLevinBFS_nm",
 )
-weight_agents = (
-    "AStar_w2.5",
-    "BiAStar_w.5",
-    "AStar_w1",
+
+biphs_agents = (
+    "BiPHS_m",
+    "BiPHS_nm",
+    "BiPHSBFS_nm",
+)
+
+biastar_agents = (
     "BiAStar_w1",
+    "BiAStar_w2.5",
+    "BiAStarBFS_w1",
+    "BiAStarBFS_w2.5",
+)
+
+levin_agents = (
+    "Levin_m",
+    "Levin_nm",
+)
+
+phs_agents = (
+    "PHS_m",
+    "PHS_nm",
+)
+
+astar_agents = (
+    "AStar_w1",
+    "AStar_w2.5",
 )
 
 
@@ -176,11 +192,13 @@ def plot_vs_batch(
         # For the minor ticks, use no labels; default NullFormatter.
 
 
-def plot_domain(domain: str, agents, dom_data: dict, outdir: str):
+def plot_domain(domain: str, agents, dom_data: dict, outdir: str, styles):
     saveroot = Path(outdir)
     saveroot.mkdir(exist_ok=True, parents=True)
     fig, ax = plt.subplots(2, 2, sharex=True, sharey=False, figsize=(12, 10), dpi=300)
+    plt.close(fig)
     fig2, ax2 = plt.subplots(2, 1, figsize=(12, 10), dpi=300)
+    plt.close(fig2)
     ax[1, 0].set_ylim(y_lims[domain])
     ax[1, 1].set_ylim(y_lims[domain])
     ax2[1].set_ylim(y_lims[domain])
@@ -210,20 +228,19 @@ def plot_domain(domain: str, agents, dom_data: dict, outdir: str):
     # ax[1, 0].set_ylabel("Expanded", size=14)
     # ax[2, 0].set_ylabel("Solution length", size=14)
 
-    ls_mapper = LineStyleMapper()
-
     for agent, runs in dom_data.items():
         if agent not in agents:
             # print(f"Skipping {domain} {agent}")
             continue
-        style = ls_mapper.get_ls(agent, True)
+        style = styles.get_ls(agent, True)
         plot_vs_epoch(
             domain,
             runs,
             axs=ax,
             style=style,
         )
-        style = ls_mapper.get_ls(agent, False)
+        # uncomment for main plots
+        # style = styles.get_ls(agent, False)
         plot_vs_batch(
             domain,
             runs,
@@ -241,16 +258,63 @@ def plot_domain(domain: str, agents, dom_data: dict, outdir: str):
 
 
 def main():
-    dom_paths = list(Path("/home/ken/Envs/thestest2/").glob("*.pkl"))
-    for dom in dom_paths:
-        if dom.stem not in allowable_domains:
-            continue
-        print(f"Plotting {dom.stem}")
-        dom_data = pkl.load(dom.open("rb"))
-        plot_domain(dom.stem, main_agents, dom_data, f"figs/july2/")
+    dom_paths = list(Path("/home/ken/Envs/thes_data/").glob("*.pkl"))
+    # main plots
+    # print("Plotting main agents")
+    # styles = MixedStyles()
+    # for dom in dom_paths:
+    #     if dom.stem not in allowable_domains:
+    #         continue
+    #     print(f"Plotting {dom.stem}")
+    #     dom_data = pkl.load(dom.open("rb"))
+    #     plot_domain(dom.stem, main_agents, dom_data, f"figs/thes/", styles)
+
+    agent_groups = {
+        "astar": astar_agents,
+        "levin": levin_agents,
+        "phs": phs_agents,
+        "bilevin": bilevin_agents,
+        "biphs": biphs_agents,
+        "biastar": biastar_agents,
+    }
+    for gname, gagents in agent_groups.items():
+        print(f"Plotting {gname} agents")
+        for dom in dom_paths:
+            styles = SequentialStyles()
+            if dom.stem not in allowable_domains:
+                continue
+            print(f"Plotting {dom.stem}")
+            dom_data = pkl.load(dom.open("rb"))
+            plot_domain(dom.stem, gagents, dom_data, f"figs/thes/{gname}", styles)
 
 
-class LineStyleMapper:
+class SequentialStyles:
+    def __init__(self):
+        self.marker = ["o", "x"]
+        self.ls = ["-", (0, (5, 6))]
+        self.hatch = [None, "|||"]
+        self.seq_colors = ["r", "g", "b", "c", "m", "y"]
+        # lighter colors earlier in the list
+        self.mi = 0
+        self.lsi = 0
+        self.hi = 0
+        self.ci = 0
+
+    def get_ls(self, agent: str, same_color: bool):
+        color = self.seq_colors[self.ci]
+        ls = self.ls[self.lsi]
+        hatch = self.hatch[self.hi]
+        m = self.marker[self.mi]
+
+        self.mi = (self.mi + 1) % len(self.marker)
+        self.lsi = (self.lsi + 1) % len(self.ls)
+        self.hi = (self.hi + 1) % len(self.hatch)
+        self.ci = (self.ci + 1) % len(self.seq_colors)
+
+        return color, ls, hatch, m
+
+
+class MixedStyles:
     def __init__(self):
         self.uni_marker = "o"
         self.bi_marker = "x"
