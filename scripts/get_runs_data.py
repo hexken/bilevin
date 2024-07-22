@@ -8,7 +8,7 @@ from typing import Iterable
 from natsort import natsorted
 import pandas as pd
 
-from plotting.plot import allowable_domains, agent_order
+from plotting.plot import allowable_domains
 
 
 def process_train_run(agent: str, run_paths: list[Path]):

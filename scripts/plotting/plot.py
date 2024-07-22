@@ -13,11 +13,24 @@ import numpy as np
 import pandas as pd
 
 
-allowable_domains = {"stp4", "stp5", "tri4", "tri5", "col4", "col5"}
-# allowable_domains = {"stp4", "tri4", "tri5", "col4", "col5"}
-# allowable_domains = {"stp5"}
+col4 = (
+    "AStar_w1",
+    "BiAStar_w1",
+    "Levin_nm",
+    "BiLevin_nm",
+    "PHS_nm",
+    "BiPHS_nm",
+)
 
-main_agents = (
+col5 = (
+    "AStar_w1",
+    "BiAStar_w1",
+    "Levin_nm",
+    "BiLevin_nm",
+    "PHS_nm",
+    "BiPHS_nm",
+)
+tri4 = (
     "AStar_w2.5",
     "BiAStar_w2.5",
     "Levin_nm",
@@ -26,6 +39,30 @@ main_agents = (
     "BiPHS_nm",
 )
 
+tri5 = (
+    "AStar_w1",
+    "BiAStar_w1",
+    "Levin_nm",
+    "BiLevin_nm",
+    "PHS_nm",
+    "BiPHS_nm",
+)
+stp4 = (
+    "AStar_w2.5",
+    "BiAStar_w2.5",
+    "Levin_nm",
+    "BiLevin_nm",
+    "PHS_nm",
+    "BiPHS_nm",
+)
+stp5 = (
+    "AStar_w2.5",
+    "BiAStar_w2.5",
+    "Levin_nm",
+    "BiLevin_nm",
+    "PHS_nm",
+    "BiPHS_nm",
+)
 bilevin_agents = (
     "BiLevin_m",
     "BiLevin_nm",
@@ -59,6 +96,9 @@ astar_agents = (
     "AStar_w1",
     "AStar_w2.5",
 )
+allowable_domains = {"stp4", "stp5", "tri4", "tri5", "col4", "col5"}
+# allowable_domains = {"stp4", "tri4", "tri5", "col4", "col5"}
+# allowable_domains = {"stp5"}
 
 
 def plot_vs_epoch(
@@ -66,6 +106,7 @@ def plot_vs_epoch(
     runs_list,
     axs,
     style,
+    label=None,
     batch_size=32,
 ):
     # plot seeds corresponding to a run
@@ -109,7 +150,13 @@ def plot_vs_epoch(
             xticks = np.arange(1, len(xlabels) + 1)
 
             ax.plot(
-                xticks, central, color=c, linestyle=ls, marker=m, markerfacecolor="none"
+                xticks,
+                central,
+                color=c,
+                linestyle=ls,
+                marker=m,
+                markerfacecolor="none",
+                label=label,
             )
             ax.fill_between(
                 xticks,
@@ -119,17 +166,6 @@ def plot_vs_epoch(
                 hatch=hatch,
                 facecolor=(c, 0.1),
             )
-            ax.xaxis.set_major_locator(MultipleLocator(2))
-            ax.xaxis.set_major_formatter("{x:.0f}")
-            ax.xaxis.set_minor_locator(MultipleLocator(1))
-            if axr == 0:
-                ax.yaxis.set_major_locator(MultipleLocator(0.2))
-                ax.yaxis.set_major_formatter("{x:.1f}")
-                ax.yaxis.set_minor_locator(MultipleLocator(0.1))
-            elif axr == 1:
-                ax.yaxis.set_major_locator(MultipleLocator(500))
-                ax.yaxis.set_major_formatter("{x:.0f}")
-                ax.yaxis.set_minor_locator(MultipleLocator(250))
 
 
 y_lims = {
@@ -171,39 +207,31 @@ def plot_vs_batch(
         ax = axs[axt]
         df = train_epochs_df[col]
         central = df.mean(axis=1)
-        central = central.ewm(alpha=0.25).mean()
+        central = central.rolling(window=175, min_periods=window_size).mean()
         # lower = df.min(axis=1)
         # upper = df.max(axis=1)
         # xlabels = df.index.values + 1
         epochs = np.arange(1, len(df) + 1)
-        ax.plot(epochs, central, color=c, linestyle=ls)
-        ax.xaxis.set_major_locator(MultipleLocator(5000))
-        ax.xaxis.set_major_formatter("{x:.0f}")
-        ax.xaxis.set_minor_locator(MultipleLocator(1000))
-
-        if axt == 0:
-            ax.yaxis.set_major_locator(MultipleLocator(0.2))
-            ax.yaxis.set_major_formatter("{x:0.1f}")
-            ax.yaxis.set_minor_locator(MultipleLocator(0.1))
-        elif axt == 1:
-            ax.yaxis.set_major_locator(MultipleLocator(500))
-            ax.yaxis.set_major_formatter("{x:.0f}")
-            ax.yaxis.set_minor_locator(MultipleLocator(250))
+        ax.plot(epochs, central, color=c, linestyle=ls, label=label)
         # For the minor ticks, use no labels; default NullFormatter.
 
 
 def plot_domain(domain: str, agents, dom_data: dict, outdir: str, styles):
     saveroot = Path(outdir)
     saveroot.mkdir(exist_ok=True, parents=True)
-    fig, ax = plt.subplots(2, 2, sharex=True, sharey=False, figsize=(12, 10), dpi=300)
-    plt.close(fig)
+    # epoch plots
+    fig1, ax1 = plt.subplots(2, 2, sharey=False, figsize=(12, 10), dpi=300)
+    plt.close(fig1)
+    ax1[1, 0].set_ylim(y_lims[domain])
+    ax1[1, 1].set_ylim(y_lims[domain])
+
+    # batch plots
     fig2, ax2 = plt.subplots(2, 1, figsize=(12, 10), dpi=300)
     plt.close(fig2)
-    ax[1, 0].set_ylim(y_lims[domain])
-    ax[1, 1].set_ylim(y_lims[domain])
     ax2[1].set_ylim(y_lims[domain])
-    for i, j in itertools.product(range(2), range(2)):
-        ax[i, j].tick_params(
+
+    for row, col in itertools.product(range(2), range(2)):
+        ax1[row, col].tick_params(
             axis="both",
             which="both",
             labelsize=16,
@@ -211,9 +239,22 @@ def plot_domain(domain: str, agents, dom_data: dict, outdir: str, styles):
             length=4,
             direction="inout",
         )
-        ax[i, j].tick_params(axis="both", which="major", length=7)
-    for i in range(2):
-        ax2[i].tick_params(
+        ax1[row, col].tick_params(axis="both", which="major", length=7)
+        ax = ax1[row, col]
+        ax.xaxis.set_major_locator(MultipleLocator(2))
+        ax.xaxis.set_major_formatter("{x:.0f}")
+        ax.xaxis.set_minor_locator(MultipleLocator(1))
+        if row == 0:
+            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+            ax.yaxis.set_major_formatter("{x:.1f}")
+            ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+        elif row == 1:
+            ax.yaxis.set_major_locator(MultipleLocator(500))
+            ax.yaxis.set_major_formatter("{x:.0f}")
+            ax.yaxis.set_minor_locator(MultipleLocator(250))
+
+    for row in range(2):
+        ax2[row].tick_params(
             axis="both",
             which="both",
             labelsize=16,
@@ -221,7 +262,20 @@ def plot_domain(domain: str, agents, dom_data: dict, outdir: str, styles):
             length=4,
             direction="inout",
         )
-        ax2[i].tick_params(axis="both", which="major", length=7)
+        ax2[row].tick_params(axis="both", which="major", length=7)
+        ax = ax2[row]
+        ax.xaxis.set_major_locator(MultipleLocator(5000))
+        ax.xaxis.set_major_formatter("{x:.0f}")
+        ax.xaxis.set_minor_locator(MultipleLocator(1000))
+
+        if row == 0:
+            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+            ax.yaxis.set_major_formatter("{x:0.1f}")
+            ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+        elif row == 1:
+            ax.yaxis.set_major_locator(MultipleLocator(500))
+            ax.yaxis.set_major_formatter("{x:.0f}")
+            ax.yaxis.set_minor_locator(MultipleLocator(250))
     # ax[0, 0].set_title(f"Train")
     # ax[0, 1].set_title(f"Valid")
     # ax[0, 0].set_ylabel("Solved", size=14)
@@ -236,8 +290,9 @@ def plot_domain(domain: str, agents, dom_data: dict, outdir: str, styles):
         plot_vs_epoch(
             domain,
             runs,
-            axs=ax,
+            axs=ax1,
             style=style,
+            label=agent,
         )
         # uncomment for main plots
         # style = styles.get_ls(agent, False)
@@ -246,46 +301,63 @@ def plot_domain(domain: str, agents, dom_data: dict, outdir: str, styles):
             runs,
             axs=ax2,
             style=style,
+            label=agent,
         )
 
         print(f"Plotted {domain} {agent}")
 
-    fig.tight_layout()
-    fig.savefig(saveroot / f"{domain}_epoch.png", bbox_inches="tight")
+    fig1.tight_layout()
+    handles, labels = fig1.gca().get_legend_handles_labels()
+    by_label = OrderedDict(zip(labels, handles))
+    fig1.legend(by_label.values(), by_label.keys())
+    fig1.savefig(saveroot / f"{domain}_epoch.png", bbox_inches="tight")
+
     fig2.tight_layout()
+    handles, labels = fig2.gca().get_legend_handles_labels()
+    by_label = OrderedDict(zip(labels, handles))
+    fig2.legend(by_label.values(), by_label.keys())
     fig2.savefig(saveroot / f"{domain}_batch.png", bbox_inches="tight")
-    plt.close()
 
 
 def main():
     dom_paths = list(Path("/home/ken/Envs/thes_data/").glob("*.pkl"))
     # main plots
-    # print("Plotting main agents")
-    # styles = MixedStyles()
-    # for dom in dom_paths:
-    #     if dom.stem not in allowable_domains:
-    #         continue
-    #     print(f"Plotting {dom.stem}")
-    #     dom_data = pkl.load(dom.open("rb"))
-    #     plot_domain(dom.stem, main_agents, dom_data, f"figs/thes/", styles)
-
-    agent_groups = {
-        "astar": astar_agents,
-        "levin": levin_agents,
-        "phs": phs_agents,
-        "bilevin": bilevin_agents,
-        "biphs": biphs_agents,
-        "biastar": biastar_agents,
+    dom_agents = {
+        "tri4": tri4,
+        "tri5": tri5,
+        "stp4": stp4,
+        "stp5": stp5,
+        "col4": col4,
+        "col5": col5,
     }
-    for gname, gagents in agent_groups.items():
-        print(f"Plotting {gname} agents")
-        for dom in dom_paths:
-            styles = SequentialStyles()
-            if dom.stem not in allowable_domains:
-                continue
-            print(f"Plotting {dom.stem}")
-            dom_data = pkl.load(dom.open("rb"))
-            plot_domain(dom.stem, gagents, dom_data, f"figs/thes/{gname}", styles)
+    print("Plotting main agents")
+    styles = MixedStyles()
+    for dom in dom_paths:
+        if dom.stem not in allowable_domains:
+            continue
+        agents = dom_agents[dom.stem]
+        print(f"Plotting {dom.stem}")
+        dom_data = pkl.load(dom.open("rb"))
+        plot_domain(dom.stem, agents, dom_data, f"figs/thes/", styles)
+
+        # agent_groups = {
+        #     "astar": astar_agents,
+        #     "levin": levin_agents,
+        #     "phs": phs_agents,
+        #     "bilevin": bilevin_agents,
+        #     "biphs": biphs_agents,
+        #     "biastar": biastar_agents,
+        # }
+        # for gname, gagents in agent_groups.items():
+        #     print(f"Plotting {gname} agents")
+        #     for dom in dom_paths:
+        #         styles = SequentialStyles()
+        #         if dom.stem not in allowable_domains:
+        #             continue
+        #         print(f"Plotting {dom.stem}")
+        #         dom_data = pkl.load(dom.open("rb"))
+        #         plot_domain(dom.stem, gagents, dom_data, f"figs/thes/{gname}", styles)
+        print()
 
 
 class SequentialStyles:
