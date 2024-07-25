@@ -13,6 +13,86 @@ import numpy as np
 import pandas as pd
 
 
+class MixedStyles:
+    def __init__(self):
+        self.uni_marker = "o"
+        self.bi_marker = "x"
+        self.uni_ls = "-"
+        self.bi_lds = "--"
+        self.bibfs_ls = (0, (5, 6))
+        self.bialt_ls = ":"
+        self.bi_hatch = "|||"
+        self.uni_hatch = None
+        self.colors = ["#FF0000", "#900000", "#00FF00", "#009000", "#0AA0F5", "#000070"]
+        # lighter colors earlier in the list
+
+    def get_ls(self, agent: str, same_color: bool):
+        s = agent.split("_")[0]
+        if s == "AStar":
+            ci = 1
+        elif s == "BiAStar":
+            ci = 0
+        elif s == "Levin":
+            ci = 3
+        elif s == "BiLevin":
+            ci = 2
+        elif s == "PHS":
+            ci = 5
+        elif s == "BiPHS":
+            ci = 4
+        else:
+            raise ValueError(f"Invalid agent {s}")
+
+        # if "Alt" in s:
+        #     ls = self.bialt_ls
+        # elif "BFS" in s:
+        #     ls = self.bibfs_ls
+        # else:
+        #     ls = self.uni_ls
+
+        if "Bi" in s:
+            h = self.bi_hatch
+            m = self.bi_marker
+        else:
+            h = self.uni_hatch
+            m = self.uni_marker
+
+        ls = self.uni_ls
+
+        if same_color:
+            if "Bi" in s:
+                ls = self.bibfs_ls
+                ci += 1
+
+        return self.colors[ci], ls, h, m
+
+
+class SequentialStyles:
+    def __init__(self):
+        self.marker = ["o", "x"]
+        self.ls = ["-", (0, (5, 6))]
+        self.hatch = [None, "|||"]
+        self.seq_colors = ["r", "g", "b", "c", "m", "y"]
+        # lighter colors earlier in the list
+        self.mi = 0
+        self.lsi = 0
+        self.hi = 0
+        self.ci = 0
+
+    def get_ls(self, agent: str, same_color: bool):
+        color = self.seq_colors[self.ci]
+        ls = self.ls[self.lsi]
+        hatch = self.hatch[self.hi]
+        m = self.marker[self.mi]
+
+        self.mi = (self.mi + 1) % len(self.marker)
+        self.lsi = (self.lsi + 1) % len(self.ls)
+        self.hi = (self.hi + 1) % len(self.hatch)
+        self.ci = (self.ci + 1) % len(self.seq_colors)
+
+        return color, ls, hatch, m
+
+
 col4 = (
     "AStar_w1",
     "BiAStar_w1",
@@ -216,6 +296,40 @@ def plot_vs_batch(
         # For the minor ticks, use no labels; default NullFormatter.
 
 
+def plot_vs_exp(
+    domain: str,
+    runs_list,
+    axs,
+    style,
+    label=None,
+    batch_size=32,
+    window_size=175,
+):
+    train_dfs = [r["train"] for r in runs_list]
+    train_epochs_df = []
+    for df in train_dfs:
+        df["solved"] = np.where(df["len"].notna(), True, False)
+        dfg = df[["solved", "exp"]]
+        dfg = dfg.groupby(df.index // batch_size)
+        dfg = dfg.aggregate({"exp": "sum", "solved": "mean"})
+        dfg["cum_exp"] = dfg["exp"].cumsum()
+        train_epochs_df.append(dfg)
+
+    train_epochs_df = pd.concat(train_epochs_df, axis=1)
+
+    c, ls, hatch, m = style
+
+    y = train_epochs_df["solved"].mean(axis=1)
+    y = y.rolling(window=175, min_periods=window_size).mean()
+    x = train_epochs_df["cum_exp"].mean(axis=1)
+    # y = train_epochs_df.mean(axis=1)
+    # central = central.rolling(window=175, min_periods=window_size).mean()
+    # lower = df.min(axis=1)
+    # upper = df.max(axis=1)
+    # xlabels = df.index.values + 1
+    axs.plot(x, y, color=c, linestyle=ls, label=label)
+
+
 def plot_domain(domain: str, agents, dom_data: dict, outdir: str, styles):
     saveroot = Path(outdir)
     saveroot.mkdir(exist_ok=True, parents=True)
@@ -282,24 +396,50 @@ def plot_domain(domain: str, agents, dom_data: dict, outdir: str, styles):
     # ax[1, 0].set_ylabel("Expanded", size=14)
     # ax[2, 0].set_ylabel("Solution length", size=14)
 
+    fig3, ax3 = plt.subplots(1, 1, figsize=(12, 10), dpi=300)
+    plt.close(fig3)
+    # ax3[0].set_ylim(y_lims[domain])
+    # ax3[0].tick_params(
+    #     axis="both",
+    #     which="both",
+    #     labelsize=16,
+    #     width=1.5,
+    #     length=4,
+    #     direction="inout",
+    # )
+    # ax3[0].tick_params(axis="both", which="major", length=7)
+    # ax = ax2[row]
+    # ax.xaxis.set_major_locator(MultipleLocator(5000))
+    # ax.xaxis.set_major_formatter("{x:.0f}")
+    # ax.xaxis.set_minor_locator(MultipleLocator(1000))
+
     for agent, runs in dom_data.items():
         if agent not in agents:
             # print(f"Skipping {domain} {agent}")
             continue
         style = styles.get_ls(agent, True)
-        plot_vs_epoch(
+        # plot_vs_epoch(
+        #     domain,
+        #     runs,
+        #     axs=ax1,
+        #     style=style,
+        #     label=agent,
+        # )
+        # # uncomment for main plots
+        # # style = styles.get_ls(agent, False)
+        # plot_vs_batch(
+        #     domain,
+        #     runs,
+        #     axs=ax2,
+        #     style=style,
+        #     label=agent,
+        # )
+
+        style = styles.get_ls(agent, True)
+        plot_vs_exp(
             domain,
             runs,
-            axs=ax1,
-            style=style,
-            label=agent,
-        )
-        # uncomment for main plots
-        # style = styles.get_ls(agent, False)
-        plot_vs_batch(
-            domain,
-            runs,
-            axs=ax2,
+            axs=ax3,
             style=style,
             label=agent,
         )
@@ -317,6 +457,12 @@ def plot_domain(domain: str, agents, dom_data: dict, outdir: str, styles):
     by_label = OrderedDict(zip(labels, handles))
     fig2.legend(by_label.values(), by_label.keys())
     fig2.savefig(saveroot / f"{domain}_batch.png", bbox_inches="tight")
+
+    fig3.tight_layout()
+    handles, labels = fig3.gca().get_legend_handles_labels()
+    by_label = OrderedDict(zip(labels, handles))
+    fig3.legend(by_label.values(), by_label.keys())
+    fig3.savefig(saveroot / f"{domain}_exp.png", bbox_inches="tight")
 
 
 def main():
@@ -358,86 +504,6 @@ def main():
         #         dom_data = pkl.load(dom.open("rb"))
         #         plot_domain(dom.stem, gagents, dom_data, f"figs/thes/{gname}", styles)
         print()
-
-
-class SequentialStyles:
-    def __init__(self):
-        self.marker = ["o", "x"]
-        self.ls = ["-", (0, (5, 6))]
-        self.hatch = [None, "|||"]
-        self.seq_colors = ["r", "g", "b", "c", "m", "y"]
-        # lighter colors earlier in the list
-        self.mi = 0
-        self.lsi = 0
-        self.hi = 0
-        self.ci = 0
-
-    def get_ls(self, agent: str, same_color: bool):
-        color = self.seq_colors[self.ci]
-        ls = self.ls[self.lsi]
-        hatch = self.hatch[self.hi]
-        m = self.marker[self.mi]
-
-        self.mi = (self.mi + 1) % len(self.marker)
-        self.lsi = (self.lsi + 1) % len(self.ls)
-        self.hi = (self.hi + 1) % len(self.hatch)
-        self.ci = (self.ci + 1) % len(self.seq_colors)
-
-        return color, ls, hatch, m
-
-
-class MixedStyles:
-    def __init__(self):
-        self.uni_marker = "o"
-        self.bi_marker = "x"
-        self.uni_ls = "-"
-        self.bi_lds = "--"
-        self.bibfs_ls = (0, (5, 6))
-        self.bialt_ls = ":"
-        self.bi_hatch = "|||"
-        self.uni_hatch = None
-        self.colors = ["#FF0000", "#900000", "#00FF00", "#009000", "#0AA0F5", "#000070"]
-        # lighter colors earlier in the list
-
-    def get_ls(self, agent: str, same_color: bool):
-        s = agent.split("_")[0]
-        if s == "AStar":
-            ci = 1
-        elif s == "BiAStar":
-            ci = 0
-        elif s == "Levin":
-            ci = 3
-        elif s == "BiLevin":
-            ci = 2
-        elif s == "PHS":
-            ci = 5
-        elif s == "BiPHS":
-            ci = 4
-        else:
-            raise ValueError(f"Invalid agent {s}")
-
-        # if "Alt" in s:
-        #     ls = self.bialt_ls
-        # elif "BFS" in s:
-        #     ls = self.bibfs_ls
-        # else:
-        #     ls = self.uni_ls
-
-        if "Bi" in s:
-            h = self.bi_hatch
-            m = self.bi_marker
-        else:
-            h = self.uni_hatch
-            m = self.uni_marker
-
-        ls = self.uni_ls
-
-        if same_color:
-            if "Bi" in s:
-                ls = self.bibfs_ls
-                ci += 1
-
-        return self.colors[ci], ls, h, m
 
 
 if __name__ == "__main__":
