@@ -72,7 +72,7 @@ class Pancake(Domain):
         self,
         state: PancakeState,
     ) -> to.Tensor:
-        t = transpose(one_hot(from_numpy(state.pancakes)).float(), 1, 0)
+        t = transpose(one_hot(from_numpy(state.pancakes)).double(), 1, 0).flatten()
         return t
 
     def reverse_action(self, action: int) -> int:
@@ -85,10 +85,10 @@ class Pancake(Domain):
         domain.goal_state_t = self.state_tensor(self.initial_state)
         return domain
 
-    def _actions(self, parent_action: int | None, state: PancakeState) -> list[int]:
+    def actions(self, parent_action: int | None, state: PancakeState) -> list[int]:
         return [i for i in range(self.num_actions) if i != parent_action]
 
-    def _actions_unpruned(self, state: PancakeState):
+    def actions_unpruned(self, state: PancakeState):
         return [i for i in range(self.num_actions)]
 
     def result(self, state: PancakeState, action: ActionDir) -> PancakeState:

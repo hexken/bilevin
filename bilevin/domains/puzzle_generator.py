@@ -1,18 +1,25 @@
 import argparse
 from copy import copy
+import os
 from pathlib import Path
 import pickle
+import sys
 
 import numpy as np
 import tqdm
 
-from domains.cube3 import Cube3
-from domains.cube3 import get_goal_state as cube3ggs
-from domains.pancake import Pancake
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
+
+from domains.pancake import Pancake, PancakeState
 from domains.pancake import get_goal_state as pancakeggs
 from domains.stp import SlidingTile, SlidingTileState
 from domains.stp import get_goal_state as stpggs
 from search.loaders import Problem
+
+# from domains.cube3 import Cube3
+# from domains.cube3 import get_goal_state as cube3ggs
+print(sys.path)
 
 
 def save_problemset(pth, problemset_dict, suffix):
@@ -37,6 +44,27 @@ def is_solvable(tiles):
     else:
         blank_row_from_top = np.where(tiles == 0)[0][0] + 1
         return (blank_row_from_top % 2 == 0) != (inversions % 2 == 0)
+
+
+def random_pancake_puzzles(
+    rng, width, n_problems, id_counter_start, exclude_problemspecs, pbar
+):
+    problems = []
+    id_counter = id_counter_start
+    while len(problems) < n_problems:
+        pancakes = rng.permutation(width)
+        state = PancakeState(pancakes)
+        if exclude_problemspecs is not None:
+            if state in exclude_problemspecs:
+                continue
+            exclude_problemspecs.add(state)
+
+        new_domain = Pancake(initial_state=state)
+        problem = Problem(id=id_counter, domain=new_domain)
+        problems.append(problem)
+        id_counter += 1
+        pbar.update(1)
+    return problems
 
 
 def random_sliding_tile_puzzles(
@@ -242,6 +270,7 @@ def main():
         problemset_dict["domain_name"] = "Cube3"
         domain = Cube3(cube3ggs())
     elif args.domain == "stp":
+        random_puzzle_function = random_sliding_tile_puzzles
         problemset_dict["domain_name"] = "SlidingTile"
         domain = SlidingTile(stpggs(args.width))
         for exclude_path in args.exclude_path:
@@ -252,6 +281,7 @@ def main():
                 for problem in problems:
                     exclude_problemspecs.add(problem.domain.initial_state)
     elif args.domain == "pancake":
+        random_puzzle_function = random_pancake_puzzles
         problemset_dict["domain_name"] = "Pancake"
         domain = Pancake(pancakeggs(args.width))
     else:
@@ -352,7 +382,7 @@ def main():
         with tqdm.tqdm(total=args.n_valid) as pbar:
             pbar.set_description("Valid problems")
             if args.test_permutation:
-                valid_problems = random_sliding_tile_puzzles(
+                valid_problems = random_puzzle_function(
                     rng,
                     args.width,
                     args.n_valid,
@@ -387,7 +417,7 @@ def main():
         with tqdm.tqdm(total=args.n_test) as pbar:
             pbar.set_description("Test problems")
             if args.test_permutation:
-                test_problems = random_sliding_tile_puzzles(
+                test_problems = random_puzzle_function(
                     rng,
                     args.width,
                     args.n_test,

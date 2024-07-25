@@ -54,9 +54,10 @@ class PolicyOrHeuristicModel(nn.Module):
                     args.n_kernels,
                 )
             else:  # linear feature net
-                num_raw_features = derived_args["num_features"]
                 self.forward_feature_net: nn.Module = MLP(
-                    num_raw_features, args.forward_feature_layers, args.n_embed_dim
+                    derived_args["num_raw_features"],
+                    args.forward_feature_layers,
+                    args.n_embed_dim,
                 )
                 num_features = args.n_embed_dim
             params = {
@@ -77,7 +78,7 @@ class PolicyOrHeuristicModel(nn.Module):
                         )
                     else:
                         self.backward_feature_net: nn.Module = MLP(
-                            num_features,
+                            derived_args["num_raw_features"],
                             args.backward_feature_layers,
                             args.n_embed_dim,
                         )

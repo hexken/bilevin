@@ -26,36 +26,51 @@ if [ "$1" = "d" ]; then
     --n-test 100 \
     --randomize-test-steps \
     --test-steps  100
+elif [ "$1" = "10" ]; then
+    python bilevin/domains/puzzle_generator.py \
+    --domain pancake \
+    --output-path  problems/pancake10/ \
+    --seed 4238 \
+    --width  10 \
+    --randomize-curriculum-steps \
+    --n-problems-per-stage  50000 \
+    --stages 50 1000 \
+    --stages-multiple 0 \
+    --n-problems-final-stage 0 \
+    --n-stages  0 \
+    --n-valid  1000 \
+    --n-test 1000 \
+    --test-permutation
+elif [ "$1" = "12" ]; then
+    python bilevin/domains/puzzle_generator.py \
+    --domain pancake \
+    --output-path  problems/pancake12/ \
+    --seed 14591 \
+    --width  12 \
+    --randomize-curriculum-steps \
+    --n-problems-per-stage  50000 \
+    --stages 50 1000 \
+    --stages-multiple 0 \
+    --n-problems-final-stage 0 \
+    --n-stages  0 \
+    --n-valid  1000 \
+    --n-test 1000 \
+    --test-permutation
 elif [ "$1" = "14" ]; then
-    python src/bilevin/domains/puzzle_generator.py \
+    python bilevin/domains/puzzle_generator.py \
     --domain pancake \
     --output-path  problems/pancake14/ \
-    --seed 658 \
+    --seed 1459 \
     --width  14 \
-    --n-problems-per-stage  5000 \
     --randomize-curriculum-steps \
-    --stages-multiple  4 \
-    --n-problems-final-stage 50000 \
-    --n-stages  8 \
+    --n-problems-per-stage  50000 \
+    --stages 50 1000 \
+    --stages-multiple 0 \
+    --n-problems-final-stage 0 \
+    --n-stages  0 \
     --n-valid  1000 \
     --n-test 1000 \
-    --randomize-test-steps \
-    --test-steps  500
-elif [ "$1" = "18" ]; then
-    python src/bilevin/domains/puzzle_generator.py \
-    --domain pancake \
-    --output-path  problems/pancake18/ \
-    --seed 358 \
-    --width  18 \
-    --n-problems-per-stage  5000 \
-    --randomize-curriculum-steps \
-    --stages-multiple  4 \
-    --n-problems-final-stage 50000 \
-    --n-stages  10 \
-    --n-valid  1000 \
-    --n-test 1000 \
-    --randomize-test-steps \
-    --test-steps  500
+    --test-permutation
 elif [ "$1" = "22" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain pancake \
