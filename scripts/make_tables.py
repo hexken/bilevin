@@ -155,21 +155,25 @@ def compute_domain_stats(dom_data, mode: str, common_min: int = 100):
         if "bexp" in data:
             print_df["fb_len"] = id_data["fg"] / (id_data["fg"] + id_data["bg"])
             print_df["exp"] = id_data["fexp"] + id_data["bexp"]
-            print_df["fb_exp"] = id_data["fexp"] / (id_data["fexp"] + id_data["bexp"])
+            print_df["fb_exp_b"] = id_data["fexp"] / (id_data["fexp"] + id_data["bexp"])
+            print_df["fb_exp_u"] = id_data["fexp"] / id_data["bexp"]
         else:
             print_df["exp"] = id_data["fexp"]
 
         if "fap" in data:
             print_df["fap"] = id_data["fap"]
             if "bap" in data:
-                print_df["fb_ap"] = id_data["fap"] / (id_data["fap"] + id_data["bap"])
+                print_df["fb_ap_b"] = id_data["fap"] / (id_data["fap"] + id_data["bap"])
+                print_df["fb_ap_u"] = id_data["fap"] / id_data["bap"]
 
         if "fhe" in data:
             print_df["fhe"] = id_data["fhe"]
             if "bhe" in data:
-                print_df["fb_he"] = id_data["fhe"] / (id_data["fhe"] + id_data["bhe"])
+                print_df["fb_he_b"] = id_data["fhe"] / (id_data["fhe"] + id_data["bhe"])
+                print_df["fb_he_u"] = id_data["fhe"] / id_data["bhe"]
 
         print_df = pd.DataFrame(print_df)
+        print(print_df.head())
         print_df = print_df.groupby("id").mean()
         # stats = print_df.describe().map(lambda x: "{0:.3f}".format(x))
         # print(stats)
@@ -193,7 +197,7 @@ def compute_domain_stats(dom_data, mode: str, common_min: int = 100):
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("Usage: python common_problems.py <indir> <train|valid|test> <outdir>")
+        print("Usage: python common_make_tables.py <indir> <train|valid|test> <outdir>")
         sys.exit(1)
 
     inq = Path(sys.argv[1])
