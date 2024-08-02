@@ -213,15 +213,17 @@ def plot_vs_exp(
 
     c, ls, hatch, m = style
 
-    y = train_epochs_df["solved"].mean(axis=1)
-    y = y.rolling(window=175, min_periods=window_size).mean()
+    central = train_epochs_df["solved"].mean(axis=1)
+    central = central.rolling(window=175, min_periods=window_size).mean()
+    # y = train_epochs_df["solved"].mean(axis=1)
+    # y = y.rolling(window=175, min_periods=window_size).mean()
     x = train_epochs_df["cum_exp"].mean(axis=1)
     # y = train_epochs_df.mean(axis=1)
     # central = central.rolling(window=175, min_periods=window_size).mean()
     # lower = df.min(axis=1)
     # upper = df.max(axis=1)
     # xlabels = df.index.values + 1
-    axs.plot(x, y, color=c, linestyle=ls, label=label)
+    axs.plot(x, central, color=c, linestyle=ls, label=label)
 
 
 def plot_domain(domain: str, agents, dom_data: dict, outdir: str, styles):
@@ -373,24 +375,24 @@ def main():
     dom_paths = list(Path("/home/ken/Envs/thes_data/").glob("*.pkl"))
     save_dir = "figs/thes_final/"
     # main plots
-    dom_agents = {
-        "tri4": putils.tri4,
-        "tri5": putils.tri5,
-        "stp4": putils.stp4,
-        "stp5": putils.stp5,
-        "col4": putils.col4,
-        "col5": putils.col5,
-    }
-    print("Plotting main agents")
-    styles = putils.MixedStyles()
-    for dom in dom_paths:
-        if dom.stem not in putils.allowable_domains:
-            continue
+    # dom_agents = {
+    #     "tri4": putils.tri4,
+    #     "tri5": putils.tri5,
+    #     "stp4": putils.stp4,
+    #     "stp5": putils.stp5,
+    #     "col4": putils.col4,
+    #     "col5": putils.col5,
+    # }
+    # print("Plotting main agents")
+    # styles = putils.MixedStyles()
+    # for dom in dom_paths:
+    #     if dom.stem not in putils.allowable_domains:
+    #         continue
 
-        agents = dom_agents[dom.stem]
-        print(f"Plotting {dom.stem}")
-        dom_data = pkl.load(dom.open("rb"))
-        plot_domain(dom.stem, agents, dom_data, save_dir, styles)
+    #     agents = dom_agents[dom.stem]
+    #     print(f"Plotting {dom.stem}")
+    #     dom_data = pkl.load(dom.open("rb"))
+    #     plot_domain(dom.stem, agents, dom_data, save_dir, styles)
 
     agent_groups = {
         "astar": putils.astar_agents,

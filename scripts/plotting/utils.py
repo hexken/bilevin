@@ -1,6 +1,6 @@
-# allowable_domains = {"stp4", "stp5", "tri4", "tri5", "col4", "col5"}
+allowable_domains = {"stp4", "stp5", "tri4", "tri5", "col4", "col5", "pancake10", "pancake12"}
 # allowable_domains = {"stp4", "tri4", "tri5", "col4", "col5"}
-allowable_domains = {"stp5", "col5"}
+# allowable_domains = {"stp5", "col5"}
 
 y_lims = {
     "tri4": (0, 1900),
@@ -9,6 +9,8 @@ y_lims = {
     "stp5": (1000, 7250),
     "col4": (0, 1800),
     "col5": (0, 4100),
+    "pancake10": (0, 5000),
+    "pancake12": (0, 5000),
 }
 
 col4 = (

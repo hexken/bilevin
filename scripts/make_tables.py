@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from tabulate import tabulate
 from tqdm import tqdm
+from plotting.utils import allowable_domains
 
 
 def reorder_agents(dom_data):
@@ -150,7 +151,7 @@ def compute_domain_stats(dom_data, mode: str, common_min: int = 100):
         s += f"{agent}\n"
         mask = data["id"].isin(ids)
         id_data = data.loc[mask]
-        print_df = {"id": id_data["id"], "len": id_data["len"]}
+        print_df = {"id": id_data["id"], "len": id_data["len"], "time": id_data["time"]}
 
         if "bexp" in data:
             print_df["fb_len"] = id_data["fg"] / (id_data["fg"] + id_data["bg"])
@@ -173,7 +174,7 @@ def compute_domain_stats(dom_data, mode: str, common_min: int = 100):
                 print_df["fb_he_u"] = id_data["fhe"] / id_data["bhe"]
 
         print_df = pd.DataFrame(print_df)
-        print(print_df.head())
+        # print(print_df.head())
         print_df = print_df.groupby("id").mean()
         # stats = print_df.describe().map(lambda x: "{0:.3f}".format(x))
         # print(stats)
@@ -201,7 +202,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     inq = Path(sys.argv[1])
-    doms = ("tri4", "tri5", "col4", "col5", "stp4", "stp5")
     mode = sys.argv[2]
     if mode not in ("train", "valid", "test"):
         print("Mode must be one of train, valid, test")
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     outdir = Path(sys.argv[3])
     outdir.mkdir(exist_ok=True, parents=True)
 
-    for dom in tqdm(doms):
+    for dom in tqdm(allowable_domains):
         print(f"Processing {dom}")
 
         dom_data = pkl.load((inq / f"{dom}.pkl").open("rb"))
