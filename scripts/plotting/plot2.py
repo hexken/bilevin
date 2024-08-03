@@ -21,6 +21,7 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 import plotting.utils as putils
 
 
+
 def plot_vs_epoch(
     domain: str,
     runs_list,
@@ -68,9 +69,9 @@ def plot_vs_epoch(
             xticks,
             lower,
             upper,
-            color=c,
+            edgecolor=(c, 0.1),
             hatch=hatch,
-            alpha=0.1,
+            facecolor=(c, 0.1),
         )
 
 
@@ -116,9 +117,9 @@ def plot_vs_batch(
             x,
             lower,
             upper,
-            color=c,
+            edgecolor=(c, 0.1),
             hatch=hatch,
-            alpha=0.1,
+            facecolor=(c, 0.1),
         )
         # For the minor ticks, use no labels; default NullFormatter.
 
@@ -158,7 +159,149 @@ def plot_vs_exp(
     # xlabels = df.index.values + 1
     axs.plot(x, central, color=c, linestyle=ls, label=label)
 
+def plot_all_domains(agents, doms_data: dict, outdir: str, styles):
+    saveroot = Path(outdir)
+    saveroot.mkdir(exist_ok=True, parents=True)
+    # epoch plots
+    fig, ax = plt.subplots(4, 2, sharey=False, figsize=(11, 8.5), dpi=300)
+    plt.close(fig)
+    # ax1[0].set_ylim(putils.y_lims[domain])
+    ax[1].set_ylim(putils.y_lims[domain])
+    for row in range(2):
+        ax[row].tick_params(
+            axis="both",
+            which="both",
+            labelsize=16,
+            width=1.5,
+            length=4,
+            direction="inout",
+        )
+        ax[row].tick_params(axis="both", which="major", length=7)
+        ax = ax[row]
+        ax.spines[["right", "top"]].set_visible(False)
+        ax.xaxis.set_major_locator(MultipleLocator(2))
+        ax.xaxis.set_major_formatter("{x:.0f}")
+        ax.xaxis.set_minor_locator(MultipleLocator(1))
+        if row == 0:
+            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+            ax.yaxis.set_major_formatter("{x:.1f}")
+            ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+        elif row == 1:
+            ax.yaxis.set_major_locator(MultipleLocator(1000))
+            ax.yaxis.set_major_formatter("{x:.0f}")
+            ax.yaxis.set_minor_locator(MultipleLocator(500))
 
+    # batch plots
+    fig2, ax2 = plt.subplots(2, 1, figsize=(12, 10), dpi=300)
+    plt.close(fig2)
+    ax2[1].set_ylim(putils.y_lims[domain])
+    for row in range(2):
+        ax2[row].tick_params(
+            axis="both",
+            which="both",
+            labelsize=16,
+            width=1.5,
+            length=4,
+            direction="inout",
+        )
+        ax2[row].tick_params(axis="both", which="major", length=7)
+        ax = ax2[row]
+        ax.spines[["right", "top"]].set_visible(False)
+        ax.xaxis.set_major_locator(MultipleLocator(2500))
+        ax.xaxis.set_major_formatter("{x:.0f}")
+        ax.xaxis.set_minor_locator(MultipleLocator(500))
+
+        if row == 0:
+            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+            ax.yaxis.set_major_formatter("{x:0.1f}")
+            ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+        elif row == 1:
+            ax.yaxis.set_major_locator(MultipleLocator(1000))
+            ax.yaxis.set_major_formatter("{x:.0f}")
+            ax.yaxis.set_minor_locator(MultipleLocator(500))
+
+        # add epoch lines
+        for i in range(1, 11):
+            x = i * 1562.5
+            ax.axvline(x=x, color="k", linestyle=(0, (1, 10)), linewidth=1)
+    # ax[0, 0].set_title(f"Train")
+    # ax[0, 1].set_title(f"Valid")
+    # ax[0, 0].set_ylabel("Solved", size=14)
+    # ax[1, 0].set_ylabel("Expanded", size=14)
+    # ax[2, 0].set_ylabel("Solution length", size=14)
+
+    fig3, ax3 = plt.subplots(1, 1, figsize=(12, 5), dpi=300)
+    plt.close(fig3)
+    ax3.spines[["right", "top"]].set_visible(False)
+    # ax3.set_ylim(putils.y_lims[domain])
+    ax3.tick_params(
+        axis="both",
+        which="both",
+        labelsize=16,
+        width=1.5,
+        length=4,
+        direction="inout",
+    )
+    ax3.tick_params(axis="both", which="major", length=7)
+    ax3.yaxis.set_major_locator(MultipleLocator(0.2))
+    ax3.yaxis.set_major_formatter("{x:0.1f}")
+    ax3.yaxis.set_minor_locator(MultipleLocator(0.1))
+
+    # ax3.xaxis.set_major_locator(MultipleLocator(1e9))
+    # ax3.xaxis.set_major_formatter("{x:.0f, 'style':'sci', 'scilimits':(0,0)}")
+    # ax3.xaxis.set_minor_locator(MultipleLocator(2.5e8))
+    ax3.ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
+
+    for agent, runs in doms_data.items():
+        if agent not in agents:
+            # print(f"Skipping {domain} {agent}")
+            continue
+        style = styles.get_ls(agent, True)
+        plot_vs_epoch(
+            domain,
+            runs,
+            axs=ax,
+            style=style,
+            label=agent,
+        )
+        # uncomment for main plots
+        # style = styles.get_ls(agent, False)
+        plot_vs_batch(
+            domain,
+            runs,
+            axs=ax2,
+            style=style,
+            label=agent,
+        )
+
+        # style = styles.get_ls(agent, True)
+        plot_vs_exp(
+            domain,
+            runs,
+            axs=ax3,
+            style=style,
+            label=agent,
+        )
+
+        print(f"Plotted {domain} {agent}")
+
+    fig.tight_layout()
+    handles, labels = fig.gca().get_legend_handles_labels()
+    by_label = OrderedDict(zip(labels, handles))
+    fig.legend(by_label.values(), by_label.keys())
+    fig.savefig(saveroot / f"{domain}_valid.png", bbox_inches="tight")
+
+    fig2.tight_layout()
+    handles, labels = fig2.gca().get_legend_handles_labels()
+    by_label = OrderedDict(zip(labels, handles))
+    fig2.legend(by_label.values(), by_label.keys())
+    fig2.savefig(saveroot / f"{domain}_batch.png", bbox_inches="tight")
+
+    fig3.tight_layout()
+    handles, labels = fig3.gca().get_legend_handles_labels()
+    by_label = OrderedDict(zip(labels, handles))
+    fig3.legend(by_label.values(), by_label.keys())
+    fig3.savefig(saveroot / f"{domain}_exp.png", bbox_inches="tight")
 def plot_domain(domain: str, agents, dom_data: dict, outdir: str, styles):
     saveroot = Path(outdir)
     saveroot.mkdir(exist_ok=True, parents=True)
@@ -304,73 +447,9 @@ def plot_domain(domain: str, agents, dom_data: dict, outdir: str, styles):
     fig3.savefig(saveroot / f"{domain}_exp.png", bbox_inches="tight")
 
 
-def plot_all_domains(group_name, group_agents, doms_path: Path, outdir: str):
-    saveroot = Path(outdir)
-    saveroot.mkdir(exist_ok=True, parents=True)
-    # epoch plots
-    figs, axs = plt.subplots(4, 2, sharey=False, figsize=(8, 11), dpi=300)
-    plt.close(figs)
-    all_doms = [
-        ["tri4", "tri5"],
-        ["col4", "col5"],
-        ["stp4", "stp5"],
-        ["pancake10", "pancake12"],
-    ]
-    for row in range(4):
-        for col in range(2):
-            ax = axs[row, col]
-            dom = all_doms[row][col]
-            # ax.set_ylim(putils.y_lims[dom])
-            # ax.set_ylim((0, 1.0))
-            ax.spines[["right", "top"]].set_visible(False)
-            ax.tick_params(
-                axis="both",
-                which="both",
-                labelsize=12,
-                width=1,
-                length=3,
-                direction="inout",
-            )
-            ax.tick_params(axis="both", which="major", length=5)
-            # ax.yaxis.set_major_locator(MultipleLocator(0.2))
-            # ax.yaxis.set_major_formatter("{x:0.1f}")
-            # ax.yaxis.set_minor_locator(MultipleLocator(0.1))
-
-            # ax3.xaxis.set_major_locator(MultipleLocator(1e9))
-            # ax3.xaxis.set_major_formatter("{x:.0f, 'style':'sci', 'scilimits':(0,0)}")
-            # ax3.xaxis.set_minor_locator(MultipleLocator(2.5e8))
-            ax.ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
-
-            dom_data = pkl.load((doms_path / f"{dom}_trim.pkl").open("rb"))
-
-            styles = putils.DomainExpStyles()
-            for agent, runs in dom_data.items():
-                if agent not in group_agents:
-                    # print(f"Skipping {domain} {agent}")
-                    continue
-                style = styles.get_ls(agent, True)
-                plot_vs_exp(
-                    dom,
-                    runs,
-                    axs=ax,
-                    style=style,
-                    label=agent,
-                )
-
-                print(f"Plotted {dom} {agent}")
-
-    figs.tight_layout()
-    handles, labels = figs.gca().get_legend_handles_labels()
-    by_label = OrderedDict(zip(labels, handles))
-    figs.legend(by_label.values(), by_label.keys())
-    figs.savefig(saveroot / f"{group_name}_exp.png", bbox_inches="tight")
-
-
 def main():
-    doms_root_path = Path("/home/ken/Projects/thes_data/")
-    dom_paths = list(doms_root_path.glob("*trim.pkl"))
-    save_dir = "figs/thes_final3/"
-    # print(f"{dom.stem} {agent}: {len(runs)} runs")
+    dom_paths = list(Path("/home/ken/Envs/thes_data/").glob("*.pkl"))
+    save_dir = "figs/thes_final/"
     # main plots
     # dom_agents = {
     #     "tri4": putils.tri4,
@@ -401,18 +480,14 @@ def main():
     }
     for gname, gagents in agent_groups.items():
         print(f"Plotting {gname} agents")
-        plot_all_domains(gname, gagents, doms_root_path, save_dir)
+        for dom in dom_paths:
+            styles = putils.SequentialStyles()
+            if dom.stem not in putils.allowable_domains:
+                continue
+            print(f"Plotting {dom.stem}")
+            dom_data = pkl.load(dom.open("rb"))
+            plot_domain(dom.stem, gagents, dom_data, f"{save_dir}/{gname}", styles)
         print()
-
-        # for dom in dom_paths:
-        #     styles = putils.SequentialStyles()
-        #     d = dom.stem.split("_")[0]
-        #     if d not in putils.allowable_domains:
-        #         continue
-        #     print(f"Plotting {dom.stem}")
-        #     dom_data = pkl.load(dom.open("rb"))
-        #     plot_domain(d, gagents, dom_data, f"{save_dir}/{gname}", styles)
-        # print()
 
 
 if __name__ == "__main__":

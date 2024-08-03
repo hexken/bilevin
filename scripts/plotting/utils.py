@@ -1,4 +1,13 @@
-allowable_domains = {"stp4", "stp5", "tri4", "tri5", "col4", "col5", "pancake10", "pancake12"}
+allowable_domains = {
+    "stp4",
+    "stp5",
+    "tri4",
+    "tri5",
+    "col4",
+    "col5",
+    "pancake10",
+    "pancake12",
+}
 # allowable_domains = {"stp4", "tri4", "tri5", "col4", "col5"}
 # allowable_domains = {"stp5", "col5"}
 
@@ -98,6 +107,42 @@ astar_agents = (
     "AStar_w1",
     "AStar_w2.5",
 )
+
+
+class DomainExpStyles:
+    def __init__(self):
+        self.uni_marker = "o"
+        self.bi_marker = "x"
+        self.uni_ls = "-"
+        self.bi_lds = "--"
+        self.bibfs_ls = (0, (5, 6))
+        self.bialt_ls = ":"
+        self.bi_hatch = "|||"
+        self.uni_hatch = None
+        self.colors = ["#FF0000", "#900000", "#00FF00", "#009000", "#0AA0F5", "#000070"]
+        # lighter colors earlier in the list
+
+    def get_ls(self, agent: str, same_color: bool):
+        agent_base, agent_mod = agent.split("_")
+
+        if agent_mod == "w1":
+            ci = 5
+        elif agent_mod == "w2.5":
+            ci = 1
+        elif agent_mod == "m":
+            ci = 5
+        elif agent_mod == "nm":
+            ci = 1
+        else:
+            raise ValueError(f"Invalid agent {agent}")
+
+        if "BFS" not in agent_base:
+            ls = self.bibfs_ls
+            ci -= 1
+        else:
+            ls = self.uni_ls
+
+        return self.colors[ci], ls, None, None
 
 
 class MixedStyles:
