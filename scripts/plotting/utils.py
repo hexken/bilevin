@@ -40,8 +40,8 @@ col5 = (
     "BiPHS_nm",
 )
 tri4 = (
-    "AStar_w2.5",
-    "BiAStar_w2.5",
+    "AStar_w1",
+    "BiAStar_w1",
     "Levin_nm",
     "BiLevin_nm",
     "PHS_nm",
@@ -65,6 +65,24 @@ stp4 = (
     "BiPHS_nm",
 )
 stp5 = (
+    "AStar_w2.5",
+    "BiAStar_w2.5",
+    "Levin_nm",
+    "BiLevin_nm",
+    "PHS_nm",
+    "BiPHS_nm",
+)
+
+pancake10 = (
+    "AStar_w2.5",
+    "BiAStar_w2.5",
+    "Levin_nm",
+    "BiLevin_nm",
+    "PHS_nm",
+    "BiPHS_nm",
+)
+
+pancake12 = (
     "AStar_w2.5",
     "BiAStar_w2.5",
     "Levin_nm",
@@ -108,8 +126,27 @@ astar_agents = (
     "AStar_w2.5",
 )
 
+agent_groups = {
+    "astar": astar_agents,
+    "levin": levin_agents,
+    "phs": phs_agents,
+    "bilevin": bilevin_agents,
+    "biphs": biphs_agents,
+    "biastar": biastar_agents,
+}
 
-class DomainExpStyles:
+dom_agents = {
+    "tri4": tri4,
+    "tri5": tri5,
+    "stp4": stp4,
+    "stp5": stp5,
+    "col4": col4,
+    "col5": col5,
+    "pancake10": pancake10,
+    "pancake12": pancake12,
+}
+
+class SingleDomainStyles:
     def __init__(self):
         self.uni_marker = "o"
         self.bi_marker = "x"
@@ -119,30 +156,76 @@ class DomainExpStyles:
         self.bialt_ls = ":"
         self.bi_hatch = "|||"
         self.uni_hatch = None
-        self.colors = ["#FF0000", "#900000", "#00FF00", "#009000", "#0AA0F5", "#000070"]
+        self.colors = ["#1B9E77", "#D95F02", "#7570B3"]
+        # self.colors = ['r', 'b', 'g']
+        # self.colors = ["#FF0000", "#900000", "#00FF00", "#009000", "#0AA0F5", "#000070"]
+        # lighter colors earlier in the list
+
+    def get_ls(self, agent: str, same_color: bool):
+        agent_base, agent_mod = agent.split("_")
+
+        if "AStar" in agent_base:
+            ci = 0
+        elif "Levin" in agent_base:
+            ci = 1
+        elif "PHS" in agent_base:
+            ci = 2
+        else:
+            raise ValueError(f"invalid agent {agent}")
+
+        if "Bi" in agent_base and "BFS" not in agent_base:
+            ls = (0, (6, 4))
+            # ls = "--"
+            h = "|||"
+            m = "x"
+        else:
+            ls = "-"
+            h = None
+            m = "o"
+
+        return self.colors[ci], ls, h, m
+
+
+class AllDomainStyles:
+    def __init__(self):
+        self.uni_marker = "o"
+        self.bi_marker = "x"
+        self.uni_ls = "-"
+        self.bi_lds = "--"
+        self.bibfs_ls = (0, (5, 6))
+        self.bialt_ls = ":"
+        self.bi_hatch = "|||"
+        self.uni_hatch = None
+        self.colors = ["#1B9E77", "#D95F02", "#7570B3"]
+        # self.colors = ['r', 'b', 'g']
+        # self.colors = ["#FF0000", "#900000", "#00FF00", "#009000", "#0AA0F5", "#000070"]
         # lighter colors earlier in the list
 
     def get_ls(self, agent: str, same_color: bool):
         agent_base, agent_mod = agent.split("_")
 
         if agent_mod == "w1":
-            ci = 5
+            ci = 0
         elif agent_mod == "w2.5":
             ci = 1
         elif agent_mod == "m":
-            ci = 5
+            ci = 0
         elif agent_mod == "nm":
             ci = 1
         else:
             raise ValueError(f"Invalid agent {agent}")
 
-        if "BFS" not in agent_base:
-            ls = self.bibfs_ls
-            ci -= 1
+        if "Bi" in agent_base and "BFS" not in agent_base:
+            ls = (0, (6, 4))
+            # ls = "--"
+            h = "|||"
+            m = "x"
         else:
-            ls = self.uni_ls
+            ls = "-"
+            h = None
+            m = "o"
 
-        return self.colors[ci], ls, None, None
+        return self.colors[ci], ls, h, m
 
 
 class MixedStyles:
