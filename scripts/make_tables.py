@@ -17,29 +17,21 @@ def reorder_agents(dom_data):
     return OrderedDict(all)
 
 
-def get_common_ids_agent(data: list[dict], mode: str, common_min: int = 100):
+def get_common_ids_agent(runs: list[dict], common_min: int = 100):
     """
-    Get the common problems that a single agents solved in the last epoch of a domain, over all
-    seeds
+    Get the common problems that a single agents solved during testing of a domain, over all
+    seeds. Merge results into one DF, keyed by run #
     """
 
-    if mode == "test":
-        data_func = lambda x: x["test"].copy()
-    else:
-        raise ValueError("Only test mode is supported")
-    # elif mode == "train":
-    #     data_func = lambda x: x[x["epoch"] == 10].copy()
-    # elif mode == "valid":
-    #     data_func = lambda x: x.iloc[-1000:].copy()
+    data_func = lambda x: x["test"].copy()
 
-    r1_data = data_func(data[0])
-    all_ids = set(r1_data["id"].astype(int))
+    r1_data = data_func(runs[0])
     solved_ids = set(r1_data[r1_data["len"].notna()]["id"].astype(int))
 
     r1_data["run"] = 1
     merged_data = [r1_data]
 
-    for i, run in enumerate(data[1:], start=2):
+    for i, run in enumerate(runs[1:], start=2):
         rundata = data_func(run)
         solved_ids = set(rundata[rundata["len"].notna()]["id"].astype(int))
         solved_ids = solved_ids.intersection(solved_ids)
@@ -48,108 +40,17 @@ def get_common_ids_agent(data: list[dict], mode: str, common_min: int = 100):
         merged_data.append(rundata)
 
     merged_data = pd.concat(merged_data)
-    return merged_data, solved_ids, all_ids
+    return merged_data, solved_ids
 
 
-def get_common_ids_domain(dom_data: dict, mode: str, common_min: int = 100):
-    """
-    Get the common problems that all agents solved in the last epoch of a domain, over all seeds,
-    and the common ids accross all agents. Skip agents that have less than `common_min` common ids
-    solved
-    ret[agent][ids] are the common ids solved by the agent
-    common_ids are the common ids solved by all agents
-    all_ids are all ids of the final epoch or whatever problems are being considered
-    """
-    # if mode == "test":
-    #     data_func = lambda x: x
-    # elif mode == "train":
-    #     data_func = lambda x: x["search"]
-    # elif mode == "valid":
-    #     data_func = lambda x: x["valid"]
-
-    ret = OrderedDict()
-    max_ids = set()
-    common_ids = None
-    for agent, adata in dom_data.items():
-        data, ids, all_ids = get_common_ids_agent(adata, mode=mode)
-
-        if len(ids) < common_min:
-            print(f"skipping {agent} due to insufficient common solved problems")
-            continue
-
-        if common_ids is None:
-            common_ids = ids
-        else:
-            common_ids = common_ids.intersection(ids)
-
-        if len(ids) > len(max_ids):
-            max_ids = ids
-
-        ret[agent] = {"ids": ids, "data": data}
-
-    return ret, common_ids, all_ids
-
-
-def compute_common_domain_stats(dom, dom_data, mode: str, common_min: int = 100):
-    s = f"Domain {dom}\n"
-    dom_common_data, common_ids, all_ids = get_common_ids_domain(dom_data, mode=mode)
-
-    print(f"domain {dom} has {len(common_ids)} common ids")
-    for agent, cmid in dom_common_data.items():
-        print(f"{agent} has {len(cmid['ids'])} common ids")
-    print()
-    if len(common_ids) < common_min:
-        s += f"Skipping due to insufficient common solved problems"
-        return s
-
-    all_agents = set(dom_data.keys())
-    exluded = set(all_agents) - set(dom_common_data.keys())
-    s += f"Excluding agents: {*exluded,}\n\n"
-    s += compute_domain_stats(dom_common_data, mode=mode)
-    return s
-
-
-def compute_solved_domain_stats(dom, dom_data, mode: str, common_min: int = 100):
-    s = f"Domain {dom}\n"
-    dom_common_data, common_ids, all_ids = get_common_ids_domain(dom_data, mode=mode)
-    # Update to use common ids for all agents
-    for agent in dom_common_data:
-        dom_common_data[agent]["ids"] = common_ids
-    s += compute_domain_stats(dom_common_data, mode=mode, common_min=common_min)
-    return s
-
-
-def compute_unsolved_domain_stats(dom, dom_data, mode: str, common_min: int = 100):
-    s = f"Domain {dom}\n"
-    dom_common_data, common_ids, all_ids = get_common_ids_domain(dom_data, mode=mode)
-
-    # Update to use unsolved ids
-    for agent in dom_common_data:
-        dom_common_data[agent]["ids"] = all_ids - dom_common_data[agent]["ids"]
-
-    s += compute_domain_stats(dom_common_data, mode=mode)
-    return s
-
-
-def compute_all_domain_stats(dom, dom_data, mode: str, common_min: int = 100):
-    s = f"Domain {dom}\n"
-    dom_common_data, common_ids, all_ids = get_common_ids_domain(dom_data, mode=mode)
-
-    # Update to use all ids
-    for agent in dom_common_data:
-        dom_common_data[agent]["ids"] = all_ids
-
-    s += compute_domain_stats(dom_common_data, mode=mode, common_min=common_min)
-    return s
-
-
-def compute_domain_stats(dom_data, mode: str, common_min: int = 100):
+def compute_domain_stats(dom_data, common_ids=None, common_min: int = 100):
     s = ""
-    for agent, adata in dom_data.items():
-        data = adata["data"]
-        ids = adata["ids"]
+    for agent, (data, ids) in dom_data.items():
         s += f"{agent}\n"
-        mask = data["id"].isin(ids)
+        if common_ids is not None:
+            mask = data["id"].isin(common_ids)
+        else:
+            mask = data["id"].isin(ids)
         id_data = data.loc[mask]
         print_df = {"id": id_data["id"], "len": id_data["len"], "time": id_data["time"]}
 
@@ -197,44 +98,69 @@ def compute_domain_stats(dom_data, mode: str, common_min: int = 100):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python common_make_tables.py <indir> <train|valid|test> <outdir>")
+    if len(sys.argv) != 3:
+        print("Usage: python make_tables.py <indir> <outdir>")
         sys.exit(1)
 
     inq = Path(sys.argv[1])
-    mode = sys.argv[2]
-    if mode not in ("train", "valid", "test"):
-        print("Mode must be one of train, valid, test")
-        sys.exit(1)
 
-    outdir = Path(sys.argv[3])
+    outdir = Path(sys.argv[2])
     outdir.mkdir(exist_ok=True, parents=True)
+
+    common_min = 100
 
     for dom in tqdm(allowable_domains):
         print(f"Processing {dom}")
+        s = f"Domain {dom}\n"
 
         dom_data = pkl.load((inq / f"{dom}.pkl").open("rb"))
         dom_data = reorder_agents(dom_data)
 
-        common_file = (outdir / f"{dom}_{mode}_common.txt").open("w")
-        print(f"writing common")
-        s = compute_common_domain_stats(dom, dom_data, mode=mode)
-        common_file.write(s)
-        # print(s)
+        # find agent solved ids
+        agents_data = OrderedDict()
+        all_ids = set(list(dom_data.values())[0][0]["test"]["id"].astype(int))
+        # print(all_ids)
+        for agent, runs in dom_data.items():
+            (
+                agent_merged_data,
+                agent_solved_ids,
+            ) = get_common_ids_agent(runs)
+            agents_data[agent] = (agent_merged_data, agent_solved_ids)
 
-        solved_file = (outdir / f"{dom}_{mode}_solved.txt").open("w")
+        common_ids = all_ids
+        exclude_agents = set()
+        for agent, (adata, aids) in agents_data.items():
+
+            if len(aids) < common_min:
+                exclude_agents.add(agent)
+                print(f"Excluding {agent} due to insufficient solved problems")
+                continue
+            else:
+                common_ids = common_ids.intersection(aids)
+
+        print(f"domain {dom} has {len(common_ids)} common ids")
+        if len(common_ids) < common_min:
+            s += f"Skipping {dom} due to insufficient common solved problems"
+        else:
+            common_file = (outdir / f"{dom}_common.txt").open("w")
+            print(f"writing common")
+            all_agents = set(dom_data.keys())
+            s += f"Excluding agents: {*exclude_agents,}\n\n"
+            common_agents = {
+                a: d for a, d in agents_data.items() if a not in exclude_agents
+            }
+            s += compute_domain_stats(common_agents, common_ids)
+            # s = compute_common_domain_stats(dom, dom_data)
+            common_file.write(s)
+            # print(s)
+
+        solved_file = (outdir / f"{dom}_solved.txt").open("w")
         print(f"writing solved")
-        s = compute_solved_domain_stats(dom, dom_data, mode=mode)
+        s += compute_domain_stats(agents_data)
         solved_file.write(s)
         # print(s)
 
-        # unsolved_file = (outdir / f"{dom}_{mode}_unsolved.txt").open("w")
-        # print(f"writing unsolved")
-        # s = compute_unsolved_domain_stats(dom, dom_data, mode=mode)
-        # unsolved_file.write(s)
-        # # print(s)
-
-        all_file = (outdir / f"{dom}_{mode}_all.txt").open("w")
+        all_file = (outdir / f"{dom}_all.txt").open("w")
         print(f"writing all")
-        s = compute_all_domain_stats(dom, dom_data, mode=mode)
+        s += compute_domain_stats(agents_data)
         all_file.write(s)

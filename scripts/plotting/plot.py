@@ -454,15 +454,15 @@ def plot_all_domains_batch(group_name, group_agents, doms_path: Path, outdir: st
                 # ax.set_ylim(putils.y_lims[dom])
                 # ax.set_ylim((0, 1.0))
                 ax.spines[["right", "top"]].set_visible(False)
-                ax.tick_params(
-                    axis="both",
-                    which="both",
-                    labelsize=12,
-                    width=1,
-                    length=3,
-                    direction="inout",
-                )
-                ax.tick_params(axis="both", which="major", length=5)
+                # ax.tick_params(
+                #     axis="both",
+                #     which="both",
+                #     labelsize=12,
+                #     width=1,
+                #     length=3,
+                #     direction="inout",
+                # )
+                # ax.tick_params(axis="both", which="major", length=5)
                 # ax.yaxis.set_major_locator(MultipleLocator(0.2))
                 # ax.yaxis.set_major_formatter("{x:0.1f}")
                 # ax.yaxis.set_minor_locator(MultipleLocator(0.1))
@@ -561,15 +561,15 @@ def plot_all_domains_exp(group_name, group_agents, doms_path: Path, outdir: str)
             # ax.set_ylim(putils.y_lims[dom])
             # ax.set_ylim((0, 1.0))
             ax.spines[["right", "top"]].set_visible(False)
-            ax.tick_params(
-                axis="both",
-                which="both",
-                labelsize=12,
-                width=1,
-                length=3,
-                direction="inout",
-            )
-            ax.tick_params(axis="both", which="major", length=5)
+            # ax.tick_params(
+            #     axis="both",
+            #     which="both",
+            #     labelsize=12,
+            #     width=1,
+            #     length=3,
+            #     direction="inout",
+            # )
+            # ax.tick_params(axis="both", which="major", length=5)
             ax.ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
 
             dom_data = pkl.load((doms_path / f"{dom}_trim.pkl").open("rb"))
@@ -636,12 +636,12 @@ def main():
     #     "astar": putils.astar_agents,
     # }
 
-    # for gname, gagents in putils.agent_groups.items():
-    #     print(f"Plotting {gname} agents")
-    #     gname_dir = f"{save_dir}/{gname}"
-    #     plot_all_domains_exp(gname, gagents, doms_root_path, gname_dir)
-    #     plot_all_domains_batch(gname, gagents, doms_root_path, gname_dir)
-    #     print()
+    for gname, gagents in putils.agent_groups.items():
+        print(f"Plotting {gname} agents")
+        gname_dir = f"{save_dir}/{gname}"
+        plot_all_domains_exp(gname, gagents, doms_root_path, gname_dir)
+        plot_all_domains_batch(gname, gagents, doms_root_path, gname_dir)
+        print()
 
     for dom in dom_paths:
         d = dom.stem.split("_")[0]
