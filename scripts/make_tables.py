@@ -7,11 +7,13 @@ import numpy as np
 import pandas as pd
 from tabulate import tabulate
 from tqdm import tqdm
-from plotting.utils import allowable_domains
+import plotting.utils as putils
 
 
-def reorder_agents(dom_data):
-    all = [(a, d) for a, d in dom_data.items() if "_m" not in a and "w1" not in a]
+def reorder_agents(dom_data, agent_group=None):
+    if agent_group is None:
+        all = list(dom_data.items())
+    all = [(a, d) for a, d in dom_data.items() if a in agent_group]
     all = sorted(all, key=lambda x: len(x[0]))
     all = sorted(all, key=lambda x: x[0].split("Bi")[-1])
     return OrderedDict(all)
@@ -45,6 +47,7 @@ def get_common_ids_agent(runs: list[dict], common_min: int = 100):
 
 def compute_domain_stats(dom_data, common_ids=None, common_min: int = 100):
     s = ""
+    describes = {}
     for agent, (data, ids) in dom_data.items():
         s += f"{agent}\n"
         if common_ids is not None:
@@ -80,21 +83,22 @@ def compute_domain_stats(dom_data, common_ids=None, common_min: int = 100):
         # stats = print_df.describe().map(lambda x: "{0:.3f}".format(x))
         # print(stats)
         stats = print_df.describe()
-        if stats.loc["count"]["exp"] == 1:
-            stats.loc["std"] = 0.0
-        elif stats.loc["count"]["exp"] == 0:
-            continue
+        describes[agent] = stats
+        # if stats.loc["count"]["exp"] == 1:
+        #     stats.loc["std"] = 0.0
+        # elif stats.loc["count"]["exp"] == 0:
+        #     continue
 
         # stats = stats.drop("count", axis=0)
-        # print(stats)
-        s += tabulate(
-            stats,
-            headers="keys",
-            showindex=True,
-            floatfmt=".3f",
-        )
+        s += str(stats)
+        # s += tabulate(
+        #     stats,
+        #     headers="keys",
+        #     showindex=True,
+        #     floatfmt=".3f",
+        # )
         s += "\n\n"
-    return s
+    return s, describes
 
 
 if __name__ == "__main__":
@@ -109,15 +113,18 @@ if __name__ == "__main__":
 
     common_min = 100
 
-    for dom in tqdm(allowable_domains):
+    for dom in tqdm(putils.allowable_domains):
         print(f"Processing {dom}")
-        s = f"Domain {dom}\n"
+        base_string = f"Domain {dom}\n"
+        dom_data = pkl.load((inq / f"{dom}_trim.pkl").open("rb"))
 
-        dom_data = pkl.load((inq / f"{dom}.pkl").open("rb"))
-        dom_data = reorder_agents(dom_data)
+        agent_group = getattr(putils, dom)
+        print(f"Processing agent group: {agent_group}")
+        dom_data = reorder_agents(dom_data, agent_group)
 
         # find agent solved ids
         agents_data = OrderedDict()
+        print(list(dom_data.keys()))
         all_ids = set(list(dom_data.values())[0][0]["test"]["id"].astype(int))
         # print(all_ids)
         for agent, runs in dom_data.items():
@@ -140,27 +147,33 @@ if __name__ == "__main__":
 
         print(f"domain {dom} has {len(common_ids)} common ids")
         if len(common_ids) < common_min:
-            s += f"Skipping {dom} due to insufficient common solved problems"
+            common_string = (
+                base_string
+                + f"Skipping {dom} due to insufficient common solved problems"
+            )
         else:
             common_file = (outdir / f"{dom}_common.txt").open("w")
             print(f"writing common")
             all_agents = set(dom_data.keys())
-            s += f"Excluding agents: {*exclude_agents,}\n\n"
+            common_string = base_string + f"Excluding agents: {*exclude_agents,}\n\n"
             common_agents = {
                 a: d for a, d in agents_data.items() if a not in exclude_agents
             }
-            s += compute_domain_stats(common_agents, common_ids)
-            # s = compute_common_domain_stats(dom, dom_data)
-            common_file.write(s)
-            # print(s)
+            s, d = compute_domain_stats(common_agents, common_ids)
+            common_string += s
+            pkl.dump(d, (outdir / f"{dom}_common_stats.pkl").open("wb"))
+            common_file.write(common_string)
 
         solved_file = (outdir / f"{dom}_solved.txt").open("w")
         print(f"writing solved")
-        s += compute_domain_stats(agents_data)
-        solved_file.write(s)
-        # print(s)
+        s, d = compute_domain_stats(agents_data)
+        solved_string = base_string + s
+        solved_file.write(solved_string)
+        pkl.dump(d, (outdir / f"{dom}_solved_stats.pkl").open("wb"))
 
         all_file = (outdir / f"{dom}_all.txt").open("w")
         print(f"writing all")
-        s += compute_domain_stats(agents_data)
-        all_file.write(s)
+        s, d = compute_domain_stats(agents_data, all_ids)
+        pkl.dump(d, (outdir / f"{dom}_all_stats.pkl").open("wb"))
+        all_string = base_string + s
+        all_file.write(all_string)
