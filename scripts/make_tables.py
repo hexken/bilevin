@@ -29,14 +29,16 @@ def get_common_ids_agent(runs: list[dict], common_min: int = 100):
 
     r1_data = data_func(runs[0])
     solved_ids = set(r1_data[r1_data["len"].notna()]["id"].astype(int))
+    print(f"1 len of solved ids: {len(solved_ids)}")
 
     r1_data["run"] = 1
     merged_data = [r1_data]
 
     for i, run in enumerate(runs[1:], start=2):
         rundata = data_func(run)
-        solved_ids = set(rundata[rundata["len"].notna()]["id"].astype(int))
-        solved_ids = solved_ids.intersection(solved_ids)
+        i_solved_ids = set(rundata[rundata["len"].notna()]["id"].astype(int))
+        solved_ids = solved_ids.intersection(i_solved_ids)
+        print(f"{i} len of solved ids: {len(solved_ids)}")
 
         rundata["run"] = i
         merged_data.append(rundata)
@@ -82,7 +84,18 @@ def compute_domain_stats(dom_data, common_ids=None, common_min: int = 100):
         print_df = print_df.groupby("id").mean()
         # stats = print_df.describe().map(lambda x: "{0:.3f}".format(x))
         # print(stats)
+        data["solved"] = data["len"].notna()
+        if "bexp" in data:
+            data["total_exp"] = data["fexp"] + data["bexp"]
+        else:
+            data["total_exp"] = data["fexp"]
+        all_ids_stats = data.groupby("run").agg({"solved": "sum", "total_exp": "mean"})
+        # print(solved)
+        # print(solved.describe())
         stats = print_df.describe()
+        stats["solved"] = all_ids_stats["solved"].describe()
+        stats["total_exp"] = all_ids_stats["total_exp"].describe()
+        # print(stats)
         describes[agent] = stats
         # if stats.loc["count"]["exp"] == 1:
         #     stats.loc["std"] = 0.0
@@ -90,13 +103,14 @@ def compute_domain_stats(dom_data, common_ids=None, common_min: int = 100):
         #     continue
 
         # stats = stats.drop("count", axis=0)
-        s += str(stats)
-        # s += tabulate(
-        #     stats,
-        #     headers="keys",
-        #     showindex=True,
-        #     floatfmt=".3f",
-        # )
+        # s += str(stats)
+        stats = stats.fillna(0)
+        s += tabulate(
+            stats,
+            headers="keys",
+            showindex=True,
+            floatfmt=".3f",
+        )
         s += "\n\n"
     return s, describes
 
