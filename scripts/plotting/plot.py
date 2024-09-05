@@ -472,7 +472,7 @@ def plot_all_domains_batch(group_name, group_agents, doms_path: Path, outdir: st
                 # ax3.xaxis.set_minor_locator(MultipleLocator(2.5e8))
                 ax.ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
 
-                dom_data = pkl.load((doms_path / f"{dom}_trim.pkl").open("rb"))
+                dom_data = pkl.load((doms_path / f"{dom}.pkl").open("rb"))
 
                 styles = putils.AllDomainStyles()
                 for agent, runs in dom_data.items():
@@ -541,6 +541,77 @@ def plot_all_domains_batch(group_name, group_agents, doms_path: Path, outdir: st
     )
     efigs.savefig(saveroot / f"{group_name}_batch_exp.png", bbox_inches="tight")
 
+def plot_all_domains_time(group_name, group_agents, doms_path: Path, outdir: str):
+    saveroot = Path(outdir)
+    saveroot.mkdir(exist_ok=True, parents=True)
+    # epoch plots
+    figs, axs = plt.subplots(4, 2, sharey=False, figsize=(8, 11), dpi=300)
+    plt.close(figs)
+    all_doms = [
+        ["tri4", "tri5"],
+        ["col4", "col5"],
+        ["stp4", "stp5"],
+        ["pancake10", "pancake12"],
+    ]
+    for row in range(4):
+        for col in range(2):
+            ax = axs[row, col]
+            dom = all_doms[row][col]
+            # ax.set_ylim(putils.y_lims[dom])
+            # ax.set_ylim((0, 1.0))
+            ax.spines[["right", "top"]].set_visible(False)
+            # ax.tick_params(
+            #     axis="both",
+            #     which="both",
+            #     labelsize=12,
+            #     width=1,
+            #     length=3,
+            #     direction="inout",
+            # )
+            # ax.tick_params(axis="both", which="major", length=5)
+            ax.ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
+
+            dom_data = pkl.load((doms_path / f"{dom}.pkl").open("rb"))
+
+            styles = putils.AllDomainStyles()
+            for agent, runs in dom_data.items():
+                if agent not in group_agents:
+                    # print(f"Skipping {domain} {agent}")
+                    continue
+                style = styles.get_ls(agent, True)
+                c, ls, hatch, m = style
+
+                train_dfs = [r["train"] for r in runs]
+                train_epochs_df = []
+                for df in train_dfs:
+                    df["solved"] = np.where(df["len"].notna(), True, False)
+                    dfg = df[["solved", "time"]]
+                    dfg = dfg.groupby(df.index // 32)
+                    dfg = dfg.aggregate({"time": "max", "solved": "mean"})
+                    dfg["cum_time"] = dfg["time"].cumsum()
+                    train_epochs_df.append(dfg)
+
+                train_epochs_df = pd.concat(train_epochs_df, axis=1)
+
+                central = train_epochs_df["solved"].mean(axis=1)
+                central = central.rolling(window=500, min_periods=500).mean()
+                x = train_epochs_df["cum_time"].mean(axis=1)
+                ax.plot(x, central, color=c, linestyle=ls, label=agent)
+
+                # print(f"Plotted {dom} {agent}")
+
+    figs.tight_layout()
+    handles, labels = figs.gca().get_legend_handles_labels()
+    by_label = OrderedDict(zip(labels, handles))
+    # figs.legend(by_label.values(), by_label.keys())
+    figs.legend(
+        by_label.values(),
+        by_label.keys(),
+        bbox_to_anchor=(0.5, 1),
+        loc="lower center",
+        ncols=4,
+    )
+    figs.savefig(saveroot / f"{group_name}_time.png", bbox_inches="tight")
 
 def plot_all_domains_exp(group_name, group_agents, doms_path: Path, outdir: str):
     saveroot = Path(outdir)
@@ -572,7 +643,7 @@ def plot_all_domains_exp(group_name, group_agents, doms_path: Path, outdir: str)
             # ax.tick_params(axis="both", which="major", length=5)
             ax.ticklabel_format(style="sci", axis="x", scilimits=(0, 0))
 
-            dom_data = pkl.load((doms_path / f"{dom}_trim.pkl").open("rb"))
+            dom_data = pkl.load((doms_path / f"{dom}.pkl").open("rb"))
 
             styles = putils.AllDomainStyles()
             for agent, runs in dom_data.items():
@@ -595,7 +666,11 @@ def plot_all_domains_exp(group_name, group_agents, doms_path: Path, outdir: str)
                 train_epochs_df = pd.concat(train_epochs_df, axis=1)
 
                 central = train_epochs_df["solved"].mean(axis=1)
+                mins = train_epochs_df["solved"].min(axis=1)
+                maxs = train_epochs_df["solved"].max(axis=1)
                 central = central.rolling(window=500, min_periods=500).mean()
+                mins = mins.rolling(window=500, min_periods=500).mean()
+                maxs = maxs.rolling(window=500, min_periods=500).mean()
                 x = train_epochs_df["cum_exp"].mean(axis=1)
                 ax.plot(x, central, color=c, linestyle=ls, label=agent)
 
@@ -616,9 +691,9 @@ def plot_all_domains_exp(group_name, group_agents, doms_path: Path, outdir: str)
 
 
 def main():
-    doms_root_path = Path("/home/ken/Projects/thes_data/")
-    dom_paths = list(doms_root_path.glob("*trim.pkl"))
-    save_dir = "figs/thes_final3/"
+    doms_root_path = Path("/home/ken/Envs/thes_data/")
+    dom_paths = list(doms_root_path.glob("*.pkl"))
+    save_dir = "figs/thes_final4/"
     # print(f"{dom.stem} {agent}: {len(runs)} runs")
     # main plots
     # print("Plotting main agents")
@@ -639,8 +714,9 @@ def main():
     for gname, gagents in putils.agent_groups.items():
         print(f"Plotting {gname} agents")
         gname_dir = f"{save_dir}/{gname}"
-        plot_all_domains_exp(gname, gagents, doms_root_path, gname_dir)
-        plot_all_domains_batch(gname, gagents, doms_root_path, gname_dir)
+        # plot_all_domains_exp(gname, gagents, doms_root_path, gname_dir)
+        plot_all_domains_time(gname, gagents, doms_root_path, gname_dir)
+        # plot_all_domains_batch(gname, gagents, doms_root_path, gname_dir)
         print()
 
     for dom in dom_paths:
@@ -650,7 +726,7 @@ def main():
             continue
         print(f"Plotting {dom.stem}")
         dom_data = pkl.load(dom.open("rb"))
-        plot_single_domain(d, gagents, dom_data, f"{save_dir}")
+        # plot_single_domain(d, gagents, dom_data, f"{save_dir}")
     print()
 
 

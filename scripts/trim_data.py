@@ -5,7 +5,7 @@ import pandas as pd
 
 
 def main():
-    dom_paths = list(Path("/home/ken/Projects/thes_data/").glob("*.pkl"))
+    dom_paths = list(Path("/home/ken/Envs/thes_data/").glob("*.pkl"))
     for dom in dom_paths:
         print(f"Trimming {dom.stem}")
         dom_data = pkl.load(dom.open("rb"))
