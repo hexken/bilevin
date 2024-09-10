@@ -17,7 +17,7 @@ from search.node import SearchNode
 if TYPE_CHECKING:
     from loaders import Problem
     from search.traj import Trajectory
-    from domains.domain import State
+    from domains.state import State
 
 
 class Agent(ABC):

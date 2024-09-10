@@ -4,12 +4,12 @@ from typing import TYPE_CHECKING
 
 import torch as to
 
-from domains.domain import State
 from enums import SearchDir
 from search.agent import Agent
 from search.agents.bidir import BiDir
 from search.agents.unidir import UniDir
 from search.node import SearchNode
+from domains.state import State
 
 if TYPE_CHECKING:
     pass

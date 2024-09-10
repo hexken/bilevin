@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch as to
 
-from domains.domain import Domain, State
-from enums import Color, ActionDir
+from domains.domain import Domain
+from domains.state import State
+from enums import ActionDir, Color
 
 if TYPE_CHECKING:
     from search.node import SearchNode
@@ -78,9 +79,9 @@ class Witness(Domain):
     def init(self) -> State:
         self.goal_state_t = None
         if self.puzzle == "triangles":
-            self.max_num_colors = 3  # blue, red, green
+            self.n_object_types = 3  # blue, red, green
         elif self.puzzle == "colors":
-            self.max_num_colors = 4  # blue, red, green, cyan
+            self.n_object_types = 4  # blue, red, green, cyan
         else:
             raise ValueError("Invalid puzzle type")
 
@@ -140,7 +141,7 @@ class Witness(Domain):
         """
         The max num of colors any problem in a particular problem set may have.
         """
-        return self.max_num_colors + 5
+        return self.n_object_types + 5
 
     def is_goal(self, state: WitnessState) -> bool:
         """
@@ -172,7 +173,7 @@ class Witness(Domain):
                         1  # -1 because we don't encode the neutral color
                     )
 
-        channel_number = self.max_num_colors
+        channel_number = self.n_object_types
         # channels for the current path
         # vsegs
         for i in range(self.width):

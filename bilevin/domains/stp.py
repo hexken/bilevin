@@ -5,7 +5,8 @@ import torch as to
 from torch import from_numpy
 from torch.nn.functional import one_hot
 
-from domains.domain import Domain, State
+from domains.domain import Domain
+from domains.state import State
 from enums import ActionDir
 
 
@@ -43,6 +44,9 @@ class SlidingTileState(State):
         return (self.tiles == other.tiles).all()
 
 
+# TSlidingTileState = TypeVar('TSlidingTileState', bound=SlidingTileState)
+
+
 class SlidingTile(Domain):
     def __init__(self, initial_state: SlidingTileState, forward: bool = True):
         super().__init__(forward=forward)
@@ -52,9 +56,9 @@ class SlidingTile(Domain):
         self.num_tiles: int
 
         self.goal_state: SlidingTileState
-        self.goal_state_t: to.Tensor
+        self.goal_state_t: to.Tensor | None = None
 
-    def init(self) -> State:
+    def init(self) -> SlidingTileState:
         self.width = self.initial_state.tiles.shape[0]
         self.num_tiles = self.width**2
 
@@ -121,7 +125,7 @@ class SlidingTile(Domain):
 
         return actions
 
-    def actions_unpruned(self, state: SlidingTileState):
+    def actions_unpruned(self, state: SlidingTileState) -> list[ActionDir]:
         actions = []
 
         if state.blank_col != self.width - 1:

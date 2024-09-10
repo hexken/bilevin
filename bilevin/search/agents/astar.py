@@ -10,9 +10,10 @@ from search.agent import Agent
 from search.agents.bidir import BiDir
 from search.agents.unidir import UniDir
 from search.node import SearchNode
+from domains.state import State
 
 if TYPE_CHECKING:
-    from domains.domain import State
+    pass
 
 
 class AStarBase(Agent):

@@ -1,13 +1,14 @@
 from __future__ import annotations
-from typing import Optional
-from typing import TYPE_CHECKING
+from typing import Generic, Optional, TYPE_CHECKING
 
 from torch import Tensor
 
 from enums import SearchDir
 
+from domains.state import TState
+
 if TYPE_CHECKING:
-    from domains.domain import State, Domain
+    from domains.domain import Domain
 
 
 class DirStructures:
@@ -42,10 +43,10 @@ class DirStructures:
         self.next_ds: DirStructures
 
 
-class SearchNode:
+class SearchNode(Generic[TState]):
     def __init__(
         self,
-        state: State,
+        state: TState,
         parent: Optional[SearchNode],
         parent_action: Optional[int],  # action taken from parent to reach this node
         actions: list[int],

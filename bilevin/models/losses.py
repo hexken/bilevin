@@ -37,6 +37,8 @@ def loss_wrapper(
         loss = policy_loss(log_probs, traj)
     elif heuristic_loss is not None:
         loss = heuristic_loss(hs, traj)
+    else:
+        raise ValueError("At least one loss function must be provided.")
 
     return loss
 

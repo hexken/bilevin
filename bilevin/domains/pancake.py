@@ -5,7 +5,8 @@ import torch as to
 from torch import from_numpy, transpose
 from torch.nn.functional import one_hot
 
-from domains.domain import Domain, State
+from domains.domain import Domain
+from domains.state import State
 from enums import ActionDir
 
 
@@ -43,7 +44,7 @@ class Pancake(Domain):
         self.num_pancakes: int = len(initial_state.pancakes)
 
         self.goal_state: PancakeState
-        self.goal_state_t: to.Tensor
+        self.goal_state_t: to.Tensor | None = None
 
     def init(self) -> State:
         if self.forward:

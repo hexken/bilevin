@@ -12,16 +12,17 @@ class SokobanState(State):
         self.man_row = man_row
         self.man_col = man_col
         self.boxes = boxes
+        self._hash = (self.man_row, self.man_col, self.boxes.tobytes()).__hash__()
 
     def __eq__(self, other) -> bool:
         return (
             self.man_row == other.man_row
             and self.man_col == other.man_col
-            and np.array_equal(self.boxes, other.boxes)
+            and (self.boxes == other.boxes).all()
         )
 
     def __hash__(self) -> int:
-        return (self.man_row, self.man_col, self.boxes.tobytes()).__hash__()
+        return self._hash
 
 
 class Sokoban(Domain):
@@ -140,10 +141,10 @@ class Sokoban(Domain):
 
         return actions
 
-    def _actions(
+    def actions(
         self, parent_action: ActionDir, state: SokobanState
     ) -> list[ActionDir]:
-        return self._actions_unpruned(state)
+        return self.actions_unpruned(state)
 
     def result(self, state: SokobanState, action: ActionDir) -> SokobanState:
         boxes = np.array(state.boxes)

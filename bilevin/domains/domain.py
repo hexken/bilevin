@@ -1,10 +1,10 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Optional, TYPE_CHECKING
+from typing import Generic, Optional, TYPE_CHECKING
 
-import torch as to
-from torch import Tensor, full
+from torch import Tensor
 
+from domains.state import TState
 from search.traj import Trajectory
 
 if TYPE_CHECKING:
@@ -12,28 +12,18 @@ if TYPE_CHECKING:
     from search.agent import Agent
 
 
-class State(ABC):
-    @abstractmethod
-    def __eq__(self, other) -> bool:
-        pass
-
-    @abstractmethod
-    def __hash__(self) -> int:
-        pass
-
-
-class Domain(ABC):
+class Domain(ABC, Generic[TState]):
     def __init__(self, forward: bool = True):
         self.aux_closed: dict = {}
         self.forward: bool = forward
-        self.initial_state: State
+        self.initial_state: TState
         self.goal_state_t: Optional[Tensor] = None
 
     @abstractmethod
-    def init(self) -> State:
+    def init(self) -> TState:
         pass
 
-    def _init(self) -> State:
+    def _init(self) -> TState:
         del self.aux_closed
         self.aux_closed = {}
         return self.initial_state
@@ -117,7 +107,7 @@ class Domain(ABC):
         pass
 
     @abstractmethod
-    def is_goal(self, state: State) -> bool:
+    def is_goal(self, state: TState) -> bool:
         pass
 
     @abstractmethod
@@ -129,22 +119,22 @@ class Domain(ABC):
         pass
 
     @abstractmethod
-    def state_tensor(self, state: State) -> Tensor:
+    def state_tensor(self, state: TState) -> Tensor:
         pass
 
     @abstractmethod
-    def actions(self, parent_action, state: State) -> list:
+    def actions(self, parent_action, state: TState) -> list:
         pass
 
     @abstractmethod
-    def actions_unpruned(self, state: State) -> list:
+    def actions_unpruned(self, state: TState) -> list:
         pass
 
     @abstractmethod
-    def result(self, state: State, action) -> State:
+    def result(self, state: TState, action) -> TState:
         pass
 
-    def get_merge_state(self, dir1_state, dir2_parent_state, action) -> State:
+    def get_merge_state(self, dir1_state, dir2_parent_state, action) -> TState:
         """
         Returns the state that results from applying action to dir1_state, assuming dir1 and dir2
         nodes are currently the same state.
