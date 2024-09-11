@@ -34,7 +34,6 @@ class SokobanState(State):
         return self._hash
 
 
-# todo how to set man_goal_channel for start map!
 class Sokoban(Domain):
     goal_str = "."
     man_str = "@"
@@ -59,7 +58,7 @@ class Sokoban(Domain):
         self.goal_state: SokobanState
         self.goal_state_t: to.Tensor | None = None
 
-    def init(self) -> State:
+    def init(self) -> SokobanState:
         self.width = self.map.shape[1]
 
         if self.forward:
@@ -273,14 +272,16 @@ class Sokoban(Domain):
         ] == 1
 
     def state_tensor(self, state: SokobanState) -> to.Tensor:
-        channel_man = np.zeros((self.width, self.width), dtype=np.float64)
-        channel_man[state.man_row, state.man_col] = 1
+        arr = np.zeros((5, self.width, self.width), dtype=np.float64)
+        arr[:3, :, :] = self.map
+        arr[3] = state.boxes
+        arr[4, state.man_row, state.man_col] = 1
 
-        arr = np.concatenate(
-            (self.map, state.boxes[None, ...], channel_man[None, ...]),
-            axis=0,
-            dtype=np.float64,
-        )
+        # arr = np.concatenate(
+        #     (self.map, state.boxes[None, ...], channel_man[None, ...]),
+        #     dtype=np.float64,
+        # )
+        # print(arr)
         return to.from_numpy(arr)
 
     def print(self, state: SokobanState):

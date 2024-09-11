@@ -127,6 +127,8 @@ def main():
             domain = Sokoban(state, map, forward=True)
             print("converted string")
             domain.print(state)
+            ts = domain.state_tensor(domain.init())
+            # print(ts)
             problem = Problem(id=id_counter, domain=domain)
             problems.append(problem)
             id_counter += 1
