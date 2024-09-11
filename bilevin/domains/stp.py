@@ -48,10 +48,10 @@ class SlidingTileState(State):
 
 
 class SlidingTile(Domain):
-    def __init__(self, initial_state: SlidingTileState, forward: bool = True):
+    def __init__(self, start_state: SlidingTileState, forward: bool = True):
         super().__init__(forward=forward)
 
-        self.initial_state: SlidingTileState = initial_state
+        self.start_state: SlidingTileState = start_state
         self.width: int
         self.num_tiles: int
 
@@ -59,7 +59,7 @@ class SlidingTile(Domain):
         self.goal_state_t: to.Tensor | None = None
 
     def init(self) -> SlidingTileState:
-        self.width = self.initial_state.tiles.shape[0]
+        self.width = self.start_state.tiles.shape[0]
         self.num_tiles = self.width**2
 
         if self.forward:
@@ -102,8 +102,8 @@ class SlidingTile(Domain):
     def backward_domain(self) -> SlidingTile:
         assert self.forward
         domain = SlidingTile(get_goal_state(self.width), forward=False)
-        domain.goal_state = self.initial_state
-        domain.goal_state_t = self.state_tensor(self.initial_state)
+        domain.goal_state = self.start_state
+        domain.goal_state_t = self.state_tensor(self.start_state)
         return domain
 
     def actions(

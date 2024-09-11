@@ -16,7 +16,7 @@ class Domain(ABC, Generic[TState]):
     def __init__(self, forward: bool = True):
         self.aux_closed: dict = {}
         self.forward: bool = forward
-        self.initial_state: TState
+        self.start_state: TState
         self.goal_state_t: Optional[Tensor] = None
 
     @abstractmethod
@@ -26,7 +26,7 @@ class Domain(ABC, Generic[TState]):
     def _init(self) -> TState:
         del self.aux_closed
         self.aux_closed = {}
-        return self.initial_state
+        return self.start_state
 
     def update(self, node: SearchNode):
         self.aux_closed[node.state.__hash__()] = node

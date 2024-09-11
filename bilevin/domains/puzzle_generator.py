@@ -85,7 +85,7 @@ def random_sliding_tile_puzzles(
                 continue
             exclude_problemspecs.add(state)
 
-        new_domain = SlidingTile(initial_state=state)
+        new_domain = SlidingTile(start_state=state)
         problem = Problem(id=id_counter, domain=new_domain)
         problems.append(problem)
         id_counter += 1
@@ -129,7 +129,7 @@ def generate_step_problems(
                 continue
             exclude_problemspecs.add(state)
 
-        new_domain = domain_class(initial_state=state)
+        new_domain = domain_class(start_state=state)
         problem = Problem(id=id_counter, domain=new_domain)
         problems.append(problem)
         id_counter += 1
@@ -266,10 +266,10 @@ def main():
     rng = np.random.default_rng(args.seed)
 
     problemset_dict = {"seed": args.seed}
-    if args.domain == "cube3":
-        problemset_dict["domain_name"] = "Cube3"
-        domain = Cube3(cube3ggs())
-    elif args.domain == "stp":
+    # if args.domain == "cube3":
+    #     problemset_dict["domain_name"] = "Cube3"
+    #     domain = Cube3(cube3ggs())
+    if args.domain == "stp":
         random_puzzle_function = random_sliding_tile_puzzles
         problemset_dict["domain_name"] = "SlidingTile"
         domain = SlidingTile(stpggs(args.width))
@@ -279,7 +279,7 @@ def main():
                 pset = pickle.load(f)
                 problems = pset["problems"][0]
                 for problem in problems:
-                    exclude_problemspecs.add(problem.domain.initial_state)
+                    exclude_problemspecs.add(problem.domain.start_state)
     elif args.domain == "pancake":
         random_puzzle_function = random_pancake_puzzles
         problemset_dict["domain_name"] = "Pancake"

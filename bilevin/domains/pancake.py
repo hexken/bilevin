@@ -37,11 +37,11 @@ class PancakeState(State):
 
 
 class Pancake(Domain):
-    def __init__(self, initial_state: PancakeState, forward: bool = True):
+    def __init__(self, start_state: PancakeState, forward: bool = True):
         super().__init__(forward=forward)
 
-        self.initial_state: PancakeState = initial_state
-        self.num_pancakes: int = len(initial_state.pancakes)
+        self.start_state: PancakeState = start_state
+        self.num_pancakes: int = len(start_state.pancakes)
 
         self.goal_state: PancakeState
         self.goal_state_t: to.Tensor | None = None
@@ -82,8 +82,8 @@ class Pancake(Domain):
     def backward_domain(self) -> Pancake:
         assert self.forward
         domain = Pancake(get_goal_state(self.num_pancakes), forward=False)
-        domain.goal_state = self.initial_state
-        domain.goal_state_t = self.state_tensor(self.initial_state)
+        domain.goal_state = self.start_state
+        domain.goal_state_t = self.state_tensor(self.start_state)
         return domain
 
     def actions(self, parent_action: int | None, state: PancakeState) -> list[int]:

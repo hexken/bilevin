@@ -1,43 +1,18 @@
 import argparse
-import json
+import os
 from pathlib import Path
 import pathlib
-import pickle
+import pickle as pkl
+import sys
 
 import numpy as np
 import tqdm
 
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
 from domains.sokoban import Sokoban, SokobanState
-
-
-def from_string(
-    string_state: str,
-) -> Sokoban:
-    lines = string_state.splitlines()
-    rows = len(lines)
-    cols = len(lines[0])
-
-    map = np.zeros((2, rows, cols), dtype=np.float32)
-    boxes = np.zeros((rows, cols), dtype=np.int8)
-    man_row = -1
-    man_col = -1
-
-    for i in range(rows):
-        for j in range(cols):
-            if lines[i][j] == Sokoban.goal_str:
-                map[Sokoban.goal_channel, i, j] = 1
-
-            if lines[i][j] == Sokoban.man_str:
-                man_row = i
-                man_col = j
-
-            if lines[i][j] == Sokoban.wall_str:
-                map[Sokoban.wall_channel, i, j] = 1
-
-            if lines[i][j] == Sokoban.box_str:
-                boxes[i, j] = 1
-
-    return Sokoban(map, man_row, man_col, boxes)
+from search.loaders import Problem
 
 
 def main():
@@ -50,10 +25,10 @@ def main():
         help="path of directory contianing problem files, each with instances, to read (old spec)",
     )
     parser.add_argument(
-        "--id-prefix",
-        type=str,
-        default="",
-        help="prefix to add to problem id ([prefix]_id)",
+        "--id-start",
+        type=int,
+        default=0,
+        help="starting index for problem ids",
     )
     parser.add_argument(
         "--test",
@@ -68,54 +43,64 @@ def main():
     )
 
     args = parser.parse_args()
-    if args.id_prefix:
-        id_prefix = f"{args.id_prefix}_"
-    else:
-        id_prefix = ""
 
     problem_files = sorted(pathlib.Path(args.input_path).glob("*.txt"))
-    problemset = []
+    problems = []
+    id_counter = args.id_start
     for f in tqdm.tqdm(problem_files):
         all_txt = f.read_text()
-        all_problem_strings = all_txt.split("\n\n")
-        for problem_string in all_problem_strings:
-            if not problem_string:
+        all_problem_strings = all_txt.split(";")
+        for problem_string in all_problem_strings[:5]:
+            if len(problem_string) < 20:
                 continue
-            num, new_line, problem_string = problem_string.partition("\n")
-            problem_id = f"{id_prefix}{f.stem}_{int(num[1:])}"
-            problem = from_string(problem_string)
-            new_spec = {
-                "map": problem.map.tolist(),
-                "man_row": problem.initial_state.man_row,
-                "man_col": problem.initial_state.man_col,
-                "boxes": problem.original_boxes.tolist(),
-                "id": problem_id,
-            }
-            problemset.append(new_spec)
+            lines = problem_string.splitlines()
+            lines = lines[1:-1]
+            print("orignial string")
+            print("\n".join(lines))
 
-    width = problem.cols
-    in_channels = problem.in_channels
+            rows = len(lines)
+            cols = len(lines[0])
+            map = np.zeros((3, rows, cols), dtype=np.float32)
+            boxes = np.zeros((rows, cols), dtype=np.float32)
+            man_row = -1
+            man_col = -1
 
-    problemset_dict = {
+            for i in range(rows):
+                for j in range(cols):
+                    if lines[i][j] == Sokoban.goal_str:
+                        map[Sokoban.box_goal_channel, i, j] = 1
+
+                    if lines[i][j] == Sokoban.man_str:
+                        man_row = i
+                        man_col = j
+
+                    if lines[i][j] == Sokoban.wall_str:
+                        map[Sokoban.wall_channel, i, j] = 1
+
+                    if lines[i][j] == Sokoban.box_str:
+                        boxes[i, j] = 1
+            assert 1 <= man_row <= rows - 2
+            assert 1 <= man_col <= cols - 2
+            assert (boxes == 1).sum() == 4
+
+            state = SokobanState(man_row, man_col, boxes)
+            # todo set man_goal_channel
+            map[Sokoban.man_goal_channel, 1, 1] = 1
+
+            domain = Sokoban(state, map, forward=True)
+            print("converted string")
+            domain.print(state)
+            problem = Problem(id=id_counter, domain=domain)
+            problems.append(problem)
+            id_counter += 1
+
+    problemset = {
         "domain_name": "Sokoban",
-        "domain_module": "sokoban",
-        "num_actions": 4,
-        "in_channels": in_channels,
-        "state_t_width": width,
+        "problems": problems,
     }
-    if args.test:
-        problemset_dict["problems"] = problemset
-    else:
-        problemset_dict["is_curriculum"] = True
-        problemset_dict["bootstrap_problems"] = []
-        problemset_dict["permutation_problems"] = []
-
-        problemset_dict["curriculum_problems"] = problemset
-        problemset_dict["curriculum"] = ["unfiltered"]
-        problemset_dict["problems_per_difficulty"] = len(problemset)
-
-    with args.output_path.open("w") as f:
-        json.dump(problemset_dict, f, indent=0)
+    problemset["problems"] = [problemset["problems"]]
+    with args.output_path.open("wb") as f:
+        pkl.dump(problemset, f)
 
 
 if __name__ == "__main__":

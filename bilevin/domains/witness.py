@@ -63,7 +63,7 @@ class Witness(Domain):
     def __init__(
         self,
         puzzle: str,
-        initial_state: WitnessState,
+        start_state: WitnessState,
         goal_row: int,
         goal_col: int,
         markers: list[tuple[int, int, int]],
@@ -71,7 +71,7 @@ class Witness(Domain):
     ):
         super().__init__(forward=forward)
         self.puzzle = puzzle
-        self.initial_state: WitnessState = initial_state
+        self.start_state: WitnessState = start_state
         self.goal_row = goal_row
         self.goal_col = goal_col
         self.markers = markers
@@ -85,9 +85,9 @@ class Witness(Domain):
         else:
             raise ValueError("Invalid puzzle type")
 
-        self.width = self.initial_state.width
-        self.start_row = self.initial_state.head_row
-        self.start_col = self.initial_state.head_col
+        self.width = self.start_state.width
+        self.start_row = self.start_state.head_row
+        self.start_col = self.start_state.head_col
 
         self.cells = np.zeros((self.width, self.width), dtype=np.int32)
 
@@ -417,12 +417,12 @@ class Witness(Domain):
         """
         assert self.forward
 
-        goal_row = self.initial_state.head_row
-        goal_col = self.initial_state.head_col
-        initial_state = WitnessState(self.width, self.goal_row, self.goal_col)
+        goal_row = self.start_state.head_row
+        goal_col = self.start_state.head_col
+        start_state = WitnessState(self.width, self.goal_row, self.goal_col)
         domain = Witness(
             self.puzzle,
-            initial_state,
+            start_state,
             goal_row,
             goal_col,
             self.markers,
@@ -438,7 +438,7 @@ class Witness(Domain):
         to [5, 5] (see below).
         """
         if not state:
-            state = self.initial_state
+            state = self.start_state
 
         ax: plt.Axes
         _, ax = plt.subplots(figsize=(5, 5))
