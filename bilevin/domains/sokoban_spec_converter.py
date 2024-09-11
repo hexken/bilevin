@@ -1,4 +1,6 @@
 import argparse
+from collections import deque
+from heapq import heappop, heappush
 import os
 from pathlib import Path
 import pathlib
@@ -8,11 +10,43 @@ import sys
 import numpy as np
 import tqdm
 
-
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 from domains.sokoban import Sokoban, SokobanState
 from search.loaders import Problem
+
+
+def empty_neighbours(r, c, map):
+    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        rr, cc = r + dr, c + dc
+        if (
+            map[Sokoban.wall_channel, rr, cc] == 0
+            and map[Sokoban.box_goal_channel, rr, cc] == 0
+        ):
+            yield (rr, cc)
+
+
+def count_reachable_positions(map):
+    candidates = set()
+    for r, c in zip(*np.where(map[Sokoban.box_goal_channel])):
+        for pos in empty_neighbours(r, c, map):
+            candidates.add(pos)
+
+    reachables = []
+    for cand in candidates:
+        count = 0
+        frontier = deque([cand])
+        visited = {cand}
+        while len(frontier) > 0:
+            pos = frontier.popleft()
+            count += 1
+            r, c = pos
+            for new_pos in empty_neighbours(r, c, map):
+                if new_pos not in visited:
+                    frontier.append(new_pos)
+                    visited.add(new_pos)
+        heappush(reachables, (-count, cand))
+    return reachables
 
 
 def main():
@@ -85,7 +119,10 @@ def main():
 
             state = SokobanState(man_row, man_col, boxes)
             # todo set man_goal_channel
-            map[Sokoban.man_goal_channel, 1, 1] = 1
+            reachables = count_reachable_positions(map)
+            r, c = reachables[0][1]
+            print(reachables)
+            map[Sokoban.man_goal_channel, r, c] = 1
 
             domain = Sokoban(state, map, forward=True)
             print("converted string")
