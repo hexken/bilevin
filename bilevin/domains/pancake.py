@@ -33,18 +33,22 @@ class PancakeState(State):
 
 class Pancake(Domain):
     def __init__(
-        self, start_state: PancakeState, goal_state: PancakeState, forward: bool = True
+        self,
+        start_state: PancakeState,
+        goal_state: PancakeState | None = None,
+        forward: bool = True,
     ):
         super().__init__(forward=forward)
 
         self.start_state: PancakeState = start_state
         self.num_pancakes: int = len(start_state.pancakes)
 
-        self.goal_state: PancakeState = goal_state
+        self.goal_state: PancakeState | None = goal_state
         self.goal_state_t: to.Tensor | None = None
 
     def init(self) -> PancakeState | list[PancakeState]:
-        self.goal_state_t = self.state_tensor(self.goal_state)
+        if self.goal_state is not None:
+            self.goal_state_t = self.state_tensor(self.goal_state)
         return self._init()
 
     @property
@@ -98,10 +102,6 @@ class Pancake(Domain):
 def get_canonical_goal_state(n_pancakes: int) -> PancakeState:
     pancakes = np.arange(n_pancakes)
     return PancakeState(pancakes)
-
-
-def get_random_state(n_pancakes: int, rng) -> PancakeState:
-    return get_permutation(n_pancakes, rng)
 
 
 def get_permutation(n_pancakes: int, rng=None) -> PancakeState:
