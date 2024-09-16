@@ -10,11 +10,6 @@ from domains.state import State
 from enums import ActionDir
 
 
-def get_goal_state(n_pancakes: int) -> PancakeState:
-    pancakes = np.arange(n_pancakes)
-    return PancakeState(pancakes)
-
-
 class PancakeState(State):
     def __init__(
         self,
@@ -37,19 +32,19 @@ class PancakeState(State):
 
 
 class Pancake(Domain):
-    def __init__(self, start_state: PancakeState, forward: bool = True):
+    def __init__(
+        self, start_state: PancakeState, goal_state: PancakeState, forward: bool = True
+    ):
         super().__init__(forward=forward)
 
         self.start_state: PancakeState = start_state
         self.num_pancakes: int = len(start_state.pancakes)
 
-        self.goal_state: PancakeState
+        self.goal_state: PancakeState = goal_state
         self.goal_state_t: to.Tensor | None = None
 
-    def init(self) -> State:
-        if self.forward:
-            self.goal_state = get_goal_state(self.num_pancakes)
-            self.goal_state_t = self.state_tensor(self.goal_state)
+    def init(self) -> PancakeState | list[PancakeState]:
+        self.goal_state_t = self.state_tensor(self.goal_state)
         return self._init()
 
     @property
@@ -81,9 +76,7 @@ class Pancake(Domain):
 
     def backward_domain(self) -> Pancake:
         assert self.forward
-        domain = Pancake(get_goal_state(self.num_pancakes), forward=False)
-        domain.goal_state = self.start_state
-        domain.goal_state_t = self.state_tensor(self.start_state)
+        domain = Pancake(self.goal_state, self.start_state, forward=False)
         return domain
 
     def actions(self, parent_action: int | None, state: PancakeState) -> list[int]:
@@ -100,3 +93,20 @@ class Pancake(Domain):
 
     def is_goal(self, state: PancakeState) -> bool:
         return state == self.goal_state
+
+
+def get_canonical_goal_state(n_pancakes: int) -> PancakeState:
+    pancakes = np.arange(n_pancakes)
+    return PancakeState(pancakes)
+
+
+def get_random_state(n_pancakes: int, rng) -> PancakeState:
+    return get_permutation(n_pancakes, rng)
+
+
+def get_permutation(n_pancakes: int, rng=None) -> PancakeState:
+    if rng is None:
+        pancakes = np.random.permutation(n_pancakes)
+    else:
+        pancakes = rng.permutation(n_pancakes)
+    return PancakeState(pancakes)

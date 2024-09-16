@@ -23,7 +23,7 @@ class Domain(ABC, Generic[TState]):
     def init(self) -> TState:
         pass
 
-    def _init(self) -> TState:
+    def _init(self) -> TState | list[TState]:
         del self.aux_closed
         self.aux_closed = {}
         return self.start_state

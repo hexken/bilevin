@@ -10,11 +10,6 @@ from domains.state import State
 from enums import ActionDir
 
 
-def get_goal_state(width: int) -> SlidingTileState:
-    tiles = np.arange(width**2).reshape(width, width)
-    return SlidingTileState(tiles, 0, 0)
-
-
 class SlidingTileState(State):
     def __init__(
         self,
@@ -48,23 +43,26 @@ class SlidingTileState(State):
 
 
 class SlidingTile(Domain):
-    def __init__(self, start_state: SlidingTileState, forward: bool = True):
+    def __init__(
+        self,
+        start_state: SlidingTileState,
+        goal_state: SlidingTileState,
+        forward: bool = True,
+    ):
         super().__init__(forward=forward)
 
         self.start_state: SlidingTileState = start_state
         self.width: int
         self.num_tiles: int
 
-        self.goal_state: SlidingTileState
+        self.goal_state: SlidingTileState = goal_state
         self.goal_state_t: to.Tensor | None = None
 
-    def init(self) -> SlidingTileState:
+    def init(self) -> SlidingTileState | list[SlidingTileState]:
         self.width = self.start_state.tiles.shape[0]
         self.num_tiles = self.width**2
 
-        if self.forward:
-            self.goal_state = get_goal_state(self.width)
-            self.goal_state_t = self.state_tensor(self.goal_state)
+        self.goal_state_t = self.state_tensor(self.goal_state)
         return self._init()
 
     @property
@@ -101,9 +99,7 @@ class SlidingTile(Domain):
 
     def backward_domain(self) -> SlidingTile:
         assert self.forward
-        domain = SlidingTile(get_goal_state(self.width), forward=False)
-        domain.goal_state = self.start_state
-        domain.goal_state_t = self.state_tensor(self.start_state)
+        domain = SlidingTile(self.start_state, self.goal_state, forward=False)
         return domain
 
     def actions(
@@ -180,3 +176,41 @@ class SlidingTile(Domain):
 
     def is_goal(self, state: SlidingTileState) -> bool:
         return state == self.goal_state
+
+
+def is_solvable(tiles: np.ndarray) -> bool:
+    """check if sate is solvable with respect to the canonical goal state"""
+    n = tiles.shape[0]
+    flat_tiles = tiles.flatten()
+    flat_tiles = flat_tiles[flat_tiles != 0]
+    inversions = 0
+    for i in range(len(flat_tiles)):
+        for j in range(i + 1, len(flat_tiles)):
+            if flat_tiles[i] > flat_tiles[j]:
+                inversions += 1
+    if n % 2 == 1:
+        return inversions % 2 == 0
+    else:
+        blank_row_from_top = np.where(tiles == 0)[0][0] + 1
+        return (blank_row_from_top % 2 == 0) != (inversions % 2 == 0)
+
+
+def get_canonical_goal_state(width: int) -> SlidingTileState:
+    tiles = np.arange(width**2).reshape(width, width)
+    return SlidingTileState(tiles, 0, 0)
+
+
+def get_permutation(width: int, rng) -> SlidingTileState:
+    """get a random stp state that is solvable wrp to the canonical goal state"""
+    while True:
+        if rng is None:
+            tiles = np.random.permutation(width**2).reshape(width, width)
+        else:
+            tiles = rng.permutation(width**2).reshape(width, width)
+        if is_solvable(tiles):
+            break
+    r, c = np.where(tiles == 0)
+    r = r.item()
+    c = c.item()
+    state = SlidingTileState(tiles, r, c)
+    return state
