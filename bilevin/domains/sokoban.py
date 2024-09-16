@@ -8,14 +8,6 @@ from domains.state import State
 from enums import ActionDir
 
 
-def get_goal_state(map: np.ndarray) -> SokobanState:
-    boxes = np.array(map[Sokoban.box_goal_channel])
-    r, c = np.where(map[Sokoban.man_goal_channel])
-    r = r.item()
-    c = c.item()
-    return SokobanState(r, c, boxes)
-
-
 class SokobanState(State):
     def __init__(self, man_row: int, man_col: int, boxes: np.ndarray):
         self.man_row = man_row
@@ -47,7 +39,7 @@ class Sokoban(Domain):
 
     def __init__(
         self,
-        start_state: SokobanState,
+        start_state: SokobanState | list[SokobanState],
         map: np.ndarray,
         forward: bool = True,
     ) -> None:
@@ -55,15 +47,16 @@ class Sokoban(Domain):
         self.map = map
         self.start_state = start_state
 
-        self.goal_state: SokobanState
+        self.goal_state: SokobanState | None = None
         self.goal_state_t: to.Tensor | None = None
 
-    def init(self) -> SokobanState:
+    def init(self) -> SokobanState | list[SokobanState]:
         self.width = self.map.shape[1]
-
-        if self.forward:
-            self.goal_state = get_goal_state(self.map)
-            self.goal_state_t = self.state_tensor(self.goal_state)
+        self.man_goal_locs = set()
+        for r, c in zip(*np.where(self.map[Sokoban.man_goal_channel])):
+            r = r.item()
+            c = c.item()
+            self.man_goal_locs.add((r, c))
         return self._init()
 
     @property
@@ -258,30 +251,39 @@ class Sokoban(Domain):
         create new states by placing the boxes on the goals, then the man at each side of each box, where not blocked
         """
         assert self.forward
-        state = get_goal_state(np.array(self.map))
-        domain = Sokoban(state, self.map, forward=False)
+        map = np.zeros((3, self.width, self.width), dtype=np.float64)
+        map[0, :] = self.map[0, :]
+        map[1, :] = self.start_state.boxes[:]
+
+        man_goal_row, man_goal_col = self.start_state.man_row, self.start_state.man_col
+        map[2, man_goal_row, man_goal_col] = 1
+
+        boxes = self.map[Sokoban.box_goal_channel]
+
+        start_states = []
+        for r, c in zip(*np.where(self.map[Sokoban.man_goal_channel])):
+            r = r.item()
+            c = c.item()
+            state = SokobanState(r, c, boxes)
+            start_states.append(state)
+
+        domain = Sokoban(start_states, map, forward=False)
         domain.actions = domain._backward_actions
         domain.actions_unpruned = domain._backward_actions_unpruned
-        domain.goal_state = self.start_state
-        domain.goal_state_t = self.state_tensor(self.start_state)
+        domain.result = domain._backward_result
         return domain
 
     def is_goal(self, state: SokobanState) -> bool:
-        return (state.boxes == self.map[Sokoban.box_goal_channel]).all() and self.map[
-            Sokoban.man_goal_channel, state.man_row, state.man_col
-        ] == 1
+        return (state.boxes == self.map[Sokoban.box_goal_channel]).all() and (
+            (state.man_row, state.man_col) in self.man_goal_locs
+        )
 
     def state_tensor(self, state: SokobanState) -> to.Tensor:
         arr = np.zeros((5, self.width, self.width), dtype=np.float64)
-        arr[:3, :, :] = self.map
-        arr[3] = state.boxes
+        arr[:3] = self.map[:]
+        arr[3, :] = state.boxes[:]
         arr[4, state.man_row, state.man_col] = 1
 
-        # arr = np.concatenate(
-        #     (self.map, state.boxes[None, ...], channel_man[None, ...]),
-        #     dtype=np.float64,
-        # )
-        # print(arr)
         return to.from_numpy(arr)
 
     def print(self, state: SokobanState):
