@@ -56,14 +56,11 @@ class SlidingTile(Domain):
         self.num_tiles: int
 
         self.goal_state: SlidingTileState | None = goal_state
-        self.goal_state_t: to.Tensor | None = None
 
     def init(self) -> SlidingTileState | list[SlidingTileState]:
         self.width = self.start_state.tiles.shape[0]
         self.num_tiles = self.width**2
 
-        if self.goal_state is not None:
-            self.goal_state_t = self.state_tensor(self.goal_state)
         return self._init()
 
     @property
@@ -100,7 +97,8 @@ class SlidingTile(Domain):
 
     def backward_domain(self) -> SlidingTile:
         assert self.forward
-        domain = SlidingTile(self.start_state, self.goal_state, forward=False)
+        assert self.goal_state is not None
+        domain = SlidingTile(self.goal_state, self.start_state, forward=False)
         return domain
 
     def actions(

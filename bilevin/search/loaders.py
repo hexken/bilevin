@@ -98,7 +98,7 @@ class ArrayLoader:
     def from_path(cls, args, path: Path):
         with path.open("rb") as f:
             pset_dict = pkl.load(f)
-        problems = pset_dict["problems"][0]
+        problems = pset_dict["problems"]
 
         if "test" in str(path) or "valid" in str(path):
             batch_size = len(problems)

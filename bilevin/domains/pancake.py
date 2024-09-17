@@ -44,11 +44,8 @@ class Pancake(Domain):
         self.num_pancakes: int = len(start_state.pancakes)
 
         self.goal_state: PancakeState | None = goal_state
-        self.goal_state_t: to.Tensor | None = None
 
     def init(self) -> PancakeState | list[PancakeState]:
-        if self.goal_state is not None:
-            self.goal_state_t = self.state_tensor(self.goal_state)
         return self._init()
 
     @property
@@ -80,6 +77,7 @@ class Pancake(Domain):
 
     def backward_domain(self) -> Pancake:
         assert self.forward
+        assert self.goal_state is not None
         domain = Pancake(self.goal_state, self.start_state, forward=False)
         return domain
 

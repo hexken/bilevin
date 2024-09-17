@@ -1,11 +1,8 @@
 from argparse import Namespace
-from typing import Optional
 
-import timeit
 import torch as to
 import torch.nn as nn
 import torch.nn.functional as F
-from itertools import chain
 from torch.nn.functional import log_softmax
 
 
@@ -158,10 +155,10 @@ class PolicyOrHeuristicModel(nn.Module):
     def forward(
         self,
         state_t: to.Tensor,
-        mask: Optional[to.Tensor] = None,
+        mask: to.Tensor | None = None,
         forward: bool = True,
-        goal_feats: Optional[to.Tensor] = None,
-        goal_state_t: Optional[to.Tensor] = None,
+        goal_feats: to.Tensor | None = None,
+        goal_state_t: to.Tensor | None = None,
     ):
         # set goal_feats if necessary
         if goal_state_t is not None:
@@ -224,7 +221,7 @@ class MLP(nn.Module):
         )
         self.output_layer = nn.Linear(hidden_layer_sizes[-1], out_size)
 
-    def forward(self, x1: to.Tensor, x2: Optional[to.Tensor] = None):
+    def forward(self, x1: to.Tensor, x2: to.Tensor | None = None):
         if x2 is not None:
             x2 = x2.expand(x1.shape[0], -1)
             x1 = to.cat((x1, x2), dim=-1)

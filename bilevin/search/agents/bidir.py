@@ -3,7 +3,7 @@ from argparse import Namespace
 from heapq import heappop, heappush
 from pathlib import Path
 from timeit import default_timer as timer
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import torch as to
 
@@ -49,11 +49,13 @@ class BiDir(Agent):
             mask = None
 
         if self.model.conditional_backward:
+            b_goal_state_t = f_state_t
             if self.model.has_feature_net:
-                b_goal_feats = self.model.backward_feature_net(f_state_t)
+                b_goal_feats = self.model.backward_feature_net(b_goal_state_t)
             else:
-                b_goal_feats = f_state_t.flatten()
+                b_goal_feats = b_goal_state_t.flatten()
         else:
+            b_goal_state_t = None
             b_goal_feats = None
 
         # get backward start state(s) feats
@@ -81,12 +83,15 @@ class BiDir(Agent):
             b_domain.update(b_start_node)
             heappush(b_open, b_start_node)
 
-        if self.model.conditional_forward and not len(b_open) == 0:
+        # todo new domains might need to get goal state_t by other means
+        if self.model.conditional_forward and len(b_states) == 1:
+            f_goal_state_t = b_state_t
             if self.model.has_feature_net:
-                f_goal_feats = self.model.forward_feature_net(b_open[0].state_t)
+                f_goal_feats = self.model.forward_feature_net(f_goal_state_t)
             else:
-                f_goal_feats = f_state_t.flatten()
+                f_goal_feats = f_goal_state_t.flatten()
         else:
+            f_goal_state_t = None
             f_goal_feats = None
 
         f_start_node = self.make_start_node(
@@ -184,6 +189,8 @@ class BiDir(Agent):
                         new_node,
                         ds.other_domain,
                         num_expanded,
+                        f_goal_state_t,
+                        b_goal_state_t,
                     )
 
                     if f_traj is not None:  # solution found

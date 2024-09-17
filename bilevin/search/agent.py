@@ -3,10 +3,10 @@ from abc import ABC, abstractmethod
 from argparse import Namespace
 from functools import partial
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import torch as to
-from torch import optim, full
+from torch import full, optim
 
 from enums import SearchDir
 from models.losses import loss_wrapper, mse, nll

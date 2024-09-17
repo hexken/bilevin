@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional
 from typing import TYPE_CHECKING
 
 from numpy import nan
@@ -27,7 +26,7 @@ class Trajectory:
         acc: float,  # accuracy
         avg_h_abs_error: float,  # avh abs error of heuristic
         cost_to_gos: Tensor,
-        goal_state_t: Optional[Tensor] = None,
+        goal_state_t: Tensor | None = None,
         forward: bool = True,
     ):
         self.states = states
@@ -55,7 +54,7 @@ class Trajectory:
         dir1_common: SearchNode,
         dir2_common: SearchNode,
         num_expanded: int,
-        goal_state_t: Optional[Tensor] = None,
+        goal_state_t: Tensor | None = None,
         forward: bool = True,
         set_masks: bool = False,
     ) -> Trajectory:
@@ -110,7 +109,7 @@ class Trajectory:
         goal_node: SearchNode,
         num_expanded: int,
         partial_g_cost: int,
-        goal_state_t: Optional[Tensor] = None,
+        goal_state_t: Tensor | None,
         forward: bool = True,
         set_masks: bool = False,
     ) -> Trajectory:
@@ -121,7 +120,6 @@ class Trajectory:
         actions[i] is the action taken in state[i] to get to state[i+1]
         """
         assert domain.is_goal(goal_node.state)
-        goal_state_t = goal_state_t.unsqueeze(0) if goal_state_t is not None else None
         action = goal_node.parent_action
         node = goal_node.parent
 

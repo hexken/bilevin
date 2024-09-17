@@ -40,6 +40,16 @@ class UniDir(Agent):
 
         state = domain.init()
         state_t = domain.state_tensor(state).unsqueeze(0)
+        if self.model.conditional_forward:
+            goal_state_t = domain.state_tensor(domain.goal_state).unsqueeze(0)
+            if self.model.has_feature_net:
+                goal_feats = self.model.forward_feature_net(goal_state_t)
+            else:
+                goal_feats = goal_state_t.flatten()
+        else:
+            goal_state_t = None
+            goal_feats = None
+
         actions = domain.actions(None, state)
         if self.mask_invalid_actions:
             masks = []
@@ -48,7 +58,7 @@ class UniDir(Agent):
             masks = None
             mask = None
         node = self.make_start_node(
-            state, state_t, actions, forward=True, mask=mask, goal_feats=None
+            state, state_t, actions, forward=True, mask=mask, goal_feats=goal_feats
         )
 
         closed = {node: node}
@@ -91,6 +101,7 @@ class UniDir(Agent):
                             goal_node=new_node,
                             num_expanded=num_expanded,
                             partial_g_cost=new_node.g,
+                            goal_state_t=goal_state_t,
                             set_masks=self.mask_invalid_actions,
                         )
                         traj = (traj, None)
@@ -111,7 +122,7 @@ class UniDir(Agent):
                     children_to_be_evaluated,
                     state_t_of_children_to_be_evaluated,
                     masks,
-                    None,
+                    goal_feats,
                 )
                 if masks is not None:
                     masks.clear()

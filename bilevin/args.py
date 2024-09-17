@@ -211,14 +211,6 @@ def parse_args():
         help="mask invalid actions in policy output (assign logits -1e9)",
     )
     parser.add_argument(
-        "--no-conditional-backward",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=False,
-        help="pass the problem's initial (forward) state to the backward policy/heuristic in addition to a current (backward) state",
-    )
-    parser.add_argument(
         "--feature-net-type",
         type=str,
         default="conv",

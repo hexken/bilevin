@@ -134,20 +134,16 @@ if __name__ == "__main__":
     logdir.mkdir(parents=True, exist_ok=True)
     print(f"Logging to {str(logdir)}")
 
-    # Witness domains don't support conditional backward search
-    if pset_dict["domain_name"] != "Witness" and (not args.no_conditional_backward):
-        args.conditional_backward = True
-    else:
-        args.conditional_backward = False
-
-    dummy_domain = deepcopy(pset_dict["problems"][0][0].domain)
-    num_raw_features = dummy_domain.state_tensor(dummy_domain.init()).size().numel()
+    assert pset_dict
+    domain = deepcopy(pset_dict["problems"][0].domain)
+    num_raw_features = domain.state_tensor(domain.init()).size().numel()
     derived_args = {
-        "conditional_backward": args.conditional_backward,
-        "state_t_width": dummy_domain.state_t_width,
-        "state_t_depth": dummy_domain.state_t_depth,
-        "num_actions": dummy_domain.num_actions,
-        "in_channels": dummy_domain.in_channels,
+        "conditional_forward": pset_dict["conditional_forward"],
+        "conditional_backward": pset_dict["conditional_backward"],
+        "state_t_width": domain.state_t_width,
+        "state_t_depth": domain.state_t_depth,
+        "num_actions": domain.num_actions,
+        "in_channels": domain.in_channels,
         "num_raw_features": num_raw_features,
     }
 
@@ -165,7 +161,7 @@ if __name__ == "__main__":
             json.dump(arg_dict, f, indent=2)
     for k, v in arg_dict.items():
         print(f"{k}: {v}")
-    del arg_dict, dummy_domain, argspath, pset_dict
+    del arg_dict, domain, argspath, pset_dict
 
     args.logdir = logdir
     if args.test_expansion_budget < 0:

@@ -47,16 +47,16 @@ class SearchNode(Generic[TState]):
     def __init__(
         self,
         state: TState,
-        parent: Optional[SearchNode],
-        parent_action: Optional[int],  # action taken from parent to reach this node
+        parent: SearchNode | None,
+        parent_action: int | None,  # action taken from parent to reach this node
         actions: list[int],
         mask: Tensor | None,
         g: int,
         log_prob: float,
-        log_action_probs: Optional[Tensor] = None,
-        h: Optional[float] = None,
+        log_action_probs: Tensor | None = None,
+        h: float | None = None,
         f: float = 0,
-        ds: Optional[DirStructures] = None,
+        ds: DirStructures | None = None,
     ):
         self.state = state
         self.parent = parent

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from collections import deque
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -77,7 +77,6 @@ class Witness(Domain):
         self.markers = markers
 
     def init(self) -> WitnessState | list[WitnessState]:
-        self.goal_state_t = None
         if self.puzzle == "triangles":
             self.n_object_types = 3  # blue, red, green
         elif self.puzzle == "colors":
@@ -431,7 +430,7 @@ class Witness(Domain):
 
         return domain
 
-    def plot(self, state: Optional[WitnessState] = None, filename=None):
+    def plot(self, state: WitnessState | None = None, filename=None):
         """
         This method plots the state. Several features in this method are hard-coded and might
         need adjustment as one changes the size of the puzzle. For example, the size of the figure is set to be fixed
@@ -565,7 +564,7 @@ class Witness(Domain):
         else:
             plt.show()
 
-    def is_merge_goal(self, state, other_domain) -> Optional[SearchNode]:
+    def is_merge_goal(self, state, other_domain) -> SearchNode | None:
         head_dot = (state.head_row, state.head_col)
         if head_dot not in other_domain.aux_closed:
             return None

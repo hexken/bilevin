@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Generic, Optional, TYPE_CHECKING
+from typing import Generic, TYPE_CHECKING
 
 from torch import Tensor
 
@@ -17,7 +17,6 @@ class Domain(ABC, Generic[TState]):
         self.aux_closed: dict = {}
         self.forward: bool = forward
         self.start_state: TState
-        self.goal_state_t: Optional[Tensor] = None
 
     @abstractmethod
     def init(self) -> TState:
@@ -31,7 +30,7 @@ class Domain(ABC, Generic[TState]):
     def update(self, node: SearchNode):
         self.aux_closed[node.state.__hash__()] = node
 
-    def is_merge_goal(self, state, other_domain) -> Optional[SearchNode]:
+    def is_merge_goal(self, state, other_domain) -> SearchNode | None:
         hsh = state.__hash__()
         if hsh in other_domain.aux_closed:  # solution found
             other_node = other_domain.aux_closed[hsh]
@@ -45,7 +44,9 @@ class Domain(ABC, Generic[TState]):
         node: SearchNode,
         other_domain: Domain,
         num_expanded: int,
-    ) -> tuple[Trajectory | None, Trajectory | None]:
+        f_goal_state_t: Tensor | None,
+        b_goal_state_t: Tensor | None,
+    ) -> tuple[Trajectory, Trajectory] | tuple[None, None]:
         """
         Returns a trajectory if state is a solution to this problem, None otherwise.
         """
@@ -68,7 +69,7 @@ class Domain(ABC, Generic[TState]):
                 f_common_node,
                 b_common_node,
                 num_expanded,
-                f_domain.goal_state_t,
+                f_goal_state_t,
                 forward=True,
                 set_masks=agent.mask_invalid_actions,
             )
@@ -78,7 +79,7 @@ class Domain(ABC, Generic[TState]):
                 b_common_node,
                 f_common_node,
                 num_expanded,
-                b_domain.goal_state_t,
+                b_goal_state_t,
                 forward=False,
                 set_masks=agent.mask_invalid_actions,
             )

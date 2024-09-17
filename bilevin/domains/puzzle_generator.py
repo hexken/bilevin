@@ -124,6 +124,8 @@ def main():
     pset_dict_template["random_goal"] = args.random_goal
     if args.random_goal:
         pset_dict_template["conditional_forward"] = True
+    else:
+        pset_dict_template["conditional_forward"] = False
 
     if args.domain == "stp":
         pset_dict_template["domain"] = "SlidingTile"
