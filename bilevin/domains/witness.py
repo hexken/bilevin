@@ -25,12 +25,12 @@ class WitnessState(State):
     def __init__(
         self,
         width: int,
-        head_init_row,
-        head_init_col,
+        head_row,
+        head_col,
         partial_init=False,
     ):
-        self.head_row = head_init_row
-        self.head_col = head_init_col
+        self.head_row = head_row
+        self.head_col = head_col
         self.width = width  # width of cells
 
         if not partial_init:
