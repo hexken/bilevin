@@ -44,6 +44,7 @@ class PolicyOrHeuristicModel(nn.Module):
                     in_channels,
                     kernel_size,
                     args.n_kernels,
+                    args.group_norm,
                 )
                 num_features = get_num_features_after_cnn(
                     kernel_size,
@@ -73,6 +74,7 @@ class PolicyOrHeuristicModel(nn.Module):
                             in_channels,
                             kernel_size,
                             args.n_kernels,
+                            args.group_norm,
                         )
                     else:
                         self.backward_feature_net: nn.Module = MLP(
@@ -240,6 +242,7 @@ class CNN(nn.Module):
         in_channels: int,
         kernel_size: tuple[int, int],
         num_filters: int,
+        group_norm: bool = False,
     ):
         super().__init__()
         if kernel_size[0] > 1:
@@ -261,9 +264,22 @@ class CNN(nn.Module):
             self.conv1 = nn.Conv2d(in_channels, num_filters, ks, padding="valid")
             self.conv2 = nn.Conv2d(num_filters, num_filters, ks, padding="valid")
 
+        if group_norm:
+            self.gn1 = nn.GroupNorm(8, num_filters)
+            self.gn2 = nn.GroupNorm(8, num_filters)
+        else:
+            self.gn1 = self.gn2 = None
+
     def forward(self, x: to.Tensor):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
+        x = self.conv1(x)
+        if self.gn1 is not None:
+            x = self.gn1(x)
+        x = F.relu(x)
+
+        x = self.conv2(x)
+        if self.gn2 is not None:
+            x = self.gn2(x)
+        x = F.relu(x)
 
         x = x.flatten(1)
 
