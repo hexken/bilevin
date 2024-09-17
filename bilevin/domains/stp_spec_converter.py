@@ -71,7 +71,6 @@ def main():
         problem = Problem(id=i, domain=stp)
         problemset["problems"].append(problem)
 
-    problemset["problems"] = [problemset["problems"]]
     with args.output_path.open("wb") as f:
         pkl.dump(problemset, f)
 

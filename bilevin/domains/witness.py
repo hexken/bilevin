@@ -76,7 +76,7 @@ class Witness(Domain):
         self.goal_col = goal_col
         self.markers = markers
 
-    def init(self) -> State:
+    def init(self) -> WitnessState | list[WitnessState]:
         self.goal_state_t = None
         if self.puzzle == "triangles":
             self.n_object_types = 3  # blue, red, green

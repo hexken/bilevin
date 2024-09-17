@@ -45,7 +45,7 @@ def main():
         help="path of problems to exclude for stp",
     )
     parser.add_argument(
-        "--random_goal",
+        "--random-goal",
         const=True,
         nargs="?",
         type=strtobool,
@@ -144,15 +144,15 @@ def main():
 
     print(f"Saving problems to {args.output_path}")
     if args.n_train > 0:
-        with tqdm.tqdm(total=args.n_valid) as pbar:
+        with tqdm.tqdm(total=args.n_train) as pbar:
             pbar.set_description("Train problems")
             problems = get_step_problems(
                 args.n_train,
                 args.width,
                 domain_module,
                 domain_class,
-                args.minsteps,
-                args.maxsteps,
+                args.min_steps,
+                args.max_steps,
                 True,
                 args.random_goal,
                 rng,
@@ -162,17 +162,18 @@ def main():
         pset_dict = copy(pset_dict_template)
         pset_dict["problems"] = problems
         save_problemset(args.output_path, pset_dict, "train")
+        del pset_dict
 
     if args.n_valid > 0:
         with tqdm.tqdm(total=args.n_valid) as pbar:
             pbar.set_description("Valid problems")
             problems = get_step_problems(
-                args.n_train,
+                args.n_valid,
                 args.width,
                 domain_module,
                 domain_class,
-                args.minsteps,
-                args.maxsteps,
+                args.min_steps,
+                args.max_steps,
                 True,
                 args.random_goal,
                 rng,
@@ -182,6 +183,7 @@ def main():
         pset_dict = copy(pset_dict_template)
         pset_dict["problems"] = problems
         save_problemset(args.output_path, pset_dict, "valid")
+        del pset_dict
 
     if args.n_test > 0:
         with tqdm.tqdm(total=args.n_test) as pbar:
@@ -198,12 +200,12 @@ def main():
                 )
             else:
                 problems = get_step_problems(
-                    args.n_train,
+                    args.n_test,
                     args.width,
                     domain_module,
                     domain_class,
-                    args.minsteps,
-                    args.maxsteps,
+                    args.min_steps,
+                    args.max_steps,
                     args.randomize_test_steps,
                     args.random_goal,
                     rng,
@@ -213,10 +215,7 @@ def main():
         pset_dict = copy(pset_dict_template)
         pset_dict["problems"] = problems
         save_problemset(args.output_path, pset_dict, "test")
-
-
-if __name__ == "__main__":
-    main()
+        del pset_dict
 
 
 def get_step_problems(
@@ -302,8 +301,12 @@ def get_permutation_problems(
 
 
 def save_problemset(pth, problemset_dict, suffix):
-    n_problems = sum(len(p) for p in problemset_dict["problems"])
+    n_problems = len(problemset_dict["problems"])
     path = pth / f"{n_problems}-{suffix}.pkl"
     with path.open("wb") as f:
         pickle.dump(problemset_dict, f)
     print(f"  Saved {n_problems} problems to {path}")
+
+
+if __name__ == "__main__":
+    main()
