@@ -20,9 +20,9 @@ if [ "$1" = "d" ]; then
     --output-path  new_problems/trid/ \
     --random-start \
     --marker-prob 0.7 \
-    --n-train 500 \
-    --n-valid  100 \
-    --n-test  100
+    --n-train 100 \
+    --n-valid  10 \
+    --n-test  10
 elif [ "$1" = "4" ]; then
     python bilevin/domains/wit_puzzle_generator.py \
     --puzzle  "triangles" \

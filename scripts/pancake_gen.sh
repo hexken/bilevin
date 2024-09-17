@@ -14,18 +14,16 @@ fi
 if [ "$1" = "d" ]; then
     python src/bilevin/domains/puzzle_generator.py \
     --domain pancake \
-    --output-path  problems/pancake14d/ \
-    --seed 658 \
-    --width  14 \
-    --n-problems-per-stage  250 \
-    --randomize-curriculum-steps \
-    --stages-multiple  5 \
-    --n-problems-final-stage 500 \
-    --n-stages  11 \
-    --n-valid  100 \
-    --n-test 100 \
+    --output-path  problems/pancaked/ \
+    --seed 4238 \
+    --width  10 \
+    --random-goal \
     --randomize-test-steps \
-    --test-steps  100
+    --min-steps 50 \
+    --max-steps 1000 \
+    --n-train 100 \
+    --n-valid  10 \
+    --n-test 10
 elif [ "$1" = "10rg" ]; then
     python bilevin/domains/puzzle_generator.py \
     --domain pancake \

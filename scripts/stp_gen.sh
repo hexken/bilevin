@@ -14,18 +14,16 @@ fi
 if [ "$1" = "d" ]; then
     python bilevin/domains/puzzle_generator.py \
     --domain stp \
-    --output-path  problems/stp5d/ \
-    --seed 658 \
-    --width  5 \
-    --n-problems-per-stage  100 \
-    --randomize-curriculum-steps \
-    --stages-multiple  20 \
-    --n-problems-final-stage 1000 \
-    --n-stages  1 \
-    --n-valid  100 \
-    --n-test 100 \
+    --output-path  problems/stpd/ \
+    --seed 4238 \
+    --width  4 \
+    --random-goal \
     --randomize-test-steps \
-    --test-steps  1000
+    --min-steps 50 \
+    --max-steps 1000 \
+    --n-train 100 \
+    --n-valid  10 \
+    --n-test 10
 elif [ "$1" = "4rg" ]; then
     python bilevin/domains/puzzle_generator.py \
     --domain stp \
