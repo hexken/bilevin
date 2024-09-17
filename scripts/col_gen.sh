@@ -12,18 +12,15 @@ if [ $# -ne 1 ]; then
 fi
 
 if [ "$1" = "d" ]; then
+elif [ "$1" = "4" ]; then
     python bilevin/domains/wit_puzzle_generator.py \
     --puzzle  "colors" \
     --seed  2723 \
     --width  4 \
-    --output-path  problems/col4d/ \
-    --n-stages 11 \
-    --n-problems-per-stage 1000 \
-    --marker-prob-limits  0.1 0.5 \
-    --min-path-ratio-limits 0.0 2.0 \
-    --n-problems-final-stage 2000 \
-    --test-marker-prob 0.6 \
-    --test-min-path-ratio 2.0 \
+    --output-path  new_problems/cold/ \
+    --random-start \
+    --marker-prob 0.7 \
+    --n-train 500 \
     --n-valid  100 \
     --n-test  100
 elif [ "$1" = "4" ]; then
@@ -31,31 +28,23 @@ elif [ "$1" = "4" ]; then
     --puzzle  "colors" \
     --seed  2723 \
     --width  4 \
-    --output-path  problems/col4/ \
-    --n-stages 1 \
-    --n-problems-per-stage 0 \
-    --marker-prob-limits  0.1 0.5 \
-    --min-path-ratio-limits 0.0 2.0 \
-    --n-problems-final-stage 50000 \
-    --test-marker-prob 0.75 \
-    --test-min-path-ratio 2.0 \
-    --n-valid  1000 \
-    --n-test  1000
+    --output-path  new_problems/col4/ \
+    --random-start \
+    --marker-prob 0.7 \
+    --n-train 500 \
+    --n-valid  100 \
+    --n-test  100
 elif [ "$1" = "5" ]; then
     python bilevin/domains/wit_puzzle_generator.py \
     --puzzle  "colors" \
-    --seed  1753 \
-    --width  5 \
-    --output-path  problems/col5/ \
-    --n-stages 1 \
-    --n-problems-per-stage 0 \
-    --marker-prob-limits  0.1 0.5 \
-    --min-path-ratio-limits 0.0 2.0 \
-    --n-problems-final-stage 50000 \
-    --test-marker-prob 0.75 \
-    --test-min-path-ratio 2.0 \
-    --n-valid  1000 \
-    --n-test  1000
+    --seed  2928 \
+    --width  4 \
+    --output-path  new_problems/col5/ \
+    --random-start \
+    --marker-prob 0.7 \
+    --n-train 500 \
+    --n-valid  100 \
+    --n-test  100
 else
     usage
 fi

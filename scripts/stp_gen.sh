@@ -26,52 +26,56 @@ if [ "$1" = "d" ]; then
     --n-test 100 \
     --randomize-test-steps \
     --test-steps  1000
+elif [ "$1" = "4rg" ]; then
+    python bilevin/domains/puzzle_generator.py \
+    --domain stp \
+    --output-path  new_problems/stp4rg/ \
+    --seed 4238 \
+    --width  4 \
+    --random-goal \
+    --randomize-test-steps \
+    --min-steps 50 \
+    --max-steps 1000 \
+    --n-train 500 \
+    --n-valid  100 \
+    --n-test 100
+elif [ "$1" = "5rg" ]; then
+    python bilevin/domains/puzzle_generator.py \
+    --domain stp \
+    --output-path  new_problems/stp5rg/ \
+    --seed 1298 \
+    --width  4 \
+    --random-goal \
+    --randomize-test-steps \
+    --min-steps 50 \
+    --max-steps 1000 \
+    --n-train 500 \
+    --n-valid  100 \
+    --n-test 100
 elif [ "$1" = "4" ]; then
     python bilevin/domains/puzzle_generator.py \
     --domain stp \
-    --output-path  problems/stp4/ \
-    --seed 4238 \
+    --output-path  new_problems/stp4/ \
+    --seed 5238 \
     --width  4 \
-    --randomize-curriculum-steps \
-    --n-problems-per-stage  50000 \
-    --stages 50 1000 \
-    --stages-multiple 0 \
-    --n-problems-final-stage 0 \
-    --n-stages  0 \
-    --n-valid  1000 \
-    --n-test 1000 \
-    --test-permutation
+    --permutation-test \
+    --min-steps 50 \
+    --max-steps 1000 \
+    --n-train 500 \
+    --n-valid  100 \
+    --n-test 100
 elif [ "$1" = "5" ]; then
     python bilevin/domains/puzzle_generator.py \
     --domain stp \
-    --output-path  problems/stp5/ \
-    --seed 1274 \
-    --width  5 \
-    --n-problems-per-stage  5000 \
-    --randomize-curriculum-steps \
-    --stages-multiple  10 \
-    --n-problems-final-stage 50000 \
-    --n-stages  11 \
-    --n-valid  1000 \
-    --n-test 1000 \
-    --randomize-test-steps \
-    --test-steps  500
-elif [ "$1" = "5v" ]; then
-    python bilevin/domains/puzzle_generator.py \
-    --domain stp \
-    --output-path  problems/stp5 \
-    --exclude-path  problems/stp5/50000-train.pkl \
-    --exclude-path  problems/stp5/1000-test.pkl \
-    --seed 1274 \
-    --width  5 \
-    --n-problems-per-stage  0 \
-    --randomize-curriculum-steps \
-    --stages-multiple  10 \
-    --n-problems-final-stage 0 \
-    --n-stages  0 \
-    --n-valid  1000 \
-    --n-test 0 \
-    --test-permutation
+    --output-path  new_problems/stp5/ \
+    --seed 7228 \
+    --width  4 \
+    --permutation-test \
+    --min-steps 50 \
+    --max-steps 1000 \
+    --n-train 500 \
+    --n-valid  100 \
+    --n-test 100
 else
     usage
 fi
