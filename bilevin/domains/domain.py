@@ -68,6 +68,7 @@ class Domain(ABC, Generic[TState]):
                 f_common_node,
                 b_common_node,
                 num_expanded,
+                f_domain.goal_state_t,
                 forward=True,
                 set_masks=agent.mask_invalid_actions,
             )

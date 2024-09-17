@@ -16,9 +16,6 @@ if TYPE_CHECKING:
     pass
 
 
-# todo fix optional masking
-# merge bfs and alt?
-# choose how to fill gen batch
 class BiDir(Agent):
     def __init__(
         self, logdir: Path, args: Namespace, aux_args: dict, alternating: bool = True
@@ -40,20 +37,16 @@ class BiDir(Agent):
         """ """
         start_time = timer()
 
+        # get forward start state feats
         f_domain = problem.domain
         f_state = f_domain.init()
         f_state_t = f_domain.state_tensor(f_state).unsqueeze(0)
         f_actions = f_domain.actions(None, f_state)
+
         if self.mask_invalid_actions:
             mask = self.get_mask(f_actions)
         else:
             mask = None
-        f_start_node = self.make_start_node(
-            f_state, f_state_t, f_actions, mask=mask, forward=True, goal_feats=None
-        )
-        f_open = [f_start_node]
-        f_closed = {f_start_node: f_start_node}
-        f_domain.update(f_start_node)
 
         if self.model.conditional_backward:
             if self.model.has_feature_net:
@@ -63,28 +56,61 @@ class BiDir(Agent):
         else:
             b_goal_feats = None
 
+        # get backward start state(s) feats
         b_domain = f_domain.backward_domain()
-        b_state = b_domain.init()
-        b_state_t = b_domain.state_tensor(b_state).unsqueeze(0)
-        b_actions = b_domain.actions(None, b_state)
-        if self.mask_invalid_actions:
-            mask = self.get_mask(b_actions)
+        b_states = b_domain.init()
+        b_open = []
+        b_closed = {}
+        if not isinstance(b_states, list):
+            b_states = [b_states]
+        for b_state in b_states:
+            b_state_t = b_domain.state_tensor(b_state).unsqueeze(0)
+            b_actions = b_domain.actions(None, b_state)
+            if self.mask_invalid_actions:
+                mask = self.get_mask(b_actions)
 
-        b_start_node = self.make_start_node(
-            b_state,
-            b_state_t,
-            b_actions,
+            b_start_node = self.make_start_node(
+                b_state,
+                b_state_t,
+                b_actions,
+                mask=mask,
+                forward=False,
+                goal_feats=b_goal_feats,
+            )
+            b_closed[b_start_node] = b_start_node
+            b_domain.update(b_start_node)
+            heappush(b_open, b_start_node)
+
+        if self.model.conditional_forward and not len(b_open) == 0:
+            if self.model.has_feature_net:
+                f_goal_feats = self.model.forward_feature_net(b_open[0].state_t)
+            else:
+                f_goal_feats = f_state_t.flatten()
+        else:
+            f_goal_feats = None
+
+        f_start_node = self.make_start_node(
+            f_state,
+            f_state_t,
+            f_actions,
             mask=mask,
-            forward=False,
-            goal_feats=b_goal_feats,
+            forward=True,
+            goal_feats=f_goal_feats,
         )
-        b_closed = {b_start_node: b_start_node}
-        b_domain.update(b_start_node)
-        b_open = [b_start_node]
+        f_open = [f_start_node]
+        f_closed = {f_start_node: f_start_node}
+        f_domain.update(f_start_node)
 
         num_expanded = 0
 
-        f_ds = DirStructures(SearchDir.FORWARD, f_open, f_closed, f_domain, b_domain)
+        f_ds = DirStructures(
+            SearchDir.FORWARD,
+            f_open,
+            f_closed,
+            f_domain,
+            b_domain,
+            goal_feats=f_goal_feats,
+        )
         f_start_node.ds = f_ds
 
         b_ds = DirStructures(
@@ -95,7 +121,8 @@ class BiDir(Agent):
             f_domain,
             goal_feats=b_goal_feats,
         )
-        b_start_node.ds = b_ds
+        for b_start_node in b_open:
+            b_start_node.ds = b_ds
 
         f_ds.next_ds = b_ds
         b_ds.next_ds = f_ds

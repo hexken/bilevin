@@ -31,6 +31,7 @@ def train(
         old_checkpoint_path = args.logdir / f"dummy_chkpt"
         best_valid_expanded = len(valid_loader) * args.train_expansion_budget + 1
         batch_buffer: list[Result] = []
+        rng = np.random.default_rng(args.seed)
 
     results = ResultsLog(agent)
     if args.checkpoint_path is None:
@@ -161,7 +162,7 @@ def train(
 
                 # to make the shuffle deterministic
                 trajs = sorted(trajs, key=lambda x: x[0])
-                train_loader.rng.shuffle(trajs)
+                rng.shuffle(trajs)
 
                 if len(trajs) > 0:
                     print("Updating model...")

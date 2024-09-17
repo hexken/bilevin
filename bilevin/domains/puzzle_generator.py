@@ -53,7 +53,7 @@ def main():
         help="use a random goal state for each problem, instead of the canonical goal state",
     )
     parser.add_argument(
-        "--test-permutation",
+        "--permutation-test",
         const=True,
         nargs="?",
         type=strtobool,
@@ -120,7 +120,11 @@ def main():
 
     rng = np.random.default_rng(args.seed)
 
-    pset_dict_template = {"seed": args.seed}
+    pset_dict_template = {"seed": args.seed, "conditional_backward": True}
+    pset_dict_template["random_goal"] = args.random_goal
+    if args.random_goal:
+        pset_dict_template["conditional_forward"] = True
+
     if args.domain == "stp":
         pset_dict_template["domain"] = "SlidingTile"
         domain_module = stp
@@ -188,7 +192,7 @@ def main():
     if args.n_test > 0:
         with tqdm.tqdm(total=args.n_test) as pbar:
             pbar.set_description("Test problems")
-            if args.test_permutation:
+            if args.permutation_test:
                 problems = get_permutation_problems(
                     args.n_test,
                     args.width,
@@ -214,6 +218,11 @@ def main():
                 )
         pset_dict = copy(pset_dict_template)
         pset_dict["problems"] = problems
+        if args.permutation_test:
+            pset_dict["permutation_test"] = True
+        else:
+            pset_dict["test_steps"] = args.test_steps
+            pset_dict["randomize_test_steps"] = args.randomize_test_steps
         save_problemset(args.output_path, pset_dict, "test")
         del pset_dict
 

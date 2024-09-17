@@ -106,6 +106,8 @@ def main():
         "seed": args.seed,
         "puzzle": args.puzzle,
         "marker_probs": args.marker_prob,
+        "conditional_backward": False,
+        "conditional_forward": False,
     }
 
     exclude_problemspecs = set()
@@ -189,9 +191,7 @@ def get_problems(
             if goal_loc != start_loc:
                 break
 
-        state = WitnessState(
-            width=width, head_init_row=start_loc[0], head_init_col=start_loc[1]
-        )
+        state = WitnessState(width=width, head_row=start_loc[0], head_col=start_loc[1])
         head_at_goal = False
         domain = Witness(
             puzzle=puzzle,
@@ -238,7 +238,10 @@ def get_problems(
         else:
             exclude_problemsepcs.add(hshable)
 
-        start_state = WitnessState(width=width, head_init_row=0, head_init_col=0)
+        # print(f"Problem {id}: {start_loc} -> {goal_loc}")
+        start_state = WitnessState(
+            width=width, head_row=start_loc[0], head_col=start_loc[1]
+        )
         problem_domain = Witness(
             puzzle=puzzle,
             start_state=start_state,
@@ -348,9 +351,9 @@ def colors_puzzle_from_path(
     regions = connected_components(domain, state)
 
     if domain.width == 4:
-        min_num_regions = 2
-    elif domain.width == 5:
         min_num_regions = 3
+    elif domain.width == 5:
+        min_num_regions = 4
     elif domain.width == 6:
         min_num_regions = 4
     else:
