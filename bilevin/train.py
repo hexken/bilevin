@@ -108,11 +108,6 @@ def train(
                 time_budget=args.time_budget,
             )
             end_time = timer()
-            if end_time - start_time > args.slow_problem:
-                print(
-                    f"Rank {rank} problem {problem.id} SLOW {end_time - start_time:.2f}s"
-                )
-                sys.stdout.flush()
 
             if f_traj is not None:
                 sol_len = len(f_traj)

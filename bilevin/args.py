@@ -252,10 +252,10 @@ def parse_args():
         help="use the same feature netword for forward and backward policies/heuristics. In this case forward-feature-net-lr is used",
     )
     parser.add_argument(
-        "--slow-problem",
+        "--master-lr",
         type=float,
-        default=35,
-        help="log if a problem takes longer than this many seconds to solve during training",
+        default=-1,
+        help="if > 0, use this lr for all networks",
     )
     parser.add_argument(
         "--forward-feature-net-lr",

@@ -58,13 +58,13 @@ def main():
         nargs="?",
         type=strtobool,
         default=False,
-        help="use permutation problems for stp valid",
+        help="use permutation problems for test set",
     )
     parser.add_argument(
         "--test-steps",
         type=int,
         default=1000,
-        help="number of steps from goal for testing puzzles",
+        help="number of steps from goal for testing puzzles, permutation takes priority",
     )
     parser.add_argument(
         "--min-steps",

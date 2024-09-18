@@ -88,6 +88,13 @@ if __name__ == "__main__":
     print(time.ctime(abs_start_time))
 
     args = parse_args()
+    if args.master_lr > 0:
+        args.forward_feature_net_lr = args.master_lr
+        args.backward_feature_net_lr = args.master_lr
+        args.forward_policy_lr = args.master_lr
+        args.backward_policy_lr = args.master_lr
+        args.forward_heuristic_lr = args.master_lr
+        args.backward_heuristic_lr = args.master_lr
 
     to.set_num_threads(1)
     to.set_default_dtype(to.float64)
