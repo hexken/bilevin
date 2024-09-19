@@ -203,14 +203,6 @@ def parse_args():
         help="number of convolution kernels",
     )
     parser.add_argument(
-        "--group-norm",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=False,
-        help="use group normalization in CNN feature nets",
-    )
-    parser.add_argument(
         "--mask-invalid-actions",
         const=True,
         nargs="?",
