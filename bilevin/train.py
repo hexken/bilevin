@@ -33,7 +33,7 @@ def train(
         batch_buffer: list[Result] = []
         rng = np.random.default_rng(args.seed)
 
-    results = ResultsLog(agent)
+    results = ResultsLog()
     if args.checkpoint_path is None:
         epoch = 0
         done_epoch = False
@@ -114,11 +114,11 @@ def train(
             else:
                 sol_len = np.nan
 
+            exp = n_forw_expanded + n_backw_expanded
             res = Result(
                 id=problem.id,
                 time=end_time - start_time,
-                fexp=n_forw_expanded,
-                bexp=n_backw_expanded,
+                exp=exp,
                 len=sol_len,
                 f_traj=f_traj,
                 b_traj=b_traj,
@@ -220,7 +220,6 @@ def train(
                     print()
                     epoch_solved, epoch_exp = print_search_summary(
                         results_df,
-                        agent.is_bidirectional,
                     )
 
             # validate
@@ -231,20 +230,20 @@ def train(
                     sys.stdout.flush()
 
                 valid_df = test(
-                    args,
                     rank,
                     agent,
                     valid_loader,
                     results_queue,
+                    args.train_expansion_budget,
+                    args.time_budget,
                     print_results=False,
+                    results_df_path=args.logdir / f"valid_e{epoch}.pkl",
                 )
 
                 if rank == 0:
                     valid_exp = valid_df["exp"].sum()
                     valid_solved = len(valid_df[valid_df["len"] > 0])
-                    with (args.logdir / f"valid_e{epoch}.pkl").open("wb") as f:
-                        pickle.dump(valid_df, f)
-                    print_search_summary(valid_df, agent.is_bidirectional)
+                    print_search_summary(valid_df)
 
                     if valid_exp <= best_valid_expanded:
                         best_valid_expanded = valid_exp

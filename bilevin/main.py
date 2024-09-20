@@ -67,18 +67,19 @@ def run(
                 print("\nTesting...")
 
         results_df = test(
-            args,
             rank,
             agent,
             test_loader,
             results_queue,
+            args.train_expansion_budget,
+            args.time_budget,
             print_results=True,
+            solved_results_path=args.logdir / f"solved_results.pkl",
+            results_df_path=args.logdir / f"test.pkl",
         )
         if rank == 0:
-            with open(args.logdir / f"test.pkl", "wb") as f:
-                pkl.dump(results_df, f)
             print(f"Testing took {time.time() - ts:.2f} seconds")
-            print_search_summary(results_df, bidirectional=agent.is_bidirectional)
+            print_search_summary(results_df)
     dist.barrier()
 
 
@@ -173,8 +174,6 @@ if __name__ == "__main__":
     args.logdir = logdir
     if args.test_expansion_budget < 0:
         args.test_expansion_budget = args.train_expansion_budget
-    if args.max_expansion_budget < 0:
-        args.max_expansion_budget = args.train_expansion_budget
 
     if args.master_port == "auto":
         os.environ["MASTER_PORT"] = find_free_port(args.lockfile, args.master_addr)

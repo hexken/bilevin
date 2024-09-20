@@ -23,14 +23,6 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--increase-budget",
-        const=True,
-        nargs="?",
-        type=strtobool,
-        default=False,
-        help="double budget each test iteration for failed problems",
-    )
-    parser.add_argument(
         "--shuffle",
         const=True,
         nargs="?",
@@ -341,12 +333,6 @@ def parse_args():
         type=str,
         default="/tmp/port",
         help="path to create lock file for coordinating port setting in single-node multi instance training",
-    )
-    parser.add_argument(
-        "--max-expansion-budget",
-        type=int,
-        default=-1,
-        help="initial node expansion budget to solve a problem during training, -1 to use train expansion budget",
     )
     parser.add_argument(
         "--train-expansion-budget",

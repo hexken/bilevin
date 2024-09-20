@@ -22,10 +22,6 @@ class Trajectory:
         masks: Tensor | None,
         num_expanded: int,
         partial_g_cost: int,  # g_cost of node that generated sol.
-        avg_action_prob: float,  # avg action prob
-        acc: float,  # accuracy
-        avg_h_abs_error: float,  # avh abs error of heuristic
-        cost_to_gos: Tensor,
         goal_state_t: Tensor | None = None,
         forward: bool = True,
     ):
@@ -33,10 +29,6 @@ class Trajectory:
         self.actions = actions
         self.num_expanded = num_expanded
         self.partial_g_cost = partial_g_cost
-        self.avg_action_prob = avg_action_prob
-        self.acc = acc
-        self.avg_h_abs_error = avg_h_abs_error
-        self.cost_to_gos = cost_to_gos
         self.masks = masks
         self.goal_state_t = goal_state_t
         self.forward = forward
@@ -45,6 +37,13 @@ class Trajectory:
 
     def __len__(self):
         return self._len
+
+    # def dict(self):
+    #     return {
+    #         key: value
+    #         for key, value in self.__dict__.items()
+    #         if not key.startswith("__") and not callable(value)
+    #     }
 
     @classmethod
     def from_common_node(
@@ -141,29 +140,6 @@ class Trajectory:
             masks = to.stack(tuple(reversed(masks)))
         else:
             masks = None
-        cost_to_gos = to.arange(len(states), 0, -1, dtype=to.float64)
-
-        preds = agent.model(
-            states, mask=masks, forward=forward, goal_state_t=goal_state_t
-        )
-        if agent.has_policy:
-            log_probs = preds[0]
-            nlls = nll_loss(log_probs, actions, reduction="none")
-            action_prob = to.exp(-nlls).mean().item()
-            acc = (
-                (log_probs.detach().argmax(dim=1) == actions)
-                .mean(dtype=to.float64)
-                .item()
-            )
-        else:
-            action_prob = nan
-            acc = nan
-
-        if agent.has_heuristic:
-            h = preds[1]
-            h_abs_error = to.abs(h - cost_to_gos).mean().item()
-        else:
-            h_abs_error = nan
 
         return Trajectory(
             states=states,
@@ -171,10 +147,6 @@ class Trajectory:
             masks=masks,
             num_expanded=num_expanded,
             partial_g_cost=partial_g_cost,
-            avg_action_prob=action_prob,
-            acc=acc,
-            avg_h_abs_error=h_abs_error,
-            cost_to_gos=cost_to_gos,
             goal_state_t=goal_state_t,
             forward=forward,
         )

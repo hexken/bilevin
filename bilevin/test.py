@@ -2,6 +2,8 @@ import sys
 from timeit import default_timer as timer
 
 import numpy as np
+import pickle as pkl
+from pathlib import Path
 from tabulate import tabulate
 import torch as to
 import torch.distributed as dist
@@ -13,38 +15,31 @@ from search.utils import Result, ResultsLog
 
 
 def test(
-    args,
     rank: int,
     agent: Agent,
     loader: ArrayLoader,
     results_queue: mp.Queue,
+    exp_budget: int,
+    time_budget: int,
     print_results: bool = True,
+    solved_results_path: Path | None = None,
+    results_df_path: Path | None = None,
 ):
-    current_exp_budget: int = args.test_expansion_budget
+    assert results_queue.empty()
 
     to.set_grad_enabled(False)
     agent.model.eval()
 
-    solved_set = set()
+    results_df = None
 
-    results = ResultsLog(agent)
-    epoch_buffer: list[Result] = []
-    epoch = 0
-    done_epoch = True
-    assert results_queue.empty()
+    if rank == 0:
+        loader.reset_indices(shuffle=False)
+        problem = loader.next_batch()
+    dist.barrier()
+
     while True:
-        if done_epoch:
-            epoch += 1
-            done_epoch = False
-            if rank == 0:
-                loader.reset_indices(shuffle=False)
-                problem = loader.next_batch()
-            dist.barrier()
-
         problem = loader.get()
         if problem is not None:
-            if problem.id in solved_set:
-                continue
             agent.model.eval()
             to.set_grad_enabled(False)
 
@@ -55,8 +50,8 @@ def test(
                 (f_traj, b_traj),
             ) = agent.search(
                 problem,
-                current_exp_budget,
-                time_budget=args.time_budget,
+                exp_budget,
+                time_budget=time_budget,
             )
             end_time = timer()
 
@@ -65,11 +60,11 @@ def test(
             else:
                 sol_len = np.nan
 
+            exp = n_forw_expanded + n_backw_expanded
             res = Result(
                 id=problem.id,
                 time=end_time - start_time,
-                fexp=n_forw_expanded,
-                bexp=n_backw_expanded,
+                exp=exp,
                 len=sol_len,
                 f_traj=f_traj,
                 b_traj=b_traj,
@@ -77,47 +72,47 @@ def test(
             results_queue.put(res)
             del res
 
-        else:  # end epoch
-            done_epoch = True
+        else:  # done test
             dist.barrier()
-            if rank == 0:
-                for _ in range(len(loader)):
-                    res = results_queue.get()
-                    epoch_buffer.append(res)
-                    del res
+            break
 
-                results.append(epoch_buffer)
-                epoch_df = results[-len(epoch_buffer) :].get_df()
-                if print_results:
-                    print(f"\nBudget {current_exp_budget}")
-                    print(
-                        tabulate(
-                            epoch_df,
-                            headers="keys",
-                            tablefmt="psql",
-                            showindex=False,
-                            floatfmt=".2f",
-                        )
-                    )
-                    sys.stdout.flush()
+    if rank == 0:
+        all_results: list[Result] = []
+        for _ in range(len(loader)):
+            res = results_queue.get()
+            all_results.append(res)
+            del res
 
-            if args.increase_budget:
-                if rank == 0:
-                    for id in (p.id for p in epoch_buffer if p.len > 0):
-                        solved_set.add(id)
-                    tmp = [solved_set]
-                else:
-                    tmp = [None]
-                dist.broadcast_object_list(tmp, 0)
-                current_exp_budget *= 2
-                epoch_buffer.clear()
-                del tmp
-            else:
-                epoch_buffer.clear()
-                break
+        results_log = ResultsLog(all_results)
+        results_df = results_log.get_df()
+        if print_results:
+            print(f"\nBudget {exp_budget}")
+            print(
+                tabulate(
+                    results_df,
+                    headers="keys",
+                    tablefmt="psql",
+                    showindex=False,
+                    floatfmt=".2f",
+                )
+            )
+            sys.stdout.flush()
+        results_log.clear()
 
-    results_df = results.get_df()
-    results.clear()
-    del results, epoch_buffer
+        solved_results = []
+        for res in all_results:
+            if res.len > 0:
+                solved_results.append(res)
+
+        if solved_results_path is not None:
+            with open(solved_results_path, "wb") as f:
+                pkl.dump(solved_results, f)
+
+        if results_df_path is not None:
+            with open(results_df_path, "wb") as f:
+                pkl.dump(results_df, f)
+
+        del solved_results, results_log, all_results
+
     dist.barrier()
     return results_df

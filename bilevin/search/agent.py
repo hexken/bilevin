@@ -76,9 +76,16 @@ class Agent(ABC):
         return mask
 
     def load_model(self, model_path: Path):
-        if isinstance(model_path, Path):
-            with model_path.open("rb") as f:
-                self.model.load_state_dict(to.load(f))
+        loaded_state_dict = to.load(model_path)
+        current_state_dict = self.model.state_dict()
+        for name, param in loaded_state_dict.items():
+            if (
+                name in current_state_dict
+                and current_state_dict[name].shape == param.shape
+            ):
+                current_state_dict[name] = param
+                print(f"Loaded {name}")
+        self.model.load_state_dict(current_state_dict)
 
     @property
     @abstractmethod

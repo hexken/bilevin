@@ -31,12 +31,12 @@ def loss_wrapper(
 
     if policy_loss is not None and heuristic_loss is not None:
         p_loss = policy_loss(log_probs, traj)
-        h_loss = heuristic_loss(hs)
+        h_loss = heuristic_loss(hs, traj)
         loss = p_loss + h_loss
     elif policy_loss is not None:
         loss = policy_loss(log_probs, traj)
     elif heuristic_loss is not None:
-        loss = heuristic_loss(hs)
+        loss = heuristic_loss(hs, traj)
     else:
         raise ValueError("At least one loss function must be provided.")
 
@@ -45,9 +45,9 @@ def loss_wrapper(
 
 def mse(
     hs: to.Tensor,
+    traj: Trajectory,
 ):
-    costs = to.arange(len(hs), 0, -1, dtype=to.float64).unsqueeze(1)
-    loss = mse_loss(hs, costs)
+    loss = mse_loss(hs, traj.cost_to_gos.unsqueeze(1))
 
     return loss
 
