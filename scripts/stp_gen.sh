@@ -3,24 +3,17 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export PYTHONPATH=$SCRIPT_DIR/../bilevin
 cd $SCRIPT_DIR/../
 
-usage() {
-    echo "Usage: $0 [d|4|5|6]"
-    exit 1
-}
-if [ $# -ne 1 ]; then
-    usage
-fi
 
 if [ "$1" = "d" ]; then
     python bilevin/domains/puzzle_generator.py \
     --domain stp \
-    --output-path  problems/stpd/ \
+    --output-path  new_problems/stpd/ \
     --seed 4238 \
     --width  4 \
     --random-goal \
     --randomize-test-steps \
     --min-steps 50 \
-    --max-steps 1000 \
+    --max-steps 200 \
     --n-train 100 \
     --n-valid  10 \
     --n-test 10
@@ -34,22 +27,22 @@ elif [ "$1" = "4rg" ]; then
     --randomize-test-steps \
     --min-steps 50 \
     --max-steps 1000 \
-    --n-train 500 \
-    --n-valid  100 \
-    --n-test 100
+    --n-train 50000 \
+    --n-valid  1000 \
+    --n-test 1000
 elif [ "$1" = "5rg" ]; then
     python bilevin/domains/puzzle_generator.py \
     --domain stp \
     --output-path  new_problems/stp5rg/ \
     --seed 1298 \
-    --width  4 \
+    --width  5 \
     --random-goal \
     --randomize-test-steps \
     --min-steps 50 \
     --max-steps 1000 \
-    --n-train 500 \
-    --n-valid  100 \
-    --n-test 100
+    --n-train 50000 \
+    --n-valid  1000 \
+    --n-test 1000
 elif [ "$1" = "4" ]; then
     python bilevin/domains/puzzle_generator.py \
     --domain stp \
@@ -59,21 +52,21 @@ elif [ "$1" = "4" ]; then
     --permutation-test \
     --min-steps 50 \
     --max-steps 1000 \
-    --n-train 500 \
-    --n-valid  100 \
-    --n-test 100
+    --n-train 50000 \
+    --n-valid  1000 \
+    --n-test 1000
 elif [ "$1" = "5" ]; then
     python bilevin/domains/puzzle_generator.py \
     --domain stp \
     --output-path  new_problems/stp5/ \
     --seed 7228 \
-    --width  4 \
+    --width  5 \
     --permutation-test \
     --min-steps 50 \
     --max-steps 1000 \
-    --n-train 500 \
-    --n-valid  100 \
-    --n-test 100
+    --n-train 50000 \
+    --n-valid  1000 \
+    --n-test 1000
 else
-    usage
+    echo "Invalid argument"
 fi

@@ -12,7 +12,6 @@ if [ $# -ne 1 ]; then
 fi
 
 if [ "$1" = "d" ]; then
-elif [ "$1" = "4" ]; then
     python bilevin/domains/wit_puzzle_generator.py \
     --puzzle  "colors" \
     --seed  2723 \
@@ -31,20 +30,20 @@ elif [ "$1" = "4" ]; then
     --output-path  new_problems/col4/ \
     --random-start \
     --marker-prob 0.7 \
-    --n-train 500 \
-    --n-valid  100 \
-    --n-test  100
+    --n-train 50000 \
+    --n-valid  1000 \
+    --n-test  1000
 elif [ "$1" = "5" ]; then
     python bilevin/domains/wit_puzzle_generator.py \
     --puzzle  "colors" \
     --seed  2928 \
-    --width  4 \
+    --width  5 \
     --output-path  new_problems/col5/ \
     --random-start \
     --marker-prob 0.7 \
-    --n-train 500 \
-    --n-valid  100 \
-    --n-test  100
+    --n-train 50000 \
+    --n-valid  1000 \
+    --n-test  1000
 else
     usage
 fi
