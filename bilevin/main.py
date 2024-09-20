@@ -71,7 +71,7 @@ def run(
             agent,
             test_loader,
             results_queue,
-            args.train_expansion_budget,
+            args.test_expansion_budget,
             args.time_budget,
             print_results=True,
             solved_results_path=args.logdir / f"solved_results.pkl",
