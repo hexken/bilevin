@@ -232,7 +232,7 @@ def get_problems(
         if markers is None:
             continue
 
-        hshable = (goal_loc, tuple(markers))
+        hshable = (start_loc, goal_loc, tuple(markers))
         if hshable in exclude_problemsepcs:
             continue
         else:
