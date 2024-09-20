@@ -79,12 +79,13 @@ class Agent(ABC):
         loaded_state_dict = to.load(model_path)
         current_state_dict = self.model.state_dict()
         for name, param in loaded_state_dict.items():
-            if (
-                name in current_state_dict
-                and current_state_dict[name].shape == param.shape
-            ):
-                current_state_dict[name] = param
-                print(f"Loaded {name}")
+            if name in current_state_dict:
+                if current_state_dict[name].shape == param.shape:
+                    current_state_dict[name] = param
+                else:
+                    print(
+                        f"Skipping loading of {name} due to shape mismatch: {current_state_dict[name].shape} != {param.shape}"
+                    )
         self.model.load_state_dict(current_state_dict)
 
     @property
